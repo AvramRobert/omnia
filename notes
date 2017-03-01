@@ -1,0 +1,22 @@
+One of the first things that I need to figure out is
+how to write a console editor, or a shell editor.
+Starting an application directly might be easy,
+but integrating the thing in the console is the thing
+I am not so sure about.
+I'll have to look into this. I do hope I shall not need
+to actually write bash code. I do not plan on writing a text
+editor in bash.
+
+One of the things that I may have to do however, is build
+the whole editor around `Scanner.In`. I do hope however there
+are alternatives to this. I do not want to actually make this
+dependent on `Scanner`.
+
+Wait a second.
+In essence, in order to do this, I have to create an application
+that manipulates the input and output streams directly.
+
+It continously  handles the input stream, stores data into a buffer etc.
+and then spits it out to the output stream in some transformed way.
+That output I determine. In my case it would be highlighted, formatted
+and multi-lined.
