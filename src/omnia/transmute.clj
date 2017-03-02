@@ -29,6 +29,8 @@
 (defn prepend-at [seeker s]
   (slicer seeker #(concat (clojure.string/split s #"") %)))
 
+;; FIXME: when the line is deleted, the cursor should roll back to the previous
+;; line and proceed with deletion
 (defn displace-at [seeker]
   (slicel seeker #(drop-last %)))
 
@@ -60,7 +62,7 @@
     :backspace (-> seeker
                    (displace-at)
                    (move (fn [[x y]] [(dec x) y])))
-    :enter (->> seeker
+    :enter (-> seeker
                 (edit #(conj % []))
                 (move (fn [[x y]] [0 (inc y)])))
     (-> seeker
