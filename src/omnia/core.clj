@@ -25,6 +25,5 @@
 (defn -main
   [& args]
   (let [terminal (s/get-screen :text)
-        _ (s/start terminal)
-        s (t/->Seeker [] [0 0])]
-    (reads terminal s)))
+        _ (s/start terminal)]
+    (reads terminal (t/empty-seeker))))
