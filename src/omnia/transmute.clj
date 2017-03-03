@@ -29,26 +29,35 @@
 (defn prepend-at [seeker s]
   (slicer seeker #(concat (clojure.string/split s #"") %)))
 
-;; FIXME: when the line is deleted, the cursor should roll back to the previous
-;; line and proceed with deletion
 (defn displace-at [seeker]
-  (slicel seeker #(drop-last %)))
+  (slicel seeker drop-last))
 
 (defn n-of [c n]
   (take n (repeat c)))
 
+;;FIXME: Make a decrementing function that is bound only by the range of
+;; natural numbers. This would hopefully purge these bloody  conditionals
 (defn within [seeker [x y]]
-  (let [lines (:lines seeker)]
-    (if (and (>= y 0)
-             (< y (.count lines)))
-      (if (and (>= x 0)
-               (<= x (.count (nth lines y))))
-        [x y]
-        [(first (:cursor seeker)) y])
-      (:cursor seeker))))
+  (let [lines (:lines seeker)
+        fx #(if (and (>= x 0)
+                     (<= x (.count (nth lines % []))))
+              [x %]
+              [(first (:cursor seeker)) %])]
+    (cond
+      (or (zero? y) (neg? y)) (fx 0)
+      (and (pos? y)
+           (< y (.count lines))) (fx y)
+      :else (:cursor seeker))))
 
 (defn move [seeker f]
   (update-in seeker [:cursor] #(within seeker (f %))))
+
+(defn rollback [seeker]
+  (if (-> seeker :lines last empty?)
+    (-> seeker
+        (edit (comp vec drop-last))
+        (move (fn [[x y]] [(-> seeker :lines drop-last last count) (dec y)])))
+    (move seeker (fn [[x y]] [(dec x) y]))))
 
 (defn inputs [seeker key]
   (case key
@@ -61,7 +70,7 @@
              (move (fn [[x y]] [(+ x 3) y])))
     :backspace (-> seeker
                    (displace-at)
-                   (move (fn [[x y]] [(dec x) y])))
+                   (rollback))
     :enter (-> seeker
                 (edit #(conj % []))
                 (move (fn [[x y]] [0 (inc y)])))
