@@ -9,12 +9,12 @@
   (let [[x y] (:cursor seeker)]
     (update-in seeker [:lines y]
                #(vec
-                 (if-let [line %]
-                  (->> line
-                       (split-at x)
-                       (map vec)
-                       (apply f))
-                  (f [] []))))))
+                  (if-let [line %]
+                    (->> line
+                         (split-at x)
+                         (map vec)
+                         (apply f))
+                    (f [] []))))))
 ;; returns a seeker
 (defn slicel [seeker f]
   (slice seeker (fn [l r] (concat (f l) r))))
@@ -35,45 +35,53 @@
 (defn n-of [c n]
   (take n (repeat c)))
 
-;;FIXME: Make a decrementing function that is bound only by the range of
-;; natural numbers. This would hopefully purge these bloody  conditionals
-(defn within [seeker [x y]]
-  (let [lines (:lines seeker)
-        fx #(if (and (>= x 0)
-                     (<= x (.count (nth lines % []))))
-              [x %]
-              [(first (:cursor seeker)) %])]
-    (cond
-      (or (zero? y) (neg? y)) (fx 0)
-      (and (pos? y)
-           (< y (.count lines))) (fx y)
-      :else (:cursor seeker))))
-
 (defn move [seeker f]
-  (update-in seeker [:cursor] #(within seeker (f %))))
+  (update-in seeker [:cursor] f))
+
+(defn move-x [seeker f]
+  (move seeker
+        (fn [[x y]]
+          (let [length (.count (nth (:lines seeker) y []))
+                nx (f x)]
+            (if (and (>= nx 0)
+                     (<= nx length))
+              [nx y]
+              [x y])))))
+
+(defn move-y [seeker f]
+  (move seeker
+        (fn [[x y]]
+          (let [height (-> seeker :lines count)
+                ny (f y)]
+            (if (and (>= ny 0)
+                     (< ny height))
+              [x ny]
+              [x y])))))
 
 (defn rollback [seeker]
   (if (-> seeker :lines last empty?)
     (-> seeker
         (edit (comp vec drop-last))
-        (move (fn [[x y]] [(-> seeker :lines drop-last last count) (dec y)])))
-    (move seeker (fn [[x y]] [(dec x) y]))))
+        (move-y dec)
+        (move-x (fn [_] (-> seeker :lines drop-last last count))))
+    (move-x seeker dec)))
 
 (defn inputs [seeker key]
   (case key
-    :left (move seeker (fn [[x y]] [(dec x) y]))
-    :right (move seeker (fn [[x y]] [(inc x) y]))
-    :up (move seeker (fn [[x y]] [x (dec y)]))
-    :down (move seeker (fn [[x y]] [x (inc y)]))
+    :left (move-x seeker dec)
+    :right (move-x seeker inc)
+    :up (move-y seeker dec)
+    :down (move-y seeker inc)
     :tab (-> seeker
              (prepend-at (apply str (n-of " " 3)))
-             (move (fn [[x y]] [(+ x 3) y])))
+             (move-x #(+ % 3)))
     :backspace (-> seeker
                    (displace-at)
                    (rollback))
     :enter (-> seeker
-                (edit #(conj % []))
-                (move (fn [[x y]] [0 (inc y)])))
+               (edit #(conj % []))
+               (move-y inc)
+               (move-x (fn [_] 0)))
     (-> seeker
         (slicer #(conj % key))
-        (move (fn [[x y]] [(inc x) y])))))
+        (move-x inc))))
