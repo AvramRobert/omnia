@@ -41,10 +41,9 @@
 (defn move-x [seeker f]
   (move seeker
         (fn [[x y]]
-          (let [length (.count (nth (:lines seeker) y []))
+          (let [length (-> seeker :lines (nth y []) (.count))
                 nx (f x)]
-            (if (and (>= nx 0)
-                     (<= nx length))
+            (if (and (>= nx 0) (<= nx length))
               [nx y]
               [x y])))))
 
@@ -53,8 +52,7 @@
         (fn [[x y]]
           (let [height (-> seeker :lines count)
                 ny (f y)]
-            (if (and (>= ny 0)
-                     (< ny height))
+            (if (and (>= ny 0) (< ny height))
               [x ny]
               [x y])))))
 
