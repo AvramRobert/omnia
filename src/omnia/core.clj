@@ -1,7 +1,7 @@
 (ns omnia.core
   (:gen-class)
   (require [lanterna.screen :as s]
-           [omnia.transmute :as t]))
+           [omnia.processing :as t]))
 (comment
   "Laterna is the one")
 
@@ -23,12 +23,11 @@
     (s/redraw))
   (if-let [k (s/get-key screen)]
     (case k
-        :escape (s/stop screen)
-        (recur screen (t/inputs seeker k)))
+      :escape (s/stop screen)
+      (recur screen (t/inputs seeker k)))
     (recur screen seeker)))
 
-(defn -main
-  [& args]
+(defn -main [& args]
   (let [terminal (s/get-screen :text)
         _ (s/start terminal)]
     (reads terminal t/empty-seeker)))

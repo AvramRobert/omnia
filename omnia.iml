@@ -16,10 +16,12 @@
     <orderEntry type="library" name="Leiningen: clojure-complete:0.2.4" level="project" />
     <orderEntry type="library" name="Leiningen: clojure-lanterna:0.9.7" level="project" />
     <orderEntry type="library" name="Leiningen: com.googlecode.lanterna/lanterna:2.1.7" level="project" />
+    <orderEntry type="library" name="Leiningen: fipp:0.6.8" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/clojure:1.8.0" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/core.cache:0.6.3" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/core.match:0.3.0-alpha4" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/core.memoize:0.5.6" level="project" />
+    <orderEntry type="library" name="Leiningen: org.clojure/core.rrb-vector:0.0.11" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/data.priority-map:0.0.2" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/tools.analyzer.jvm:0.6.5" level="project" />
     <orderEntry type="library" name="Leiningen: org.clojure/tools.analyzer:0.6.4" level="project" />
