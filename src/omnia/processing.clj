@@ -55,13 +55,31 @@
               [x ny]
               [x y])))))
 
+(defn- advance-with [seeker f])
+
+(defn- regress-with [seeker f]
+  (m/match [(:cursor seeker)]
+           [[0 0]] seeker
+           [[0 _]] (-> seeker
+                     (move-y dec)
+                     (move (fn [[_ y]] [(-> seeker :lines (nth y []) count) y]))
+                     f)
+           :else (move-x seeker dec)))
+
+(defn cur-edit [seeker f]
+  (edit seeker (fn [lines] (f lines (:cursor seeker)))))
+
+(defn merge-lines [seeker]
+  (cur-edit seeker (fn [lines [x y]]
+                     (let [cur-line (nth lines y [])
+                           nxt-line (nth lines (inc y) [])]
+                       (-> (vec (take y lines))                    ;; take all the lines up to cursor
+                           (conj (vec (concat cur-line nxt-line))) ;; insert the concated line where the cursor and following line are
+                           (concat (drop (+ y 2) lines))    ;; merge with whatever follows
+                           vec)))))
+
 (defn rollback [seeker]
-  (if (-> seeker :lines last empty?)
-    (-> seeker
-        (edit (comp vec drop-last))
-        (move-y dec)
-        (move-x (fn [_] (-> seeker :lines drop-last last count))))
-    (move-x seeker dec)))
+  (regress-with seeker merge-lines))
 
 (defn auto-close [seeker parens]
   (-> seeker
@@ -97,9 +115,10 @@
 
 ;; FIXME: Going overreaching the line when going right or left does not jump to the next line
 ;; FIXME: enter does not split the string when pressing inside of string
+;; FIXME: you should not be able to go down and up if there arent any characters in the line above the cursor
 (defn inputs [seeker key]
   (m/match [key]
-           [:left] (move-x seeker dec)
+           [:left] (regress-with seeker identity)
            [:right] (move-x seeker inc)
            [:up] (move-y seeker dec)
            [:down] (move-y seeker inc)
