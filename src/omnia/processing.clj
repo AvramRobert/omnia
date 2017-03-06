@@ -55,7 +55,14 @@
               [x ny]
               [x y])))))
 
-(defn- advance-with [seeker f])
+(defn- advance-with [seeker f]
+  (let [[_ y] (:cursor seeker)
+        h (-> seeker :lines count dec)
+        w (-> seeker :lines (nth y []) count)]
+    (m/match [(:cursor seeker)]
+             [[w h]] seeker
+             [[w _]] (-> seeker (move-y inc) (move-x (fn [_] 0)) f)
+             :else (move-x seeker inc))))
 
 (defn- regress-with [seeker f]
   (m/match [(:cursor seeker)]
@@ -113,13 +120,13 @@
                      (slicel #(conj % key))
                      (move-x inc))))
 
-;; FIXME: Going overreaching the line when going right or left does not jump to the next line
+;; FIXME: Overreaching the line when going right or left does not jump to the next line
 ;; FIXME: enter does not split the string when pressing inside of string
 ;; FIXME: you should not be able to go down and up if there arent any characters in the line above the cursor
 (defn inputs [seeker key]
   (m/match [key]
            [:left] (regress-with seeker identity)
-           [:right] (move-x seeker inc)
+           [:right] (advance-with seeker identity)
            [:up] (move-y seeker dec)
            [:down] (move-y seeker inc)
            [:backspace] (auto-delete seeker)
