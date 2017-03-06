@@ -6,6 +6,7 @@
 
 (def empty-seeker (Seeker. [] [0 0]))
 
+;; Slice should be implementable in terms of peer
 (defn slice [seeker f]
   (let [[x y] (:cursor seeker)]
     (update-in seeker [:lines y]
@@ -129,15 +130,28 @@
                      (slicel #(conj % key))
                      (move-x inc))))
 
-;; FIXME: Overreaching the line when going right or left does not jump to the next line
-;; FIXME: enter does not split the string when pressing inside of string
-;; FIXME: you should not be able to go down and up if there arent any characters in the line above the cursor
+(defn climb [seeker]
+  (let [offset (move-y seeker dec)]
+    (if (sym-at offset)
+      offset
+      (-> seeker
+          (move-x (fn [_] 0))
+          (regress-with identity)))))
+
+(defn fall [seeker]
+  (let [offset (move-y seeker inc)]
+    (if (sym-at offset)
+      offset
+      (-> seeker
+          (move-y inc)
+          (move (fn [[_ y]] [(-> seeker :lines (nth y []) count) y]))))))
+
 (defn inputs [seeker key]
   (m/match [key]
            [:left] (regress-with seeker identity)
            [:right] (advance-with seeker identity)
-           [:up] (move-y seeker dec)
-           [:down] (move-y seeker inc)
+           [:up] (climb seeker)
+           [:down] (fall seeker)
            [:backspace] (auto-delete seeker)
            [:enter] (break seeker)
            :else (auto-insert seeker key)))
