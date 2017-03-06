@@ -6,7 +6,7 @@
 
 (def empty-seeker (Seeker. [] [0 0]))
 
-(defn- slice [seeker f]
+(defn slice [seeker f]
   (let [[x y] (:cursor seeker)]
     (update-in seeker [:lines y]
                #(vec
@@ -25,7 +25,12 @@
   (slice seeker (fn [l r] (concat l (f r)))))
 
 (defn edit [seeker f]
-  (update-in seeker [:lines] f))
+  (update-in seeker [:lines] #(f % (:cursor seeker))))
+
+(defn peer [seeker f]
+  (edit seeker
+        (fn [lines [_ y]]
+              (->> lines (split-at y) (map vec) (apply f) (vec)))))
 
 (defn move [seeker f]
   (update-in seeker [:cursor] f))
@@ -73,11 +78,8 @@
                      f)
            :else (move-x seeker dec)))
 
-(defn cur-edit [seeker f]
-  (edit seeker (fn [lines] (f lines (:cursor seeker)))))
-
 (defn merge-lines [seeker]
-  (cur-edit seeker (fn [lines [x y]]
+  (edit seeker (fn [lines [x y]]
                      (let [cur-line (nth lines y [])
                            nxt-line (nth lines (inc y) [])]
                        (-> (vec (take y lines))                    ;; take all the lines up to cursor
@@ -87,6 +89,13 @@
 
 (defn rollback [seeker]
   (regress-with seeker merge-lines))
+
+(defn break [seeker]
+  (-> seeker
+      (slice #(vector %1 %2))
+      (peer (fn [l [h & t]] (concat (conj l (first h) (second h)) t)))
+      (move-y inc)
+      (move-x (fn [_] 0))))
 
 (defn auto-close [seeker parens]
   (-> seeker
@@ -130,8 +139,5 @@
            [:up] (move-y seeker dec)
            [:down] (move-y seeker inc)
            [:backspace] (auto-delete seeker)
-           [:enter] (-> seeker
-                        (edit #(conj % []))
-                        (move-y inc)
-                        (move-x (fn [_] 0)))
+           [:enter] (break seeker)
            :else (auto-insert seeker key)))
