@@ -6,17 +6,30 @@
 
 (def empty-seeker (Seeker. [] [0 0]))
 
-;; Slice should be implementable in terms of peer
-(defn slice [seeker f]
+(defn edit [seeker f]
+  (update-in seeker [:lines] #(f % (:cursor seeker))))
+
+(defn line
+  ([seeker]
+   (line seeker (:cursor seeker)))
+  ([seeker [x y]]
+   (-> seeker :lines (nth y []))))
+
+(defn sym-at [seeker]
   (let [[x y] (:cursor seeker)]
-    (update-in seeker [:lines y]
-               #(vec
-                  (if-let [line %]
-                    (->> line
-                         (split-at x)
-                         (map vec)
-                         (apply f))
-                    (f [] []))))))
+    (-> seeker line (nth x nil))))
+
+(defn peer [seeker f]
+  (edit seeker
+        (fn [lines [_ y]]
+              (->> lines (split-at y) (map vec) (apply f) (vec)))))
+
+(defn slice [seeker f]
+  (let [[x _] (:cursor seeker)]
+    (peer seeker (fn [l [line & r]]
+                   (let [nl (->> line (split-at x) (map vec) (apply f))]
+                     (concat (conj l nl) r))))))
+
 ;; returns a seeker
 (defn slicel [seeker f]
   (slice seeker (fn [l r] (concat (f l) r))))
@@ -25,23 +38,11 @@
 (defn slicer [seeker f]
   (slice seeker (fn [l r] (concat l (f r)))))
 
-(defn edit [seeker f]
-  (update-in seeker [:lines] #(f % (:cursor seeker))))
-
-(defn peer [seeker f]
-  (edit seeker
-        (fn [lines [_ y]]
-              (->> lines (split-at y) (map vec) (apply f) (vec)))))
-
 (defn move [seeker f]
   (update-in seeker [:cursor] f))
 
 (defn displace-at [seeker]
   (slicel seeker drop-last))
-
-(defn sym-at [seeker]
-  (let [[x y] (:cursor seeker)]
-    (-> seeker :lines (nth y []) (nth x nil))))
 
 (defn move-x [seeker f]
   (move seeker
@@ -61,6 +62,8 @@
               [x ny]
               [x y])))))
 
+(defn end [seeker]
+  (-> seeker line count))
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
         h (-> seeker :lines count dec)
@@ -74,19 +77,17 @@
   (m/match [(:cursor seeker)]
            [[0 0]] seeker
            [[0 _]] (-> seeker
-                     (move-y dec)
-                     (move (fn [[_ y]] [(-> seeker :lines (nth y []) count) y]))
-                     f)
+                       (move-y dec)
+                       (move (fn [[x y]] [(-> seeker (line [x y]) count) y]))
+                       f)
            :else (move-x seeker dec)))
 
 (defn merge-lines [seeker]
-  (edit seeker (fn [lines [x y]]
-                     (let [cur-line (nth lines y [])
-                           nxt-line (nth lines (inc y) [])]
-                       (-> (vec (take y lines))                    ;; take all the lines up to cursor
-                           (conj (vec (concat cur-line nxt-line))) ;; insert the concated line where the cursor and following line are
-                           (concat (drop (+ y 2) lines))    ;; merge with whatever follows
-                           vec)))))
+  (peer seeker (fn [l [a b & t]]
+                 (-> l
+                     (conj (vec (concat a b)))
+                     (concat t)
+                     ((partial filter (comp not empty?)))))))
 
 (defn rollback [seeker]
   (regress-with seeker merge-lines))
@@ -144,8 +145,10 @@
       offset
       (-> seeker
           (move-y inc)
-          (move (fn [[_ y]] [(-> seeker :lines (nth y []) count) y]))))))
+          (move (fn [[x y]] [(-> seeker (line [x y]) count) y]))))))
 
+;; FIXME: The same with (move-_ (fn [_] 0)). Perhaps define a function that can move the cursor at the beginning and end of a line respectively
+;; FIXME: String character matching. Actually, better yet, configuration based character completion
 (defn inputs [seeker key]
   (m/match [key]
            [:left] (regress-with seeker identity)
