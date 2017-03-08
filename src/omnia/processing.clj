@@ -63,7 +63,8 @@
               [x y])))))
 
 (defn end [seeker]
-  (-> seeker line count))
+  (move seeker (fn [[_ y]] [(-> seeker line count) y])))
+
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
         h (-> seeker :lines count dec)
@@ -86,8 +87,7 @@
   (peer seeker (fn [l [a b & t]]
                  (-> l
                      (conj (vec (concat a b)))
-                     (concat t)
-                     ((partial filter (comp not empty?)))))))
+                     (concat t)))))
 
 (defn rollback [seeker]
   (regress-with seeker merge-lines))
