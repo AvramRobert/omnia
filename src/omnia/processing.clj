@@ -22,7 +22,7 @@
 (defn peer [seeker f]
   (edit seeker
         (fn [lines [_ y]]
-              (->> lines (split-at y) (map vec) (apply f) (vec)))))
+          (->> lines (split-at y) (map vec) (apply f) (vec)))))
 
 (defn slice [seeker f]
   (let [[x _] (:cursor seeker)]
@@ -62,8 +62,11 @@
               [x ny]
               [x y])))))
 
-(defn end [seeker]
+(defn end-x [seeker]
   (move seeker (fn [[_ y]] [(-> seeker line count) y])))
+
+(defn start-x [seeker]
+  (move-x seeker (fn [_] 0)))
 
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
@@ -71,16 +74,13 @@
         w (-> seeker :lines (nth y []) count)]
     (m/match [(:cursor seeker)]
              [[w h]] seeker
-             [[w _]] (-> seeker (move-y inc) (move-x (fn [_] 0)) f)
+             [[w _]] (-> seeker (move-y inc) (start-x) f)
              :else (move-x seeker inc))))
 
 (defn- regress-with [seeker f]
   (m/match [(:cursor seeker)]
            [[0 0]] seeker
-           [[0 _]] (-> seeker
-                       (move-y dec)
-                       (move (fn [[x y]] [(-> seeker (line [x y]) count) y]))
-                       f)
+           [[0 _]] (-> seeker (move-y dec) (end-x) f)
            :else (move-x seeker dec)))
 
 (defn merge-lines [seeker]
@@ -97,7 +97,7 @@
       (slice #(vector %1 %2))
       (peer (fn [l [h & t]] (concat (conj l (first h) (second h)) t)))
       (move-y inc)
-      (move-x (fn [_] 0))))
+      (start-x)))
 
 (defn auto-close [seeker parens]
   (-> seeker
@@ -136,7 +136,7 @@
     (if (sym-at offset)
       offset
       (-> seeker
-          (move-x (fn [_] 0))
+          (start-x)
           (regress-with identity)))))
 
 (defn fall [seeker]
@@ -145,9 +145,8 @@
       offset
       (-> seeker
           (move-y inc)
-          (move (fn [[x y]] [(-> seeker (line [x y]) count) y]))))))
+          (end-x)))))
 
-;; FIXME: The same with (move-_ (fn [_] 0)). Perhaps define a function that can move the cursor at the beginning and end of a line respectively
 ;; FIXME: String character matching. Actually, better yet, configuration based character completion
 (defn inputs [seeker key]
   (m/match [key]
