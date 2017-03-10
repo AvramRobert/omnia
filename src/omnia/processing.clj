@@ -12,7 +12,7 @@
 (defn line
   ([seeker]
    (line seeker (:cursor seeker)))
-  ([seeker [x y]]
+  ([seeker [y]]
    (-> seeker :lines (nth y []))))
 
 (defn sym-at [seeker]
@@ -83,6 +83,8 @@
            [[0 _]] (-> seeker (move-y dec) (end-x) f)
            :else (move-x seeker dec)))
 
+(defn regress [seeker] (regress-with seeker identity))
+
 (defn merge-lines [seeker]
   (peer seeker (fn [l [a b & t]]
                  (-> l
@@ -112,6 +114,9 @@
 (defn pair-delete [seeker]
   (-> seeker (slice #(concat (drop-last %1) (rest %2)))))
 
+(defn simple-insert [seeker value]
+  (-> seeker (slicel #(conj % value)) (move-x inc)))
+
 (defn auto-delete [seeker]
   (let [left (-> seeker (move-x dec) (sym-at))
         right (sym-at seeker)]
@@ -121,31 +126,25 @@
              [\{ \}] (-> seeker pair-delete (move-x dec))
              :else (simple-delete seeker))))
 
-(defn auto-insert [seeker key]
+(defn pair-insert [seeker key]
   (m/match [key (sym-at seeker)]
            [\) \)] (move-x seeker inc)
            [\] \]] (move-x seeker inc)
            [\} \}] (move-x seeker inc)
            [(:or \( \[ \{) _] (auto-close seeker key)
-           :else (-> seeker
-                     (slicel #(conj % key))
-                     (move-x inc))))
+           :else (simple-insert seeker key)))
 
 (defn climb [seeker]
   (let [offset (move-y seeker dec)]
     (if (sym-at offset)
       offset
-      (-> seeker
-          (start-x)
-          (regress-with identity)))))
+      (-> seeker (start-x) (regress)))))
 
 (defn fall [seeker]
   (let [offset (move-y seeker inc)]
     (if (sym-at offset)
       offset
-      (-> seeker
-          (move-y inc)
-          (end-x)))))
+      (-> seeker (move-y inc) (end-x)))))
 
 ;; FIXME: String character matching. Actually, better yet, configuration based character completion
 (defn inputs [seeker key]
@@ -156,4 +155,8 @@
            [:down] (fall seeker)
            [:backspace] (auto-delete seeker)
            [:enter] (break seeker)
-           :else (auto-insert seeker key)))
+           :else (pair-insert seeker key)))
+(comment
+  "Idea: The way you want this configuration to work is by having a function that accepts some input and
+then, based on that input, composes the appropriate functions the user wants for his repl session.
+This then returns a function that handles the inputs based on that composition. ")
