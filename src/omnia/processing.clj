@@ -12,7 +12,7 @@
 (defn line
   ([seeker]
    (line seeker (:cursor seeker)))
-  ([seeker [y]]
+  ([seeker [x y]]
    (-> seeker :lines (nth y []))))
 
 (defn sym-at [seeker]
@@ -126,6 +126,34 @@
              [\{ \}] (-> seeker pair-delete (move-x dec))
              :else (simple-delete seeker))))
 
+(def matching-rules {\{ \}
+                     \[ \]
+                     \( \)
+                     \" \"})
+
+(defn pair-insert2 [seeker [key pair]]
+  (-> seeker (slicel #(conj % key pair)) (move-x inc)))
+
+(defn left? [seeker p]
+  (-> seeker (move-x dec) (sym-at) p))
+
+(defn right? [seeker p]
+  (-> seeker (move-x inc) (sym-at) p))
+
+(defn orphaned? [seeker]
+  (and (left? seeker nil?) (right? seeker nil?)))
+
+;; By just checking if it contains it, I have the problem that if I am to enter `"`
+;; when there is a paranthesis next to it, then it will ignore it.
+;; Ignored characters should be more explicit.
+(defn auto-close2
+  ([seeker key]
+    (auto-close2 seeker key matching-rules))
+  ([seeker key rules]
+   (let [pair (get rules key)
+         inverse (-> rules (clojure.set/map-invert) (get key))]
+     )))
+
 (defn pair-insert [seeker key]
   (m/match [key (sym-at seeker)]
            [\) \)] (move-x seeker inc)
@@ -155,7 +183,10 @@
            [:down] (fall seeker)
            [:backspace] (auto-delete seeker)
            [:enter] (break seeker)
-           :else (pair-insert seeker key)))
+           :else  (auto-close2 seeker key)
+           ;(pair-insert seeker key)
+           ))
+
 (comment
   "Idea: The way you want this configuration to work is by having a function that accepts some input and
 then, based on that input, composes the appropriate functions the user wants for his repl session.
