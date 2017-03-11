@@ -47,7 +47,7 @@
 (defn move-x [seeker f]
   (move seeker
         (fn [[x y]]
-          (let [length (-> seeker :lines (nth y []) count)
+          (let [length (-> seeker line count)
                 nx (f x)]
             (if (and (>= nx 0) (<= nx length))
               [nx y]
@@ -83,7 +83,7 @@
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
         h (-> seeker :lines count dec)
-        w (-> seeker :lines (nth y []) count)]
+        w (-> seeker line count)]
     (m/match [(:cursor seeker)]
              [[w h]] seeker
              [[w _]] (-> seeker (move-y inc) (start-x) f)
@@ -134,12 +134,11 @@
   ([seeker]
    (auto-delete seeker matching-rules))
   ([seeker rules]
-   (let [pair (left seeker #(get rules %))]
-     (if (-> seeker
+    (if (some-> seeker
              (left #(get rules %))
              (= (right seeker)))
        (-> seeker pair-delete (move-x dec))
-       (simple-delete seeker)))))
+       (simple-delete seeker))))
 
 
 (defn simple-insert [seeker value]
@@ -162,7 +161,6 @@
        (= key rematched) (pair-insert seeker [key key])
        :else (simple-insert seeker key)))))
 
-;; FIXME: String character matching. Actually, better yet, configuration based character completion
 (defn inputs [seeker key]
   (m/match [key]
            [:left] (regress seeker)
@@ -174,6 +172,5 @@
            :else (auto-insert seeker key)))
 
 (comment
-  "Idea: The way you want this configuration to work is by having a function that accepts some input and
-then, based on that input, composes the appropriate functions the user wants for his repl session.
-This then returns a function that handles the inputs based on that composition. ")
+  "cond-> or cond->> will facilitate the behaviour I want. It will just process some boolean config and apply the necessary
+functions associated with each appropriate config.")
