@@ -22,7 +22,7 @@
     (-> seeker line (nth x nil))))
 
 (defn peer [seeker f]
-  (let [[x y] (:cursor seeker)]
+  (let [[_ y] (:cursor seeker)]
     (update-in seeker [:lines]
                #(->> % (split-at y) (map vec) (apply f) (map vec) vec))))
 
