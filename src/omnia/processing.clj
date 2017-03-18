@@ -134,11 +134,11 @@
   ([seeker]
    (auto-delete seeker matching-rules))
   ([seeker rules]
-    (if (some-> seeker
-             (left #(get rules %))
-             (= (right seeker)))
-       (-> seeker pair-delete (move-x dec))
-       (simple-delete seeker))))
+   (if (some-> seeker
+               (left #(get rules %))
+               (= (right seeker)))
+     (-> seeker pair-delete (move-x dec))
+     (simple-delete seeker))))
 
 
 (defn simple-insert [seeker value]
@@ -161,15 +161,29 @@
        (= key rematched) (pair-insert seeker [key key])
        :else (simple-insert seeker key)))))
 
-(defn inputs [seeker key]
-  (m/match [key]
-           [:left] (regress seeker)
-           [:right] (advance seeker)
-           [:up] (climb seeker)
-           [:down] (fall seeker)
-           [:backspace] (auto-delete seeker)
-           [:enter] (break seeker)
-           :else (auto-insert seeker key)))
+(defn do-until [elm f p]
+  (let [x (f elm)]
+    (if (p x) x (recur x f p))))
+
+(defn start? [seeker]
+  (-> seeker :cursor first zero?))
+
+(defn jump [seeker f]
+  (do-until seeker f #(or (start? %)
+                          (nil? (sym-at %))
+                          (= (sym-at %) \space))))
+
+(defn inputs [seeker stroke]
+  (m/match [stroke]
+           [{:key :left :ctrl true}] (jump seeker regress)
+           [{:key :right :ctrl true}] (jump seeker advance)
+           [{:key :left}] (regress seeker)
+           [{:key :right}] (advance seeker)
+           [{:key :up}] (climb seeker)
+           [{:key :down}] (fall seeker)
+           [{:key :backspace}] (auto-delete seeker)
+           [{:key :enter}] (break seeker)
+           :else (auto-insert seeker (:key stroke))))
 
 (comment
   "cond-> or cond->> will facilitate the behaviour I want. It will just process some boolean config and apply the necessary

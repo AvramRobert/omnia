@@ -1,37 +1,25 @@
 (ns omnia.core
   (:gen-class)
   (require [lanterna.screen :as s]
-           [omnia.processing :as t])
-  (:import (com.googlecode.lanterna.input PuttyProfile Key KeyMappingProfile CtrlAndCharacterPattern BasicCharacterPattern CommonProfile Key$Kind)
-           (com.googlecode.lanterna.screen Screen)))
-
-
-(comment
-  "This is basically a good approach, but the version of lanterna in clojure-lanterna doesn't allow me to
-  remap important key-bindings for me.
-  The simplest way to get around this would be to either clone clojure-laterna and
-  bump the version myself, develop directly using lanterna or use the newest version but write a very thin
-  wrapper for it here.
-
-  I shall try the first and the second. Maybe, with a little bit of luck, just cloning the thing and bumping the version
-  would work.")
-
-(def repl-profile
-  (proxy [CommonProfile] []
-    (getPatterns []
-       (let [profile (new CommonProfile)]
-         (.getPatterns profile)))))
+           [omnia.processing :as p]
+           [clojure.core.match :as m]))
 
 (defn print! [screen seeker]
   (dorun
     (map-indexed
       (fn [idx line]
-        (s/put-string screen 0 idx (apply str line))) (:lines seeker))))
+        (s/put-string screen (apply str line) 0 idx)) (:lines seeker))))
 
 (defn move! [screen seeker]
   (let [[x y] (:cursor seeker)]
     (s/move-cursor screen x y)))
 
+(defn bye [seeker]
+  (reduce p/simple-insert (-> seeker p/end-x p/break) [\B \y \e \!]))
+
+(defn sleep [screen ms]
+  (Thread/sleep ms)
+  screen)
 
 (defn reads [screen seeker]
   (doto screen
@@ -39,22 +27,16 @@
     (print! seeker)
     (move! seeker)
     (s/redraw))
-  (if-let [k (s/get-key-blocking screen)]
-    (case k
-      :escape (s/stop screen)
-      (recur screen (t/inputs seeker k)))
-    (recur screen seeker)))
-
-(defn with-profile [screen ^KeyMappingProfile profile]
-  (let [term (.getTerminal screen)
-        _ (.addInputProfile term profile)]
-    (new Screen term)))
+  (let [stroke (s/get-keystroke-blocking screen)]
+    (m/match [stroke]
+             [{:key \d :ctrl true}] (doto screen
+                                                      (print! (bye seeker))
+                                                      (s/redraw)
+                                                      (sleep 500)
+                                                      (s/stop))
+             :else (recur screen (p/inputs seeker stroke)))))
 
 (defn -main [& args]
-  (let [screen (-> :text (s/get-screen)                     ;(with-profile repl-profile)
-                   )
+  (let [screen (s/get-screen :text)
         _ (s/start screen)]
-    ;(reads screen t/empty-seeker)
-    (s/put-string screen 0 0 "HAHAAH" {:styles #{:bold}})
-    (s/redraw screen)
-    ))
+    (reads screen p/empty-seeker)))
