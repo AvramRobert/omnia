@@ -1,7 +1,7 @@
 (ns omnia.core
   (:gen-class)
   (require [lanterna.screen :as s]
-           [omnia.processing :as p]
+           [omnia.text :as p]
            [clojure.core.match :as m]))
 
 (defn print! [screen seeker]
@@ -30,7 +30,7 @@
   (let [stroke (s/get-keystroke-blocking screen)]
     (m/match [stroke]
              [{:key \d :ctrl true}] (doto screen
-                                                      (print! (bye seeker))
+                                                      (print! (bye seeker)) ;; move the cursor also at the end of the lines
                                                       (s/redraw)
                                                       (sleep 500)
                                                       (s/stop))

@@ -1,4 +1,4 @@
-(ns omnia.processing
+(ns omnia.text
   (:gen-class)
   (require [clojure.core.match :as m]))
 
@@ -78,7 +78,7 @@
   ([seeker]
    (right seeker identity))
   ([seeker f]
-   (-> seeker (sym-at) f)))
+   (-> seeker sym-at f)))
 
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
@@ -128,18 +128,18 @@
 
 (def simple-delete (comp rollback displace))
 (defn pair-delete [seeker]
-  (-> seeker (slice #(concat (drop-last %1) (rest %2)))))
+  (slice seeker #(concat (drop-last %1) (rest %2))))
+
+(defn pair? [seeker rules]
+  (some-> seeker (left #(get rules %)) (= (right seeker))))
 
 (defn auto-delete
   ([seeker]
    (auto-delete seeker matching-rules))
   ([seeker rules]
-   (if (some-> seeker
-               (left #(get rules %))
-               (= (right seeker)))
+   (if (pair? seeker rules)
      (-> seeker pair-delete (move-x dec))
      (simple-delete seeker))))
-
 
 (defn simple-insert [seeker value]
   (-> seeker (slicel #(conj % value)) (move-x inc)))
@@ -173,6 +173,26 @@
                           (nil? (sym-at %))
                           (= (sym-at %) \space))))
 
+(defn munch                                                 ;; this should be called codelete
+  ([seeker] (munch seeker matching-rules))
+  ([seeker rules]
+   (let [x (advance seeker)]
+     (cond
+       (= (:cursor seeker) (:cursor x)) seeker
+       (pair? seeker rules) (-> seeker (pair-delete) (regress))
+       :else (auto-delete x rules)))))
+
+;; It looks right or left and applies the function as long as there is valid input, regardless of it being empty or not
+;; It should be a valid line
+
+;; Perhaps make sym-at consider following lines as well
+;; Advance and sym-at would actually facilitate this behaviour. The problem is that the char to the
+;; right is actually the char where I'm currently at. This would create some difficulties.
+;; But if I get this invariant in the function, then returning a result of nil would always represent
+;; the fact that I've arrived at the end of the text itself.
+;; this will perhaps simplify some things. So if a return of `nil` would represent the end of text
+;; then I can reason about these functions a little bit more easily.
+
 (defn inputs [seeker stroke]
   (m/match [stroke]
            [{:key :left :ctrl true}] (jump seeker regress)
@@ -182,6 +202,7 @@
            [{:key :up}] (climb seeker)
            [{:key :down}] (fall seeker)
            [{:key :backspace}] (auto-delete seeker)
+           [{:key :delete}] (munch seeker)
            [{:key :enter}] (break seeker)
            :else (auto-insert seeker (:key stroke))))
 
