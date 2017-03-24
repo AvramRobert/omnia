@@ -6,7 +6,8 @@
   :dependencies [[org.clojure/clojure "1.8.0"]
                  [clojure-lanterna "0.10.0"]
                  [org.clojure/core.match "0.3.0-alpha4"]
-                 [fipp "0.6.8"]]
+                 [fipp "0.6.8"]
+                 [automat "0.2.2"]]
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

@@ -1,14 +1,25 @@
 (ns omnia.core
   (:gen-class)
+  (use [omnia.syntax])
   (require [lanterna.screen :as s]
            [omnia.text :as p]
-           [clojure.core.match :as m]))
+           [clojure.core.match :as m]
+           [lanterna.constants :as const]))
 
 (defn print! [screen seeker]
   (dorun
     (map-indexed
       (fn [idx line]
         (s/put-string screen (apply str line) 0 idx)) (:lines seeker))))
+
+(defn print-colour! [screen seeker]
+  (let [indexed (map-indexed vector (:lines seeker))]
+    (reduce (fn [state [y line]]
+              (reduce (fn [cur-state [x c]]
+                        (let [[next-state colour] (process cur-state c)]
+                          (s/put-character screen c x y {:fg colour})
+                          next-state)) (reset state) (map-indexed vector line)))
+            s0 indexed)))
 
 (defn move! [screen seeker]
   (let [[x y] (:cursor seeker)]
@@ -24,7 +35,7 @@
 (defn reads [screen seeker]
   (doto screen
     (s/clear)
-    (print! seeker)
+    (print-colour! seeker)
     (move! seeker)
     (s/redraw))
   (let [stroke (s/get-keystroke-blocking screen)]
