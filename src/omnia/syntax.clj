@@ -62,13 +62,13 @@
                   (->syntax? c) [syntax (emit default)]
                   (->keyword? c) [keywords (emit keywords)]
                   (->default? c) [default (emit default)]
-                  :else [syntax (emit syntax)])))
+                  :else [syntax* (emit syntax)])))
 
 (def syntax*-t (fn [c]
                  (cond
                    (->syntax? c) [syntax (emit default)]
                    (->default? c) [default (emit default)]
-                   :else [syntax* (emit syntax*)])))
+                   :else [syntax* (emit syntax)])))
 
 (def keywords-t (fn [c]
                   (cond
@@ -90,14 +90,14 @@
                    (->decimal? c) [numbers (emit numbers)]
                    :else [default (emit default)])))
 
-(def state-machine {default     default-t
-                    default*    default*-t
-                    syntax      syntax-t
-                    syntax*     syntax*-t
-                    keywords    keywords-t
-                    strings     strings-t
-                    characters  characters-t
-                    numbers     numbers-t})
+(def state-machine {default    default-t
+                    default*   default*-t
+                    syntax     syntax-t
+                    syntax*    syntax*-t
+                    keywords   keywords-t
+                    strings    strings-t
+                    characters characters-t
+                    numbers    numbers-t})
 
 (def s0 default)
 
