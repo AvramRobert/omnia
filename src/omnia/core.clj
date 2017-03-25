@@ -1,6 +1,6 @@
 (ns omnia.core
   (:gen-class)
-  (use [omnia.syntax])
+  (use [omnia.highlighting])
   (require [lanterna.screen :as s]
            [omnia.text :as p]
            [clojure.core.match :as m]
