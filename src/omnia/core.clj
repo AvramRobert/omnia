@@ -14,12 +14,11 @@
 
 (defn print-colour! [screen seeker]
   (let [indexed (map-indexed vector (:lines seeker))]
-    (reduce (fn [state [y line]]
-              (reduce (fn [cur-state [x c]]
-                        (let [[next-state colour] (process cur-state c)]
-                          (s/put-character screen c x y {:fg colour})
-                          next-state)) (reset state) (map-indexed vector line)))
-            s0 indexed)))
+    (doseq [[y line] indexed]
+      (reduce (fn [state [x c]]
+                (let [[next-state colour] (process state c)]
+                  (s/put-character screen c x y {:fg colour})
+                  next-state)) s0 (map-indexed vector line)))))
 
 (defn move! [screen seeker]
   (let [[x y] (:cursor seeker)]
@@ -41,10 +40,10 @@
   (let [stroke (s/get-keystroke-blocking screen)]
     (m/match [stroke]
              [{:key \d :ctrl true}] (doto screen
-                                                      (print! (bye seeker)) ;; move the cursor also at the end of the lines
-                                                      (s/redraw)
-                                                      (sleep 500)
-                                                      (s/stop))
+                                      (print! (bye seeker)) ;; move the cursor also at the end of the lines
+                                      (s/redraw)
+                                      (sleep 500)
+                                      (s/stop))
              :else (recur screen (p/inputs seeker stroke)))))
 
 (defn -main [& args]
