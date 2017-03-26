@@ -6,7 +6,7 @@
            [clojure.string :refer [split]]))
 
 
-(defrecord REPL [host port history hsize timeline result])
+(defrecord REPL [host port history hsize timeline result evaluator])
 
 (defn seeker [lines]
   (i/->Seeker lines [0 0]))
@@ -20,7 +20,7 @@
        (map #(vec (.toCharArray %)))
        (vec)))
 
-(defn response->lines [response]
+(defn response->lines [response]                            ;; FIXME: errors, catch the bloody errors
   (m/match [response]
            [_ :guard out?] (-> response (:out) (str->line))
            [{:value nil}] [[\n \i \l]]
@@ -41,6 +41,11 @@
        (nrepl/message {:op   :eval
                        :code (i/stringify seeker)})
        (seekify-responses))))
+
+(defn n-repl [repl seeker]
+  (with-open [conn (nrepl/connect :port (:port repl)
+                                  :host (:host repl))]
+    (evaluate! conn seeker)))
 
 (defn bound-inc [value max]
   (let [x (inc value)]
@@ -73,17 +78,26 @@
 (defn result [repl]
   (:result repl))
 
-(defn evaluate [repl seeker]
-  (with-open [conn (nrepl/connect :port (:port repl)
-                                  :host (:host repl))]
-    (-> repl
-        (store seeker)
-        (cache-result (evaluate! conn seeker))
-        (reset-timeline))))
+(defn evaluate-with [repl seeker f]
+  (-> repl
+      (store seeker)
+      (cache-result (f repl seeker))
+      (reset-timeline)))
 
-(defn repl
-  ([port]
-   (repl "localhost"))
+(defn evaluate [repl seeker]
+  (case (:evaluator repl)
+    :nrepl (evaluate-with repl seeker n-repl)
+    :identity (evaluate-with repl seeker (fn [_ x] x))))
+
+(defn repl                                                  ;; I don't really like this
+  ([]
+   (repl nil nil :identity))
   ([host port]
-   (->REPL host port [i/empty-seeker] 1 0 i/empty-seeker)))
+   (m/match [host port]
+            [nil nil] (repl)
+            [_   nil] (repl)
+            [nil   _] (repl "localhost" port :nrepl)
+            :else     (repl host port :nrepl)))
+  ([host port evaluator]
+   (->REPL host port [i/empty-seeker] 1 0 i/empty-seeker evaluator)))
 

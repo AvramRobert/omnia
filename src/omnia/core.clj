@@ -48,35 +48,32 @@
 ;; ctrl,shift, alt + enter doesn't work still in :text
 ;; ctrl, alt + backspace doesn't work either in :text
 ;; ctrl up and down also doesn't work in :text
-(defn reads
-  ([screen seeker]
-   (reads screen identity seeker))
-  ([screen repl seeker]
-   (update-screen! screen seeker)
-   (let [stroke (s/get-keystroke-blocking screen)]
-     (m/match [stroke]
-              [{:key \d :ctrl true}] (shutdown screen seeker)
+(defn reads [screen repl seeker]
+  (update-screen! screen seeker)
+  (let [stroke (s/get-keystroke-blocking screen)]
+    (m/match [stroke]
+             [{:key \d :ctrl true}] (shutdown screen seeker)
 
-              [{:key :up :alt true}] (let [x (r/travel-back repl)]
+             [{:key :up :alt true}] (let [x (r/travel-back repl)]
+                                      (recur screen x (r/now x)))
+
+             [{:key :down :alt true}] (let [x (r/travel-forward repl)]
                                         (recur screen x (r/now x)))
 
-              [{:key :down :alt true}] (let [x (r/travel-forward repl)]
-                                          (recur screen x (r/now x)))
+             [{:key \e :alt true}] (let [evaled (r/evaluate repl seeker)]
+                                     (recur screen evaled (r/result evaled)))
+             :else (recur screen repl (p/inputs seeker stroke)))))
 
-              [{:key \e :alt true}] (let [evaled (r/evaluate repl seeker)]
-                                      (recur screen evaled (r/result evaled)))
-              :else (recur screen repl (p/inputs seeker stroke))))))
-
-(defn start-terminal
+(defn start-terminal                                        ;; I don't really like this
   ([ttype]
-   (let [screen (s/get-screen ttype)
-         _ (s/start screen)]
-     (reads screen i/empty-seeker)))
+   (start-terminal ttype nil nil :identity))
   ([ttype port]
    (start-terminal ttype "localhost" port))
   ([ttype host port]
+   (start-terminal ttype host port :nrepl))
+  ([ttype host port repl-type]
    (let [screen (s/get-screen ttype)
-         repl (r/repl host port)
+         repl (r/repl host port repl-type)
          _ (s/start screen)]
      (reads screen repl (:result repl)))))
 
