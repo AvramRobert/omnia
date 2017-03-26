@@ -1,9 +1,20 @@
-There are three important things I should take care of:
 
-1. Parens matching, string quotation mark match
-2. Syntax highlighting
-3. Formatting
+Current hiccups:
+1. Highlighting primitives composed of words (e.g. true false).
+2. First element in a list of symbols is treated as syntax and highlighted.
+3. Formatting.
 
-This is also their priority. Formatting may be a little bit more difficult.
-I may need to write my own pretty printer. Fipp is quite promising in this domain.
+To implement:
+1. Evaluation history hud with highlighting.
+2. Terminal input symbol.
+3. Loading screen.
+4. nREPL server inception and destruction.
+5. Pre-loaded function for downloading artifacts and binding them.
+
+To consider:
+1. Group selection. For group deletion, copying and pasting.
+2. Mouse support.
+3. Parens-oriented editing. (would facilitate slurping)
+4. Project integration.
+
 

@@ -36,22 +36,36 @@
     (move! seeker)
     (s/redraw)))
 
-;; ctrl,shift, alt + enter doesn't work still
-;; ctrl, alt + backspace doesn't work either
+(defn shutdown [screen seeker]
+  (do
+    (doto screen
+      (print-colour! (bye seeker)) ;; move the cursor also at the end of the lines
+      (s/redraw)
+      (sleep 500)
+      (s/stop))
+    (System/exit 1)))
+
+;; ctrl,shift, alt + enter doesn't work still in :text
+;; ctrl, alt + backspace doesn't work either in :text
+;; ctrl up and down also doesn't work in :text
 (defn reads
   ([screen seeker]
    (reads screen identity seeker))
-  ([screen repl-eval seeker]
+  ([screen repl seeker]
    (update-screen! screen seeker)
    (let [stroke (s/get-keystroke-blocking screen)]
      (m/match [stroke]
-              [{:key \d :ctrl true}] (doto screen
-                                       (print-colour! (bye seeker)) ;; move the cursor also at the end of the lines
-                                       (s/redraw)
-                                       (sleep 500)
-                                       (s/stop))
-              [{:key \e :alt true}] (recur screen repl-eval (repl-eval seeker))
-              :else (recur screen repl-eval (p/inputs seeker stroke))))))
+              [{:key \d :ctrl true}] (shutdown screen seeker)
+
+              [{:key :up :alt true}] (let [x (r/travel-back repl)]
+                                        (recur screen x (r/now x)))
+
+              [{:key :down :alt true}] (let [x (r/travel-forward repl)]
+                                          (recur screen x (r/now x)))
+
+              [{:key \e :alt true}] (let [evaled (r/evaluate repl seeker)]
+                                      (recur screen evaled (r/result evaled)))
+              :else (recur screen repl (p/inputs seeker stroke))))))
 
 (defn start-terminal
   ([ttype]
@@ -62,9 +76,9 @@
    (start-terminal ttype "localhost" port))
   ([ttype host port]
    (let [screen (s/get-screen ttype)
-         evaluator (r/evaluator host port)
+         repl (r/repl host port)
          _ (s/start screen)]
-     (reads screen evaluator i/empty-seeker))))
+     (reads screen repl (:result repl)))))
 
 (defn -main [& args]
   (start-terminal :text))
