@@ -2,15 +2,13 @@
   (:gen-class)
   (use [omnia.highlighting])
   (require [lanterna.screen :as s]
-           [omnia.text :as p]
+           [omnia.input :as p]
+           [omnia.repl :as r]
            [clojure.core.match :as m]
-           [lanterna.constants :as const]))
+           [lanterna.constants :as const]
+           [fipp.clojure :as f]
+           [omnia.input :as i]))
 
-(defn print! [screen seeker]
-  (dorun
-    (map-indexed
-      (fn [idx line]
-        (s/put-string screen (apply str line) 0 idx)) (:lines seeker))))
 
 (defn print-colour! [screen seeker]
   (let [indexed (map-indexed vector (:lines seeker))]
@@ -31,22 +29,42 @@
   (Thread/sleep ms)
   screen)
 
-(defn reads [screen seeker]
+(defn update-screen! [screen seeker]
   (doto screen
     (s/clear)
     (print-colour! seeker)
     (move! seeker)
-    (s/redraw))
-  (let [stroke (s/get-keystroke-blocking screen)]
-    (m/match [stroke]
-             [{:key \d :ctrl true}] (doto screen
-                                      (print! (bye seeker)) ;; move the cursor also at the end of the lines
-                                      (s/redraw)
-                                      (sleep 500)
-                                      (s/stop))
-             :else (recur screen (p/inputs seeker stroke)))))
+    (s/redraw)))
+
+;; ctrl,shift, alt + enter doesn't work still
+;; ctrl, alt + backspace doesn't work either
+(defn reads
+  ([screen seeker]
+   (reads screen identity seeker))
+  ([screen repl-eval seeker]
+   (update-screen! screen seeker)
+   (let [stroke (s/get-keystroke-blocking screen)]
+     (m/match [stroke]
+              [{:key \d :ctrl true}] (doto screen
+                                       (print-colour! (bye seeker)) ;; move the cursor also at the end of the lines
+                                       (s/redraw)
+                                       (sleep 500)
+                                       (s/stop))
+              [{:key \e :alt true}] (recur screen repl-eval (repl-eval seeker))
+              :else (recur screen repl-eval (p/inputs seeker stroke))))))
+
+(defn start-terminal
+  ([ttype]
+   (let [screen (s/get-screen ttype)
+         _ (s/start screen)]
+     (reads screen i/empty-seeker)))
+  ([ttype port]
+   (start-terminal ttype "localhost" port))
+  ([ttype host port]
+   (let [screen (s/get-screen ttype)
+         evaluator (r/evaluator host port)
+         _ (s/start screen)]
+     (reads screen evaluator i/empty-seeker))))
 
 (defn -main [& args]
-  (let [screen (s/get-screen :text)
-        _ (s/start screen)]
-    (reads screen p/empty-seeker)))
+  (start-terminal :text))

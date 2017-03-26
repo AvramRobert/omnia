@@ -1,4 +1,4 @@
-(ns omnia.text
+(ns omnia.input
   (:gen-class)
   (require [clojure.core.match :as m]))
 
@@ -205,6 +205,9 @@
            [{:key :delete}] (munch seeker)
            [{:key :enter}] (break seeker)
            :else (auto-insert seeker (:key stroke))))
+
+(defn stringify [seeker]
+  (->> seeker :lines (map #(apply str %)) (apply str)))
 
 (comment
   "cond-> or cond->> will facilitate the behaviour I want. It will just process some boolean config and apply the necessary

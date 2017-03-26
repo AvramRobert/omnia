@@ -1,6 +1,9 @@
 (ns omnia.highlighting
   (:gen-class))
 
+;; FIXME: Issue [1 2 3 4 5] -> first 1 is not printed as blue
+;; Thought: should I create a separate state just for data structures?
+
 (def ^:const stx :syntax)
 (def ^:const stx* :syntax*)
 (def ^:const kwd :keyword)
