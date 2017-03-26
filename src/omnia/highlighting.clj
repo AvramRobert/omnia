@@ -1,11 +1,12 @@
 (ns omnia.highlighting
   (:gen-class))
 
-;; FIXME: Issue [1 2 3 4 5] -> first 1 is not printed as blue
-;; Thought: should I create a separate state just for data structures?
+;; I currently can't highlight 'true' and 'false' because that requires context-sensitivity and rollbacks
+;; Keep it like this for now and perhaps change it in some other version
 
 (def ^:const stx :syntax)
 (def ^:const stx* :syntax*)
+(def ^:const dst :structure)
 (def ^:const kwd :keyword)
 (def ^:const stg :string)
 (def ^:const chr :char)
@@ -14,6 +15,7 @@
 (def ^:const std* :standard*)
 
 (def colour-map {stx :yellow
+                 dst :white
                  kwd :magenta
                  stg :green
                  chr :green
@@ -21,10 +23,14 @@
                  std :white})
 
 (defn ->syntax? [c] (= c \())
+(defn ->structure? [c] (or (= c \{)
+                           (= c \[)))
 (defn ->keyword? [c] (= c \:))
 (defn ->standard? [c] (or (= c \space)
                           (= c \newline)
-                          (= c \))))
+                          (= c \))
+                          (= c \])
+                          (= c \})))
 
 (defn ->string? [c] (= c \"))
 (defn ->char? [c] (= c \\))
@@ -42,6 +48,7 @@
 (defn ->std [c]
   (cond
     (->syntax? c) [stx (emit std)]
+    (->structure? c) [dst (emit dst)]
     (->keyword? c) [kwd (emit kwd)]
     (->string? c) [stg (emit stg)]
     (->char? c) [chr (emit chr)]
@@ -56,10 +63,20 @@
     (->standard? c) [std (emit std)]
     :else [std* (emit std)]))
 
+(defn ->dst [c]
+  (cond
+    (->syntax? c) [stx (emit std)]
+    (->keyword? c) [kwd (emit kwd)]
+    (->number? c) [nr (emit nr)]
+    (->string? c) [stg (emit stg)]
+    :else [std (emit std)]))
+
 (defn ->stx [c]
   (cond
     (->syntax? c) [stx (emit std)]
     (->keyword? c) [kwd (emit kwd)]
+    (->number? c) [nr (emit nr)]
+    (->string? c) [stg (emit stg)]
     (->standard? c) [std (emit std)]
     :else [stx* (emit stx)]))
 
@@ -77,7 +94,7 @@
 
 (defn ->stg [c]
   (cond
-    (->string? c) [stg (emit stg)]
+    (->string? c) [std (emit stg)]
     :else [stg (emit stg)]))
 
 (defn ->chr [c]
@@ -94,6 +111,7 @@
                     std* ->std*
                     stx  ->stx
                     stx* ->stx*
+                    dst  ->dst
                     kwd  ->kwd
                     stg  ->stg
                     chr  ->chr
