@@ -5,11 +5,12 @@ Current hiccups:
 3. Formatting.
 
 To implement:
-1. Evaluation history hud with highlighting.
-2. Terminal input symbol.
-3. Loading screen.
-4. nREPL server inception and destruction.
-5. Pre-loaded function for downloading artifacts and binding them.
+1. Errors // done
+2. Evaluation history hud with highlighting. 
+3. Terminal input symbol.
+4. Loading screen.
+5. nREPL server inception and destruction.
+6. Pre-loaded function for downloading artifacts and binding them.
 
 To consider:
 1. Group selection. For group deletion, copying and pasting.

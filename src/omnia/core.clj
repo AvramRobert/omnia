@@ -39,15 +39,15 @@
 (defn shutdown [screen seeker]
   (do
     (doto screen
-      (print-colour! (bye seeker)) ;; move the cursor also at the end of the lines
+      (print-colour! (bye seeker)) ;; move the cursor at the end of all lines and print
       (s/redraw)
       (sleep 500)
       (s/stop))
     (System/exit 1)))
 
-;; ctrl,shift, alt + enter doesn't work still in :text
-;; ctrl, alt + backspace doesn't work either in :text
-;; ctrl up and down also doesn't work in :text
+;; ctrl,shift, alt + enter still don't work in :text
+;; ctrl, alt + backspace don't work in :text either
+;; ctrl up and down also don't work in :text
 (defn reads [screen repl seeker]
   (update-screen! screen seeker)
   (let [stroke (s/get-keystroke-blocking screen)]
@@ -78,4 +78,4 @@
      (reads screen repl (:result repl)))))
 
 (defn -main [& args]
-  (start-terminal :text))
+  (start-terminal :text 45935))

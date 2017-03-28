@@ -14,17 +14,29 @@
 (defn out? [response]
   (contains? response :out))
 
+(defn err? [response]
+  (contains? response :err))
+
+(defn ex? [response]
+  (contains? response :ex))
+
+(defn eff? [response]
+  (and (contains? response :value)
+       (nil? (:value response))))
+
 (defn str->line [string]
   (->> #"\n"
-       (clojure.string/split string)
+       (split string)
        (map #(vec (.toCharArray %)))
        (vec)))
 
-(defn response->lines [response]                            ;; FIXME: errors, catch the bloody errors
-  (m/match [response]
-           [_ :guard out?] (-> response (:out) (str->line))
-           [{:value nil}] [[\n \i \l]]
-           :else (-> response (:value) (str) (str->line))))
+(defn response->lines [response]
+  (cond
+    (out? response) (-> response (:out) (str->line))
+    (err? response) (-> response (:err) (str->line))
+    (eff? response) [[\n \i \l]]
+    (ex? response) []
+    :else (-> response (:value) (str) (str->line))))
 
 (defn seekify-responses [responses]
   (->> responses
