@@ -31,7 +31,7 @@
 
 (defn update-screen! [screen seeker]
   (doto screen
-    (s/clear)
+    ;(s/clear)
     (print-colour! seeker)
     (move! seeker)
     (s/redraw)))
@@ -78,4 +78,4 @@
      (reads screen repl (:result repl)))))
 
 (defn -main [& args]
-  (start-terminal :text 45935))
+  (start-terminal :text))

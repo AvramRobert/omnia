@@ -6,7 +6,7 @@ Current hiccups:
 
 To implement:
 1. Errors // done
-2. Evaluation history hud with highlighting. 
+2. Evaluation history hud with highlighting.
 3. Terminal input symbol.
 4. Loading screen.
 5. nREPL server inception and destruction.
