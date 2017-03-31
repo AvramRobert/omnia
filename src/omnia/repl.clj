@@ -8,9 +8,6 @@
 
 (defrecord REPL [host port history hsize timeline result evaluator])
 
-(defn seeker [lines]
-  (i/->Seeker lines [0 0]))
-
 (defn out? [response]
   (contains? response :out))
 
@@ -24,26 +21,20 @@
   (and (contains? response :value)
        (nil? (:value response))))
 
-(defn str->line [string]
-  (->> #"\n"
-       (split string)
-       (map #(vec (.toCharArray %)))
-       (vec)))
-
 (defn response->lines [response]
   (cond
-    (out? response) (-> response (:out) (str->line))
-    (err? response) (-> response (:err) (str->line))
+    (out? response) (-> response (:out) (i/str->line))
+    (err? response) (-> response (:err) (i/str->line))
     (eff? response) [[\n \i \l]]
     (ex? response) []
-    :else (-> response (:value) (str) (str->line))))
+    :else (-> response (:value) (str) (i/str->line))))
 
 (defn seekify-responses [responses]
   (->> responses
        (map response->lines)
        (reduce concat)
        (vec)
-       (seeker)))
+       (i/seeker)))
 
 (defn evaluate!
   ([conn seeker]

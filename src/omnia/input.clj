@@ -1,6 +1,7 @@
 (ns omnia.input
   (:gen-class)
-  (require [clojure.core.match :as m]))
+  (require [clojure.core.match :as m]
+           [clojure.string :refer [split]]))
 
 (defrecord Seeker [lines cursor])
 
@@ -10,6 +11,18 @@
                      \[ \]
                      \( \)
                      \" \"})
+
+
+(defn seeker
+  ([] (seeker []))
+  ([lines]
+   (Seeker. lines [0 0])))
+
+(defn str->line [string]
+  (->> #"\n"
+       (split string)
+       (map #(vec (.toCharArray %)))
+       (vec)))
 
 (defn line
   ([seeker]

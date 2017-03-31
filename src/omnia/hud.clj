@@ -11,7 +11,20 @@
   "For example adding pre-existing text to the history or starting characters to input lines
   and so on.
   This can all most probably be done through [x y] offsets but I have to test it out.
-  I believe that a Hud record might also ease some of these details")
+  I believe that a Hud record might also ease some of these details.
+
+  I have encountered a problem.. this thing can't scroll down.
+  It's as big as the actual terminal window.
+
+  Wait. I could perhaps play around with this.
+  I could use the terminal size to determine how much is currently actually visible and
+  use that as a way to scroll through the history. This would perhaps also allow me
+  to limit the amount of things from the history that have to be printed.
+
+  Also, maybe perhaps add truncation")
+
+(def ^:const greeting (i/seeker (i/str->line "Welcome to the Omnia REPL! (ALPHA)")))
+(def ^:const empty-line (i/seeker))
 
 (defn print!
   ([terminal seeker] (print! terminal seeker 0))
@@ -46,9 +59,10 @@
   (t/stop terminal)
   (System/exit 1))
 
-(defn read-eval-print [terminal port]
-  (loop [history []
-         repl (r/repl "localhost" port)
+(defn read-eval-print [terminal host port]
+  (loop [history [[greeting 1]
+                  [empty-line 1]]
+         repl (r/repl host port)
          seeker i/empty-seeker]
     (-> terminal
         (reprint! history)
@@ -70,3 +84,4 @@
                                               evaled
                                               i/empty-seeker))
                :else (recur history repl (i/inputs seeker stroke))))))
+
