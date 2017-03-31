@@ -7,20 +7,27 @@
            [clojure.core.match :as m]
            [lanterna.constants :as const]
            [fipp.clojure :as f]
-           [omnia.input :as i]))
+           [omnia.input :as i]
+           [lanterna.terminal :as t]
+           [omnia.hud :as hud]))
 
+(defn move!
+  ([screen x y]
+   (t/move-cursor screen x y))
+  ([screen seeker]
+   (let [[x y] (:cursor seeker)]
+     (t/move-cursor screen x y))))
 
 (defn print-colour! [screen seeker]
   (let [indexed (map-indexed vector (:lines seeker))]
     (doseq [[y line] indexed]
       (reduce (fn [state [x c]]
                 (let [[next-state colour] (process state c)]
-                  (s/put-character screen c x y {:fg colour})
+                  (doto screen
+                    (t/set-fg-color colour)
+                    (move! x y)
+                    (t/put-character c))
                   next-state)) s0 (map-indexed vector line)))))
-
-(defn move! [screen seeker]
-  (let [[x y] (:cursor seeker)]
-    (s/move-cursor screen x y)))
 
 (defn bye [seeker]
   (reduce p/simple-insert (-> seeker p/end-x p/break) [\B \y \e \!]))
@@ -32,17 +39,19 @@
 (defn update-screen! [screen seeker]
   (doto screen
     ;(s/clear)
+    (t/clear)
     (print-colour! seeker)
     (move! seeker)
-    (s/redraw)))
+    ;(s/redraw)
+    ))
 
 (defn shutdown [screen seeker]
   (do
     (doto screen
-      (print-colour! (bye seeker)) ;; move the cursor at the end of all lines and print
-      (s/redraw)
-      (sleep 500)
-      (s/stop))
+      ;(print-colour! (bye seeker)) ;; move the cursor at the end of all lines and print
+      ;(t/redraw)
+      ;(sleep 500)
+      (t/stop))
     (System/exit 1)))
 
 ;; ctrl,shift, alt + enter still don't work in :text
@@ -50,7 +59,7 @@
 ;; ctrl up and down also don't work in :text
 (defn reads [screen repl seeker]
   (update-screen! screen seeker)
-  (let [stroke (s/get-keystroke-blocking screen)]
+  (let [stroke (t/get-keystroke-blocking screen)]
     (m/match [stroke]
              [{:key \d :ctrl true}] (shutdown screen seeker)
 
@@ -65,17 +74,21 @@
              :else (recur screen repl (p/inputs seeker stroke)))))
 
 (defn start-terminal                                        ;; I don't really like this
-  ([ttype]
-   (start-terminal ttype nil nil :identity))
-  ([ttype port]
-   (start-terminal ttype "localhost" port))
-  ([ttype host port]
-   (start-terminal ttype host port :nrepl))
-  ([ttype host port repl-type]
-   (let [screen (s/get-screen ttype)
+  ([kind]
+   (start-terminal kind nil nil :identity))
+  ([kind port]
+   (start-terminal kind "localhost" port))
+  ([kind host port]
+   (start-terminal kind host port :nrepl))
+  ([kind host port repl-type]
+   (let [screen (t/get-terminal kind)                       ;(s/get-screen kind)
          repl (r/repl host port repl-type)
-         _ (s/start screen)]
+         _ (t/start screen)]
      (reads screen repl (:result repl)))))
 
 (defn -main [& args]
-  (start-terminal :text))
+  #_(start-terminal :text 35575)
+
+  (let [terminal (t/get-terminal :text)
+        _ (t/start terminal)]
+    (hud/read-eval-print terminal 35575)))

@@ -193,6 +193,12 @@
 ;; this will perhaps simplify some things. So if a return of `nil` would represent the end of text
 ;; then I can reason about these functions a little bit more easily.
 
+(defn char-key? [stroke]
+  (char? (:key stroke)))
+
+(defn height [seeker]
+  (-> seeker :lines count))
+
 (defn inputs [seeker stroke]
   (m/match [stroke]
            [{:key :left :ctrl true}] (jump seeker regress)
@@ -204,7 +210,8 @@
            [{:key :backspace}] (auto-delete seeker)
            [{:key :delete}] (munch seeker)
            [{:key :enter}] (break seeker)
-           :else (auto-insert seeker (:key stroke))))
+           [_ :guard char-key?] (auto-insert seeker (:key stroke))
+           :else seeker))
 
 (defn stringify [seeker]
   (->> seeker :lines (map #(apply str %)) (apply str)))
