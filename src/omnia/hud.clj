@@ -25,6 +25,18 @@
                        (i/str->line "Bye.. for now.")
                        (i/str->line "For even the very wise cannot see all ends.")))
 
+(def ^:const lambda (lines
+                      (i/str->line "             ____                  ")
+                      (i/str->line "             \\   \\                 ")
+                      (i/str->line "              \\   \\                ")
+                      (i/str->line "               \\   \\               ")
+                      (i/str->line "               /    \\              ")
+                      (i/str->line "              /      \\             ")
+                      (i/str->line "             /   /\\   \\            ")
+                      (i/str->line "            /   /  \\   \\           ")
+                      (i/str->line "           /___/    \\___\\          ")
+                      empty-line))
+
 (defn print!
   ([terminal seeker] (print! terminal seeker 0 0))
   ([terminal seeker ox oy]
@@ -50,7 +62,8 @@
 (def init-hud
   "A `hud` is just a seeker of seekers, where the cursor
   is denotes the offset input position."
-  (let [prelude (lines greeting
+  (let [prelude (lines lambda
+                       greeting
                        empty-line
                        caret)]
     (i/->Seeker prelude [0 (count prelude)])))
