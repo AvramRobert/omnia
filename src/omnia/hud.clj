@@ -7,81 +7,91 @@
            [clojure.core.match :as m]))
 
 (comment
-  "Good start, but the hood needs to also easily be manipulated directly"
-  "For example adding pre-existing text to the history or starting characters to input lines
-  and so on.
-  This can all most probably be done through [x y] offsets but I have to test it out.
-  I believe that a Hud record might also ease some of these details.
+  "The terminal size limitation is a good thing.
+  It will also allow me to limit how many lines will be printed at one time.
+  Whilst the Hud seeker itself will contain all lines, i will only print
+  the subset indicated by some `view` parameter. => printing overhead constant")
 
-  I have encountered a problem.. this thing can't scroll down.
-  It's as big as the actual terminal window.
+(defrecord Hud [history offsets])
 
-  Wait. I could perhaps play around with this.
-  I could use the terminal size to determine how much is currently actually visible and
-  use that as a way to scroll through the history. This would perhaps also allow me
-  to limit the amount of things from the history that have to be printed.
+(defn lines [& line]
+  (vec (apply concat line)))
 
-  Also, maybe perhaps add truncation")
-
-(def ^:const greeting (i/seeker (i/str->line "Welcome to the Omnia REPL! (ALPHA)")))
-(def ^:const empty-line (i/seeker))
+(def ^:const empty-line [[]])
+(def ^:const greeting (i/str->line "Welcome to the Omnia REPL! (ALPHA)"))
+(def ^:const caret (i/str->line "Ω=>"))
+(def ^:const goodbye (lines
+                       empty-line
+                       (i/str->line "Bye.. for now.")
+                       (i/str->line "For even the very wise cannot see all ends.")))
 
 (defn print!
-  ([terminal seeker] (print! terminal seeker 0))
-  ([terminal seeker offset]
-   (doseq [[gy line] (->> seeker :lines (map-indexed vector))
-           :let [y (+ gy offset)]]
+  ([terminal seeker] (print! terminal seeker 0 0))
+  ([terminal seeker ox oy]
+   (doseq [[-y line] (->> seeker :lines (map-indexed vector))
+           :let [y (+ -y oy)]]
      (->> line
           (map-indexed vector)
-          (reduce (fn [state [x c]]
-                    (let [[next-state colour] (process state c)]
+          (reduce (fn [state [-x c]]
+                    (let [[next-state colour] (process state c)
+                          x (+ -x ox)]
                       (doto terminal
                         (t/set-fg-color colour)
                         (t/move-cursor x y)
                         (t/put-character c))
                       next-state)) s0)))))
 
-(defn reprint! [terminal history]
-  (t/clear terminal)
-  (reduce
-    (fn [acc-off [seeker off]]
-      (doto terminal
-        (print! seeker acc-off)
-        (t/move-cursor 0 (dec (+ acc-off off))))
-      (+ acc-off off)) 0 history))
+(defn update! [terminal seeker hud]
+  (let [[x y] (:cursor seeker)
+        [_ oy] (:cursor hud)]
+    (print! terminal seeker 0 oy)
+    (t/move-cursor terminal x (+ y oy))))
 
-(defn update! [offset terminal seeker]
-  (let [[x y] (:cursor seeker)]
-    (print! terminal seeker offset)
-    (t/move-cursor terminal x (+ y offset))))
+(def init-hud
+  "A `hud` is just a seeker of seekers, where the cursor
+  is denotes the offset input position."
+  (let [prelude (lines greeting
+                       empty-line
+                       caret)]
+    (i/->Seeker prelude [0 (count prelude)])))
 
-(defn shutdown [terminal]
-  (t/stop terminal)
-  (System/exit 1))
+(defn preserve [hud & seekers]
+  (let [data (->> seekers
+                  (map :lines)
+                  (apply lines))]
+    (-> hud
+        (update :lines #(into % data))
+        (i/move (fn [[x y]] [x (+ y (count data))])))))
 
-(defn read-eval-print [terminal host port]
-  (loop [history [[greeting 1]
-                  [empty-line 1]]
-         repl (r/repl host port)
+(defn render [terminal seeker hud]
+  (doto terminal
+    (t/clear)
+    (print! hud)
+    (update! seeker hud)))
+
+(defn read-eval-print [terminal repl]
+  (loop [hud init-hud
+         nrepl repl
          seeker i/empty-seeker]
-    (-> terminal
-        (reprint! history)
-        (update! terminal seeker))
+    (render terminal seeker hud)
     (let [stroke (t/get-keystroke-blocking terminal)]
       (m/match [stroke]
-               [{:key \d :ctrl true}] (shutdown terminal)
+               [{:key \d :ctrl true}] (do
+                                        (render terminal (i/seeker goodbye) (preserve hud seeker))
+                                        (Thread/sleep 1200))
 
-               [{:key :up :alt true}] (let [x (r/travel-back repl)]
-                                        (recur history x (r/now x)))
+               [{:key :up :alt true}] (let [x (r/travel-back nrepl)]
+                                        (recur hud x (r/now x)))
 
-               [{:key :down :alt true}] (let [x (r/travel-forward repl)]
-                                          (recur history x (r/now x)))
+               [{:key :down :alt true}] (let [x (r/travel-forward nrepl)]
+                                          (recur hud x (r/now x)))
 
-               [{:key \e :alt true}] (let [evaled (r/evaluate repl seeker)]
-                                       (recur (conj history
-                                                    [seeker (i/height seeker)]
-                                                    [(r/result evaled) (i/height (r/result evaled))])
+               [{:key \e :alt true}] (let [evaled (r/evaluate nrepl seeker)]
+                                       (recur (preserve hud
+                                                        seeker
+                                                        (r/result evaled)
+                                                        (i/seeker caret))
                                               evaled
                                               i/empty-seeker))
-               :else (recur history repl (i/inputs seeker stroke))))))
+               :else (recur hud nrepl (i/inputs seeker stroke))))))
 
