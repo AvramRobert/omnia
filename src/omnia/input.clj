@@ -81,6 +81,9 @@
 (defn start-x [seeker]
   (move-x seeker (fn [_] 0)))
 
+(defn end-y [seeker]
+  (move seeker (fn [[x _]] [x (-> seeker :lines count)])))
+
 (defn left
   ([seeker]
    (left seeker identity))

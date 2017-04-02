@@ -1,18 +1,24 @@
 (ns omnia.hud
   (:gen-class)
-  (use omnia.highlighting)
+  (use omnia.highlighting
+       omnia.more)
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
            [omnia.input :as i]
            [clojure.core.match :as m]))
 
-(comment
-  "The terminal size limitation is a good thing.
-  It will also allow me to limit how many lines will be printed at one time.
-  Whilst the Hud seeker itself will contain all lines, i will only print
-  the subset indicated by some `view` parameter. => printing overhead constant")
 
-(defrecord Hud [history offsets])
+
+(comment
+  ;; FIXME: Think about an algorithm that prints based on how many lines of history lor says it wants to have
+  "If :lor starts out as 0, then neither the greeting, nor the caret will be displayed.
+  If however i tell it to start with 3 and then proceed to scroll downard, then the visible history
+  will be truncated scroll by scroll.
+  => How much I see in the hud depends on how much of the history I truly want to display.
+
+  Now this can be both positive and negative.
+  Negative is the explicit case, where the seeker is much larger than the viewable amount of lines.
+  But the negative case should result from calculation, not initialisation. ")
 
 (defn lines [& line]
   (vec (apply concat line)))
@@ -41,19 +47,47 @@
                         (t/put-character c))
                       next-state)) s0)))))
 
-(defn update! [terminal seeker hud]
-  (let [[x y] (:cursor seeker)
-        [ox oy] (:cursor hud)]
-    (print! terminal seeker ox oy)
-    (t/move-cursor terminal (+ x ox) (+ y oy))))
-
-(def init-hud
-  "A `hud` is just a seeker of seekers, where the cursor
-  is denotes the offset input position."
+(defn init-hud [fov]
   (let [prelude (lines greeting
                        empty-line
-                       caret)]
-    (i/->Seeker prelude [0 (count prelude)])))
+                       caret)
+        lor (count prelude)                                 ;; amount of lines from the history that i've included
+        cursor [0 lor]]
+    (-> i/empty-seeker
+        (assoc :lines prelude)
+        (assoc :cursor cursor)
+        (assoc :lor lor)
+        (assoc :fov fov))))
+
+(defn scroll [hud]
+  (assoc hud :scrolling true))
+
+(defn noscroll [hud]
+  (assoc hud :scrolling false))
+
+(defn upwards [hud]
+  (update hud :lor inc))
+
+(defn downwards [hud]
+  (update hud :lor #(bound-dec % 0)))
+
+(defn nowards [hud]
+  (assoc hud :lor 0))
+
+(defn project [hud seeker]
+  (let [{fov :fov
+         lor :lor} hud]
+    (if (:scrolling hud)
+      (let [ls (- (+ (i/height hud) (i/height seeker)) (:lor hud) fov)
+            phud (update hud :lines #(->> % (drop ls) (take fov) (vec)))
+            pseeker (update seeker :lines #(take (- fov (i/height phud)) %))]
+        [phud pseeker])
+
+      (let [pseeker (update seeker :lines #(vtake-right fov %))
+            phud (-> hud
+                     (update :lines #(vtake-right (- fov (i/height pseeker)) %))
+                     (i/end-y))]
+        [phud pseeker]))))
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -63,21 +97,35 @@
         (update :lines #(into % data))
         (i/move (fn [[x y]] [x (+ y (count data))])))))
 
-(defn render [terminal seeker hud]
-  (doto terminal
-    (t/clear)
-    (print! hud)
-    (update! seeker hud)))
 
-(defn read-eval-print [terminal repl]
-  (loop [hud init-hud
+(defn render [terminal seeker hud]
+  (let [[phud pseeker] (project hud seeker)
+        [ox oy] (:cursor phud)
+        [x y] (:cursor pseeker)]
+    (doto terminal
+      (t/clear)
+      (print! phud)
+      (print! pseeker ox oy)
+      (t/move-cursor (+ x ox) (+ y oy)))))
+
+(defn read-eval-print [terminal repl] -
+  (loop [hud (init-hud (-> terminal (.getTerminalSize) (.getRows)))
          nrepl repl
          seeker i/empty-seeker]
     (render terminal seeker hud)
     (let [stroke (t/get-keystroke-blocking terminal)]
       (m/match [stroke]
+               [{:key :page-up}] (recur (-> hud (scroll) (upwards))
+                                        nrepl
+                                        seeker)
+               [{:key :page-down}] (recur (-> hud (scroll) (downwards))
+                                          nrepl
+                                          seeker)
                [{:key \d :ctrl true}] (do
-                                        (render terminal (i/seeker goodbye) (preserve hud seeker))
+                                        (render terminal (i/seeker goodbye) (-> hud
+                                                                                (preserve seeker)
+                                                                                (noscroll)
+                                                                                (nowards)))
                                         (Thread/sleep 1200))
 
                [{:key :up :alt true}] (let [x (r/travel-back nrepl)]
@@ -87,11 +135,13 @@
                                           (recur hud x (r/now x)))
 
                [{:key \e :alt true}] (let [evaled (r/evaluate nrepl seeker)]
-                                       (recur (preserve hud
-                                                        seeker
-                                                        (r/result evaled)
-                                                        (i/seeker caret))
+                                       (recur (-> hud
+                                                  (preserve seeker (r/result evaled) (i/seeker caret))
+                                                  (noscroll)
+                                                  (nowards))
                                               evaled
                                               i/empty-seeker))
-               :else (recur hud nrepl (i/inputs seeker stroke))))))
+               :else (recur (-> hud (noscroll) (nowards))
+                            nrepl
+                            (i/inputs seeker stroke))))))
 

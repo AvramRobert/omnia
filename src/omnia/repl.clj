@@ -1,4 +1,5 @@
 (ns omnia.repl
+  (use omnia.more)
   (require [clojure.tools.nrepl.server :as s]
            [clojure.tools.nrepl :as nrepl]
            [omnia.input :as i]
@@ -49,14 +50,6 @@
   (with-open [conn (nrepl/connect :port (:port repl)
                                   :host (:host repl))]
     (evaluate! conn seeker)))
-
-(defn bound-inc [value max]
-  (let [x (inc value)]
-    (if (>= x max) value x)))                               ;; >= because we count from 0
-
-(defn bound-dec [value min]
-  (let [x (dec value)]
-    (if (< x min) value x)))
 
 (defn cache-result [repl result]
   (update repl :result (fn [_] result)))
