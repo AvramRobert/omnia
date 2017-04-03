@@ -8,6 +8,17 @@
   (t/stop terminal)
   (System/exit 1))
 
+(comment
+  ;; FIXME: There's a problem in the line concatenation for seekers
+  "In the current scenario:
+        (case n
+        0 1
+        1 0)..
+
+  The seeker will merge each line with the next, without regarding new-line characters.
+  In this case: [(case n] [0 1] will be merged as follows (case n0 1) => which is not correct.
+  Make sure that, when combined, the lines are interleaved with new line characters.")
+
 (defn startup                                               ;; I don't really like this
   ([kind]
    (startup kind nil nil :identity))
@@ -23,4 +34,4 @@
      (shutdown terminal))))
 
 (defn -main [& args]
-  (startup :text 36007))
+  (startup :text 42431))

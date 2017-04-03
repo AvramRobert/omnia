@@ -7,19 +7,6 @@
            [omnia.input :as i]
            [clojure.core.match :as m]))
 
-
-
-(comment
-  ;; FIXME: Think about an algorithm that prints based on how many lines of history lor says it wants to have
-  "If :lor starts out as 0, then neither the greeting, nor the caret will be displayed.
-  If however i tell it to start with 3 and then proceed to scroll downard, then the visible history
-  will be truncated scroll by scroll.
-  => How much I see in the hud depends on how much of the history I truly want to display.
-
-  Now this can be both positive and negative.
-  Negative is the explicit case, where the seeker is much larger than the viewable amount of lines.
-  But the negative case should result from calculation, not initialisation. ")
-
 (defn lines [& line]
   (vec (apply concat line)))
 
@@ -66,28 +53,38 @@
   (assoc hud :scrolling false))
 
 (defn upwards [hud]
-  (update hud :lor inc))
+  (update hud :lor #(bound-inc % (inc (i/height hud)))))    ;; include 0
 
-(defn downwards [hud]
-  (update hud :lor #(bound-dec % 0)))
+(defn downwards [hud seeker]
+  (update hud :lor #(bound-dec % (- (:fov hud)
+                                    (i/height seeker)))))                       ;; exclude 0 ;; try (- fov (h/height seeker))
 
-(defn nowards [hud]
-  (assoc hud :lor 0))
+(defn nowards [hud seeker]
+  (let [fov (:fov hud)
+        x (->> seeker :lines (take-last fov) count)
+        h (->> hud :lines (vtake-right (- fov x)) count)]
+    (assoc hud :lor h)))
+
+(defn scroll-projection [hud seeker]
+  (let [{fov :fov
+         lor :lor} hud
+        amount (- (i/height hud) lor)
+        phud (update hud :lines #(->> % (drop+ amount) (take fov) (vec)))
+        pseeker (update seeker :lines #(-> (- fov (i/height %)) (take %) (vec)))] ;; (i/height phud) instead of :lor because :lor may be negative
+    [phud pseeker]))
+
+(defn input-projection [hud seeker]
+  (let [fov (:fov hud)
+        pseeker (update seeker :lines #(vtake-right fov %)) ;; this is 0, because of no input. That's why the cursor always get's displayed there
+        phud (-> hud
+                 (update :lines #(vtake-right (- fov (i/height pseeker)) %))
+                 (i/end-y))]
+    [phud pseeker]))
 
 (defn project [hud seeker]
-  (let [{fov :fov
-         lor :lor} hud]
-    (if (:scrolling hud)
-      (let [ls (- (+ (i/height hud) (i/height seeker)) (:lor hud) fov)
-            phud (update hud :lines #(->> % (drop ls) (take fov) (vec)))
-            pseeker (update seeker :lines #(take (- fov (i/height phud)) %))]
-        [phud pseeker])
-
-      (let [pseeker (update seeker :lines #(vtake-right fov %))
-            phud (-> hud
-                     (update :lines #(vtake-right (- fov (i/height pseeker)) %))
-                     (i/end-y))]
-        [phud pseeker]))))
+  (if (:scrolling hud)
+    (scroll-projection hud seeker)
+    (input-projection hud seeker)))
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -118,14 +115,14 @@
                [{:key :page-up}] (recur (-> hud (scroll) (upwards))
                                         nrepl
                                         seeker)
-               [{:key :page-down}] (recur (-> hud (scroll) (downwards))
+               [{:key :page-down}] (recur (-> hud (scroll) (downwards seeker))
                                           nrepl
                                           seeker)
                [{:key \d :ctrl true}] (do
                                         (render terminal (i/seeker goodbye) (-> hud
                                                                                 (preserve seeker)
                                                                                 (noscroll)
-                                                                                (nowards)))
+                                                                                (nowards seeker)))
                                         (Thread/sleep 1200))
 
                [{:key :up :alt true}] (let [x (r/travel-back nrepl)]
@@ -138,10 +135,10 @@
                                        (recur (-> hud
                                                   (preserve seeker (r/result evaled) (i/seeker caret))
                                                   (noscroll)
-                                                  (nowards))
+                                                  (nowards seeker))
                                               evaled
                                               i/empty-seeker))
-               :else (recur (-> hud (noscroll) (nowards))
+               :else (recur (-> hud (noscroll) (nowards seeker))
                             nrepl
                             (i/inputs seeker stroke))))))
 
