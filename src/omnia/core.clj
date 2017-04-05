@@ -34,4 +34,4 @@
      (shutdown terminal))))
 
 (defn -main [& args]
-  (startup :text 42431))
+  (startup :text 44499))

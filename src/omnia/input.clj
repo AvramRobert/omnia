@@ -3,20 +3,24 @@
   (require [clojure.core.match :as m]
            [clojure.string :refer [split]]))
 
-(defrecord Seeker [lines cursor])
+(defrecord Seeker [lines cursor height])
 
-(def empty-seeker (Seeker. [] [0 0]))
+(def empty-seeker (Seeker. [] [0 0] (delay 0)))
 
 (def matching-rules {\{ \}
                      \[ \]
                      \( \)
                      \" \"})
 
+(defn resize [seeker]
+  (assoc seeker :height (delay (-> seeker :lines count))))
 
 (defn seeker
   ([] (seeker []))
   ([lines]
-   (Seeker. lines [0 0])))
+   (-> empty-seeker
+       (assoc :lines lines)
+       (resize))))
 
 (defn str->line [string]
   (->> #"\n"
@@ -34,10 +38,19 @@
   (let [[x y] (:cursor seeker)]
     (-> seeker line (nth x nil))))
 
+(defn height [seeker]
+  @(:height seeker))
+
+(defn rebase [seeker f]
+  (-> seeker (update :lines f) (resize)))
+
 (defn peer [seeker f]
   (let [[_ y] (:cursor seeker)]
-    (update-in seeker [:lines]
-               #(->> % (split-at y) (map vec) (apply f) (map vec) vec))))
+    (rebase seeker #(->> (split-at y %)
+                         (map vec)
+                         (apply f)
+                         (map vec)
+                         (vec)))))
 
 (defn slice [seeker f]
   (let [[x _] (:cursor seeker)]
@@ -52,7 +65,7 @@
   (slice seeker (fn [l r] (concat l (f r)))))
 
 (defn move [seeker f]
-  (update-in seeker [:cursor] f))
+  (update seeker :cursor f))
 
 (defn displace [seeker]
   (slicel seeker drop-last))
@@ -69,7 +82,7 @@
 (defn move-y [seeker f]
   (move seeker
         (fn [[x y]]
-          (let [height (-> seeker :lines count)
+          (let [height (height seeker)
                 ny (f y)]
             (if (and (>= ny 0) (< ny height))
               [x ny]
@@ -82,7 +95,7 @@
   (move-x seeker (fn [_] 0)))
 
 (defn end-y [seeker]
-  (move seeker (fn [[x _]] [x (-> seeker :lines count)])))
+  (move seeker (fn [[x _]] [x (height seeker)])))
 
 (defn left
   ([seeker]
@@ -98,7 +111,7 @@
 
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
-        h (-> seeker :lines count dec)
+        h (-> seeker height dec)
         w (-> seeker line count)]
     (m/match [(:cursor seeker)]
              [[w h]] seeker
@@ -211,9 +224,6 @@
 
 (defn char-key? [stroke]
   (char? (:key stroke)))
-
-(defn height [seeker]
-  (-> seeker :lines count))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]

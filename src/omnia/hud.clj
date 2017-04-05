@@ -7,6 +7,16 @@
            [omnia.input :as i]
            [clojure.core.match :as m]))
 
+(comment
+  "This is now working properly.
+  DO IT BETTER!
+  Advice:
+  1. Make seekers store their height. This would optimise some things. // done 
+  2. Make the projections and view clipping more explicit. Currently it does too much naive offsetting.
+  3. Perhaps make primitives and combinators.
+  4. Make more modular.
+  5. Configurise input from pattern-match.")
+
 (defn lines [& line]
   (vec (apply concat line)))
 
@@ -40,9 +50,8 @@
                        caret)
         lor (count prelude)                                 ;; amount of lines from the history that i've included
         cursor [0 lor]]
-    (-> i/empty-seeker
-        (assoc :lines prelude)
-        (assoc :cursor cursor)
+    (-> (i/seeker prelude)
+        (i/move (fn [_] cursor))
         (assoc :lor lor)
         (assoc :fov fov))))
 
@@ -56,8 +65,7 @@
   (update hud :lor #(bound-inc % (inc (i/height hud)))))    ;; include 0
 
 (defn downwards [hud seeker]
-  (update hud :lor #(bound-dec % (- (:fov hud)
-                                    (i/height seeker)))))                       ;; exclude 0 ;; try (- fov (h/height seeker))
+  (update hud :lor #(bound-dec % (- (:fov hud) (i/height seeker)))))
 
 (defn nowards [hud seeker]
   (let [fov (:fov hud)
@@ -69,15 +77,15 @@
   (let [{fov :fov
          lor :lor} hud
         amount (- (i/height hud) lor)
-        phud (update hud :lines #(->> % (drop+ amount) (take fov) (vec)))
-        pseeker (update seeker :lines #(-> (- fov (i/height %)) (take %) (vec)))] ;; (i/height phud) instead of :lor because :lor may be negative
+        phud (i/rebase hud #(->> % (drop+ amount) (take fov) (vec)))
+        pseeker (i/rebase seeker #(vec (take fov %)))]
     [phud pseeker]))
 
 (defn input-projection [hud seeker]
   (let [fov (:fov hud)
-        pseeker (update seeker :lines #(vtake-right fov %)) ;; this is 0, because of no input. That's why the cursor always get's displayed there
+        pseeker (i/rebase seeker #(vtake-right fov %))      ;; Cursor is always displayed over the caret because after evaluating, this is always empty
         phud (-> hud
-                 (update :lines #(vtake-right (- fov (i/height pseeker)) %))
+                 (i/rebase #(vtake-right (- fov (i/height pseeker)) %))
                  (i/end-y))]
     [phud pseeker]))
 
@@ -91,7 +99,7 @@
                   (map :lines)
                   (apply lines))]
     (-> hud
-        (update :lines #(into % data))
+        (i/rebase #(into % data))
         (i/move (fn [[x y]] [x (+ y (count data))])))))
 
 
