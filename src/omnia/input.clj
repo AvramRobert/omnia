@@ -17,12 +17,13 @@
 
 (defn seeker
   ([] (seeker []))
-  ([lines]
-   (-> empty-seeker
-       (assoc :lines lines)
-       (resize))))
+  ([lines] (-> empty-seeker (assoc :lines lines) (resize)))
+  ([lines height] (-> empty-seeker (assoc :lines lines) (assoc :height (delay height)))))
 
-(defn str->line [string]
+(defn join-lines [& lines]
+  (vec (apply concat lines)))
+
+(defn str->lines [string]
   (->> #"\n"
        (split string)
        (map #(vec (.toCharArray %)))
@@ -42,15 +43,14 @@
   @(:height seeker))
 
 (defn rebase [seeker f]
-  (-> seeker (update :lines f) (resize)))
+  (-> seeker (update :lines (comp vec f)) (resize)))
 
 (defn peer [seeker f]
   (let [[_ y] (:cursor seeker)]
     (rebase seeker #(->> (split-at y %)
                          (map vec)
                          (apply f)
-                         (map vec)
-                         (vec)))))
+                         (map vec)))))
 
 (defn slice [seeker f]
   (let [[x _] (:cursor seeker)]

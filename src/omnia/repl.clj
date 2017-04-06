@@ -24,17 +24,16 @@
 
 (defn response->lines [response]
   (cond
-    (out? response) (-> response (:out) (i/str->line))
-    (err? response) (-> response (:err) (i/str->line))
+    (out? response) (-> response (:out) (i/str->lines))
+    (err? response) (-> response (:err) (i/str->lines))
     (eff? response) [[\n \i \l]]
     (ex? response) []
-    :else (-> response (:value) (str) (i/str->line))))
+    :else (-> response (:value) (str) (i/str->lines))))
 
 (defn seekify-responses [responses]
   (->> responses
        (map response->lines)
-       (reduce concat)
-       (vec)
+       (apply i/join-lines)
        (i/seeker)))
 
 (defn evaluate!
