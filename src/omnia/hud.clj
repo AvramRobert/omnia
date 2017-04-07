@@ -72,8 +72,7 @@
 (defn scroll-projection [hud seeker]
   (let [{fov :fov
          lor :lor} hud
-        amount (- (i/height hud) lor)
-        phud (i/rebase hud #(->> % (drop+ amount) (take fov)))
+        phud (i/rebase hud #(->> % (take-right lor) (take fov)))
         pseeker (i/rebase seeker #(take fov %))]
     [phud pseeker]))
 
@@ -108,12 +107,53 @@
       (print! pseeker ox oy)
       (t/move-cursor (+ x ox) (+ y oy)))))
 
+(defn join [this-seeker that-seeker]
+  (let [[x y] (:cursor that-seeker)]
+    (-> this-seeker
+        (i/rebase #(concat % (:lines that-seeker)))
+        (i/move (fn [[_ oy]] [x (+ y oy)])))))
+
+(comment
+  "A mod would not work because when i go down, the page doesn't jump to the top and start again,
+  but rather it rolls and continues downwards.")
+
+(comment
+  "nowards should compute the proper value for this function to work.
+  The implementation of nowards should be very simple, but it keeps avoiding me.
+  Essentially, lor describes how much of the whole hud i've seen so far.
+  When resetting, it should be the `latest` amount. In most cases, this is the fov itself.
+  When scrolling, this will then be offset depending on how far i go upward or downward.
+  When typing however, the reset should kick in")
+(defn scroll-proj [hud]
+  (let [{lor :lor
+         fov :fov} hud]
+    (i/rebase hud #(->> % (take-right lor) (take fov)))))
+
+(defn project2 [hud]
+  (if (:scrolling hud)
+    (scroll-proj hud)
+    (i/rebase hud #(take-right (:fov hud) %))))
+
+(defn y [hud]
+  "proper y position: fov - (h/hud - c/y)"
+  (let [{fov   :fov
+         [_ y] :cursor} hud]
+    (if (> y fov) (- fov (- (i/height hud) y)) y)))
+
+(defn render2 [terminal hud]
+  (let [{fov :fov
+         [x _] :cursor} hud]
+    (doto terminal
+      (t/clear)
+      (print! (project2 hud))
+      (t/move-cursor x (y hud)))))
+
 (defn read-eval-print [terminal repl]
   (let [fov (-> terminal (.getTerminalSize) (.getRows))]
     (loop [hud (init-hud fov)
            nrepl repl
            seeker i/empty-seeker]
-      (render terminal seeker hud)
+      (render2 terminal (join hud seeker))
       (let [stroke (t/get-keystroke-blocking terminal)]
         (m/match [stroke]
                  [{:key :page-up}] (recur (-> hud (scroll) (upwards))
