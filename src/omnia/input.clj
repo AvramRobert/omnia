@@ -109,6 +109,15 @@
   ([seeker f]
    (-> seeker sym-at f)))
 
+(defn join [this-seeker that-seeker]
+  (let [[x y] (:cursor that-seeker)
+        ths (height this-seeker)
+        tht (height that-seeker)]
+    (-> this-seeker
+        (update :lines #(join-lines % (:lines that-seeker)))
+        (assoc :height (delay (+ ths tht)))
+        (move (fn [[_ oy]] [x (+ y oy)])))))
+
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
         h (-> seeker height dec)
@@ -240,7 +249,7 @@
            :else seeker))
 
 (defn stringify [seeker]
-  (->> seeker :lines (map #(apply str %)) (apply str)))
+  (->> seeker :lines (map #(apply str %)) (reduce #(str %1 "\n" %2))))
 
 (comment
   "cond-> or cond->> will facilitate the behaviour I want. It will just process some boolean config and apply the necessary

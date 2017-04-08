@@ -3,9 +3,6 @@
 (defn take-right [n coll]
   (if-let [x (take-last n coll)] x '()))
 
-(defn drop+ [n coll]
-  (if (neg? n) '() (drop n coll)))
-
 (defn bound-inc [value max]
   (let [x (inc value)]
     (if (>= x max) value x)))                               ;; >= because we count from 0

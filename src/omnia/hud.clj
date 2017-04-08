@@ -13,9 +13,12 @@
   Advice:
   1. Make seekers store their height. This would optimise some things. // done
   2. Make the projections and view clipping more explicit. Currently it does too much naive offsetting. // done
-  3. Perhaps make primitives and combinators.
-  4. Make more modular.
-  5. Configurise input from pattern-match.")
+  3. Refactor. // done
+  4. Make more modular. // done
+  5. Configurise input from pattern-match.
+  9. Add `jump-to` as a function that jumps to a line. ")
+
+(defrecord EvalCtx [terminal complete-hud persisted-hud repl seeker])
 
 (def ^:const empty-line [[]])
 (def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
@@ -28,6 +31,7 @@
   (let [seeker (->> prelude (apply i/join-lines) (i/seeker))]
     (-> seeker
         (i/end-y)
+        (assoc :scroll? false)
         (assoc :lor (i/height seeker))
         (assoc :fov fov))))
 
@@ -50,12 +54,6 @@
                         (t/put-character c))
                       next-state)) s0)))))
 
-(defn scroll [hud]
-  (assoc hud :scrolling true))
-
-(defn noscroll [hud]
-  (assoc hud :scrolling false))
-
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -65,81 +63,122 @@
         (i/rebase #(into % data))
         (i/end-y))))
 
-(defn join [this-seeker that-seeker]
-  (let [[x y] (:cursor that-seeker)]
-    (-> this-seeker
-        (i/rebase #(concat % (:lines that-seeker)))
-        (i/move (fn [[_ oy]] [x (+ y oy)])))))
+(defn nowards [height fov lor]
+  (if (> height fov) fov height))
 
-(defn nowards [hud]
-  (let [fov (:fov hud)
-        h (i/height hud)
-        lor (if (> h fov) fov h)]
-    (assoc hud :lor lor)))
+(defn upwards [height fov lor]
+  (bound-inc lor (inc height)))
 
-(defn upwards [hud limit]
-  (update hud :lor #(bound-inc % (inc limit))))
+(defn downwards [height fov lor]
+  (bound-dec lor (nowards height fov lor)))
 
-(defn downwards [hud limit]
-  (let [fov (:fov hud)
-        min (if (> limit fov) fov limit)]
-    (update hud :lor #(bound-dec % min))))
-
-(defn project [hud]
+(defn scroll [hud f]
   (let [{lor :lor
          fov :fov
-         scroll? :scrolling} hud]
+         h   :height} hud]
+    (-> hud
+        (assoc :scroll? true)
+        (assoc :lor (f @h fov lor)))))
+
+(defn noscroll [hud]
+  (-> hud
+      (scroll nowards)
+      (assoc :scroll? false)))
+
+(defn project [hud]
+  (let [{lor     :lor
+         fov     :fov
+         scroll? :scroll?} hud]
     (if scroll?
       (i/rebase hud #(->> % (take-right lor) (take fov)))
       (i/rebase hud #(take-right fov %)))))
 
-(defn y [hud]
-  "proper y position: fov - (h/hud - c/y)"
-  (let [{fov   :fov
-         [_ y] :cursor} hud]
-    (if (> y fov) (- fov (- (i/height hud) y)) y)))
-
-(defn render [terminal hud]
-  (let [{fov :fov
-         [x _] :cursor} hud]
+(defn render [hud terminal]
+  "y = fov - (h/hud - c/y) iff h/hud > fov"
+  (let [{[x cy] :cursor
+         fov    :fov
+         h      :height} hud
+        y (if (> @h fov) (+ (- fov @h) cy) cy)]
     (doto terminal
       (t/clear)
       (print! (project hud))
-      (t/move-cursor x (y hud)))))
+      (t/move-cursor x y))))
+
+(defn render-ctx [ctx]
+  (render (:complete-hud ctx)
+          (:terminal ctx)))
+
+(defn scroll-up [ctx]
+  (update ctx :complete-hud #(scroll % upwards)))
+
+(defn scroll-down [ctx]
+  (update ctx :complete-hud #(scroll % downwards)))
+
+(defn scroll-stop [ctx]
+  (-> ctx
+      (update :complete-hud noscroll)
+      (update :persisted-hud noscroll)))
+
+(defn roll-repl [ctx f]
+  (let [then-repl (-> ctx :repl f)
+        then-seeker (r/then then-repl)]
+    (assoc ctx
+      :complete-hud (-> ctx (:persisted-hud) (i/join then-seeker))
+      :repl then-repl
+      :seeker then-seeker)))
+
+(defn roll-back [ctx]
+  (roll-repl ctx r/travel-back))
+
+(defn roll-forward [ctx]
+  (roll-repl ctx r/travel-forward))
+
+(defn evaluate [ctx]
+  (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
+        persisted (-> ctx
+                      (:persisted-hud)
+                      (preserve (:seeker ctx)
+                                (r/result evaluation)
+                                (i/seeker caret)))]
+    (assoc ctx
+      :persisted-hud persisted
+      :complete-hud persisted
+      :repl evaluation
+      :seeker i/empty-seeker)))
+
+(defn capture [ctx stroke]
+  (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
+    (assoc ctx
+      :complete-hud (-> ctx (:persisted-hud) (i/join seeker))
+      :seeker seeker)))
+
+(defn exit [ctx]
+  (-> ctx
+      (update :complete-hud #(preserve % (i/seeker goodbye)))
+      (render-ctx))
+  (Thread/sleep 1200))
+
+(defn resize [ctx]
+  (let [{{fov :fov} :persisted-hud
+         terminal  :terminal} ctx
+        tsize (-> terminal (.getTerminalSize) (.getRows))]
+    (if (not= tsize fov)
+      (-> ctx
+          (assoc-in [:persisted-hud :fov] tsize)
+          (assoc-in [:complete-hud :fov] tsize))
+      ctx)))
 
 (defn read-eval-print [terminal repl]
-  (let [fov (-> terminal (.getTerminalSize) (.getRows))]
-    (loop [hud (init-hud fov)
-           nrepl repl
-           seeker i/empty-seeker]
-      (let [joined (join hud seeker)]
-        (render terminal joined)
-        (let [stroke (t/get-keystroke-blocking terminal)]
-          (m/match [stroke]
-                   [{:key :page-up}] (recur (-> hud (scroll) (upwards (i/height joined)))
-                                            nrepl
-                                            seeker)
-                   [{:key :page-down}] (recur (-> hud (scroll) (downwards (i/height joined)))
-                                              nrepl
-                                              seeker)
-                   [{:key \d :ctrl true}] (do
-                                            (render terminal (-> joined (preserve (i/seeker goodbye)) (noscroll) (nowards)))
-                                            (Thread/sleep 1200))
-
-                   [{:key :up :alt true}] (let [x (r/travel-back nrepl)]
-                                            (recur hud x (r/now x)))
-
-                   [{:key :down :alt true}] (let [x (r/travel-forward nrepl)]
-                                              (recur hud x (r/now x)))
-
-                   [{:key \e :alt true}] (let [evaled (r/evaluate nrepl seeker)]
-                                           (recur (-> hud
-                                                      (preserve seeker (r/result evaled) (i/seeker caret))
-                                                      (noscroll)
-                                                      (nowards))
-                                                  evaled
-                                                  i/empty-seeker))
-                   :else (recur (-> hud (noscroll) (nowards))
-                                nrepl
-                                (i/inputs seeker stroke))))))))
-
+  (let [start-hud (init-hud 0)
+        eval-ctx (EvalCtx. terminal start-hud start-hud repl i/empty-seeker)]
+    (loop [ctx (resize eval-ctx)]
+      (render-ctx ctx)
+      (let [stroke (t/get-keystroke-blocking terminal)]
+        (m/match [stroke]
+                 [{:key :page-up}] (-> ctx (resize) (scroll-up) (recur))
+                 [{:key :page-down}] (-> ctx (resize) (scroll-down) (recur))
+                 [{:key :up :alt true}] (-> ctx (resize) (roll-back) (scroll-stop) (recur))
+                 [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (scroll-stop) (recur))
+                 [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (recur))
+                 [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (exit))
+                 :else (-> ctx (resize) (capture stroke) (scroll-stop) (recur)))))))

@@ -36,7 +36,7 @@
        (apply i/join-lines)
        (i/seeker)))
 
-(defn evaluate!
+(defn- evaluate!
   ([conn seeker]
    (evaluate! conn seeker 10000))
   ([conn seeker timeout]
@@ -45,7 +45,7 @@
                        :code (i/stringify seeker)})
        (seekify-responses))))
 
-(defn n-repl [repl seeker]
+(defn- n-repl [repl seeker]
   (with-open [conn (nrepl/connect :port (:port repl)
                                   :host (:host repl))]
     (evaluate! conn seeker)))
@@ -64,7 +64,7 @@
 (defn travel-forward [repl]
   (update repl :timeline #(bound-inc % (:hsize repl))))
 
-(defn now [repl]
+(defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
 
 (defn reset-timeline [repl]
@@ -90,9 +90,9 @@
   ([host port]
    (m/match [host port]
             [nil nil] (repl)
-            [_   nil] (repl)
-            [nil   _] (repl "localhost" port :nrepl)
-            :else     (repl host port :nrepl)))
+            [_ nil] (repl)
+            [nil _] (repl "localhost" port :nrepl)
+            :else (repl host port :nrepl)))
   ([host port evaluator]
    (->REPL host port [i/empty-seeker] 1 0 i/empty-seeker evaluator)))
 
