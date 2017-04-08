@@ -8,15 +8,14 @@
            [clojure.core.match :as m]))
 
 (comment
-  "This is now working properly.
-  DO IT BETTER!
-  Advice:
-  1. Make seekers store their height. This would optimise some things. // done
-  2. Make the projections and view clipping more explicit. Currently it does too much naive offsetting. // done
-  3. Refactor. // done
-  4. Make more modular. // done
-  5. Configurise input from pattern-match.
-  9. Add `jump-to` as a function that jumps to a line. ")
+  ;; FIXME
+  " 1. Configurise input from pattern-match.
+    2. Add `jump-to` as a function that jumps to a line.
+    3. Add copy-paste functionality.
+    4. Add highlighting functionality.
+    5. Add separate command input.
+    6. Add i-search and reverse i-search as command.
+    7. Add matching parens highlighting.")
 
 (defrecord EvalCtx [terminal complete-hud persisted-hud repl seeker])
 

@@ -3,6 +3,10 @@
 
 ;; I currently can't highlight 'true' and 'false' because that requires context-sensitivity and rollbacks
 ;; Keep it like this for now and perhaps change it in some other version
+(comment
+  ;; FIXME
+  " 1. Configurise colour mappings.
+    2. Rewrite as a regex matcher. ")
 
 (def ^:const stx :syntax)
 (def ^:const stx* :syntax*)

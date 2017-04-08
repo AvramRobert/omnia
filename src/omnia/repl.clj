@@ -6,6 +6,12 @@
            [clojure.core.match :as m]
            [clojure.string :refer [split]]))
 
+(comment
+  ;; FIXME
+  " 1. Add nrepl server start and stop.
+    2. Add preloading of functions or dependencies.
+    3. Refactor repl initiation.
+    4. Add repl session loading.")
 
 (defrecord REPL [host port history hsize timeline result evaluator])
 
