@@ -8,27 +8,27 @@
 
 (comment
   ;; FIXME
-  " 1. Add nrepl server start and stop.
-    2. Add preloading of functions or dependencies.
-    3. Refactor repl initiation.
+  " 1. Add nrepl server start and stop. // done
+    2. Refactor repl initiation // done
+    3. Add preloading of functions or dependencies.
     4. Add repl session loading.")
 
-(defrecord REPL [host port history hsize timeline result evaluator])
+(defrecord REPL [eval-f stop-f history hsize timeline result])
 
-(defn out? [response]
+(defn- out? [response]
   (contains? response :out))
 
-(defn err? [response]
+(defn- err? [response]
   (contains? response :err))
 
-(defn ex? [response]
+(defn- ex? [response]
   (contains? response :ex))
 
-(defn eff? [response]
+(defn- eff? [response]
   (and (contains? response :value)
        (nil? (:value response))))
 
-(defn response->lines [response]
+(defn- response->lines [response]
   (cond
     (out? response) (-> response (:out) (i/str->lines))
     (err? response) (-> response (:err) (i/str->lines))
@@ -36,33 +36,32 @@
     (ex? response) []
     :else (-> response (:value) (str) (i/str->lines))))
 
-(defn seekify-responses [responses]
+(defn- seekify-responses [responses]
   (->> responses
        (map response->lines)
        (apply i/join-lines)
        (i/seeker)))
 
-(defn- evaluate!
-  ([conn seeker]
-   (evaluate! conn seeker 10000))
-  ([conn seeker timeout]
-   (-> (nrepl/client conn timeout)
-       (nrepl/message {:op   :eval
-                       :code (i/stringify seeker)})
-       (seekify-responses))))
+(defn- connect [host port timeout]
+  (fn [seeker]
+    (with-open [conn (nrepl/connect :host host :port port)]
+      (-> (nrepl/client conn timeout)
+          (nrepl/message {:op   :eval
+                          :code (i/stringify seeker)})
+          (seekify-responses)))))
 
-(defn- n-repl [repl seeker]
-  (with-open [conn (nrepl/connect :port (:port repl)
-                                  :host (:host repl))]
-    (evaluate! conn seeker)))
-
-(defn cache-result [repl result]
+(defn- cache-result [repl result]
   (update repl :result (fn [_] result)))
 
-(defn store [repl seeker]
-  (-> repl
-      (update :history #(conj % seeker))
-      (update :hsize inc)))
+(defn- remember [repl seeker]
+  (if (i/is-empty? seeker)
+    repl
+    (-> repl
+        (update :history #(conj % seeker))
+        (update :hsize inc))))
+
+(defn- reset-timeline [repl]
+  (update repl :timeline (fn [_] (:hsize repl))))
 
 (defn travel-back [repl]
   (update repl :timeline #(bound-dec % 0)))
@@ -73,32 +72,32 @@
 (defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
 
-(defn reset-timeline [repl]
-  (update repl :timeline (fn [_] (:hsize repl))))
-
 (defn result [repl]
   (:result repl))
 
-(defn evaluate-with [repl seeker f]
-  (-> repl
-      (store seeker)
-      (cache-result (f repl seeker))
-      (reset-timeline)))
-
 (defn evaluate [repl seeker]
-  (case (:evaluator repl)
-    :nrepl (evaluate-with repl seeker n-repl)
-    :identity (evaluate-with repl seeker (fn [_ x] x))))
+  (let [f (:eval-f repl)]
+    (-> repl
+        (remember seeker)
+        (cache-result (f seeker))
+        (reset-timeline))))
 
-(defn repl                                                  ;; I don't really like this
-  ([]
-   (repl nil nil :identity))
-  ([host port]
-   (m/match [host port]
-            [nil nil] (repl)
-            [_ nil] (repl)
-            [nil _] (repl "localhost" port :nrepl)
-            :else (repl host port :nrepl)))
-  ([host port evaluator]
-   (->REPL host port [i/empty-seeker] 1 0 i/empty-seeker evaluator)))
+(defn stop [repl] ((:stop-f repl)))
+
+(defn- repl-with [eval-f stop-f]
+  (REPL. eval-f stop-f [i/empty-seeker] 1 0 i/empty-seeker))
+
+(defn repl [{:as   params
+             :keys [kind port host timeout]
+             :or   {kind    :local
+                    timeout 10000
+                    port    11111
+                    host    "localhost"}}]
+  (assert (map? params) "Input to `repl` must be a map.")
+  (case kind
+    :identity (repl-with identity (fn [] nil))
+    :remote (repl-with (connect host port timeout) (fn [] nil))
+    :local (let [server (s/start-server :port port)]
+             (repl-with (connect "localhost" port timeout)
+                        (fn [] (s/stop-server server) nil)))))
 

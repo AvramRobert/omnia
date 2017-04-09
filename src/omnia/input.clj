@@ -220,6 +220,12 @@
        (pair? seeker rules) (-> seeker (pair-delete) (regress))
        :else (auto-delete x rules)))))
 
+(defn stringify [seeker]
+  (->> seeker :lines (map #(apply str %)) (reduce #(str %1 "\n" %2))))
+
+(defn is-empty? [seeker]
+  (= (:lines seeker) (:lines empty-seeker)))
+
 ;; It looks right or left and applies the function as long as there is valid input, regardless of it being empty or not
 ;; It should be a valid line
 
@@ -247,10 +253,3 @@
            [{:key :enter}] (break seeker)
            [_ :guard char-key?] (auto-insert seeker (:key stroke))
            :else seeker))
-
-(defn stringify [seeker]
-  (->> seeker :lines (map #(apply str %)) (reduce #(str %1 "\n" %2))))
-
-(comment
-  "cond-> or cond->> will facilitate the behaviour I want. It will just process some boolean config and apply the necessary
-functions associated with each appropriate config.")
