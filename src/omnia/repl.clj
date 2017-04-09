@@ -54,11 +54,13 @@
   (update repl :result (fn [_] result)))
 
 (defn- remember [repl seeker]
-  (if (i/is-empty? seeker)
-    repl
-    (-> repl
-        (update :history #(conj % seeker))
-        (update :hsize inc))))
+  (let [lines (:lines seeker)]
+    (if (or (i/is-empty? seeker)
+            (-> lines first empty?))
+      repl
+      (-> repl
+          (update :history #(conj % seeker))
+          (update :hsize inc)))))
 
 (defn- reset-timeline [repl]
   (update repl :timeline (fn [_] (:hsize repl))))

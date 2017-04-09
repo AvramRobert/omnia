@@ -1,7 +1,8 @@
 (ns omnia.input
   (:gen-class)
   (require [clojure.core.match :as m]
-           [clojure.string :refer [split]]))
+           [clojure.string :refer [split]]
+           [omnia.more :refer [make-str]]))
 
 (defrecord Seeker [lines cursor height])
 
@@ -221,7 +222,8 @@
        :else (auto-delete x rules)))))
 
 (defn stringify [seeker]
-  (->> seeker :lines (map #(apply str %)) (reduce #(str %1 "\n" %2))))
+  (letfn [(to-str [coll] (make-str coll "\n"))]
+    (->> seeker :lines (map #(apply str %)) (to-str))))
 
 (defn is-empty? [seeker]
   (= (:lines seeker) (:lines empty-seeker)))
