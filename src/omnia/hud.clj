@@ -97,7 +97,7 @@
 
 
 (defn render [hud terminal]
-  "y = fov - (h/hud - c/y) iff h/hud > fov"
+  "y calculation is based on the limit logic"
   (let [{[x cy] :cursor
          fov    :fov
          ov     :ov
@@ -120,8 +120,7 @@
 
     h - ov => line where the current view of the fov ends
 
-    h - ov - fov = line form which the current view of the fov starts
-  ")
+    h - ov - fov = line form which the current view of the fov starts")
 
 (defn upper-limit? [ctx]
   (let [{{fov :fov
@@ -200,6 +199,8 @@
 (defn exit [ctx]
   (-> ctx
       (update :complete-hud #(preserve % (i/seeker goodbye)))
+      (assoc-in [:persisted-hud :ov] 0)
+      (assoc-in [:complete-hud :ov] 0)
       (render-ctx))
   (Thread/sleep 1200))
 
