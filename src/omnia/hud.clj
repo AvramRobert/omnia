@@ -32,7 +32,8 @@
         (i/end-y)
         (assoc :scroll? false)
         (assoc :lor (i/height seeker))
-        (assoc :fov fov))))
+        (assoc :fov fov)
+        (assoc :ov 0))))
 
 (defn init-hud [fov]
   (hud fov greeting empty-line caret))
@@ -62,22 +63,23 @@
         (i/rebase #(into % data))
         (i/end-y))))
 
-(defn nowards [height fov lor]
-  (if (> height fov) fov height))
+(defn nowards [height fov _ ov]
+  (if (> height fov) (+ fov ov) height))
 
-(defn upwards [height fov lor]
+(defn upwards [height _ lor _]
   (bound-inc lor (inc height)))
 
-(defn downwards [height fov lor]
-  (bound-dec lor (nowards height fov lor)))
+(defn downwards [height fov lor ov]
+  (bound-dec lor (nowards height fov lor ov)))
 
 (defn scroll [hud f]
   (let [{lor :lor
          fov :fov
+         ov  :ov
          h   :height} hud]
     (-> hud
         (assoc :scroll? true)
-        (assoc :lor (f @h fov lor)))))
+        (assoc :lor (f @h fov lor ov)))))
 
 (defn noscroll [hud]
   (-> hud
@@ -87,17 +89,20 @@
 (defn project [hud]
   (let [{lor     :lor
          fov     :fov
+         ov      :ov
          scroll? :scroll?} hud]
     (if scroll?
       (i/rebase hud #(->> % (take-right lor) (take fov)))
-      (i/rebase hud #(take-right fov %)))))
+      (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
+
 
 (defn render [hud terminal]
   "y = fov - (h/hud - c/y) iff h/hud > fov"
   (let [{[x cy] :cursor
          fov    :fov
+         ov     :ov
          h      :height} hud
-        y (if (> @h fov) (+ (- fov @h) cy) cy)]
+        y (if (> @h fov) (- cy (- @h fov ov)) cy)]
     (doto terminal
       (t/clear)
       (print! (project hud))
@@ -106,6 +111,47 @@
 (defn render-ctx [ctx]
   (render (:complete-hud ctx)
           (:terminal ctx)))
+
+(comment
+  " Limit logic:
+    ov = how many lines were offset in the upward direction
+    ov = 0 means that the latest fov lines of the seeker are displayed
+    fov + ov = how much the whole page was moved upwards
+
+    h - ov => line where the current view of the fov ends
+
+    h - ov - fov = line form which the current view of the fov starts
+  ")
+
+(defn upper-limit? [ctx]
+  (let [{{fov :fov
+          ov  :ov} :complete-hud
+         seeker    :seeker} ctx
+        h (i/height seeker)
+        [_ y] (:cursor seeker)]
+    (neg? (+ (- (+ fov ov) h) (bound-dec y 0)))))
+
+(defn lower-limit? [ctx]
+  (let [{{fov :fov
+          ov  :ov} :complete-hud
+         seeker    :seeker} ctx
+        h (i/height seeker)
+        [_ y] (:cursor seeker)]
+    (>= (bound-inc y h) (- h ov))))
+
+(defn implicit-up [ctx]
+  (if (upper-limit? ctx)
+    (-> ctx
+        (update-in [:complete-hud :ov] inc)
+        (update-in [:persisted-hud :ov] inc))
+    ctx))
+
+(defn implicit-down [ctx]
+  (if (lower-limit? ctx)
+    (-> ctx
+        (update-in [:complete-hud :ov] dec)
+        (update-in [:persisted-hud :ov] dec))
+    ctx))
 
 (defn scroll-up [ctx]
   (update ctx :complete-hud #(scroll % upwards)))
@@ -180,4 +226,7 @@
                  [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (scroll-stop) (recur))
                  [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (recur))
                  [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (exit))
+                 [{:key :up}] (-> ctx (resize) (implicit-up) (capture stroke) (scroll-stop) (recur))
+                 [{:key :down}] (-> ctx (resize) (implicit-down) (capture stroke) (scroll-stop) (recur))
+                 [{:key \r :ctrl true}] (-> ctx (resize) (scroll-stop) (recur))
                  :else (-> ctx (resize) (capture stroke) (scroll-stop) (recur)))))))
