@@ -9,13 +9,12 @@
 
 (comment
   ;; FIXME
-  " 1. Configurise input from pattern-match.
-    2. Add `jump-to` as a function that jumps to a line.
-    3. Add copy-paste functionality.
-    4. Add highlighting functionality.
-    5. Add separate command input.
-    6. Add i-search and reverse i-search as command.
-    7. Add matching parens highlighting.")
+  " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
+    2. Add `jump-to` as a function that jumps to a line. // done
+    3. Add highlighting functionality.
+    4. Add separate command input.
+    5. Add i-search and reverse i-search as command.
+    6. Add matching parens highlighting.")
 
 (defrecord EvalCtx [terminal complete-hud persisted-hud repl seeker])
 
@@ -27,6 +26,18 @@
                        (i/str->lines "For even the very wise cannot see all ends.")))
 
 (defn hud [fov & prelude]
+  "lor = line of reference
+     indicates the amount of lines that have been viewed so far
+     when going through the history. (seeker + hud)
+   fov = field of view
+     indicates the amount of lines that can be viewed at one time
+     in the terminal screen
+   ov  = overview
+     indicates the amount of lines that have been viewed so far
+     when going back just through the input seeker itself. (seeker)
+     Conceptually it is the same as the `lor`, but only on input seeker level.
+   scroll? = scrolling flag
+     indicates if there should be scrolled currently"
   (let [seeker (->> prelude (apply i/join-lines) (i/seeker))]
     (-> seeker
         (i/end-y)
@@ -108,6 +119,9 @@
       (print! (project hud))
       (t/move-cursor x y))))
 
+(defn jump [hud line]
+  (assoc hud :lor (-> hud (i/height) (- line))))
+
 (defn render-ctx [ctx]
   (render (:complete-hud ctx)
           (:terminal ctx)))
@@ -116,11 +130,12 @@
   " Limit logic:
     ov = how many lines were offset in the upward direction
     ov = 0 means that the latest fov lines of the seeker are displayed
-    fov + ov = how much the whole page was moved upwards
+    fov + ov = how much we've gone upward and currently see/have seen
 
     h - ov => line where the current view of the fov ends
 
-    h - ov - fov = line form which the current view of the fov starts")
+    (*) h - ov - fov = line form which the current view of the fov starts,
+    given that h > fov")
 
 (defn upper-limit? [ctx]
   (let [{{fov :fov

@@ -80,6 +80,7 @@
     (->syntax? c) [stx (emit std)]
     (->keyword? c) [kwd (emit kwd)]
     (->number? c) [nr (emit nr)]
+    (->char? c) [chr (emit chr)]
     (->string? c) [stg (emit stg)]
     (->standard? c) [std (emit std)]
     :else [stx* (emit stx)]))
