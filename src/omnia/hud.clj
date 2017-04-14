@@ -9,6 +9,18 @@
 
 (comment
   ;; FIXME
+    "I encountered a problem with the lower bound displacement.
+     If I have a exceed the view limit and go up by means of regressing (the same for advancing),
+     then the seeker cursor will jump to the next line, but the view will not.
+     This i currently have not considered in the view roll.
+     Practically, the view roll should theoretically be totally dependent on where the seeker cursor
+     currently is. Theoretically I should not need to explicitly look for things like `up` or `down`.
+     Depending on where the seeker cursor is => move the view.
+
+     Implicit up and down should always be called when i input something. In theory, they should only
+     influence the view when they actually need to.
+     "
+
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
     3. Add highlighting functionality.

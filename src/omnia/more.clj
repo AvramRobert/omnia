@@ -11,11 +11,3 @@
   (let [x (dec value)]
     (if (< x min) value x)))
 
-(defn make-str [coll sep]
-  (let [c (count coll)
-        max (if (zero? c) 0 (+ c (dec c)))]
-    (->> coll
-        (reduce #(str %1 %2 sep) "")
-        (drop-last)
-        (apply str))))
-
