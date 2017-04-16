@@ -23,11 +23,25 @@
 (defn join-lines [& lines]
   (vec (apply concat lines)))
 
+#_(defn str->lines [string]
+    (->> string
+         (s/split-lines)
+         (map #(vec (.toCharArray %)))
+         (vec)))
+
 (defn str->lines [string]
-  (->> #"\n"
-       (s/split string)
-       (map #(vec (.toCharArray %)))
-       (vec)))
+  (letfn [(char-vec [xs] (vec (.toCharArray xs)))
+          (newlines [xs] (if (empty? xs)
+                           (->> string
+                                (char-vec)
+                                (map (fn [_] []))
+                                (vec))
+                           xs))]
+    (->> string
+         (s/split-lines)
+         (map char-vec)
+         (newlines)
+         (vec))))
 
 (defn line
   ([seeker]
@@ -221,8 +235,11 @@
        :else (auto-delete x rules)))))
 
 (defn stringify [seeker]
-  (letfn [(to-str [coll] (s/join "\n" coll))]
-    (->> seeker :lines (map #(apply str %)) (to-str))))
+  (->> (repeat "\n")
+       (take (height seeker))
+       (interleave (:lines seeker))
+       (map #(apply str %))
+       (s/join)))
 
 (defn is-empty? [seeker]
   (= (:lines seeker) (:lines empty-seeker)))
@@ -240,6 +257,13 @@
 
 (defn char-key? [stroke]
   (char? (:key stroke)))
+
+(defn print-seeker [seeker]
+  (->> seeker
+       (:lines)
+       (map #(apply str %))
+       (map println)
+       (doall)))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]

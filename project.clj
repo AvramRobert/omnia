@@ -9,7 +9,8 @@
                  [fipp "0.6.8"]
                  [org.clojure/tools.nrepl "0.2.12"]
                  [halfling "0.1.1-SNAPSHOT"]
-                 [org.jline/jline "3.2.0"]]
+                 [org.jline/jline "3.2.0"]
+                 [instaparse "1.4.5"]]
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

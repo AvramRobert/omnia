@@ -5,7 +5,8 @@
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
            [omnia.input :as i]
-           [clojure.core.match :as m]))
+           [clojure.core.match :as m]
+           [omnia.formatting :as f]))
 
 (comment
   ;; FIXME
@@ -220,7 +221,7 @@
 (defn capture [ctx stroke]
   (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
     (assoc ctx
-      :complete-hud (-> ctx (:persisted-hud) (i/join seeker))
+      :complete-hud (-> ctx (:persisted-hud) (i/join (f/format-seeker seeker)))
       :seeker seeker)))
 
 (defn exit [ctx]
