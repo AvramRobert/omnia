@@ -6,7 +6,7 @@
 (comment
   ;; FIXME
   " 1. Configurise colour mappings.
-    2. Rewrite as a regex matcher. ")
+    2. Define a grammar that can be parsed into a tag-based structure (similar to fipp). ")
 
 (def ^:const stx :syntax)
 (def ^:const stx* :syntax*)

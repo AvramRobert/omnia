@@ -11,10 +11,11 @@
 (comment
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
-    3. Add highlighting functionality.
-    4. Add separate command input.
-    5. Add i-search and reverse i-search as command.
-    6. Add matching parens highlighting.")
+    3. fipp-pretty printed collection outputs
+    4. Add highlighting functionality.
+    5. Add separate command input.
+    6. Add i-search and reverse i-search as command.
+    7. Add matching parens highlighting.")
 
 (defrecord EvalCtx [terminal complete-hud persisted-hud repl seeker])
 
@@ -165,10 +166,10 @@
 (defn evaluate [ctx]
   (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
         persisted (-> ctx
-                      (:persisted-hud)
-                      (preserve (:seeker ctx)
-                                (r/result evaluation)
-                                (i/seeker caret)))]
+                      (:complete-hud)
+                      (preserve (r/result evaluation)
+                                (i/seeker caret))
+                      (i/move-x (fn [_] 0)))]
     (assoc ctx
       :persisted-hud persisted
       :complete-hud persisted
