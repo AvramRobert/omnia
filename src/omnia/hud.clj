@@ -10,17 +10,17 @@
 
 (comment
   ;; FIXME
-    "I encountered a problem with the lower bound displacement.
-     If I have a exceed the view limit and go up by means of regressing (the same for advancing),
-     then the seeker cursor will jump to the next line, but the view will not.
-     This i currently have not considered in the view roll.
-     Practically, the view roll should theoretically be totally dependent on where the seeker cursor
-     currently is. Theoretically I should not need to explicitly look for things like `up` or `down`.
-     Depending on where the seeker cursor is => move the view.
+  "I encountered a problem with the lower bound displacement.
+   If I have a exceed the view limit and go up by means of regressing (the same for advancing),
+   then the seeker cursor will jump to the next line, but the view will not.
+   This i currently have not considered in the view roll.
+   Practically, the view roll should theoretically be totally dependent on where the seeker cursor
+   currently is. Theoretically I should not need to explicitly look for things like `up` or `down`.
+   Depending on where the seeker cursor is => move the view.
 
-     Implicit up and down should always be called when i input something. In theory, they should only
-     influence the view when they actually need to.
-     "
+   Implicit up and down should always be called when i input something. In theory, they should only
+   influence the view when they actually need to.
+   "
 
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
@@ -164,7 +164,8 @@
          seeker    :seeker} ctx
         h (i/height seeker)
         [_ y] (:cursor seeker)]
-    (>= (bound-inc y h) (- h ov))))
+    (and (> h 0)
+         (>= (bound-inc y h) (- h ov)))))
 
 (defn implicit-up [ctx]
   (if (upper-limit? ctx)
@@ -221,7 +222,7 @@
 (defn capture [ctx stroke]
   (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
     (assoc ctx
-      :complete-hud (-> ctx (:persisted-hud) (i/join (f/format-seeker seeker)))
+      :complete-hud (-> ctx (:persisted-hud) (i/join seeker))
       :seeker seeker)))
 
 (defn exit [ctx]
@@ -234,13 +235,18 @@
 
 (defn resize [ctx]
   (let [{{fov :fov} :persisted-hud
-         terminal  :terminal} ctx
+         terminal   :terminal} ctx
         tsize (-> terminal (.getTerminalSize) (.getRows))]
     (if (not= tsize fov)
       (-> ctx
           (assoc-in [:persisted-hud :fov] tsize)
           (assoc-in [:complete-hud :fov] tsize))
       ctx)))
+
+(defn formatting [ctx]
+  (let [formatted (-> ctx :seeker (f/format-seeker))]
+    (assoc ctx
+      :complete-hud (-> ctx (:persisted-hud) (i/join formatted)))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
@@ -255,7 +261,5 @@
                  [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (scroll-stop) (recur))
                  [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (recur))
                  [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (exit))
-                 [{:key :up}] (-> ctx (resize) (implicit-up) (capture stroke) (scroll-stop) (recur))
-                 [{:key :down}] (-> ctx (resize) (implicit-down) (capture stroke) (scroll-stop) (recur))
                  [{:key \r :ctrl true}] (-> ctx (resize) (scroll-stop) (recur))
-                 :else (-> ctx (resize) (capture stroke) (scroll-stop) (recur)))))))
+                 :else (-> ctx (resize) (implicit-up) (implicit-down) (capture stroke) (scroll-stop) (recur)))))))
