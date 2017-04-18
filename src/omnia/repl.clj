@@ -92,7 +92,7 @@
 (defn repl [{:as   params
              :keys [kind port host timeout]
              :or   {kind    :local
-                    timeout 10000
+                    timeout 10000                           ;; fixme: kill infinte processes and return warning
                     port    11111
                     host    "localhost"}}]
   (assert (map? params) "Input to `repl` must be a map.")

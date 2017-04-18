@@ -9,6 +9,19 @@
            [omnia.formatting :as f]))
 
 (comment
+  ;; FIXME: Performace is going to be a problem
+  "The amount of vector traversals that I do is fairly large.
+   Look into optimising that. But only after you have the functionalities you want.
+   I've noticed that just simply memoising the seeker when printing improves the performance.
+   This especially targets things like cursor movement, where the seeker itself does not change,
+   so we essentially don't need to reprint things to the terminal.
+
+   It apparently occurs when an output is very wide.
+   Yup. Output should not become too wide, otherwise it apparently takes too long to print it.
+   Perhaps introduce a text width limit?
+   ")
+
+(comment
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
     3. fipp-pretty printed collection outputs
@@ -50,6 +63,7 @@
 (defn init-hud [fov]
   (hud fov greeting empty-line caret))
 
+
 (defn print!
   ([terminal seeker] (print! terminal seeker 0 0))
   ([terminal seeker ox oy]
@@ -65,7 +79,6 @@
                         (t/move-cursor x y)
                         (t/put-character c))
                       next-state)) s0)))))
-
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -117,7 +130,7 @@
         y (if (> @h fov) (- cy (- @h fov ov)) cy)]
     (doto terminal
       (t/clear)
-      (print! (project hud))
+      (print! (project hud) 0 0)
       (t/move-cursor x y))))
 
 (defn jump [hud line]
