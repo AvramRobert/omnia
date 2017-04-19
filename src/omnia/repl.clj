@@ -4,13 +4,14 @@
            [clojure.tools.nrepl :as nrepl]
            [omnia.input :as i]
            [clojure.core.match :as m]
-           [clojure.string :refer [split]]))
+           [clojure.string :refer [split]]
+           [omnia.formatting :as f]))
 
 (comment
   ;; FIXME
   " 1. Add nrepl server start and stop. // done
     2. Refactor repl initiation // done
-    3. Add preloading of functions or dependencies.
+    3. Add preloading of functions and dependencies.
     4. Add repl session loading.")
 
 (defrecord REPL [eval-f stop-f history hsize timeline result])
@@ -30,11 +31,11 @@
 
 (defn- response->lines [response]
   (cond
-    (out? response) (-> response (:out) (i/str->lines))
+    (out? response) (-> response (:out) (f/fmt-edn) (i/str->lines))
     (err? response) (-> response (:err) (i/str->lines))
     (eff? response) [[\n \i \l]]
     (ex? response) []
-    :else (-> response (:value) (str) (i/str->lines))))
+    :else (-> response (:value) (str) (f/fmt-edn) (i/str->lines))))
 
 (defn- seekify-responses [responses]
   (->> responses
@@ -92,7 +93,7 @@
 (defn repl [{:as   params
              :keys [kind port host timeout]
              :or   {kind    :local
-                    timeout 10000                           ;; fixme: kill infinte processes and return warning
+                    timeout 5000                           ;; fixme: kill infinte processes and return warning
                     port    11111
                     host    "localhost"}}]
   (assert (map? params) "Input to `repl` must be a map.")

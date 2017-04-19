@@ -3,6 +3,8 @@
   (require
     [omnia.input :as i]
     [fipp.engine :as e]
+    [fipp.edn :as edn]
+    [fipp.visit :refer [visit]]
     [clojure.core.match :as m]
     [clojure.string :as s]
     [instaparse.core :as p]))
@@ -49,12 +51,24 @@
               line  = '\n'
               <text>  = #'[^()\\[\\]\\{\\}\\n]*'"))
 
+;; FIXME: write small library similar to `Try` in order to better compose these attempt formattings
+
 (defn normalise [orig formatted]
   (let [seeker (assoc formatted :cursor (:cursor orig))
         spaces (fn [s] (->> (i/line s)
                             (take-while #(= % \space))
                             (count)))]
     (i/move-x seeker #(-> % (+ (spaces seeker)) (- (spaces orig))))))
+
+(defn edn-document
+  ([x] (edn-document x {}))
+  ([x options]
+   (let [defaults {:symbols      {}
+                   :print-length *print-length*
+                   :print-level  *print-level*
+                   :print-meta   *print-meta*}
+         printer (edn/map->EdnPrinter (merge defaults options))]
+     (visit printer x))))
 
 (defn educe [document]
   (->> document
@@ -64,16 +78,45 @@
          (e/annotate-begins {:width 10})
          (e/format-nodes {:width 10}))))
 
-(defn format-seeker [seeker]
+(defn fmt-lisp [sexprs]
+  (->> sexprs (parse) (educe) (apply str)))
+
+
+(defn edn? [string]
+  (let [trimmed (s/trim string)
+        starts-with? (fn [pattern] (s/starts-with? trimmed pattern))]
+    (or (starts-with? "(")
+        (starts-with? "[")
+        (starts-with? "{")
+        (starts-with? "#{"))))
+
+(defn fmt-edn [edn-str]
+  (try
+    (if (edn? edn-str)
+      (->> edn-str
+           (read-string)
+           (edn-document)
+           (educe)
+           (apply str))
+      (fmt-lisp edn-str))
+    (catch Exception _ (fmt-lisp edn-str))))
+
+(defn lisp-format [seeker]
   (try (->> seeker
             (i/stringify)
-            (parse)
-            (educe)
-            (apply str)                        ;; i think this step can be omitted
+            (fmt-lisp)                                      ;; i think this step can be omitted
             (i/str->lines)
             (i/seeker)
             (normalise seeker))
        (catch Exception _ seeker)))
 
-
-
+(defn edn-format [seeker]
+  (try (->> seeker
+            (i/stringify)
+            (read-string)
+            (edn-document)
+            (educe)
+            (apply str)
+            (i/str->lines)
+            (i/seeker))
+       (catch Exception _ seeker)))

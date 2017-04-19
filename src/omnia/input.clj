@@ -3,6 +3,11 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]))
 
+(comment
+  "Enhancements:
+      1. Add line width limit and truncation.
+      2. Try out transients to improve performance.")
+
 (defrecord Seeker [lines cursor height])
 
 (def empty-seeker (Seeker. [] [0 0] (delay 0)))
@@ -22,12 +27,6 @@
 
 (defn join-lines [& lines]
   (vec (apply concat lines)))
-
-#_(defn str->lines [string]
-    (->> string
-         (s/split-lines)
-         (map #(vec (.toCharArray %)))
-         (vec)))
 
 (defn str->lines [string]
   (letfn [(char-vec [xs] (vec (.toCharArray xs)))

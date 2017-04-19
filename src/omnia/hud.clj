@@ -9,26 +9,27 @@
            [omnia.formatting :as f]))
 
 (comment
-  ;; FIXME: Performace is going to be a problem
-  "The amount of vector traversals that I do is fairly large.
-   Look into optimising that. But only after you have the functionalities you want.
-   I've noticed that just simply memoising the seeker when printing improves the performance.
-   This especially targets things like cursor movement, where the seeker itself does not change,
-   so we essentially don't need to reprint things to the terminal.
+  ;; FIXME: Performance difficulties when lines get extremely wide. => impose width limit
+  ;; FIXME: Errors seem to also be too large for a single line, might need to truncate them also
 
-   It apparently occurs when an output is very wide.
-   Yup. Output should not become too wide, otherwise it apparently takes too long to print it.
-   Perhaps introduce a text width limit?
-   ")
-
-(comment
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
-    3. fipp-pretty printed collection outputs
+    3. fipp-pretty printed collection outputs // done
     4. Add highlighting functionality.
     5. Add separate command input.
     6. Add i-search and reverse i-search as command.
     7. Add matching parens highlighting.")
+
+(comment
+  " Limit logic:
+    ov = how many lines were offset in the upward direction
+    ov = 0 means that the latest fov lines of the seeker are displayed
+    fov + ov = how much we've gone upward and currently see/have seen
+
+    h - ov => line where the current view of the fov ends
+
+    (*) h - ov - fov = line form which the current view of the fov starts,
+    given that h > fov")
 
 (defrecord EvalCtx [terminal complete-hud persisted-hud repl seeker])
 
@@ -140,17 +141,6 @@
   (render (:complete-hud ctx)
           (:terminal ctx)))
 
-(comment
-  " Limit logic:
-    ov = how many lines were offset in the upward direction
-    ov = 0 means that the latest fov lines of the seeker are displayed
-    fov + ov = how much we've gone upward and currently see/have seen
-
-    h - ov => line where the current view of the fov ends
-
-    (*) h - ov - fov = line form which the current view of the fov starts,
-    given that h > fov")
-
 (defn scroll-up [ctx]
   (update ctx :complete-hud #(scroll % upwards)))
 
@@ -214,7 +204,7 @@
       ctx)))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx :seeker (f/format-seeker))]
+  (let [formatted (-> ctx :seeker (f/lisp-format))]
     (assoc ctx
       :complete-hud (-> ctx (:persisted-hud) (i/join formatted)))))
 
