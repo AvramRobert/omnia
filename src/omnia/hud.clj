@@ -9,9 +9,6 @@
            [omnia.formatting :as f]))
 
 (comment
-  ;; FIXME: Performance difficulties when lines get extremely wide. => impose width limit
-  ;; FIXME: Errors seem to also be too large for a single line, might need to truncate them also
-
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
     3. fipp-pretty printed collection outputs // done
@@ -31,7 +28,7 @@
     (*) h - ov - fov = line form which the current view of the fov starts,
     given that h > fov")
 
-(defrecord EvalCtx [terminal complete-hud persisted-hud repl seeker])
+(defrecord EvalCtx [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
 (def ^:const empty-line [[]])
 (def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
@@ -64,22 +61,27 @@
 (defn init-hud [fov]
   (hud fov greeting empty-line caret))
 
+(defn print! [terminal seeker]
+  (reduce-idx
+    (fn [y _ line]
+      (reduce-idx
+        (fn [x state c]
+          (let [[next-state colour] (process state c)]
+            (doto terminal
+              (t/set-fg-color colour)
+              (t/put-character c x y))
+            next-state)) s0 line)) nil (:lines seeker)))
 
-(defn print!
-  ([terminal seeker] (print! terminal seeker 0 0))
-  ([terminal seeker ox oy]
-   (doseq [[-y line] (->> seeker :lines (map-indexed vector))
-           :let [y (+ -y oy)]]
-     (->> line
-          (map-indexed vector)
-          (reduce (fn [state [-x c]]
-                    (let [[next-state colour] (process state c)
-                          x (+ -x ox)]
-                      (doto terminal
-                        (t/set-fg-color colour)
-                        (t/move-cursor x y)
-                        (t/put-character c))
-                      next-state)) s0)))))
+(defn print-row! [terminal cur-line form-line y]
+  (let [[_ largest] (sort-by count [cur-line form-line])]
+    (reduce-idx
+      (fn [x state _]
+        (let [c (nth cur-line x \space)
+              [next-state colour] (process state c)]
+          (doto terminal
+            (t/set-fg-color colour)
+            (t/put-character c x y))
+          next-state)) s0 largest)))
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -121,25 +123,48 @@
       (i/rebase hud #(->> % (take-right lor) (take fov)))
       (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
 
+(defn jump [hud line]
+  (assoc hud :lor (-> hud (i/height) (- line))))
 
-(defn render [hud terminal]
-  "y calculation is based on the limit logic"
+(defn project-cursor [hud]
   (let [{[x cy] :cursor
          fov    :fov
          ov     :ov
          h      :height} hud
         y (if (> @h fov) (- cy (- @h fov ov)) cy)]
+    [x y]))
+
+(defn render [ctx f]
+  (let [{terminal :terminal
+         complete :complete-hud
+         previous :previous-hud} ctx
+        [x y] (project-cursor complete)]
     (doto terminal
-      (t/clear)
-      (print! (project hud) 0 0)
+      (f (project complete) (project previous))
       (t/move-cursor x y))))
 
-(defn jump [hud line]
-  (assoc hud :lor (-> hud (i/height) (- line))))
+(defn total! [terminal current former]
+  (doto terminal (t/clear) (print! current)))
 
-(defn render-ctx [ctx]
-  (render (:complete-hud ctx)
-          (:terminal ctx)))
+(defn nothing! [terminal current former]
+  (if (not= (:ov current) (:ov former))
+    (total! terminal current former)
+    ()))
+
+(defn diff! [terminal current former]
+  (if (not= (:ov current) (:ov former))
+    (total! terminal current former)
+    (->> (:lines former)
+         (zip-all (:lines current))
+         (map-indexed (fn [idx paired] (conj paired idx)))
+         (drop-while (fn [[cur-line form-line _]] (= cur-line form-line)))
+         (foreach (fn [[cur-line form-line y]] (print-row! terminal cur-line form-line y))))))
+
+(defn render-context [ctx]
+  (case (:render ctx)
+    :diff (render ctx diff!)
+    :nothing (render ctx nothing!)
+    (render ctx total!)))
 
 (defn scroll-up [ctx]
   (update ctx :complete-hud #(scroll % upwards)))
@@ -174,6 +199,7 @@
                                 (i/seeker caret))
                       (i/move-x (fn [_] 0)))]
     (assoc ctx
+      :previous-hud (:complete-hud ctx)
       :persisted-hud persisted
       :complete-hud persisted
       :repl evaluation
@@ -182,6 +208,7 @@
 (defn capture [ctx stroke]
   (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
     (assoc ctx
+      :previous-hud (:complete-hud ctx)
       :complete-hud (-> ctx (:persisted-hud) (i/join seeker))
       :seeker seeker)))
 
@@ -190,7 +217,7 @@
       (update :complete-hud #(preserve % (i/seeker goodbye)))
       (assoc-in [:persisted-hud :ov] 0)
       (assoc-in [:complete-hud :ov] 0)
-      (render-ctx))
+      (render-context))
   (Thread/sleep 1200))
 
 (defn resize [ctx]
@@ -224,18 +251,30 @@
         (update-in [:complete-hud :ov] f)
         (update-in [:persisted-hud :ov] f))))
 
+(defn re-render [ctx]
+  (assoc ctx :render :total))
+
+(defn diff-render [ctx]
+  (assoc ctx :render :diff))
+
+(defn no-render [ctx]
+  (assoc ctx :render :nothing))
+
+(defn movement? [stroke]
+  (contains? #{:up :down :left :right} (:key stroke)))
+
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
-        eval-ctx (EvalCtx. terminal start-hud start-hud repl i/empty-seeker)]
+        eval-ctx (EvalCtx. terminal :total start-hud start-hud start-hud repl i/empty-seeker)]
     (loop [ctx (resize eval-ctx)]
-      (render-ctx ctx)
+      (render-context ctx)
       (let [stroke (t/get-keystroke-blocking terminal)]
         (m/match [stroke]
-                 [{:key :page-up}] (-> ctx (resize) (scroll-up) (recur))
-                 [{:key :page-down}] (-> ctx (resize) (scroll-down) (recur))
-                 [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (recur))
-                 [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (reformat) (scroll-stop) (recur))
-                 [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (recur))
-                 [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (exit))
-                 [{:key \r :ctrl true}] (-> ctx (resize) (scroll-stop) (recur))
-                 :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (recur)))))))
+                 [{:key :page-up}] (-> ctx (resize) (scroll-up) (re-render) (recur))
+                 [{:key :page-down}] (-> ctx (resize) (scroll-down) (re-render) (recur))
+                 [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (re-render) (recur))
+                 [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (reformat) (scroll-stop) (re-render) (recur))
+                 [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render) (recur))
+                 [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
+                 [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (no-render) (recur))
+                 :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (diff-render) (recur)))))))
