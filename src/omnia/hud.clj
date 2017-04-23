@@ -61,27 +61,19 @@
 (defn init-hud [fov]
   (hud fov greeting empty-line caret))
 
+(defn print-row! [terminal line y]
+  (reduce-idx
+    (fn [x state c]
+      (let [[next-state colour] (process state c)]
+        (doto terminal
+          (t/set-fg-color colour)
+          (t/put-character c x y))
+        next-state)) s0 line))
+
 (defn print! [terminal seeker]
   (reduce-idx
-    (fn [y _ line]
-      (reduce-idx
-        (fn [x state c]
-          (let [[next-state colour] (process state c)]
-            (doto terminal
-              (t/set-fg-color colour)
-              (t/put-character c x y))
-            next-state)) s0 line)) nil (:lines seeker)))
-
-(defn print-row! [terminal cur-line form-line y]
-  (let [[_ largest] (sort-by count [cur-line form-line])]
-    (reduce-idx
-      (fn [x state _]
-        (let [c (nth cur-line x \space)
-              [next-state colour] (process state c)]
-          (doto terminal
-            (t/set-fg-color colour)
-            (t/put-character c x y))
-          next-state)) s0 largest)))
+    (fn [y _ line] (print-row! terminal line y))
+    nil (:lines seeker)))
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -151,14 +143,24 @@
     (total! terminal current former)
     ()))
 
+(defn pad [current-line former-line]
+  (let [hc (count current-line)
+        hf (count former-line)
+        largest (max hc hf)]
+    (->> (repeat \space)
+         (take (- largest hc))
+         (concat current-line)
+         (vec))))
+
 (defn diff! [terminal current former]
   (if (not= (:ov current) (:ov former))
     (total! terminal current former)
     (->> (:lines former)
          (zip-all (:lines current))
          (map-indexed (fn [idx paired] (conj paired idx)))
-         (drop-while (fn [[cur-line form-line _]] (= cur-line form-line)))
-         (foreach (fn [[cur-line form-line y]] (print-row! terminal cur-line form-line y))))))
+         (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
+         (map (fn [[current-line former-line y]] [(pad current-line former-line) y]))
+         (foreach (fn [[line y]] (print-row! terminal line y))))))
 
 (defn render-context [ctx]
   (case (:render ctx)
