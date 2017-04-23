@@ -28,7 +28,7 @@
     (*) h - ov - fov = line form which the current view of the fov starts,
     given that h > fov")
 
-(defrecord EvalCtx [terminal render previous-hud complete-hud persisted-hud repl seeker])
+(defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
 (def ^:const empty-line [[]])
 (def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
@@ -265,9 +265,17 @@
 (defn movement? [stroke]
   (contains? #{:up :down :left :right} (:key stroke)))
 
+(defn clear [ctx]
+  (let [fov (-> ctx :terminal (.getTerminalSize) (.getRows))
+        start-hud (init-hud fov)]
+    (assoc ctx
+      :complete-hud (i/join start-hud (:seeker ctx))
+      :persisted-hud start-hud
+      :previous-hud start-hud)))
+
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
-        eval-ctx (EvalCtx. terminal :total start-hud start-hud start-hud repl i/empty-seeker)]
+        eval-ctx (Context. terminal :total start-hud start-hud start-hud repl i/empty-seeker)]
     (loop [ctx (resize eval-ctx)]
       (render-context ctx)
       (let [stroke (t/get-keystroke-blocking terminal)]
@@ -276,6 +284,7 @@
                  [{:key :page-down}] (-> ctx (resize) (scroll-down) (re-render) (recur))
                  [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (re-render) (recur))
                  [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (reformat) (scroll-stop) (re-render) (recur))
+                 [{:key \r :ctrl true}] (-> ctx (clear) (re-render) (recur))
                  [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render) (recur))
                  [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
                  [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (no-render) (recur))
