@@ -2,7 +2,8 @@
   (:gen-class)
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
-           [omnia.hud :as h]))
+           [omnia.hud :as h]
+           [clojure.core.match :as m]))
 
 (defn shutdown [terminal repl]
   (t/stop terminal)
@@ -15,3 +16,4 @@
     (t/start terminal)
     (h/read-eval-print terminal repl)
     (shutdown terminal repl)))
+

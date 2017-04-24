@@ -61,18 +61,26 @@
 (defn init-hud [fov]
   (hud fov greeting empty-line caret))
 
-(defn print-row! [terminal line y]
-  (reduce-idx
-    (fn [x state c]
-      (let [[next-state colour] (process state c)]
-        (doto terminal
-          (t/set-fg-color colour)
-          (t/put-character c x y))
-        next-state)) s0 line))
+(defn print-row! [y terminal line selected?]
+  (let [is-set (atom false)]
+    (reduce-idx
+      (fn [x state c]
+        (let [[next-state colour] (process state c)
+              highlight #(if (selected? [x y])
+                          (doto %
+                            (t/set-bg-color :white)
+                            (t/set-fg-color :black))
+                          (doto %
+                            (t/set-bg-color :default)
+                            (t/set-fg-color colour)))]
+          (doto terminal
+            (highlight)
+            (t/put-character c x y))
+          next-state)) s0 line)))
 
-(defn print! [terminal seeker]
+(defn print! [terminal seeker selected?]
   (reduce-idx
-    (fn [y _ line] (print-row! terminal line y))
+    (fn [y _ line] (print-row! y terminal line selected?))
     nil (:lines seeker)))
 
 (defn preserve [hud & seekers]
@@ -119,6 +127,8 @@
   (assoc hud :lor (-> hud (i/height) (- line))))
 
 (defn project-cursor [hud]
+  "gy = cy - (h - fov - ov)
+   cy = gy + (h - fov - ov)"
   (let [{[x cy] :cursor
          fov    :fov
          ov     :ov
@@ -126,21 +136,33 @@
         y (if (> @h fov) (- cy (- @h fov ov)) cy)]
     [x y]))
 
+(defn global-y [hud local-y])
+
+(defn local-y [hud global-y]
+  (let [{fov :fov
+         ov  :ov
+         h   :height} hud]
+    (if (> @h fov)
+      (+ global-y (- @h fov ov))
+      global-y)))
+
 (defn render [ctx f]
   (let [{terminal :terminal
          complete :complete-hud
-         previous :previous-hud} ctx
-        [x y] (project-cursor complete)]
+         previous :previous-hud
+         seeker   :seeker} ctx
+        [x y] (project-cursor complete)
+        selected? (fn [[gx gy]] (i/selected? seeker [gx (local-y complete gy)]))]
     (doto terminal
-      (f (project complete) (project previous))
+      (f (project complete) (project previous) selected?)
       (t/move-cursor x y))))
 
-(defn total! [terminal current former]
-  (doto terminal (t/clear) (print! current)))
+(defn total! [terminal current former selected?]
+  (doto terminal (t/clear) (print! current selected?)))
 
-(defn nothing! [terminal current former]
+(defn nothing! [terminal current former selected?]
   (if (not= (:ov current) (:ov former))
-    (total! terminal current former)
+    (total! terminal current former selected?)
     ()))
 
 (defn pad [current-line former-line]
@@ -152,15 +174,15 @@
          (concat current-line)
          (vec))))
 
-(defn diff! [terminal current former]
+(defn diff! [terminal current former selected?]
   (if (not= (:ov current) (:ov former))
-    (total! terminal current former)
+    (total! terminal current former selected?)
     (->> (:lines former)
          (zip-all (:lines current))
          (map-indexed (fn [idx paired] (conj paired idx)))
          (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
          (map (fn [[current-line former-line y]] [(pad current-line former-line) y]))
-         (foreach (fn [[line y]] (print-row! terminal line y))))))
+         (foreach (fn [[line y]] (print-row! y terminal line selected?))))))
 
 (defn render-context [ctx]
   (case (:render ctx)
@@ -287,5 +309,5 @@
                  [{:key \r :ctrl true}] (-> ctx (clear) (re-render) (recur))
                  [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render) (recur))
                  [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
-                 [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (no-render) (recur))
+                 [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (re-render) (recur))
                  :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (diff-render) (recur)))))))

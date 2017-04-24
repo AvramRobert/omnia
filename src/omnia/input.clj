@@ -8,9 +8,11 @@
       1. Add line width limit and truncation.
       2. Try out transients to improve performance.")
 
-(defrecord Seeker [lines cursor height])
+(defrecord Seeker [lines cursor height selection])
+(defrecord Select [start end dir])
 
-(def empty-seeker (Seeker. [] [0 0] (delay 0)))
+(def empty-seeker (Seeker. [] [0 0] (delay 0) []))
+(def empty-map {})
 
 (def matching-rules {\{ \}
                      \[ \]
@@ -264,16 +266,46 @@
        (map println)
        (doall)))
 
+(defn select [seeker]
+  (let [{[xs ys] :start
+         [xm ym] :end
+         dir     :dir} (:selection seeker)
+        [x y] (:cursor seeker)]
+    (cond
+      (empty? (:selection seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
+      (and (= y ys) (<= x xs) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
+      (and (= y ys) (<= x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
+      (and (< y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
+      (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :right))
+      :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
+
+(defn no-select [seeker]
+  (if (-> seeker :selection empty?)
+    seeker
+    (assoc seeker :selection empty-map)))
+
+(defn selected? [seeker [x y]]
+  (let [{[xs ys] :start
+         [xe ye] :end} (:selection seeker)]
+    (if (-> seeker :selection empty?)
+      false
+      (and (>= x xs) (>= y ys)
+           (<= x xe) (<= y ye)))))
+
 (defn inputs [seeker stroke]
   (m/match [stroke]
-           [{:key :left :ctrl true}] (jump seeker regress)
-           [{:key :right :ctrl true}] (jump seeker advance)
-           [{:key :left}] (regress seeker)
-           [{:key :right}] (advance seeker)
-           [{:key :up}] (climb seeker)
-           [{:key :down}] (fall seeker)
-           [{:key :backspace}] (auto-delete seeker)
-           [{:key :delete}] (munch seeker)
-           [{:key :enter}] (break seeker)
-           [_ :guard char-key?] (auto-insert seeker (:key stroke))
+           [{:key :left :ctrl true :shift true}] (-> seeker (select) (jump regress) (select))
+           [{:key :right :ctrl true :shift true}] (-> seeker (select) (jump advance) (select))
+           [{:key :left :shift true}] (-> seeker (select) (regress) (select))
+           [{:key :right :shift true}] (-> seeker (select) (advance) (select))
+           [{:key :left :ctrl true}] (-> seeker (jump regress) (no-select))
+           [{:key :right :ctrl true}] (-> seeker (jump advance) (no-select))
+           [{:key :left}] (-> seeker (regress) (no-select))
+           [{:key :right}] (-> seeker (advance) (no-select))
+           [{:key :up}] (-> seeker (climb) (no-select))
+           [{:key :down}] (-> seeker (fall) (no-select))
+           [{:key :backspace}] (-> seeker (auto-delete) (no-select))
+           [{:key :delete}] (-> seeker (munch) (no-select))
+           [{:key :enter}] (-> seeker (break) (no-select))
+           [_ :guard char-key?] (-> seeker (auto-insert (:key stroke)) (no-select))
            :else seeker))
