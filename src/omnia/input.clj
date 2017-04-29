@@ -50,9 +50,11 @@
   ([seeker [x y]]
    (-> seeker :lines (nth y []))))
 
-(defn sym-at [seeker]
-  (let [[x y] (:cursor seeker)]
-    (-> seeker line (nth x nil))))
+(defn sym-at
+  ([seeker]
+    (sym-at seeker (:cursor seeker)))
+  ([seeker [x y]]
+   (-> seeker (line [x y]) (nth x nil))))
 
 (defn height [seeker]
   @(:height seeker))

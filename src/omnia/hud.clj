@@ -61,22 +61,84 @@
 (defn init-hud [fov]
   (hud fov greeting empty-line caret))
 
+(defn local-y [hud global-y]
+  "When h = 3
+  => only when the cursor is at [_ 3] => seeker [0 0]"
+  (let [{fov :fov
+         ov  :ov
+         h   :height} hud]
+    (if (> @h fov)
+      (- global-y (- @h fov))                               ;; this is wrong for both persisted and complete
+      (- global-y @h))))                                    ;; this is right when hud = persisted
+
+"x = fov - global => how much place i have left
+
+
+ "
+
+(defn global-y [hud local-y]
+  (let [{fov :fov
+         ov  :ov
+         h   :height} hud]
+    (if (> @h fov)
+      (- local-y (- @h fov ov))
+      local-y)))
+
+#_(defn highlight [ctx]
+    "This is not in sync with the formatting.
+    And I also cannot correlate them independently.
+    This is bad."
+    (let [{terminal  :terminal
+           persisted :persisted-hud
+           seeker    :seeker} ctx
+          {[xs ys] :start
+           [xe ye] :end} (:selection seeker)
+          h (i/height persisted)]
+      (loop [x xs
+             y ys]
+        (cond
+          (and (= y ye) (= x xe)) nil
+          (i/sym-at seeker [x y]) (do
+                                    (doto terminal
+                                      (t/set-bg-color :white)
+                                      (t/set-fg-color :black))
+                                    (t/put-character terminal (i/sym-at seeker [x y]) x (+ y h))
+                                    (recur (inc x) y))
+          :else (recur 0 (inc y))))
+      (doto terminal
+        (t/set-bg-color :default)
+        (t/set-fg-color :white))))
+
+
 (defn print-row! [y terminal line selected?]
-  (let [is-set (atom false)]
+  "THE [x y] that i'm using here are the ones
+  for printing.
+  Essentially, these are the [x y] where i should
+  put the character, but not for checking if something is selected!
+  The question is now, how do I check at this level if a character is selected?
+  This has no correlation to the cursor position, but renders from top to bottom.
+  `selected?` should've actually done the magic converting [x y] to the seeker [x y]
+  and checking. Right?
+  Wait. If you're [0 0] on the screen, you should be nowhere where the seeker is.
+  The seeker starts with [0 3].
+  => [0 0] screen => [nil nil] seeker
+  => [0 3] screen => [0 0] seeker
+  => [0 4] screen => [0 1] seeker
+  That's the conversion"
+  (letfn [(highlight [term] (doto term (t/set-bg-color :white) (t/set-fg-color :black)))
+          (reset-to [term colour] (doto term (t/set-bg-color :default) (t/set-fg-color colour)))]
     (reduce-idx
       (fn [x state c]
-        (let [[next-state colour] (process state c)
-              highlight #(if (selected? [x y])
-                          (doto %
-                            (t/set-bg-color :white)
-                            (t/set-fg-color :black))
-                          (doto %
-                            (t/set-bg-color :default)
-                            (t/set-fg-color colour)))]
+        (if (selected? [x y])
           (doto terminal
             (highlight)
-            (t/put-character c x y))
-          next-state)) s0 line)))
+            (t/put-character c x y)
+            (t/set-bg-color :default))
+          (let [[next-state colour] (process state c)]
+            (doto terminal
+              (reset-to colour)
+              (t/put-character c x y))
+            next-state))) s0 line)))
 
 (defn print! [terminal seeker selected?]
   (reduce-idx
@@ -123,7 +185,7 @@
       (i/rebase hud #(->> % (take-right lor) (take fov)))
       (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
 
-(defn jump [hud line]
+#_(defn jump [hud line]
   (assoc hud :lor (-> hud (i/height) (- line))))
 
 (defn project-cursor [hud]
@@ -136,23 +198,14 @@
         y (if (> @h fov) (- cy (- @h fov ov)) cy)]
     [x y]))
 
-(defn global-y [hud local-y])
-
-(defn local-y [hud global-y]
-  (let [{fov :fov
-         ov  :ov
-         h   :height} hud]
-    (if (> @h fov)
-      (+ global-y (- @h fov ov))
-      global-y)))
-
 (defn render [ctx f]
-  (let [{terminal :terminal
-         complete :complete-hud
-         previous :previous-hud
-         seeker   :seeker} ctx
+  (let [{terminal  :terminal
+         complete  :complete-hud
+         persisted :persisted-hud
+         previous  :previous-hud
+         seeker    :seeker} ctx
         [x y] (project-cursor complete)
-        selected? (fn [[gx gy]] (i/selected? seeker [gx (local-y complete gy)]))]
+        selected? (fn [[gx gy]] (i/selected? seeker [gx (local-y persisted gy)]))]
     (doto terminal
       (f (project complete) (project previous) selected?)
       (t/move-cursor x y))))
