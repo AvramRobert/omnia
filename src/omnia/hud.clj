@@ -13,9 +13,9 @@
     2. Add `jump-to` as a function that jumps to a line. // done
     3. fipp-pretty printed collection outputs // done
     4. Add highlighting functionality.
-    5. Add separate command input.
-    6. Add i-search and reverse i-search as command.
-    7. Add matching parens highlighting.")
+    5. Add i-search and reverse i-search as command.
+    6. Add matching parens highlighting.
+    7. Add separate command input.")
 
 (comment
   " Limit logic:
@@ -30,7 +30,8 @@
 
 (defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
-(def ^:const empty-line [[]])
+(def ^:const empty-line [])
+(def ^:const empty-text [empty-line])
 (def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
 (def ^:const caret (i/str->lines "Ω=>"))
 (def ^:const goodbye (i/join-lines
@@ -53,28 +54,14 @@
   (let [seeker (->> prelude (apply i/join-lines) (i/seeker))]
     (-> seeker
         (i/end-y)
+        (assoc :selected :already)
         (assoc :scroll? false)
         (assoc :lor (i/height seeker))
         (assoc :fov fov)
         (assoc :ov 0))))
 
 (defn init-hud [fov]
-  (hud fov greeting empty-line caret))
-
-(defn local-y [hud global-y]
-  "When h = 3
-  => only when the cursor is at [_ 3] => seeker [0 0]"
-  (let [{fov :fov
-         ov  :ov
-         h   :height} hud]
-    (if (> @h fov)
-      (- global-y (- @h fov))                               ;; this is wrong for both persisted and complete
-      (- global-y @h))))                                    ;; this is right when hud = persisted
-
-"x = fov - global => how much place i have left
-
-
- "
+  (hud fov greeting empty-text caret))
 
 (defn global-y [hud local-y]
   (let [{fov :fov
@@ -84,65 +71,41 @@
       (- local-y (- @h fov ov))
       local-y)))
 
-#_(defn highlight [ctx]
-    "This is not in sync with the formatting.
-    And I also cannot correlate them independently.
-    This is bad."
-    (let [{terminal  :terminal
-           persisted :persisted-hud
-           seeker    :seeker} ctx
-          {[xs ys] :start
-           [xe ye] :end} (:selection seeker)
-          h (i/height persisted)]
-      (loop [x xs
-             y ys]
-        (cond
-          (and (= y ye) (= x xe)) nil
-          (i/sym-at seeker [x y]) (do
+(defn screen-size [ctx]
+  (if-let [terminal (:terminal ctx)]
+    (-> terminal (.getTerminalSize) (.getRows))
+    (-> ctx :persisted-hud :fov)))
+
+(defn highlight! [ctx]
+  (let [{terminal :terminal
+         complete :complete-hud} ctx
+        {[xs ys] :start
+         [xe ye] :end} (:selection complete)]
+    (loop [x xs
+           y ys]
+      (cond
+        (-> complete :selection empty?) ()
+        (and (= y ye) (= x xe)) ()
+        (i/sym-at complete [x y]) (do
                                     (doto terminal
-                                      (t/set-bg-color :white)
-                                      (t/set-fg-color :black))
-                                    (t/put-character terminal (i/sym-at seeker [x y]) x (+ y h))
+                                      (t/set-bg-color :blue)
+                                      (t/put-character (i/sym-at complete [x y]) x (global-y complete y)))
                                     (recur (inc x) y))
-          :else (recur 0 (inc y))))
-      (doto terminal
-        (t/set-bg-color :default)
-        (t/set-fg-color :white))))
+        :else (recur 0 (inc y))))
+    (t/set-bg-color terminal :default)))
 
-
-(defn print-row! [y terminal line selected?]
-  "THE [x y] that i'm using here are the ones
-  for printing.
-  Essentially, these are the [x y] where i should
-  put the character, but not for checking if something is selected!
-  The question is now, how do I check at this level if a character is selected?
-  This has no correlation to the cursor position, but renders from top to bottom.
-  `selected?` should've actually done the magic converting [x y] to the seeker [x y]
-  and checking. Right?
-  Wait. If you're [0 0] on the screen, you should be nowhere where the seeker is.
-  The seeker starts with [0 3].
-  => [0 0] screen => [nil nil] seeker
-  => [0 3] screen => [0 0] seeker
-  => [0 4] screen => [0 1] seeker
-  That's the conversion"
-  (letfn [(highlight [term] (doto term (t/set-bg-color :white) (t/set-fg-color :black)))
-          (reset-to [term colour] (doto term (t/set-bg-color :default) (t/set-fg-color colour)))]
-    (reduce-idx
-      (fn [x state c]
-        (if (selected? [x y])
-          (doto terminal
-            (highlight)
-            (t/put-character c x y)
-            (t/set-bg-color :default))
-          (let [[next-state colour] (process state c)]
-            (doto terminal
-              (reset-to colour)
-              (t/put-character c x y))
-            next-state))) s0 line)))
-
-(defn print! [terminal seeker selected?]
+(defn print-row! [y terminal line]
   (reduce-idx
-    (fn [y _ line] (print-row! y terminal line selected?))
+    (fn [x state c]
+      (let [[next-state colour] (process state c)]
+        (doto terminal
+          (t/set-fg-color colour)
+          (t/put-character c x y))
+        next-state)) s0 line))
+
+(defn print! [terminal seeker]
+  (reduce-idx
+    (fn [y _ line] (print-row! y terminal line))
     nil (:lines seeker)))
 
 (defn preserve [hud & seekers]
@@ -186,7 +149,7 @@
       (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
 
 #_(defn jump [hud line]
-  (assoc hud :lor (-> hud (i/height) (- line))))
+    (assoc hud :lor (-> hud (i/height) (- line))))
 
 (defn project-cursor [hud]
   "gy = cy - (h - fov - ov)
@@ -195,30 +158,29 @@
          fov    :fov
          ov     :ov
          h      :height} hud
-        y (if (> @h fov) (- cy (- @h fov ov)) cy)]
+        y (global-y hud cy)]
     [x y]))
 
-(defn render [ctx f]
-  (let [{terminal  :terminal
-         complete  :complete-hud
-         persisted :persisted-hud
-         previous  :previous-hud
-         seeker    :seeker} ctx
-        [x y] (project-cursor complete)
-        selected? (fn [[gx gy]] (i/selected? seeker [gx (local-y persisted gy)]))]
+
+
+(defn total! [ctx]
+  (let [{terminal :terminal
+         complete :complete-hud} ctx]
     (doto terminal
-      (f (project complete) (project previous) selected?)
-      (t/move-cursor x y))))
+      (t/clear)
+      (print! (project complete)))))
 
-(defn total! [terminal current former selected?]
-  (doto terminal (t/clear) (print! current selected?)))
+(defn when-unscrolled [ctx f]
+  (let [{terminal :terminal
+         complete :complete-hud
+         previous :previous-hud} ctx
+        current (project complete)
+        former (project previous)]
+    (if (not= (:ov current) (:ov former))
+      (total! ctx)
+      (f terminal current former))))
 
-(defn nothing! [terminal current former selected?]
-  (if (not= (:ov current) (:ov former))
-    (total! terminal current former selected?)
-    ()))
-
-(defn pad [current-line former-line]
+(defn pad-erase [current-line former-line]
   (let [hc (count current-line)
         hf (count former-line)
         largest (max hc hf)]
@@ -227,21 +189,45 @@
          (concat current-line)
          (vec))))
 
-(defn diff! [terminal current former selected?]
-  (if (not= (:ov current) (:ov former))
-    (total! terminal current former selected?)
-    (->> (:lines former)
-         (zip-all (:lines current))
-         (map-indexed (fn [idx paired] (conj paired idx)))
-         (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-         (map (fn [[current-line former-line y]] [(pad current-line former-line) y]))
-         (foreach (fn [[line y]] (print-row! y terminal line selected?))))))
+(defn diff! [ctx]
+  (when-unscrolled ctx
+    (fn [terminal current former]
+      (->> (:lines former)
+           (zip-all (:lines current))
+           (map-indexed (fn [idx paired] (conj paired idx)))
+           (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
+           (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
+           (foreach (fn [[line y]] (print-row! y terminal line)))))))
+
+(defn input! [ctx]
+  (let [{persisted :persisted-hud
+         seeker    :seeker} ctx
+        padding (->> empty-line (repeat) (take (i/height seeker)) (vec))]
+    (-> ctx
+        (assoc :previous-hud (i/join persisted (i/seeker padding)))
+        (diff!))))
+
+(defn minimal! [ctx]
+  (when-unscrolled ctx
+    (fn [_ current former]
+      (if (-> current :selected (= :now))
+        (input! ctx)
+        ()))))
+
+(defn nothing! [ctx]
+  (when-unscrolled ctx (fn [_ _ _] ())))
 
 (defn render-context [ctx]
-  (case (:render ctx)
-    :diff (render ctx diff!)
-    :nothing (render ctx nothing!)
-    (render ctx total!)))
+  (let [{terminal :terminal
+         complete :complete-hud} ctx
+        [x y] (project-cursor complete)]
+    (case (:render ctx)
+      :diff (doto ctx (diff!) (highlight!))
+      :input (doto ctx (input!) (highlight!))
+      :minimal (doto ctx (minimal!) (highlight!))
+      :nothing (doto ctx (nothing!) (highlight!))
+      (doto ctx (total!) (highlight!)))
+    (t/move-cursor terminal x y)))
 
 (defn scroll-up [ctx]
   (update ctx :complete-hud #(scroll % upwards)))
@@ -286,7 +272,11 @@
   (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
     (assoc ctx
       :previous-hud (:complete-hud ctx)
-      :complete-hud (-> ctx (:persisted-hud) (i/join seeker))
+      :complete-hud (-> ctx
+                        (:persisted-hud)
+                        (i/join seeker)
+                        (assoc :selection (get-in ctx [:complete-hud :selection]))
+                        (assoc :selected (get-in ctx [:complete-hud :selected])))
       :seeker seeker)))
 
 (defn exit [ctx]
@@ -298,19 +288,22 @@
   (Thread/sleep 1200))
 
 (defn resize [ctx]
-  (let [{{fov :fov} :persisted-hud
-         terminal   :terminal} ctx
-        tsize (-> terminal (.getTerminalSize) (.getRows))]
-    (if (not= tsize fov)
+  (let [fov (get-in ctx [:persisted-hud :fov])
+        ssize (screen-size ctx)]
+    (if (not= ssize fov)
       (-> ctx
-          (assoc-in [:persisted-hud :fov] tsize)
-          (assoc-in [:complete-hud :fov] tsize))
+          (assoc-in [:persisted-hud :fov] ssize)
+          (assoc-in [:complete-hud :fov] ssize))
       ctx)))
 
 (defn reformat [ctx]
   (let [formatted (-> ctx :seeker (f/lisp-format))]
     (assoc ctx
-      :complete-hud (-> ctx (:persisted-hud) (i/join formatted)))))
+      :complete-hud (-> ctx
+                        (:persisted-hud)
+                        (i/join formatted)
+                        (assoc :selection (get-in ctx [:complete-hud :selection]))
+                        (assoc :selected (get-in ctx [:complete-hud :selected]))))))
 
 (defn navigate [ctx]
   (let [{{fov :fov
@@ -334,33 +327,70 @@
 (defn diff-render [ctx]
   (assoc ctx :render :diff))
 
+(defn input-render [ctx]
+  (assoc ctx :render :input))
+
+(defn min-render [ctx]
+  (assoc ctx :render :minimal))
+
 (defn no-render [ctx]
   (assoc ctx :render :nothing))
 
-(defn movement? [stroke]
-  (contains? #{:up :down :left :right} (:key stroke)))
-
 (defn clear [ctx]
-  (let [fov (-> ctx :terminal (.getTerminalSize) (.getRows))
+  (let [fov (screen-size ctx)
         start-hud (init-hud fov)]
     (assoc ctx
       :complete-hud (i/join start-hud (:seeker ctx))
       :persisted-hud start-hud
       :previous-hud start-hud)))
 
+(defn select [ctx]
+  (-> ctx
+      (assoc-in [:complete-hud :selected] :selecting)
+      (update :complete-hud i/select)
+      (update :seeker i/select)))
+
+(defn deselect [ctx]
+  (let [selectivity {:selecting :now
+                     :now       :already
+                     :already   :already}]
+    (-> ctx
+        (update-in [:complete-hud :selected] selectivity)
+        (update :complete-hud i/deselect)
+        (update :seeker i/deselect))))
+
+(defn movement? [stroke]
+  (contains? #{:up :down :left :right} (:key stroke)))
+
+(defn selection? [stroke]
+  (and (movement? stroke)
+       (:shift stroke)))
+
+(comment
+  "The easier solution to all of this would be to actually
+  format the seeker directly, without side-effects
+  and then use that x directly with the projected y of the complete hud.
+  This would allow me to avoid keeping track of both complete and seeker selection.")
+
+(defn handle [ctx stroke]
+  (m/match [stroke]
+           [{:key :page-up}] (-> ctx (resize) (scroll-up) (re-render))
+           [{:key :page-down}] (-> ctx (resize) (scroll-down) (re-render))
+           [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (re-render))
+           [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (reformat) (scroll-stop) (re-render))
+           [{:key \r :ctrl true}] (-> ctx (clear) (re-render))
+           [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render))
+           [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
+           [_ :guard selection?] (-> ctx (resize) (select) (capture stroke) (reformat) (select) (navigate) (scroll-stop) (no-render))
+           [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (min-render))
+           :else (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (diff-render))))
+
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
         eval-ctx (Context. terminal :total start-hud start-hud start-hud repl i/empty-seeker)]
     (loop [ctx (resize eval-ctx)]
-      (render-context ctx)
-      (let [stroke (t/get-keystroke-blocking terminal)]
-        (m/match [stroke]
-                 [{:key :page-up}] (-> ctx (resize) (scroll-up) (re-render) (recur))
-                 [{:key :page-down}] (-> ctx (resize) (scroll-down) (re-render) (recur))
-                 [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (re-render) (recur))
-                 [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (reformat) (scroll-stop) (re-render) (recur))
-                 [{:key \r :ctrl true}] (-> ctx (clear) (re-render) (recur))
-                 [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render) (recur))
-                 [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
-                 [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (re-render) (recur))
-                 :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (diff-render) (recur)))))))
+      (when ctx
+        (render-context ctx)
+        (-> ctx
+            (handle (t/get-keystroke-blocking terminal))
+            (recur))))))
