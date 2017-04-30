@@ -374,6 +374,10 @@
   and then use that x directly with the projected y of the complete hud.
   This would allow me to avoid keeping track of both complete and seeker selection.")
 
+;; FIXME: There's apparently a problem with `Del`.
+;; If I exceed the page limit and then, from the top, start deleting with `Del`, at some point the cursor
+;; is recalculated wrongly and is offset downwards by some units
+
 (defn handle [ctx stroke]
   (m/match [stroke]
            [{:key :page-up}] (-> ctx (resize) (scroll-up) (re-render))

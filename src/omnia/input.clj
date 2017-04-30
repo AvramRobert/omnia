@@ -2,6 +2,7 @@
   (:gen-class)
   (require [clojure.core.match :as m]
            [clojure.string :as s]
+           [com.rpl.specter :as sp]
            [omnia.more :refer [do-until]]))
 
 (comment
@@ -110,7 +111,18 @@
               [x ny]
               [x y])))))
 
+
+(defn reset [seeker [x y]]
+  (move seeker (constantly [x y])))
+
+(defn reset-x [seeker x]
+  (move-x seeker (constantly x)))
+
+(defn reset-y [seeker y]
+  (move-y seeker (constantly y)))
+
 (defn end-x [seeker]
+  #_(reset-x seeker (-> seeker line count))
   (move seeker (fn [[_ y]] [(-> seeker line count) y])))
 
 (defn start-x [seeker]
@@ -172,8 +184,7 @@
 
 (defn merge-lines [seeker]
   (peer seeker (fn [l [a b & t]]
-                 (-> l
-                     (conj (vec (concat a b)))
+                 (-> (conj l (concat a b))
                      (concat t)))))
 
 (defn rollback [seeker]
@@ -181,8 +192,7 @@
 
 (defn break [seeker]
   (-> seeker
-      (slice #(vector %1 %2))
-      (peer (fn [l [h & t]] (concat (conj l (first h) (second h)) t)))
+      (split vector)
       (move-y inc)
       (start-x)))
 
@@ -197,7 +207,7 @@
   (let [{start :start
          end   :end} (:selection seeker)]
     (-> seeker
-        (move (fn [_] end))
+        (reset end)
         (do-until simple-delete #(-> % :cursor (= start))))))
 
 (defn pair? [seeker rules]
