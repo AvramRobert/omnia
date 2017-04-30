@@ -111,22 +111,14 @@
               [x ny]
               [x y])))))
 
-
-(defn reset [seeker [x y]]
-  (move seeker (constantly [x y])))
-
-(defn reset-x [seeker x]
-  (move-x seeker (constantly x)))
-
-(defn reset-y [seeker y]
-  (move-y seeker (constantly y)))
-
 (defn end-x [seeker]
-  #_(reset-x seeker (-> seeker line count))
   (move seeker (fn [[_ y]] [(-> seeker line count) y])))
 
 (defn start-x [seeker]
   (move-x seeker (fn [_] 0)))
+
+(defn start-y [seeker]
+  (move-y seeker (fn [_] 0)))
 
 (defn end-y [seeker]
   (move seeker (fn [[x _]] [x (height seeker)])))
@@ -207,7 +199,7 @@
   (let [{start :start
          end   :end} (:selection seeker)]
     (-> seeker
-        (reset end)
+        (move (fn [_] end))
         (do-until simple-delete #(-> % :cursor (= start))))))
 
 (defn pair? [seeker rules]
@@ -334,6 +326,9 @@
           (split f)
           (move-x (fn [_] x))
           (move-y #(+ % (dec y)))))))
+
+(defn select-all [seeker]
+  (-> seeker (start-y) (start-x) (select) (end-y) (end-x) (select)))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]

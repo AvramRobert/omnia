@@ -12,6 +12,10 @@
   (let [x (dec value)]
     (if (< x min) value x)))
 
+(defn -- [& values]
+  (let [r (apply - values)]
+    (if (neg? r) 0 r)))
+
 (defn foreach [f coll]
   (doall (map f coll)))
 

@@ -305,15 +305,19 @@
 
 (defn navigate [ctx]
   (let [{{fov :fov
-          ov  :ov} :complete-hud
-         seeker    :seeker} ctx
+          ov  :ov
+          hc   :height} :complete-hud
+         previous      :previous-hud
+         seeker        :seeker} ctx
         h (i/height seeker)
         [_ y] (:cursor seeker)
-        upper-limit (neg? (+ (- (+ fov ov) h) (bound-dec y 0)))
-        lower-limit (and (> h 0) (>= (bound-inc y h) (- h ov)))
+        upper-limit? (neg? (+ (- (+ fov ov) h) (bound-dec y 0)))
+        lower-limit? (and (> h 0) (>= (bound-inc y h) (- h ov)))
+        decreased? (< @hc (i/height previous))
         f (cond
-            upper-limit inc
-            lower-limit dec
+            upper-limit? inc
+            lower-limit? dec
+            decreased? #(-- % (i/height previous) @hc)
             :else identity)]
     (-> ctx
         (update-in [:complete-hud :ov] f)
@@ -372,11 +376,12 @@
   "The easier solution to all of this would be to actually
   format the seeker directly, without side-effects
   and then use that x directly with the projected y of the complete hud.
-  This would allow me to avoid keeping track of both complete and seeker selection.")
+  This would allow me to avoid keeping track of both complete and seeker selection."
 
-;; FIXME: There's apparently a problem with `Del`.
-;; If I exceed the page limit and then, from the top, start deleting with `Del`, at some point the cursor
-;; is recalculated wrongly and is offset downwards by some units
+  "The current way binds input logic to rendering logic in such a way, that I have to catch inputs things on the rendering level.
+  This I don't like. Rendering should reflect input, not dictate how input should look like.
+
+  For example: select-all would require me to write essentially the same function both for input and for hud")
 
 (defn handle [ctx stroke]
   (m/match [stroke]
