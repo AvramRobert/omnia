@@ -1,4 +1,4 @@
-(ns omnia.hud
+1(ns omnia.hud
   (:gen-class)
   (use omnia.highlighting
        omnia.more)
@@ -161,8 +161,6 @@
         y (global-y hud cy)]
     [x y]))
 
-
-
 (defn total! [ctx]
   (let [{terminal :terminal
          complete :complete-hud} ctx]
@@ -202,9 +200,9 @@
 (defn input! [ctx]
   (let [{persisted :persisted-hud
          seeker    :seeker} ctx
-        padding (->> empty-line (repeat) (take (i/height seeker)) (vec))]
+        padding (->> empty-line (repeat) (take (i/height seeker)) (vec) (i/seeker))]
     (-> ctx
-        (assoc :previous-hud (i/join persisted (i/seeker padding)))
+        (assoc :previous-hud (i/join persisted padding))
         (diff!))))
 
 (defn minimal! [ctx]
@@ -366,6 +364,10 @@
   (and (movement? stroke)
        (:shift stroke)))
 
+(defn manipulation? [stroke]
+  (and (contains? #{\v \c \x} (:key stroke))
+       (:alt stroke)))
+
 (comment
   "The easier solution to all of this would be to actually
   format the seeker directly, without side-effects
@@ -383,6 +385,7 @@
            [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
            [_ :guard selection?] (-> ctx (resize) (select) (capture stroke) (reformat) (select) (navigate) (scroll-stop) (no-render))
            [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (min-render))
+           [_ :guard manipulation?] (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (re-render))
            :else (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]

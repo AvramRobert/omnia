@@ -1,19 +1,20 @@
 (ns omnia.input
   (:gen-class)
   (require [clojure.core.match :as m]
-           [clojure.string :as s]))
+           [clojure.string :as s]
+           [omnia.more :refer [do-until]]))
 
 (comment
   "Enhancements:
       1. Add line width limit and truncation.
       2. Try out transients to improve performance.")
 
-(defrecord Seeker [lines cursor height selection])
+(defrecord Seeker [lines cursor height selection clipboard])
 (defrecord Select [start end dir])
 
 (def empty-map {})
-(def empty-seeker (Seeker. [] [0 0] (delay 0) empty-map))
-
+(def empty-vec [])
+(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) empty-map empty-vec))
 
 (def matching-rules {\{ \}
                      \[ \]
@@ -70,11 +71,14 @@
                          (apply f)
                          (map vec)))))
 
-(defn slice [seeker f]
+(defn split [seeker f]
   (let [[x _] (:cursor seeker)]
     (peer seeker (fn [l [line & r]]
-                   (let [nl (->> line (split-at x) (map vec) (apply f))]
-                     (concat (conj l nl) r))))))
+                   (let [lines (->> line (split-at x) (map vec) (apply f))]
+                     (concat l lines r))))))
+
+(defn slice [seeker f]
+  (split seeker (fn [l r] [(f l r)])))
 
 (defn slicel [seeker f]
   (slice seeker (fn [l r] (concat (f l) r))))
@@ -183,19 +187,32 @@
       (start-x)))
 
 (def simple-delete (comp rollback displace))
+
 (defn pair-delete [seeker]
-  (slice seeker #(concat (drop-last %1) (rest %2))))
+  (-> seeker
+      (slice #(concat (drop-last %1) (rest %2)))
+      (move-x dec)))
+
+(defn chunk-delete [seeker]
+  (let [{start :start
+         end   :end} (:selection seeker)]
+    (-> seeker
+        (move (fn [_] end))
+        (do-until simple-delete #(-> % :cursor (= start))))))
 
 (defn pair? [seeker rules]
   (some-> seeker (left #(get rules %)) (= (right seeker))))
 
-(defn auto-delete
-  ([seeker]
-   (auto-delete seeker matching-rules))
+(defn selection? [seeker]
+  (-> seeker :selection empty? not))
+
+(defn delete
+  ([seeker] (delete seeker matching-rules))
   ([seeker rules]
-   (if (pair? seeker rules)
-     (-> seeker pair-delete (move-x dec))
-     (simple-delete seeker))))
+   (cond
+     (selection? seeker) (chunk-delete seeker)
+     (pair? seeker rules) (-> seeker (pair-delete) (move-x dec))
+     :else (simple-delete seeker))))
 
 (defn simple-insert [seeker value]
   (-> seeker (slicel #(conj % value)) (move-x inc)))
@@ -203,9 +220,9 @@
 (defn pair-insert [seeker [key pair]]
   (-> seeker (slicel #(conj % key pair)) (move-x inc)))
 
-(defn auto-insert
+(defn insert
   ([seeker key]
-   (auto-insert seeker key matching-rules))
+   (insert seeker key matching-rules))
   ([seeker key rules]
    (let [pair (get rules key)
          rematched (-> rules (clojure.set/map-invert) (get key))]
@@ -217,10 +234,6 @@
        (= key rematched) (pair-insert seeker [key key])
        :else (simple-insert seeker key)))))
 
-(defn do-until [elm f p]
-  (let [x (f elm)]
-    (if (p x) x (recur x f p))))
-
 (defn start? [seeker]
   (-> seeker :cursor first zero?))
 
@@ -229,14 +242,14 @@
                           (nil? (sym-at %))
                           (= (sym-at %) \space))))
 
-(defn munch                                                 ;; this should be called codelete
+(defn munch
   ([seeker] (munch seeker matching-rules))
   ([seeker rules]
    (let [x (advance seeker)]
      (cond
        (= (:cursor seeker) (:cursor x)) seeker
        (pair? seeker rules) (-> seeker (pair-delete) (regress))
-       :else (auto-delete x rules)))))
+       :else (delete x rules)))))
 
 (defn stringify [seeker]
   (->> (repeat "\n")
@@ -247,17 +260,6 @@
 
 (defn is-empty? [seeker]
   (= (:lines seeker) (:lines empty-seeker)))
-
-;; It looks right or left and applies the function as long as there is valid input, regardless of it being empty or not
-;; It should be a valid line
-
-;; Perhaps make sym-at consider following lines as well
-;; Advance and sym-at would actually facilitate this behaviour. The problem is that the char to the
-;; right is actually the char where I'm currently at. This would create some difficulties.
-;; But if I get this invariant in the function, then returning a result of nil would always represent
-;; the fact that I've arrived at the end of the text itself.
-;; this will perhaps simplify some things. So if a return of `nil` would represent the end of text
-;; then I can reason about these functions a little bit more easily.
 
 (defn char-key? [stroke]
   (char? (:key stroke)))
@@ -283,12 +285,53 @@
       :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
 
 (defn deselect [seeker]
-  (if (-> seeker :selection empty?)
-    seeker
-    (assoc seeker :selection empty-map)))
+  (if (selection? seeker)
+    (assoc seeker :selection empty-map)
+    seeker))
+
+(defn extract [seeker]
+  (let [{start :start
+         end   :end} (:selection seeker)]
+    (if (selection? seeker)
+      (-> seeker
+          (end-y)
+          (end-x)
+          (do-until simple-delete #(-> % :cursor (= end)))
+          (move (fn [_] start))
+          (do-until simple-delete #(-> % :cursor (= [0 0]))))
+      empty-seeker)))
+
+(defn copy [seeker]
+  (->> seeker (extract) (assoc seeker :clipboard)))
+
+(defn cut [seeker]
+  (-> seeker (copy) (delete)))
+
+(defn paste [seeker]
+  (let [copied (-> seeker :clipboard (end-x) (end-y))
+        lines (-> seeker :clipboard :lines)
+        [x y] (:cursor copied)
+        f (m/match [lines]
+                   [[a]] (fn [l r] [(concat l a r)])
+                   [[a b]] (fn [l r] [(concat l a) (concat b r)])
+                   [[a & b]] (fn [l r] (concat [(concat l a)]
+                                               (drop-last b)
+                                               [(concat (last b) r)]))
+                   :else vector)]
+    (if (selection? seeker)
+      (-> seeker (delete) (deselect) (paste))
+      (-> seeker
+          (split f)
+          (move-x (fn [_] x))
+          (move-y #(+ % (dec y)))))))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]
+           [{:key \v :alt true}] (-> seeker (paste) (deselect))
+           [{:key \c :alt true}] (-> seeker (copy) (deselect))
+           [{:key \x :alt true}] (-> seeker (cut) (deselect))
+           [{:key :up :shift true}] (-> seeker (select) (climb) (select))
+           [{:key :down :shift true}] (-> seeker (select) (fall) (select))
            [{:key :left :ctrl true :shift true}] (-> seeker (select) (jump regress) (select))
            [{:key :right :ctrl true :shift true}] (-> seeker (select) (jump advance) (select))
            [{:key :left :shift true}] (-> seeker (select) (regress) (select))
@@ -299,8 +342,8 @@
            [{:key :right}] (-> seeker (advance) (deselect))
            [{:key :up}] (-> seeker (climb) (deselect))
            [{:key :down}] (-> seeker (fall) (deselect))
-           [{:key :backspace}] (-> seeker (auto-delete) (deselect))
+           [{:key :backspace}] (-> seeker (delete) (deselect))
            [{:key :delete}] (-> seeker (munch) (deselect))
            [{:key :enter}] (-> seeker (break) (deselect))
-           [_ :guard char-key?] (-> seeker (auto-insert (:key stroke)) (deselect))
+           [_ :guard char-key?] (-> seeker (insert (:key stroke)) (deselect))
            :else seeker))

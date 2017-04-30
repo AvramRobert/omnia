@@ -29,3 +29,7 @@
     (if (empty? coll)
       seed
       (recur (inc from) f (f from seed (first coll)) (rest coll)))))
+
+(defn do-until [elm f p]
+  (let [x (f elm)]
+    (if (p x) x (recur x f p))))
