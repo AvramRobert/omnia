@@ -9,7 +9,7 @@
                  [fipp "0.6.8"]
                  [org.clojure/tools.nrepl "0.2.12"]
                  [halfling "0.1.1-SNAPSHOT"]
-                 [org.jline/jline "3.2.0"]
+                 [com.cemerick/pomegranate "0.3.1"]
                  [instaparse "1.4.5"]
                  [com.rpl/specter "1.0.1"]]
   :main ^:skip-aot omnia.core

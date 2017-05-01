@@ -10,14 +10,6 @@
     [instaparse.core :as p]))
 
 (comment
-  "
-  The general idea in fipp is that you can align groups of other groups.
-  An :align block will be align all its children based on the current level
-  of nesting.
-  A :group block denotes an aggregation of a number of various children that will
-  be considered as 1 thing by the parent node.")
-
-(comment
   "Rules:
   Note: fipp takes care of nested, far-right newline indentations.
 
