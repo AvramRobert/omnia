@@ -7,6 +7,7 @@
 
 (comment
   "Enhancements:
+      0. Give selections a cardinality. You should be able to select more than one thing.
       1. Add line width limit and truncation.
       2. Try out transients to improve performance.")
 
@@ -135,13 +136,29 @@
   ([seeker f]
    (-> seeker sym-at f)))
 
+(defn selection? [seeker]
+  (-> seeker :selection empty? not))
+
+(defn in-select [seeker f]
+  (if (selection? seeker)
+    (let [{start :start
+           end   :end} (:selection seeker)
+          [nstart nend] (f start end)]
+      (-> seeker
+          (assoc-in [:selection :start] nstart)
+          (assoc-in [:selection :end] nend)))
+    seeker))
+
 (defn join [this-seeker that-seeker]
+  "Until I add multiple selections, always keep the selections of the latest seeker"
   (let [[x y] (:cursor that-seeker)
         ths (height this-seeker)
         tht (height that-seeker)]
     (-> this-seeker
         (update :lines #(join-lines % (:lines that-seeker)))
         (assoc :height (delay (+ ths tht)))
+        (assoc :selection (:selection that-seeker))
+        (in-select (fn [[xs ys] [xe ye]] [[xs (+ ys ths)] [xe (+ ye ths)]]))
         (move (fn [[_ oy]] [x (+ y oy)])))))
 
 (defn- advance-with [seeker f]
@@ -205,15 +222,12 @@
 (defn pair? [seeker rules]
   (some-> seeker (left #(get rules %)) (= (right seeker))))
 
-(defn selection? [seeker]
-  (-> seeker :selection empty? not))
-
 (defn delete
   ([seeker] (delete seeker matching-rules))
   ([seeker rules]
    (cond
      (selection? seeker) (chunk-delete seeker)
-     (pair? seeker rules) (-> seeker (pair-delete) (move-x dec))
+     (pair? seeker rules) (pair-delete seeker)
      :else (simple-delete seeker))))
 
 (defn simple-insert [seeker value]
@@ -279,11 +293,11 @@
          dir     :dir} (:selection seeker)
         [x y] (:cursor seeker)]
     (cond
-      (empty? (:selection seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
+      (not (selection? seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
       (and (= y ys) (<= x xs) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
       (and (= y ys) (<= x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
       (and (< y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
-      (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :right))
+      (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :left))
       :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
 
 (defn deselect [seeker]
@@ -332,6 +346,7 @@
 
 (defn inputs [seeker stroke]
   (m/match [stroke]
+           [{:key \a :ctrl true}] (-> seeker (select-all))
            [{:key \v :alt true}] (-> seeker (paste) (deselect))
            [{:key \c :alt true}] (-> seeker (copy) (deselect))
            [{:key \x :alt true}] (-> seeker (cut) (deselect))

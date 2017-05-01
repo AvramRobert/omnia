@@ -12,10 +12,20 @@
   " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
     2. Add `jump-to` as a function that jumps to a line. // done
     3. fipp-pretty printed collection outputs // done
-    4. Add highlighting functionality.
-    5. Add i-search and reverse i-search as command.
-    6. Add matching parens highlighting.
-    7. Add separate command input.")
+    4. Add highlighting functionality. // done
+    5. Fix input re-rendering.
+    6. Add i-search and reverse i-search as command.
+    7. Add matching parens highlighting.
+    8. Add separate command input.")
+
+(comment
+  "Possible problems:
+
+  1. Cutting and pasting does NOT influence :ov
+     This might might prove problematic when pasting in a view that is not last.
+     Currently I haven't noticed anything noteworthy.
+
+  2. Manipulations should always trigger a complete input re-render.")
 
 (comment
   " Limit logic:
@@ -27,27 +37,6 @@
 
     (*) h - ov - fov = line form which the current view of the fov starts,
     given that h > fov")
-
-
-;; FIXME: Better selection
-(comment
-  "Instead of mirroring the input seeker in the complete-hud,
-  when refactoring, also renormalise the selection.
-  This, in theory, should be doable, as the y-coordinate of lines doesn't
-  get changed after formatting.
-  The only thing that changes is the x-coordinate and the difference in change
-  can be calculated:
-  The difference is countable based on the number of spaces the original
-  and formatted version contain.
-        S_form - S_orig = D, where D -> indentation for that line
-
-  This means that for some selection starting at xs and ending at xe,
-  these should be offset by their respective D's for their line.
-
-  Additionally, joining two seekers should also normalise selections.
-  In this case, it is not the the x's that get offset, but rather the y's.
-  The right-hand seeker's y-selection coordinate gets offset by the
-  size of the left-hand seeker's height. ")
 
 (defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
@@ -75,7 +64,6 @@
   (let [seeker (->> prelude (apply i/join-lines) (i/seeker))]
     (-> seeker
         (i/end-y)
-        (assoc :selected :already)
         (assoc :scroll? false)
         (assoc :lor (i/height seeker))
         (assoc :fov fov)
@@ -84,13 +72,13 @@
 (defn init-hud [fov]
   (hud fov greeting empty-text caret))
 
-(defn global-y [hud local-y]
+(defn screen-y [hud hud-y]
   (let [{fov :fov
          ov  :ov
          h   :height} hud]
     (if (> @h fov)
-      (- local-y (- @h fov ov))
-      local-y)))
+      (- hud-y (- @h fov ov))
+      hud-y)))
 
 (defn screen-size [ctx]
   (if-let [terminal (:terminal ctx)]
@@ -105,12 +93,12 @@
     (loop [x xs
            y ys]
       (cond
-        (-> complete :selection empty?) ()
+        (not (i/selection? complete)) ()
         (and (= y ye) (= x xe)) ()
         (i/sym-at complete [x y]) (do
                                     (doto terminal
                                       (t/set-bg-color :blue)
-                                      (t/put-character (i/sym-at complete [x y]) x (global-y complete y)))
+                                      (t/put-character (i/sym-at complete [x y]) x (screen-y complete y)))
                                     (recur (inc x) y))
         :else (recur 0 (inc y))))
     (t/set-bg-color terminal :default)))
@@ -161,6 +149,7 @@
       (assoc :scroll? false)))
 
 (defn project [hud]
+  ;; FIXME: also project selection. When selecting all in a multi-page view, the terminal prints the additional scrolls
   (let [{lor     :lor
          fov     :fov
          ov      :ov
@@ -179,7 +168,7 @@
          fov    :fov
          ov     :ov
          h      :height} hud
-        y (global-y hud cy)]
+        y (screen-y hud cy)]
     [x y]))
 
 (defn total! [ctx]
@@ -229,7 +218,7 @@
 (defn minimal! [ctx]
   (when-unscrolled ctx
     (fn [_ current former]
-      (if (-> current :selected (= :now))
+      (if (i/selection? former)
         (input! ctx)
         ()))))
 
@@ -293,9 +282,7 @@
       :previous-hud (:complete-hud ctx)
       :complete-hud (-> ctx
                         (:persisted-hud)
-                        (i/join seeker)
-                        (assoc :selection (get-in ctx [:complete-hud :selection]))
-                        (assoc :selected (get-in ctx [:complete-hud :selected])))
+                        (i/join seeker))
       :seeker seeker)))
 
 (defn exit [ctx]
@@ -316,13 +303,9 @@
       ctx)))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx :seeker (f/lisp-format))]
-    (assoc ctx
-      :complete-hud (-> ctx
-                        (:persisted-hud)
-                        (i/join formatted)
-                        (assoc :selection (get-in ctx [:complete-hud :selection]))
-                        (assoc :selected (get-in ctx [:complete-hud :selected]))))))
+  (let [formatted (-> ctx :seeker (f/lisp-format))
+        joined (-> ctx (:persisted-hud) (i/join formatted))]
+    (assoc ctx :complete-hud joined)))
 
 (defn navigate [ctx]
   (let [{{fov :fov
@@ -367,42 +350,8 @@
       :persisted-hud start-hud
       :previous-hud start-hud)))
 
-(defn select [ctx]
-  (-> ctx
-      (assoc-in [:complete-hud :selected] :selecting)
-      (update :complete-hud i/select)
-      (update :seeker i/select)))
-
-(defn deselect [ctx]
-  (let [selectivity {:selecting :now
-                     :now       :already
-                     :already   :already}]
-    (-> ctx
-        (update-in [:complete-hud :selected] selectivity)
-        (update :complete-hud i/deselect)
-        (update :seeker i/deselect))))
-
 (defn movement? [stroke]
   (contains? #{:up :down :left :right} (:key stroke)))
-
-(defn selection? [stroke]
-  (and (movement? stroke)
-       (:shift stroke)))
-
-(defn manipulation? [stroke]
-  (and (contains? #{\v \c \x} (:key stroke))
-       (:alt stroke)))
-
-(comment
-  "The easier solution to all of this would be to actually
-  format the seeker directly, without side-effects
-  and then use that x directly with the projected y of the complete hud.
-  This would allow me to avoid keeping track of both complete and seeker selection."
-
-  "The current way binds input logic to rendering logic in such a way, that I have to catch inputs things on the rendering level.
-  This I don't like. Rendering should reflect input, not dictate how input should look like.
-
-  For example: select-all would require me to write essentially the same function both for input and for hud")
 
 (defn handle [ctx stroke]
   (m/match [stroke]
@@ -413,10 +362,8 @@
            [{:key \r :ctrl true}] (-> ctx (clear) (re-render))
            [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
-           [_ :guard selection?] (-> ctx (resize) (select) (capture stroke) (reformat) (select) (navigate) (scroll-stop) (no-render))
-           [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (min-render))
-           [_ :guard manipulation?] (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (re-render))
-           :else (-> ctx (resize) (capture stroke) (reformat) (deselect) (navigate) (scroll-stop) (diff-render))))
+           [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (min-render))
+           :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)

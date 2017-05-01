@@ -53,12 +53,29 @@
 
 ;; FIXME: write small library similar to `Try` in order to better compose these attempt formattings
 
-(defn normalise [orig formatted]
-  (let [seeker (assoc formatted :cursor (:cursor orig))
-        spaces (fn [s] (->> (i/line s)
-                            (take-while #(= % \space))
-                            (count)))]
-    (i/move-x seeker #(-> % (+ (spaces seeker)) (- (spaces orig))))))
+(defn spaces [seeker]
+  (->> (i/line seeker)
+       (take-while #(= % \space))
+       (count)))
+
+(defn reselect [original formatted]
+  (i/in-select original
+    (fn [[xs ys] [xe ye]]
+      (let [spaces-start (- (-> formatted (i/move-y (fn [_] ys)) (spaces))
+                            (-> original (i/move-y (fn [_] ys)) (spaces)))
+            spaces-end (- (-> formatted (i/move-y (fn [_] ye)) (spaces))
+                          (-> original (i/move-y (fn [_] ye)) (spaces)))]
+        [[(+ xs spaces-start) ys]
+         [(+ xe spaces-end) ye]]))))
+
+(defn normalise [original formatted]
+  "The update order must be kept!
+  First selection, then rebase, then movement!"
+  (let [indent (-> formatted (assoc :cursor (:cursor original)) (spaces))]
+    (-> original
+        (reselect formatted)
+        (i/rebase (fn [_] (:lines formatted)))
+        (i/move-x #(+ % indent)))))
 
 (defn edn-document
   ([x] (edn-document x {}))
