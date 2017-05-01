@@ -1,8 +1,9 @@
-1(ns omnia.hud
+(ns omnia.hud
   (:gen-class)
   (use omnia.highlighting
        omnia.more)
   (require [lanterna.terminal :as t]
+           [omnia.rendering :refer [render-context]]
            [omnia.repl :as r]
            [omnia.input :as i]
            [clojure.core.match :as m]
@@ -69,53 +70,16 @@
         (assoc :fov fov)
         (assoc :ov 0))))
 
+
+;; === Utils ===
+
 (defn init-hud [fov]
   (hud fov greeting empty-text caret))
-
-(defn screen-y [hud hud-y]
-  (let [{fov :fov
-         ov  :ov
-         h   :height} hud]
-    (if (> @h fov)
-      (- hud-y (- @h fov ov))
-      hud-y)))
 
 (defn screen-size [ctx]
   (if-let [terminal (:terminal ctx)]
     (-> terminal (.getTerminalSize) (.getRows))
     (-> ctx :persisted-hud :fov)))
-
-(defn highlight! [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx
-        {[xs ys] :start
-         [xe ye] :end} (:selection complete)]
-    (loop [x xs
-           y ys]
-      (cond
-        (not (i/selection? complete)) ()
-        (and (= y ye) (= x xe)) ()
-        (i/sym-at complete [x y]) (do
-                                    (doto terminal
-                                      (t/set-bg-color :blue)
-                                      (t/put-character (i/sym-at complete [x y]) x (screen-y complete y)))
-                                    (recur (inc x) y))
-        :else (recur 0 (inc y))))
-    (t/set-bg-color terminal :default)))
-
-(defn print-row! [y terminal line]
-  (reduce-idx
-    (fn [x state c]
-      (let [[next-state colour] (process state c)]
-        (doto terminal
-          (t/set-fg-color colour)
-          (t/put-character c x y))
-        next-state)) s0 line))
-
-(defn print! [terminal seeker]
-  (reduce-idx
-    (fn [y _ line] (print-row! y terminal line))
-    nil (:lines seeker)))
 
 (defn preserve [hud & seekers]
   (let [data (->> seekers
@@ -124,6 +88,8 @@
     (-> hud
         (i/rebase #(into % data))
         (i/end-y))))
+
+;; === Screen scrolling ===
 
 (defn nowards [height fov _ ov]
   (if (> height fov) (+ fov ov) height))
@@ -148,95 +114,6 @@
       (scroll nowards)
       (assoc :scroll? false)))
 
-(defn project [hud]
-  ;; FIXME: also project selection. When selecting all in a multi-page view, the terminal prints the additional scrolls
-  (let [{lor     :lor
-         fov     :fov
-         ov      :ov
-         scroll? :scroll?} hud]
-    (if scroll?
-      (i/rebase hud #(->> % (take-right lor) (take fov)))
-      (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
-
-#_(defn jump [hud line]
-    (assoc hud :lor (-> hud (i/height) (- line))))
-
-(defn project-cursor [hud]
-  "gy = cy - (h - fov - ov)
-   cy = gy + (h - fov - ov)"
-  (let [{[x cy] :cursor
-         fov    :fov
-         ov     :ov
-         h      :height} hud
-        y (screen-y hud cy)]
-    [x y]))
-
-(defn total! [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx]
-    (doto terminal
-      (t/clear)
-      (print! (project complete)))))
-
-(defn when-unscrolled [ctx f]
-  (let [{terminal :terminal
-         complete :complete-hud
-         previous :previous-hud} ctx
-        current (project complete)
-        former (project previous)]
-    (if (not= (:ov current) (:ov former))
-      (total! ctx)
-      (f terminal current former))))
-
-(defn pad-erase [current-line former-line]
-  (let [hc (count current-line)
-        hf (count former-line)
-        largest (max hc hf)]
-    (->> (repeat \space)
-         (take (- largest hc))
-         (concat current-line)
-         (vec))))
-
-(defn diff! [ctx]
-  (when-unscrolled ctx
-    (fn [terminal current former]
-      (->> (:lines former)
-           (zip-all (:lines current))
-           (map-indexed (fn [idx paired] (conj paired idx)))
-           (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-           (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-           (foreach (fn [[line y]] (print-row! y terminal line)))))))
-
-(defn input! [ctx]
-  (let [{persisted :persisted-hud
-         seeker    :seeker} ctx
-        padding (->> empty-line (repeat) (take (i/height seeker)) (vec) (i/seeker))]
-    (-> ctx
-        (assoc :previous-hud (i/join persisted padding))
-        (diff!))))
-
-(defn minimal! [ctx]
-  (when-unscrolled ctx
-    (fn [_ current former]
-      (if (i/selection? former)
-        (input! ctx)
-        ()))))
-
-(defn nothing! [ctx]
-  (when-unscrolled ctx (fn [_ _ _] ())))
-
-(defn render-context [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx
-        [x y] (project-cursor complete)]
-    (case (:render ctx)
-      :diff (doto ctx (diff!) (highlight!))
-      :input (doto ctx (input!) (highlight!))
-      :minimal (doto ctx (minimal!) (highlight!))
-      :nothing (doto ctx (nothing!) (highlight!))
-      (doto ctx (total!) (highlight!)))
-    (t/move-cursor terminal x y)))
-
 (defn scroll-up [ctx]
   (update ctx :complete-hud #(scroll % upwards)))
 
@@ -248,7 +125,12 @@
       (update :complete-hud noscroll)
       (update :persisted-hud noscroll)))
 
-(defn roll-repl [ctx f]
+#_(defn jump [hud line]
+    (assoc hud :lor (-> hud (i/height) (- line))))
+
+;; === REPL History ===
+
+(defn roll [ctx f]
   (let [then-repl (-> ctx :repl f)
         then-seeker (r/then then-repl)]
     (assoc ctx
@@ -257,10 +139,10 @@
       :seeker then-seeker)))
 
 (defn roll-back [ctx]
-  (roll-repl ctx r/travel-back))
+  (roll ctx r/travel-back))
 
 (defn roll-forward [ctx]
-  (roll-repl ctx r/travel-forward))
+  (roll ctx r/travel-forward))
 
 (defn evaluate [ctx]
   (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
@@ -276,6 +158,7 @@
       :repl evaluation
       :seeker i/empty-seeker)))
 
+;; === Input ===
 (defn capture [ctx stroke]
   (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
     (assoc ctx
@@ -285,13 +168,12 @@
                         (i/join seeker))
       :seeker seeker)))
 
-(defn exit [ctx]
-  (-> ctx
-      (update :complete-hud #(preserve % (i/seeker goodbye)))
-      (assoc-in [:persisted-hud :ov] 0)
-      (assoc-in [:complete-hud :ov] 0)
-      (render-context))
-  (Thread/sleep 1200))
+(defn reformat [ctx]
+  (let [formatted (-> ctx :seeker (f/lisp-format))
+        joined (-> ctx (:persisted-hud) (i/join formatted))]
+    (assoc ctx :complete-hud joined)))
+
+;; === Control ===
 
 (defn resize [ctx]
   (let [fov (get-in ctx [:persisted-hud :fov])
@@ -301,11 +183,6 @@
           (assoc-in [:persisted-hud :fov] ssize)
           (assoc-in [:complete-hud :fov] ssize))
       ctx)))
-
-(defn reformat [ctx]
-  (let [formatted (-> ctx :seeker (f/lisp-format))
-        joined (-> ctx (:persisted-hud) (i/join formatted))]
-    (assoc ctx :complete-hud joined)))
 
 (defn navigate [ctx]
   (let [{{fov :fov
@@ -327,6 +204,24 @@
         (update-in [:complete-hud :ov] f)
         (update-in [:persisted-hud :ov] f))))
 
+(defn clear [ctx]
+  (let [fov (screen-size ctx)
+        start-hud (init-hud fov)]
+    (assoc ctx
+      :complete-hud (i/join start-hud (:seeker ctx))
+      :persisted-hud start-hud
+      :previous-hud start-hud)))
+
+(defn exit [ctx]
+  (-> ctx
+      (update :complete-hud #(preserve % (i/seeker goodbye)))
+      (assoc-in [:persisted-hud :ov] 0)
+      (assoc-in [:complete-hud :ov] 0)
+      (render-context))
+  (Thread/sleep 1200))
+
+;; === Rendering ===
+
 (defn re-render [ctx]
   (assoc ctx :render :total))
 
@@ -342,13 +237,7 @@
 (defn no-render [ctx]
   (assoc ctx :render :nothing))
 
-(defn clear [ctx]
-  (let [fov (screen-size ctx)
-        start-hud (init-hud fov)]
-    (assoc ctx
-      :complete-hud (i/join start-hud (:seeker ctx))
-      :persisted-hud start-hud
-      :previous-hud start-hud)))
+;; === Events ===
 
 (defn movement? [stroke]
   (contains? #{:up :down :left :right} (:key stroke)))

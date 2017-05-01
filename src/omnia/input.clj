@@ -342,7 +342,7 @@
           (move-y #(+ % (dec y)))))))
 
 (defn select-all [seeker]
-  (-> seeker (start-y) (start-x) (select) (end-y) (end-x) (select)))
+  (-> seeker (start-y) (start-x) (select) (end-y) (move-y dec) (end-x) (select)))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]
