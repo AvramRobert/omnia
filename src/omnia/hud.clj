@@ -28,6 +28,27 @@
     (*) h - ov - fov = line form which the current view of the fov starts,
     given that h > fov")
 
+
+;; FIXME: Better selection
+(comment
+  "Instead of mirroring the input seeker in the complete-hud,
+  when refactoring, also renormalise the selection.
+  This, in theory, should be doable, as the y-coordinate of lines doesn't
+  get changed after formatting.
+  The only thing that changes is the x-coordinate and the difference in change
+  can be calculated:
+  The difference is countable based on the number of spaces the original
+  and formatted version contain.
+        S_form - S_orig = D, where D -> indentation for that line
+
+  This means that for some selection starting at xs and ending at xe,
+  these should be offset by their respective D's for their line.
+
+  Additionally, joining two seekers should also normalise selections.
+  In this case, it is not the the x's that get offset, but rather the y's.
+  The right-hand seeker's y-selection coordinate gets offset by the
+  size of the left-hand seeker's height. ")
+
 (defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
 (def ^:const empty-line [])
