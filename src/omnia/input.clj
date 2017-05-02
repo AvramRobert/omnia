@@ -326,18 +326,23 @@
 (defn paste [seeker]
   (let [copied (-> seeker :clipboard (end-y) (move-y dec) (end-x))
         lines (-> seeker :clipboard :lines)
-        [x y] (:cursor copied)
-        f (m/match [lines]
-                   [[a]] (fn [l r] [(concat l a r)])
-                   [[a b]] (fn [l r] [(concat l a) (concat b r)])
-                   [[a & b]] (fn [l r] (concat [(concat l a)]
-                                               (drop-last b)
-                                               [(concat (last b) r)]))
-                   :else vector)]
-    (-> seeker
-        (split f)
-        (move-x (fn [_] x))
-        (move-y #(+ % y)))))
+        [x y] (:cursor copied)]
+    (m/match [lines]
+             [[a]] (-> seeker
+                       (split #(vector (concat %1 a %2)))
+                       (move-y #(+ % y))
+                       (move-x #(+ % x)))
+             [[a b]] (-> seeker
+                         (split #(vector (concat %1 a) (concat b %2)))
+                         (move-y #(+ % y))
+                         (move-x (constantly x)))
+             [[a & b]] (-> seeker
+                           (split #(concat [(concat %1 a)]
+                                           (drop-last b)
+                                           [(concat (last b) %2)]))
+                           (move-y #(+ % y))
+                           (move-x (constantly x)))
+             :else vector)))
 
 (defn select-all [seeker]
   (-> seeker (start-y) (start-x) (select) (end-y) (move-y dec) (end-x) (select)))

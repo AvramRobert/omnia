@@ -242,6 +242,10 @@
 (defn movement? [stroke]
   (contains? #{:up :down :left :right} (:key stroke)))
 
+(defn manipulation? [stroke]
+  (and (contains? #{\v \c \x} (:key stroke))
+       (:alt stroke)))
+
 (defn handle [ctx stroke]
   (m/match [stroke]
            [{:key :page-up}] (-> ctx (resize) (scroll-up) (re-render))
@@ -251,6 +255,7 @@
            [{:key \r :ctrl true}] (-> ctx (clear) (re-render))
            [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
+           [_ :guard manipulation?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (re-render))
            [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (min-render))
            :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (diff-render))))
 
