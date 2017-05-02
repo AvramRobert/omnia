@@ -324,7 +324,7 @@
   (-> seeker (copy) (delete)))
 
 (defn paste [seeker]
-  (let [copied (-> seeker :clipboard (end-x) (end-y))
+  (let [copied (-> seeker :clipboard (end-y) (move-y dec) (end-x))
         lines (-> seeker :clipboard :lines)
         [x y] (:cursor copied)
         f (m/match [lines]
@@ -334,12 +334,10 @@
                                                (drop-last b)
                                                [(concat (last b) r)]))
                    :else vector)]
-    (if (selection? seeker)
-      (-> seeker (delete) (deselect) (paste))
-      (-> seeker
-          (split f)
-          (move-x (fn [_] x))
-          (move-y #(+ % (dec y)))))))
+    (-> seeker
+        (split f)
+        (move-x (fn [_] x))
+        (move-y #(+ % y)))))
 
 (defn select-all [seeker]
   (-> seeker (start-y) (start-x) (select) (end-y) (move-y dec) (end-x) (select)))
