@@ -16,7 +16,7 @@
 
 (def empty-map {})
 (def empty-vec [])
-(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) empty-map empty-vec))
+(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) empty-map empty-map))
 
 (def matching-rules {\{ \}
                      \[ \]
@@ -287,6 +287,19 @@
        (map println)
        (doall)))
 
+#_(defn select [seeker]
+  (let [{[xs ys] :start
+         [xm ym] :end
+         dir     :dir} (:selection seeker)
+        [x y] (:cursor seeker)]
+    (cond
+      (not (selection? seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
+      (and (= y ym) (= x xm) (= dir :left)) (assoc seeker :selection (Select. [x y] [x y] :right))
+      (and (<= y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
+      (and (= y ys) (< x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
+      (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :left))
+      :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
+
 (defn select [seeker]
   (let [{[xs ys] :start
          [xm ym] :end
@@ -294,9 +307,9 @@
         [x y] (:cursor seeker)]
     (cond
       (not (selection? seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
-      (and (= y ys) (<= x xs) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
-      (and (= y ys) (<= x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
-      (and (< y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
+      (and (= y ym) (= x xm) (= dir :left)) (assoc seeker :selection (Select. [x y] [x y] :right))
+      (and (<= y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
+      (and (= y ys) (< x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
       (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :left))
       :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
 
@@ -304,6 +317,12 @@
   (if (selection? seeker)
     (assoc seeker :selection empty-map)
     seeker))
+
+(comment
+  asb
+  x
+  ad
+  vd)
 
 (defn extract [seeker]
   (let [{start :start
