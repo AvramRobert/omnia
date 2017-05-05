@@ -51,14 +51,11 @@
        (count)))
 
 (defn reselect [original formatted]
-  (i/in-select original
-    (fn [[xs ys] [xe ye]]
+  (i/reselect original
+    (fn [[xs ys]]
       (let [spaces-start (- (-> formatted (i/move-y (fn [_] ys)) (spaces))
-                            (-> original (i/move-y (fn [_] ys)) (spaces)))
-            spaces-end (- (-> formatted (i/move-y (fn [_] ye)) (spaces))
-                          (-> original (i/move-y (fn [_] ye)) (spaces)))]
-        [[(+ xs spaces-start) ys]
-         [(+ xe spaces-end) ye]]))))
+                            (-> original (i/move-y (fn [_] ys)) (spaces)))]
+        [(+ xs spaces-start) ys]))))
 
 (defn normalise [original formatted]
   "The update order must be kept!

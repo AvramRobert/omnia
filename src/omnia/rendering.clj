@@ -2,7 +2,8 @@
   (use omnia.highlighting
        omnia.more)
   (require [omnia.input :as i]
-           [lanterna.terminal :as t]))
+           [lanterna.terminal :as t]
+           [clojure.core.match :as m]))
 
 (declare total! diff! input! minimal! nothing!)
 
@@ -34,7 +35,6 @@
     [x y]))
 
 (defn project [hud]
-  ;; FIXME: also project selection. When selecting all in a multi-page view, the terminal prints the additional scrolls
   (let [{lor     :lor
          fov     :fov
          ov      :ov
@@ -54,21 +54,24 @@
       (f terminal current former))))
 
 (defn highlight! [ctx]
+  ;; FIXME: Hightlight just within the current fov. If a selection exceeds the fov, artifacts appear on the screen
   (let [{terminal :terminal
          complete :complete-hud} ctx
+        fov (:fov complete)
         {[xs ys] :start
-         [xe ye] :end} (:selection complete)]
+         [xe ye] :end} (i/selection complete)]
     (loop [x xs
            y ys]
-      (cond
-        (not (i/selection? complete)) ()
-        (and (= y ye) (= x xe)) ()
-        (i/sym-at complete [x y]) (do
-                                    (doto terminal
-                                      (t/set-bg-color :blue)
-                                      (t/put-character (i/sym-at complete [x y]) x (screen-y complete y)))
-                                    (recur (inc x) y))
-        :else (recur 0 (inc y))))
+      (let [ch (i/sym-at complete [x y])
+            sy (screen-y complete y)]
+        (cond
+          (and (= y ye) (= x xe)) ()
+          (not (nil? ch)) (do
+                            (doto terminal
+                              (t/set-bg-color :blue)
+                              (t/put-character ch x sy))
+                            (recur (inc x) y))
+          :else (recur 0 (inc y)))))
     (t/set-bg-color terminal :default)))
 
 (defn print-row! [y terminal line]

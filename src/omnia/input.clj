@@ -14,9 +14,8 @@
 (defrecord Seeker [lines cursor height selection clipboard])
 (defrecord Select [start end dir])
 
-(def empty-map {})
 (def empty-vec [])
-(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) empty-map empty-map))
+(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) nil nil))
 
 (def matching-rules {\{ \}
                      \[ \]
@@ -137,17 +136,26 @@
    (-> seeker sym-at f)))
 
 (defn selection? [seeker]
-  (-> seeker :selection empty? not))
+  (-> seeker :selection nil? not))
 
-(defn in-select [seeker f]
-  (if (selection? seeker)
-    (let [{start :start
-           end   :end} (:selection seeker)
-          [nstart nend] (f start end)]
-      (-> seeker
-          (assoc-in [:selection :start] nstart)
-          (assoc-in [:selection :end] nend)))
-    seeker))
+(defn reselect
+  ([seeker f]
+    (reselect seeker f identity))
+  ([seeker f g]
+   (update seeker :selection #(if (empty? %) (g %) (f %)))))
+
+(defn select [seeker]
+  (reselect seeker identity (constantly (:cursor seeker))))
+
+(defn deselect [seeker]
+  (reselect seeker (constantly nil)))
+
+(defn selection [seeker]
+  (let [cursor (:cursor seeker)
+        init (-> seeker (select) :selection)
+        [start end] (sort-by (juxt second first) [init cursor])]
+    {:start start
+     :end end}))
 
 (defn join [this-seeker that-seeker]
   "Until I add multiple selections, always keep the selections of the latest seeker"
@@ -158,7 +166,7 @@
         (update :lines #(join-lines % (:lines that-seeker)))
         (assoc :height (delay (+ ths tht)))
         (assoc :selection (:selection that-seeker))
-        (in-select (fn [[xs ys] [xe ye]] [[xs (+ ys ths)] [xe (+ ye ths)]]))
+        (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (move (fn [[_ oy]] [x (+ y oy)])))))
 
 (defn- advance-with [seeker f]
@@ -214,7 +222,7 @@
 
 (defn chunk-delete [seeker]
   (let [{start :start
-         end   :end} (:selection seeker)]
+         end   :end} (selection seeker)]
     (-> seeker
         (move (fn [_] end))
         (do-until simple-delete #(-> % :cursor (= start))))))
@@ -280,6 +288,46 @@
 (defn char-key? [stroke]
   (char? (:key stroke)))
 
+(defn extract [seeker]
+  (let [{start :start
+         end   :end} (selection seeker)]
+    (-> seeker
+        (end-y)
+        (end-x)
+        (do-until simple-delete #(-> % :cursor (= end)))
+        (move (fn [_] start))
+        (do-until simple-delete #(-> % :cursor (= [0 0]))))))
+
+(defn copy [seeker]
+  (->> seeker (extract) (assoc seeker :clipboard)))
+
+(defn cut [seeker]
+  (cond-> (copy seeker)
+          (selection? seeker) (delete)))
+
+(defn paste [seeker]
+  (let [copied (some-> seeker :clipboard (end-y) (move-y dec) (end-x))
+        [x y] (some-> copied :cursor)]
+    (m/match [copied]
+             [{:lines [a]}] (-> seeker
+                                  (split #(vector (concat %1 a %2)))
+                                  (move-y #(+ % y))
+                                  (move-x #(+ % x)))
+             [{:lines [a b]}] (-> seeker
+                                    (split #(vector (concat %1 a) (concat b %2)))
+                                    (move-y #(+ % y))
+                                    (move-x (constantly x)))
+             [{:lines [a & b]}] (-> seeker
+                                      (split #(concat [(concat %1 a)]
+                                                      (drop-last b)
+                                                      [(concat (last b) %2)]))
+                                      (move-y #(+ % y))
+                                      (move-x (constantly x)))
+             :else seeker)))
+
+(defn select-all [seeker]
+  (-> seeker (start-y) (start-x) (select) (end-y) (move-y dec) (end-x)))
+
 (defn print-seeker [seeker]
   (->> seeker
        (:lines)
@@ -287,105 +335,26 @@
        (map println)
        (doall)))
 
-#_(defn select [seeker]
-  (let [{[xs ys] :start
-         [xm ym] :end
-         dir     :dir} (:selection seeker)
-        [x y] (:cursor seeker)]
-    (cond
-      (not (selection? seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
-      (and (= y ym) (= x xm) (= dir :left)) (assoc seeker :selection (Select. [x y] [x y] :right))
-      (and (<= y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
-      (and (= y ys) (< x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
-      (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :left))
-      :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
-
-(defn select [seeker]
-  (let [{[xs ys] :start
-         [xm ym] :end
-         dir     :dir} (:selection seeker)
-        [x y] (:cursor seeker)]
-    (cond
-      (not (selection? seeker)) (assoc seeker :selection (Select. [x y] [x y] :right))
-      (and (= y ym) (= x xm) (= dir :left)) (assoc seeker :selection (Select. [x y] [x y] :right))
-      (and (<= y ys) (= dir :left)) (assoc seeker :selection (Select. [x y] [xm ym] :left))
-      (and (= y ys) (< x xs)) (assoc seeker :selection (Select. [x y] [xs ys] :left))
-      (< y ys) (assoc seeker :selection (Select. [x y] [xs ys] :left))
-      :else (assoc seeker :selection (Select. [xs ys] [x y] :right)))))
-
-(defn deselect [seeker]
-  (if (selection? seeker)
-    (assoc seeker :selection empty-map)
-    seeker))
-
-(comment
-  asb
-  x
-  ad
-  vd)
-
-(defn extract [seeker]
-  (let [{start :start
-         end   :end} (:selection seeker)]
-    (if (selection? seeker)
-      (-> seeker
-          (end-y)
-          (end-x)
-          (do-until simple-delete #(-> % :cursor (= end)))
-          (move (fn [_] start))
-          (do-until simple-delete #(-> % :cursor (= [0 0]))))
-      empty-seeker)))
-
-(defn copy [seeker]
-  (->> seeker (extract) (assoc seeker :clipboard)))
-
-(defn cut [seeker]
-  (-> seeker (copy) (delete)))
-
-(defn paste [seeker]
-  (let [copied (-> seeker :clipboard (end-y) (move-y dec) (end-x))
-        lines (-> seeker :clipboard :lines)
-        [x y] (:cursor copied)]
-    (m/match [lines]
-             [[a]] (-> seeker
-                       (split #(vector (concat %1 a %2)))
-                       (move-y #(+ % y))
-                       (move-x #(+ % x)))
-             [[a b]] (-> seeker
-                         (split #(vector (concat %1 a) (concat b %2)))
-                         (move-y #(+ % y))
-                         (move-x (constantly x)))
-             [[a & b]] (-> seeker
-                           (split #(concat [(concat %1 a)]
-                                           (drop-last b)
-                                           [(concat (last b) %2)]))
-                           (move-y #(+ % y))
-                           (move-x (constantly x)))
-             :else vector)))
-
-(defn select-all [seeker]
-  (-> seeker (start-y) (start-x) (select) (end-y) (move-y dec) (end-x) (select)))
-
 (defn inputs [seeker stroke]
   (m/match [stroke]
            [{:key \a :ctrl true}] (-> seeker (select-all))
            [{:key \v :alt true}] (-> seeker (paste) (deselect))
            [{:key \c :alt true}] (-> seeker (copy) (deselect))
            [{:key \x :alt true}] (-> seeker (cut) (deselect))
-           [{:key :up :shift true}] (-> seeker (select) (climb) (select))
-           [{:key :down :shift true}] (-> seeker (select) (fall) (select))
-           [{:key :left :ctrl true :shift true}] (-> seeker (select) (jump regress) (select))
-           [{:key :right :ctrl true :shift true}] (-> seeker (select) (jump advance) (select))
-           [{:key :left :shift true}] (-> seeker (select) (regress) (select))
-           [{:key :right :shift true}] (-> seeker (select) (advance) (select))
-           [{:key :left :ctrl true}] (-> seeker (jump regress) (deselect))
-           [{:key :right :ctrl true}] (-> seeker (jump advance) (deselect))
-           [{:key :left}] (-> seeker (regress) (deselect))
-           [{:key :right}] (-> seeker (advance) (deselect))
-           [{:key :up}] (-> seeker (climb) (deselect))
-           [{:key :down}] (-> seeker (fall) (deselect))
+           [{:key :up :shift true}] (-> seeker (select) (climb))
+           [{:key :down :shift true}] (-> seeker (select) (fall))
+           [{:key :left :ctrl true :shift true}] (-> seeker (select) (jump regress))
+           [{:key :right :ctrl true :shift true}] (-> seeker (select) (jump advance))
+           [{:key :left :shift true}] (-> seeker (select) (regress))
+           [{:key :right :shift true}] (-> seeker (select) (advance))
+           [{:key :left :ctrl true}] (-> seeker (deselect) (jump regress))
+           [{:key :right :ctrl true}] (-> seeker (deselect) (jump advance))
+           [{:key :left}] (-> seeker (deselect) (regress))
+           [{:key :right}] (-> seeker (deselect) (advance))
+           [{:key :up}] (-> seeker (deselect) (climb))
+           [{:key :down}] (-> seeker (deselect) (fall))
            [{:key :backspace}] (-> seeker (delete) (deselect))
            [{:key :delete}] (-> seeker (munch) (deselect))
-           [{:key :enter}] (-> seeker (break) (deselect))
-           [_ :guard char-key?] (-> seeker (insert (:key stroke)) (deselect))
+           [{:key :enter}] (-> seeker (deselect) (break))
+           [_ :guard char-key?] (-> seeker (deselect) (insert (:key stroke)))
            :else seeker))
