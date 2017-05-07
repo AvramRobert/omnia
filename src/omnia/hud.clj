@@ -6,6 +6,7 @@
            [omnia.rendering :refer [render-context]]
            [omnia.repl :as r]
            [omnia.input :as i]
+           [omnia.highlight :as h]
            [clojure.core.match :as m]
            [omnia.formatting :as f]))
 
@@ -17,7 +18,8 @@
     5. Fix input re-rendering.
     6. Add i-search and reverse i-search as command.
     7. Add matching parens highlighting.
-    8. Add separate command input.")
+    8. Add a failure handling system to properly display errors and close the application gracefully.
+    9. Add separate command input.")
 
 (comment
   "Possible problems:

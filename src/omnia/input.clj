@@ -2,7 +2,6 @@
   (:gen-class)
   (require [clojure.core.match :as m]
            [clojure.string :as s]
-           [com.rpl.specter :as sp]
            [omnia.more :refer [do-until]]))
 
 (comment

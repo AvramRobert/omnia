@@ -2,6 +2,7 @@
   (use omnia.highlighting
        omnia.more)
   (require [omnia.input :as i]
+           [omnia.highlight :as h]
            [lanterna.terminal :as t]
            [clojure.core.match :as m]))
 
@@ -84,7 +85,7 @@
           :else (recur 0 (inc y)))))
     (t/set-bg-color terminal :default)))
 
-(defn print-row! [y terminal line]
+#_(defn print-row! [y terminal line]
   (reduce-idx
     (fn [x state c]
       (let [[next-state colour] (process state c)]
@@ -93,10 +94,27 @@
           (t/put-character c x y))
         next-state)) s0 line))
 
-(defn print! [terminal seeker]
+#_(defn print! [terminal seeker]
   (reduce-idx
     (fn [y _ line] (print-row! y terminal line))
     nil (:lines seeker)))
+
+(defn print-row! [y terminal line]
+  (t/move-cursor terminal 0 y)
+  (some->> line
+           (apply str)
+           (h/highlight)
+           (first)
+           (foreach
+             (fn [[string colour]]
+               (doto terminal
+                 (t/set-fg-color colour)
+                 (t/put-string string))))))
+
+(defn print! [terminal seeker]
+  (reduce-idx
+    (fn [y _ line]
+      (print-row! y terminal line)) nil (:lines seeker)))
 
 ;; === Rendering strategies ===
 
