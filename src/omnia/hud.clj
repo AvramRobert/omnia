@@ -185,24 +185,21 @@
       ctx)))
 
 (defn navigate [ctx]
-  (let [{{fov :fov
-          ov  :ov
-          hc   :height} :complete-hud
-         previous      :previous-hud
-         seeker        :seeker} ctx
-        h (i/height seeker)
-        [_ y] (:cursor seeker)
-        upper-limit? (neg? (+ (- (+ fov ov) h) (bound-dec y 0)))
-        lower-limit? (and (> h 0) (>= (bound-inc y h) (- h ov)))
-        decreased? (< @hc (i/height previous))
-        f (cond
-            upper-limit? inc
-            lower-limit? dec
-            decreased? #(-- % (i/height previous) @hc)
-            :else identity)]
+  (let [{{fov   :fov
+          ov    :ov
+          h     :height
+          [_ y] :cursor} :complete-hud
+         {ph :height}    :previous-hud} ctx
+        upper-y (- @h fov ov)
+        lower-y (- @h ov)
+        nov (cond
+              (< @h @ph) (-- ov @ph @h)
+              (< y upper-y) (-- @h fov y)
+              (> (inc y) lower-y) (-- @h (inc y))
+              :else ov)]
     (-> ctx
-        (update-in [:complete-hud :ov] f)
-        (update-in [:persisted-hud :ov] f))))
+        (assoc-in [:persisted-hud :ov] nov)
+        (assoc-in [:complete-hud :ov] nov))))
 
 (defn clear [ctx]
   (let [fov (screen-size ctx)
@@ -219,6 +216,12 @@
       (assoc-in [:complete-hud :ov] 0)
       (render-context))
   (Thread/sleep 1200))
+
+(defn deselect [ctx]
+  (-> ctx
+      (update :complete-hud i/deselect)
+      (update :persisted-hud i/deselect)
+      (update :seeker i/deselect)))
 
 ;; === Rendering ===
 
@@ -248,16 +251,16 @@
 
 (defn handle [ctx stroke]
   (m/match [stroke]
-           [{:key :page-up}] (-> ctx (resize) (scroll-up) (re-render))
-           [{:key :page-down}] (-> ctx (resize) (scroll-down) (re-render))
+           [{:key :page-up}] (-> ctx (resize) (scroll-up) (deselect) (re-render))
+           [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
            [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (re-render))
            [{:key :down :alt true}] (-> ctx (resize) (roll-forward) (reformat) (scroll-stop) (re-render))
-           [{:key \r :ctrl true}] (-> ctx (clear) (re-render))
+           [{:key \r :ctrl true}] (-> ctx (clear) (deselect) (re-render))
            [{:key \e :alt true}] (-> ctx (resize) (evaluate) (scroll-stop) (re-render))
-           [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (re-render) (exit))
-           [_ :guard manipulation?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (re-render))
-           [_ :guard movement?] (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (min-render))
-           :else (-> ctx (resize) (capture stroke) (reformat) (navigate) (scroll-stop) (diff-render))))
+           [{:key \d :ctrl true}] (-> ctx (resize) (scroll-stop) (deselect) (re-render) (exit))
+           [_ :guard manipulation?] (-> ctx (resize) (capture stroke) (navigate) (reformat) (scroll-stop) (re-render))
+           [_ :guard movement?] (-> ctx (resize) (capture stroke) (navigate) (reformat)  (scroll-stop) (min-render))
+           :else (-> ctx (resize) (capture stroke) (navigate) (reformat) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)

@@ -60,11 +60,12 @@
 (defn normalise [original formatted]
   "The update order must be kept!
   First selection, then rebase, then movement!"
-  (let [indent (-> formatted (assoc :cursor (:cursor original)) (spaces))]
+  (let [form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
+        real-indent (spaces original)]
     (-> original
         (reselect formatted)
         (i/rebase (fn [_] (:lines formatted)))
-        (i/move-x #(+ % indent)))))
+        (i/move-x #(-> % (+ form-indent) (- real-indent))))))
 
 (defn edn-document
   ([x] (edn-document x {}))
@@ -86,7 +87,6 @@
 
 (defn fmt-lisp [sexprs]
   (->> sexprs (parse) (educe) (apply str)))
-
 
 (defn edn? [string]
   (let [trimmed (s/trim string)

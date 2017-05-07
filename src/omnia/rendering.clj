@@ -34,7 +34,16 @@
         y (screen-y hud hy)]
     [x y]))
 
-(defn project [hud]
+(defn project-selection [hud]
+  (let [fov (:fov hud)
+        {[xs ys] :start
+         [xe ye] :end} (i/selection hud)
+        start-y (- ye fov)
+        start (if (> start-y ys) [0 (inc start-y)] [xs ys])]
+    {:start start
+     :end [xe ye]}))
+
+(defn project-hud [hud]
   (let [{lor     :lor
          fov     :fov
          ov      :ov
@@ -47,25 +56,26 @@
   (let [{terminal :terminal
          complete :complete-hud
          previous :previous-hud} ctx
-        current (project complete)
-        former (project previous)]
+        current (project-hud complete)
+        former (project-hud previous)]
     (if (not= (:ov current) (:ov former))
       (total! ctx)
       (f terminal current former))))
 
+;; FIXME: Rewrite this. Separate function into one that prepares the input to be highlighted, and one that acutally hightlights
 (defn highlight! [ctx]
-  ;; FIXME: Hightlight just within the current fov. If a selection exceeds the fov, artifacts appear on the screen
   (let [{terminal :terminal
          complete :complete-hud} ctx
         fov (:fov complete)
         {[xs ys] :start
-         [xe ye] :end} (i/selection complete)]
+         [xe ye] :end} (project-selection complete)]
     (loop [x xs
            y ys]
       (let [ch (i/sym-at complete [x y])
             sy (screen-y complete y)]
         (cond
-          (and (= y ye) (= x xe)) ()
+          (> y ye) ()
+          (and (>= y ye) (>= x xe)) ()
           (not (nil? ch)) (do
                             (doto terminal
                               (t/set-bg-color :blue)
@@ -95,7 +105,7 @@
          complete :complete-hud} ctx]
     (doto terminal
       (t/clear)
-      (print! (project complete)))))
+      (print! (project-hud complete)))))
 
 (defn diff! [ctx]
   (when-unscrolled ctx
