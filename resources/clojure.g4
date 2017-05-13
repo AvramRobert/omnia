@@ -1,15 +1,10 @@
 /*
-
-    I took the grammar that was listed in the https://github.com/antlr/grammars-v4
-    repository and reworked the hell out of it. Without making any concrete
-    promises, this seems to deal reasonably well with a fairly decent volume
-    of core Clojure code, which makes me think it's in decent working form.
-
-    ~ Venantius, August 16 2015.
-
+    A slightly altered version of 'glow's grammar for
+    parsing clojure code. It is less strict in its constraints
+    regarding parenthesis and keyword consistency.
  */
 
-grammar Clojure;
+grammar clojure;
 
 file: form *;
 
@@ -19,17 +14,20 @@ form: comment | whitespace | literal
     | map
     | set
     | reader_macro
+    | close
     ;
 
 forms: form* ;
 
-list: '(' forms | ')' ;
+close: ')' | ']' | '}' ;
 
-vector: '[' forms | ']' ;
+list: '(' forms ;
 
-map: '{' forms | '}' ;
+vector: '[' forms ;
 
-set: '#{' forms | '}' ;
+map: '{' forms ;
+
+set: '#{' forms ;
 
 reader_macro
     : lambda
@@ -49,27 +47,27 @@ reader_macro
 
 // TJP added '&' (gather a variable number of arguments)
 quote
-    : '\'' form
+    : '\'' form | '\''
     ;
 
 backtick
-    : '`' form
+    : '`' form | '`'
     ;
 
 unquote
-    : '~' form
+    : '~' form | '~'
     ;
 
 unquote_splicing
-    : '~@' form
+    : '~@' form | '~@'
     ;
 
 tag
-    : '^' form
+    : '^' form | '^'
     ;
 
 deref
-    : '@' form
+    : '@' form | '@'
     ;
 
 gensym
@@ -77,27 +75,27 @@ gensym
     ;
 
 lambda
-    : '#' list
+    : '#' list | '#'
     ;
 
 meta_data
-    : '#^' (map form | form)
+    : '#^' (map form | form) | '#^'
     ;
 
 var_quote
-    : '#\'' symbol
+    : '#\'' symbol | '#\''
     ;
 
 host_expr
-    : '#+' form form
+    : '#+' form form | '#+'
     ;
 
 discard
-    : '#_' form
+    : '#_' form | '#_'
     ;
 
 dispatch
-    : '#' symbol form
+    : '#' symbol form | '#'
     ;
 
 literal
@@ -142,7 +140,7 @@ boolean: BOOLEAN;
 
 
 keyword: KEYWORD;
-KEYWORD: (':' | '::') KWNAME;
+KEYWORD: (':' | '::') | (':' | '::') KWNAME;
 
 symbol: ns_symbol | simple_sym;
 simple_sym: SYMBOL;
@@ -175,7 +173,7 @@ FLOAT_TAIL
 
 fragment
 FLOAT_DECIMAL
-    : '.' [0-9]+
+    : '.' [0-9]+ | ',' [0-9]+
     ;
 
 fragment
@@ -230,7 +228,7 @@ fragment
 SYMBOL_HEAD
     : ~('0' .. '9'
         | '^' | '`' | '\'' | '"' | '#' | '~' | '@' | ':' | '/' | '%' | '(' | ')' | '[' | ']' | '{' | '}' // FIXME: could be one group
-        | [ \n\r\t\,] // FIXME: could be WS
+        | [ \n\r\t] // FIXME: could be WS
         )
     ;
 
@@ -239,13 +237,14 @@ SYMBOL_REST
     : SYMBOL_HEAD
     | '0'..'9'
     | '.'
+    | ','
     ;
 
 // Whitespace, Comments
 //--------------------------------------------------------------------
 
 whitespace: WS;
-WS: [ \n\r\t,]+;
+WS: [ \n\r\t]+;
 
 comment: COMMENT_CHAR;
 COMMENT_CHAR: ';' ~[\n\r]+ '\n';

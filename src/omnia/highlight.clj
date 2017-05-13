@@ -6,7 +6,18 @@
            [glow.ansi :as ansi]
            [clj-antlr.core :as a]
            [clojure.core.match :as m]
-           [omnia.input :as i]))
+           [omnia.input :as i]
+           [omnia.more :refer [split-by]]))
+
+(comment
+  ; FIXME
+  "The parser is very strict and picky.
+  If any of the special symbols like ~ ` ' @ ~@ # are used
+  without any expression or something that completes the clause,
+  the parser fails, because it doesn't default them to simple
+  symbols when they are on their own
+
+  I fixed all that seem obvious from the grammar. New ones might however appear.")
 
 (def grammar (a/parser (slurp "resources/clojure.g4")))
 
@@ -17,24 +28,26 @@
   (contains? colors colour))
 
 (def default-colorscheme
-  {:exception :red
-   :repeat  :green
-   :conditional :green
-   :variable :blue
-   :core-fn :blue
-   :definition :yellow
-   :reader-char :red
-   :special-form :white
+  {:definition :yellow
+   :core-fn :yellow
+   :special-form :yellow
    :macro :yellow
-   :number :blue
-   :boolean :cyan
+
    :nil :cyan
-   :s-exp :white
-   :keyword :magenta
-   :comment :yellow
+   :boolean :cyan
+   :number :blue
    :string :green
    :character :green
+   :keyword :magenta
    :regex :green
+
+   :comment :yellow
+   :s-exp :white
+   :variable :blue
+   :exception :red
+   :repeat  :green
+   :conditional :green
+   :reader-char :red
    :blank :default
    :default :white})
 
@@ -61,8 +74,11 @@
 (defn paint-collection [colourscheme]
   (fn [& args]
     [(pair colourscheme :s-exp (first args))
-     (->> args rest butlast (apply concat) vec)
-     (pair colourscheme :s-exp (last args))]))
+     (->> args rest (apply concat) vec)]))
+
+(defn paint-close [colourscheme]
+  (fn [parens]
+    (pair colourscheme :s-exp parens)))
 
 (defn paint-reader-macro [colorscheme]
   (fn [& args]
@@ -88,18 +104,8 @@
 (defn unite [& args] (->> args (apply concat) (vec)))
 (defn pass-on [& args] args)
 
-(defn split-by [p coll]
-  (loop [acc []
-         rem coll]
-    (if (empty? rem)
-      acc
-      (recur (->> rem (take-while p) (vec) (conj acc))
-             (->> rem (drop-while p) (vec) rest)))))
-
 
 (defn transmute [colourscheme parsed-tree]
-  ;; FIXME: The parser fails if the input is non-valid clojure
-  ;; Diff rendering is killing it
   (->> parsed-tree
        (p/transform
          {:simple_sym str
@@ -139,6 +145,7 @@
           :host_expr (paint-reader-macro colourscheme)
           :discard (paint-reader-macro colourscheme)
           :dispatch (paint-reader-macro colourscheme)
+          :close (paint-close colourscheme)
 
           ;; top level
           :file unite

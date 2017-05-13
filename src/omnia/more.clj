@@ -37,3 +37,11 @@
 (defn do-until [elm f p]
   (let [x (f elm)]
     (if (p x) x (recur x f p))))
+
+(defn split-by [p coll]
+  (loop [acc []
+         rem coll]
+    (if (empty? rem)
+      acc
+      (recur (->> rem (take-while p) (vec) (conj acc))
+             (->> rem (drop-while p) (vec) rest)))))
