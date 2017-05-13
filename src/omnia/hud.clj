@@ -6,7 +6,6 @@
            [omnia.rendering :refer [render-context]]
            [omnia.repl :as r]
            [omnia.input :as i]
-           [omnia.highlight :as h]
            [clojure.core.match :as m]
            [omnia.formatting :as f]))
 
