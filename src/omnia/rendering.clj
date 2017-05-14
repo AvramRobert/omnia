@@ -1,5 +1,5 @@
 (ns omnia.rendering
-  (use omnia.highlighting
+  (use omnia.highlight
        omnia.more)
   (require [omnia.input :as i]
            [lanterna.terminal :as t]

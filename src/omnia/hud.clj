@@ -1,8 +1,9 @@
 (ns omnia.hud
   (:gen-class)
-  (use omnia.highlighting
+  (use omnia.highlight
        omnia.more)
   (require [lanterna.terminal :as t]
+           [halfling.result :refer [attempt]]
            [omnia.rendering :refer [render-context]]
            [omnia.repl :as r]
            [omnia.input :as i]
@@ -29,6 +30,7 @@
 (def ^:const goodbye (i/join-lines
                        (i/str->lines "Bye.. for now.")
                        (i/str->lines "For even the very wise cannot see all ends.")))
+(def ^:const error (i/str->lines "I have not the heart to tell you, but something went wrong internally.."))
 
 (defn hud [fov & prelude]
   "lor = line of reference
@@ -154,6 +156,24 @@
         joined (-> ctx (:persisted-hud) (i/join formatted))]
     (assoc ctx :complete-hud joined)))
 
+
+;; === Rendering ===
+
+(defn re-render [ctx]
+  (assoc ctx :render :total))
+
+(defn diff-render [ctx]
+  (assoc ctx :render :diff))
+
+(defn input-render [ctx]
+  (assoc ctx :render :input))
+
+(defn min-render [ctx]
+  (assoc ctx :render :minimal))
+
+(defn no-render [ctx]
+  (assoc ctx :render :nothing))
+
 ;; === Control ===
 
 (defn resize [ctx]
@@ -204,22 +224,25 @@
       (update :persisted-hud i/deselect)
       (update :seeker i/deselect)))
 
-;; === Rendering ===
-
-(defn re-render [ctx]
-  (assoc ctx :render :total))
-
-(defn diff-render [ctx]
-  (assoc ctx :render :diff))
-
-(defn input-render [ctx]
-  (assoc ctx :render :input))
-
-(defn min-render [ctx]
-  (assoc ctx :render :minimal))
-
-(defn no-render [ctx]
-  (assoc ctx :render :nothing))
+(defn failure [{:keys [message trace]} ctx]
+  (let [element (first trace)
+        msg (-> "Exception: %s, at %s.%s (%s:%s)"
+                (format message
+                        (.getClassName element)
+                        (.getMethodName element)
+                        (.getFileName element)
+                        (.getLineNumber element))
+                (i/str->lines))
+        text (-> (i/join-lines error
+                               msg
+                               empty-text
+                               caret)
+                 (i/seeker))]
+    (-> ctx
+        (update :persisted-hud #(preserve % text))
+        (update :complete-hud #(preserve % text))
+        (assoc :seeker i/empty-seeker)
+        (re-render))))
 
 ;; === Events ===
 
@@ -248,7 +271,9 @@
         eval-ctx (Context. terminal :total start-hud start-hud start-hud repl i/empty-seeker)]
     (loop [ctx (resize eval-ctx)]
       (when ctx
-        (render-context ctx)
-        (-> ctx
-            (handle (t/get-keystroke-blocking terminal))
-            (recur))))))
+        (let [result (attempt
+                       (render-context ctx)
+                       (handle ctx (t/get-keystroke-blocking terminal)))]
+          (m/match [result]
+                   [{:status :success :val nctx}] (recur nctx)
+                   [{:status :failure :val errs}] (recur (failure errs ctx))))))))

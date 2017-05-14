@@ -1,4 +1,4 @@
-(ns omnia.highlighting
+(ns omnia.highlight
   (:gen-class))
 
 ;; I currently can't highlight 'true' and 'false' because that requires context-sensitivity and rollbacks
@@ -6,7 +6,7 @@
 (comment
   ;; FIXME
   " 1. Configurise colour mappings.
-    2. Define a grammar that can be parsed into a tag-based structure (similar to fipp). ")
+    2. Make a more powerful automaton library allows for a more seamless character-based highlighting")
 
 (def ^:const stx :syntax)
 (def ^:const stx* :syntax*)
@@ -20,7 +20,7 @@
 
 (def colour-map {stx :yellow
                  dst :white
-                 kwd :magenta
+                 kwd :cyan
                  stg :green
                  chr :green
                  nr  :blue
