@@ -20,26 +20,6 @@
     8. Add a failure handling system to properly display errors and close the application gracefully.
     9. Add separate command input.")
 
-(comment
-  "Possible problems:
-
-  1. Cutting and pasting does NOT influence :ov
-     This might might prove problematic when pasting in a view that is not last.
-     Currently I haven't noticed anything noteworthy.
-
-  2. Manipulations should always trigger a complete input re-render.")
-
-(comment
-  " Limit logic:
-    ov = how many lines were offset in the upward direction
-    ov = 0 means that the latest fov lines of the seeker are displayed
-    fov + ov = how much we've gone upward and currently see/have seen
-
-    h - ov => line where the current view of the fov ends
-
-    (*) h - ov - fov = line form which the current view of the fov starts,
-    given that h > fov")
-
 (defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
 (def ^:const empty-line [])

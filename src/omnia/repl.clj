@@ -11,10 +11,15 @@
   ;; FIXME
   " 1. Add nrepl server start and stop. // done
     2. Refactor repl initiation // done
-    3. Add preloading of functions and dependencies.
+    3. Add preloading of functions and dependencies. // done
     4. Add repl session loading.")
 
 (defrecord REPL [eval-f stop-f history hsize timeline result])
+
+(def predef
+  (->> (str '(require '[omnia.resolution :refer [retrieve retrieve-from]]))
+       (i/str->lines)
+       (i/seeker)))
 
 (defn- out? [response]
   (contains? response :out))
@@ -100,7 +105,9 @@
   (case kind
     :identity (repl-with identity (fn [] nil))
     :remote (repl-with (connect host port timeout) (fn [] nil))
-    :local (let [server (s/start-server :port port)]
-             (repl-with (connect "localhost" port timeout)
+    :local (let [server (s/start-server :port port)
+                 eval-f (connect "localhost" port timeout)]
+             (eval-f predef)
+             (repl-with eval-f
                         (fn [] (s/stop-server server) nil)))))
 
