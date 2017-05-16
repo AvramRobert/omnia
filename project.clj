@@ -10,7 +10,9 @@
                  [org.clojure/tools.nrepl "0.2.12"]
                  [halfling "0.1.1-SNAPSHOT"]
                  [com.cemerick/pomegranate "0.3.1"]
-                 [instaparse "1.4.5"]]
+                 [instaparse "1.4.5"]
+                 [ritz/ritz-nrepl-middleware "0.7.0"]]
+
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}})

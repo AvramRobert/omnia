@@ -23,13 +23,11 @@
 
 (defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker])
 
-(def ^:const empty-line [])
-(def ^:const empty-text [empty-line])
+(def ^:const empty-line [i/empty-vec])
+(def ^:const delimiter (i/str->lines "------"))
 (def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
 (def ^:const caret (i/str->lines "Ω=>"))
-(def ^:const goodbye (i/join-lines
-                       (i/str->lines "Bye.. for now.")
-                       (i/str->lines "For even the very wise cannot see all ends.")))
+(def ^:const goodbye (i/str->lines "Bye..for now\nFor even the very wise cannot see all ends"))
 (def ^:const error (i/str->lines "I have not the heart to tell you, but something went wrong internally.."))
 
 (defn hud [fov & prelude]
@@ -57,7 +55,7 @@
 ;; === Utils ===
 
 (defn init-hud [fov]
-  (hud fov greeting empty-text caret))
+  (hud fov greeting empty-line caret))
 
 (defn screen-size [ctx]
   (if-let [terminal (:terminal ctx)]
@@ -111,7 +109,7 @@
 #_(defn jump [hud line]
     (assoc hud :lor (-> hud (i/height) (- line))))
 
-;; === REPL History ===
+;; === REPL ===
 
 (defn roll [ctx f]
   (let [then-repl (-> ctx :repl f)
@@ -141,6 +139,12 @@
       :repl evaluation
       :seeker i/empty-seeker)))
 
+(defn suggest [ctx]
+  (let [suggestion (r/complete (:repl ctx) (:seeker ctx))]
+    (-> ctx
+        (update :complete-hud #(preserve % (i/seeker delimiter) suggestion))
+        (update :complete-hud #(-> % i/end-y (i/move-y dec) i/end-x)))))
+
 ;; === Input ===
 (defn capture [ctx stroke]
   (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
@@ -155,7 +159,6 @@
   (let [formatted (-> ctx :seeker (f/lisp-format))
         joined (-> ctx (:persisted-hud) (i/join formatted))]
     (assoc ctx :complete-hud joined)))
-
 
 ;; === Rendering ===
 
@@ -210,6 +213,9 @@
       :persisted-hud start-hud
       :previous-hud start-hud)))
 
+(defn refresh [ctx]
+  (assoc ctx :complete-hud (i/join (:persisted-hud ctx) (:seeker ctx))))
+
 (defn exit [ctx]
   (-> ctx
       (update :complete-hud #(preserve % (i/seeker goodbye)))
@@ -235,7 +241,7 @@
                 (i/str->lines))
         text (-> (i/join-lines error
                                msg
-                               empty-text
+                               empty-line
                                caret)
                  (i/seeker))]
     (-> ctx
@@ -255,6 +261,7 @@
 
 (defn handle [ctx stroke]
   (m/match [stroke]
+           [{:key :tab}] (-> ctx (resize) (refresh) (reformat) (suggest) (scroll-stop) (deselect) (re-render))
            [{:key :page-up}] (-> ctx (resize) (scroll-up) (deselect) (re-render))
            [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
            [{:key :up :alt true}] (-> ctx (resize) (roll-back) (reformat) (scroll-stop) (re-render))

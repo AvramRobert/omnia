@@ -11,8 +11,8 @@
   (System/exit 1))
 
 (defn -main [& args]
-  (let [terminal (t/get-terminal :text)
-        repl (r/repl {:kind :local})]
-    (t/start terminal)
-    (h/read-eval-print terminal repl)
-    (shutdown terminal repl)))
+    (let [terminal (t/get-terminal :text)
+          repl (r/repl {:kind :local})]
+      (t/start terminal)
+      (h/read-eval-print terminal repl)
+      (shutdown terminal repl)))
