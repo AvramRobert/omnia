@@ -23,8 +23,6 @@
 
 (def matchee-rules (clojure.set/map-invert matching-rules))
 
-(def pairs (set (flatten (vec matching-rules))))
-
 (defn resize [seeker]
   (assoc seeker :height (delay (-> seeker :lines count))))
 
@@ -50,6 +48,9 @@
          (newlines)
          (vec))))
 
+(defn blank? [character]
+  (= \space character))
+
 (defn line
   ([seeker]
    (line seeker (:cursor seeker)))
@@ -58,7 +59,7 @@
 
 (defn sym-at
   ([seeker]
-    (sym-at seeker (:cursor seeker)))
+   (sym-at seeker (:cursor seeker)))
   ([seeker [x y]]
    (-> seeker (line [x y]) (nth x nil))))
 
@@ -100,7 +101,7 @@
   (move seeker
         (fn [[x y]]
           (let [length (-> seeker line count)
-                nx (f x)]
+                nx     (f x)]
             (if (and (>= nx 0) (<= nx length))
               [nx y]
               [x y])))))
@@ -109,10 +110,16 @@
   (move seeker
         (fn [[x y]]
           (let [height (height seeker)
-                ny (f y)]
+                ny     (f y)]
             (if (and (>= ny 0) (< ny height))
               [x ny]
               [x y])))))
+
+(defn reset-x [seeker value]
+  (move-x seeker (fn [_] value)))
+
+(defn reset-y [seeker value]
+  (move-y seeker (fn [_] value)))
 
 (defn end-x [seeker]
   (move seeker (fn [[_ y]] [(-> seeker line count) y])))
@@ -125,6 +132,9 @@
 
 (defn end-y [seeker]
   (move seeker (fn [[x _]] [x (height seeker)])))
+
+(defn end [seeker]
+  (-> seeker (end-y) (move-y dec) (end-x)))
 
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
@@ -165,7 +175,7 @@
 
 (defn reselect
   ([seeker f]
-    (reselect seeker f identity))
+   (reselect seeker f identity))
   ([seeker f g]
    (update seeker :selection #(if (empty? %) (g %) (f %)))))
 
@@ -177,10 +187,10 @@
 
 (defn selection [seeker]
   (let [cursor (:cursor seeker)
-        init (-> seeker (select) :selection)
+        init   (-> seeker (select) :selection)
         [start end] (sort-by (juxt second first) [init cursor])]
     {:start start
-     :end end}))
+     :end   end}))
 
 (defn join [this-seeker that-seeker]
   "Until I add multiple selections, always keep the selections of the latest seeker"
@@ -259,7 +269,7 @@
   ([seeker key]
    (insert seeker key matching-rules))
   ([seeker key rules]
-   (let [left-hand (get rules key)
+   (let [left-hand  (get rules key)
          right-hand (-> rules (clojure.set/map-invert) (get key))]
      (cond
        (and (nil? left-hand) (nil? right-hand)) (simple-insert seeker key)
@@ -273,17 +283,12 @@
   (-> seeker :cursor first zero?))
 
 (defn jump [seeker f]
-  (do-until seeker f #(or (start? %)
-                          (nil? (sym-at %))
-                          (= (left %) \space)
-                          (= (center %) \space)
-                          (expr? (regress %) matching-rules)
-                          (expr? % matching-rules))))
-
-(defn jump2 [seeker f]
-  (do-until seeker f #(or (start? %)
-                          (expr? (regress %) matching-rules)
-                          (expr? % matching-rules))))
+  (do-until (f seeker) f #(or (start? %)
+                              (nil? (center %))
+                              (blank? (left %))
+                              (blank? (center %))
+                              (expr? (regress %) matching-rules)
+                              (expr? % matching-rules))))
 
 (defn munch
   ([seeker] (munch seeker matching-rules))
@@ -325,34 +330,35 @@
           (selection? seeker) (delete)))
 
 (defn paste [seeker]
-  (let [copied (some-> seeker :clipboard (end-y) (move-y dec) (end-x))
+  (let [copied (some-> seeker :clipboard (end))
         [x y] (some-> copied :cursor)]
     (m/match [copied]
              [{:lines [a]}] (-> seeker
-                                  (split #(vector (concat %1 a %2)))
-                                  (move-y #(+ % y))
-                                  (move-x #(+ % x)))
+                                (split #(vector (concat %1 a %2)))
+                                (move-y #(+ % y))
+                                (move-x #(+ % x)))
              [{:lines [a b]}] (-> seeker
-                                    (split #(vector (concat %1 a) (concat b %2)))
+                                  (split #(vector (concat %1 a) (concat b %2)))
+                                  (move-y #(+ % y))
+                                  (move-x (constantly x)))
+             [{:lines [a & b]}] (-> seeker
+                                    (split #(concat [(concat %1 a)]
+                                                    (drop-last b)
+                                                    [(concat (last b) %2)]))
                                     (move-y #(+ % y))
                                     (move-x (constantly x)))
-             [{:lines [a & b]}] (-> seeker
-                                      (split #(concat [(concat %1 a)]
-                                                      (drop-last b)
-                                                      [(concat (last b) %2)]))
-                                      (move-y #(+ % y))
-                                      (move-x (constantly x)))
              :else seeker)))
 
 (defn select-all [seeker]
-  (-> seeker (deselect) (start-y) (start-x) (select) (end-y) (move-y dec) (end-x)))
+  (-> seeker (deselect) (start-y) (start-x) (select) (end)))
 
 (defn expand-word [seeker]
   (let [l (left seeker)
         c (center seeker)]
     (cond
       (and (matching-rules l) (matchee-rules c)) (select seeker)
-      (-> seeker (left) (matching-rules)) (-> seeker (select) (jump advance))
+      (and (matchee-rules l) (or (nil? c) (blank? c))) (select seeker)
+      (matching-rules l) (-> seeker (select) (jump advance))
       :else (-> seeker (jump regress) (select) (jump advance)))))
 
 (defn print-seeker [seeker]
@@ -375,8 +381,8 @@
            [{:key :right :ctrl true :shift true}] (-> seeker (select) (jump advance))
            [{:key :left :shift true}] (-> seeker (select) (regress))
            [{:key :right :shift true}] (-> seeker (select) (advance))
-           [{:key :left :ctrl true}] (-> seeker (deselect) (jump2 regress))
-           [{:key :right :ctrl true}] (-> seeker (deselect) (jump2 advance))
+           [{:key :left :ctrl true}] (-> seeker (deselect) (jump regress))
+           [{:key :right :ctrl true}] (-> seeker (deselect) (jump advance))
            [{:key :left}] (-> seeker (deselect) (regress))
            [{:key :right}] (-> seeker (deselect) (advance))
            [{:key :up}] (-> seeker (deselect) (climb))

@@ -29,6 +29,8 @@
        (i/str->lines)
        (i/seeker)))
 
+(def gibberish "~/~")
+
 (defn- out? [response]
   (contains? response :out))
 
@@ -80,13 +82,15 @@
    :code (i/stringify seeker)})
 
 (defn- complete-msg [seeker]
-  {:op :complete
-   :symbol (-> seeker
-               (i/expand-word)
-               (i/extract)
-               (i/stringify)
-               (trim-newline))
-   :ns (ns-name *ns*)})
+  (letfn [(purge [word] (if (empty? word) gibberish word))]
+    {:op :complete
+     :symbol (-> seeker
+                 (i/expand-word)
+                 (i/extract)
+                 (i/stringify)
+                 (trim-newline)
+                 (purge))
+     :ns (ns-name *ns*)}))
 
 (defn- cache-result [repl result]
   (update repl :result (fn [_] result)))
@@ -122,7 +126,7 @@
         (cache-result (f seeker))
         (reset-timeline))))
 
-(defn complete [repl seeker]
+(defn suggest [repl seeker]
   (let [f (:complete-f repl)]
     (f seeker)))
 

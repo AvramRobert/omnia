@@ -8,8 +8,8 @@
 (declare total! diff! input! minimal! nothing!)
 
 (defn- pad-erase [current-line former-line]
-  (let [hc (count current-line)
-        hf (count former-line)
+  (let [hc      (count current-line)
+        hf      (count former-line)
         largest (max hc hf)]
     (->> (repeat \space)
          (take (- largest hc))
@@ -35,13 +35,13 @@
     [x y]))
 
 (defn project-selection [hud]
-  (let [fov (:fov hud)
+  (let [fov     (:fov hud)
         {[xs ys] :start
          [xe ye] :end} (i/selection hud)
         start-y (- ye fov)
-        start (if (> start-y ys) [0 (inc start-y)] [xs ys])]
+        start   (if (> start-y ys) [0 (inc start-y)] [xs ys])]
     {:start start
-     :end [xe ye]}))
+     :end   [xe ye]}))
 
 (defn project-hud [hud]
   (let [{lor     :lor
@@ -57,7 +57,7 @@
          complete :complete-hud
          previous :previous-hud} ctx
         current (project-hud complete)
-        former (project-hud previous)]
+        former  (project-hud previous)]
     (if (not= (:ov current) (:ov former))
       (total! ctx)
       (f terminal current former))))
@@ -109,13 +109,13 @@
 
 (defn diff! [ctx]
   (when-unscrolled ctx
-    (fn [terminal current former]
-      (->> (:lines former)
-           (zip-all (:lines current))
-           (map-indexed (fn [idx paired] (conj paired idx)))
-           (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-           (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-           (foreach (fn [[line y]] (print-row! y terminal line)))))))
+                   (fn [terminal current former]
+                     (->> (:lines former)
+                          (zip-all (:lines current))
+                          (map-indexed (fn [idx paired] (conj paired idx)))
+                          (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
+                          (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
+                          (foreach (fn [[line y]] (print-row! y terminal line)))))))
 
 (defn input! [ctx]
   (let [{persisted :persisted-hud
@@ -124,13 +124,6 @@
     (-> ctx
         (assoc :previous-hud (i/join persisted padding))
         (diff!))))
-
-(defn minimal! [ctx]
-  (when-unscrolled ctx
-    (fn [_ current former]
-      (if (i/selection? former)
-        (input! ctx)
-        ()))))
 
 (defn nothing! [ctx]
   (when-unscrolled ctx (fn [_ _ _] ())))
@@ -142,7 +135,6 @@
     (case (:render ctx)
       :diff (doto ctx (diff!) (highlight!))
       :input (doto ctx (input!) (highlight!))
-      :minimal (doto ctx (minimal!) (highlight!))
       :nothing (doto ctx (nothing!) (highlight!))
       (doto ctx (total!) (highlight!)))
     (t/move-cursor terminal x y)))
