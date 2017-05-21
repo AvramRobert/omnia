@@ -359,6 +359,7 @@
       (and (matching-rules l) (matchee-rules c)) (select seeker)
       (and (matchee-rules l) (or (nil? c) (blank? c))) (select seeker)
       (matching-rules l) (-> seeker (select) (jump advance))
+      (or (nil? l) (blank? l)) (-> seeker (select) (jump advance))
       :else (-> seeker (jump regress) (select) (jump advance)))))
 
 (defn print-seeker [seeker]
