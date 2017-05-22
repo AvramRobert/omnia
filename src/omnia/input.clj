@@ -1,14 +1,7 @@
 (ns omnia.input
-  (:gen-class)
   (require [clojure.core.match :as m]
            [clojure.string :as s]
            [omnia.more :refer [do-until]]))
-
-(comment
-  "Enhancements:
-      0. Give selections a cardinality. You should be able to select more than one thing.
-      1. Add line width limit and truncation.
-      2. Try out transients to improve performance.")
 
 (defrecord Seeker [lines cursor height selection clipboard])
 (defrecord Select [start end dir])

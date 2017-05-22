@@ -1,5 +1,4 @@
 (ns omnia.formatting
-  (:gen-class)
   (require
     [omnia.input :as i]
     [fipp.engine :as e]
@@ -42,8 +41,6 @@
                         align
               line  = '\n'
               <text>  = #'[^()\\[\\]\\{\\}\\n]*'"))
-
-;; FIXME: write small library similar to `Try` in order to better compose these attempt formattings
 
 (defn spaces [seeker]
   (->> (i/line seeker)

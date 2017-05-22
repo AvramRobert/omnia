@@ -1,5 +1,5 @@
 (ns omnia.more
-  (:require [clojure.core.match :as m]))
+  (require [clojure.core.match :as m]))
 
 (defn take-right [n coll]
   (if-let [x (take-last n coll)] x '()))
@@ -43,3 +43,11 @@
 
 (defn or-else [nilable else]
   (if nilable nilable else))
+
+
+(defmacro time-return [& body]
+  `(let [s# (System/nanoTime)
+        val# ~@body
+        e# (System/nanoTime)
+        total# (/ (- e# s#) 1000000.0)]
+    [(str total# " ms") val#]))

@@ -1,12 +1,4 @@
-(ns omnia.highlight
-  (:gen-class))
-
-;; I currently can't highlight 'true' and 'false' because that requires context-sensitivity and rollbacks
-;; Keep it like this for now and perhaps change it in some other version
-(comment
-  ;; FIXME
-  " 1. Configurise colour mappings.
-    2. Make a more powerful automaton library allows for a more seamless character-based highlighting")
+(ns omnia.highlight)
 
 (def ^:const stx :syntax)
 (def ^:const stx* :syntax*)

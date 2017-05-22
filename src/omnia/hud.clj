@@ -1,5 +1,4 @@
 (ns omnia.hud
-  (:gen-class)
   (use omnia.more)
   (require [lanterna.terminal :as t]
            [halfling.result :refer [attempt]]
@@ -9,25 +8,15 @@
            [clojure.core.match :as m]
            [omnia.formatting :as f]))
 
-(comment
-  ;; FIXME: Constant reformatting kills performance..
-  "The bigger the amount of clojure code,
-  the slower the formatter is.
-  If I have about 15 lines of clojure code,
-  moving around with the cursor, deleting or
-  adding new code get's extremely slow.")
-
-(comment
-  " 1. Configurise input from pattern-match. // will be added together with the seeker input configurisation
-    2. Add `jump-to` as a function that jumps to a line. // done
-    3. fipp-pretty printed collection outputs // done
-    4. Add highlighting functionality. // done
-    5. Fix input re-rendering.
-    6. Add i-search and reverse i-search as command.
-    7. Add matching parens highlighting.
-    8. Add separate command input.")
-
-(defrecord Context [terminal render previous-hud complete-hud persisted-hud repl seeker suggestion])
+(defrecord Context [terminal
+                    render
+                    previous-hud
+                    persisted-hud
+                    complete-hud
+                    repl
+                    seeker
+                    raw-seeker
+                    suggestion])
 
 (def ^:const empty-line [i/empty-vec])
 (def ^:const delimiter (i/str->lines "------"))
@@ -56,6 +45,10 @@
         (assoc :lor (i/height seeker))
         (assoc :fov fov)
         (assoc :ov 0))))
+
+
+(defn context [terminal hud repl]
+  (Context. terminal :total hud hud hud repl i/empty-seeker i/empty-seeker [i/empty-vec 0]))
 
 ;; === Utils ===
 
@@ -131,7 +124,8 @@
     (assoc ctx
       :complete-hud (-> ctx (:persisted-hud) (i/join then-seeker))
       :repl then-repl
-      :seeker then-seeker)))
+      :seeker then-seeker
+      :raw-seeker then-seeker)))
 
 (defn roll-back [ctx]
   (roll ctx r/travel-back))
@@ -140,7 +134,7 @@
   (roll ctx r/travel-forward))
 
 (defn evaluate [ctx]
-  (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
+  (let [evaluation (r/evaluate (:repl ctx) (:raw-seeker ctx))
         persisted  (-> ctx
                        (:complete-hud)
                        (preserve (r/result evaluation)
@@ -151,7 +145,8 @@
       :persisted-hud persisted
       :complete-hud persisted
       :repl evaluation
-      :seeker i/empty-seeker)))
+      :seeker i/empty-seeker
+      :raw-seeker i/empty-seeker)))
 
 (defn suggest [ctx]
   (let [suggestion (r/suggest (:repl ctx) (:seeker ctx))]
@@ -192,22 +187,26 @@
   (let [[sgst _] (:suggestion ctx)]
     (-> ctx
         (update :seeker #(auto-complete % sgst))
+        (update :raw-seeker #(auto-complete % sgst))
         (assoc :suggestion [i/empty-vec 0]))))
 
 ;; === Input ===
 (defn capture [ctx stroke]
-  (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
+  (let [seeker     (-> ctx (:seeker) (i/inputs stroke))
+        raw-seeker (-> ctx (:raw-seeker) (i/inputs stroke))]
     (assoc ctx
       :previous-hud (:complete-hud ctx)
       :complete-hud (-> ctx
                         (:persisted-hud)
                         (i/join seeker))
-      :seeker seeker)))
+      :seeker seeker
+      :raw-seeker raw-seeker)))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx :seeker (f/lisp-format))
+  (let [formatted (-> ctx :raw-seeker (f/lisp-format))
         joined    (-> ctx (:persisted-hud) (i/join formatted))]
-    (assoc ctx :complete-hud joined)))
+    (assoc ctx :complete-hud joined
+               :seeker formatted)))
 
 ;; === Rendering ===
 
@@ -314,21 +313,22 @@
 
 (defn handle [ctx stroke]
   (m/match [stroke]
-           [{:key :tab}] (-> ctx (resize) (rebase) (reformat) (complete) (scroll-stop) (deselect) (re-render))
+           [{:key :tab}] (-> ctx (resize) (rebase) (complete) (scroll-stop) (deselect) (re-render))
            [{:key :page-up}] (-> ctx (resize) (scroll-up) (deselect) (re-render))
            [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
-           [{:key :up :alt true}] (-> ctx (resize) (uncomplete) (roll-back) (reformat) (scroll-stop) (re-render))
-           [{:key :down :alt true}] (-> ctx (resize) (uncomplete) (roll-forward) (reformat) (scroll-stop) (re-render))
-           [{:key \r :ctrl true}] (-> ctx (clear) (deselect) (uncomplete) (re-render))
-           [{:key \e :alt true}] (-> ctx (resize) (evaluate) (uncomplete) (scroll-stop) (re-render))
+           [{:key :up :alt true}] (-> ctx (resize) (uncomplete) (roll-back) (scroll-stop) (re-render))
+           [{:key :down :alt true}] (-> ctx (resize) (uncomplete) (roll-forward) (scroll-stop) (re-render))
+           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (scroll-stop) (deselect) (diff-render))
+           [{:key \r :ctrl true}] (-> ctx (clear) (uncomplete) (deselect)  (re-render))
+           [{:key \e :alt true}] (-> ctx (resize) (uncomplete) (evaluate) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (resize) (uncomplete) (scroll-stop) (deselect) (re-render) (exit))
-           [_ :guard manipulation?] (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (reformat) (scroll-stop) (re-render))
-           [_ :guard movement?] (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (reformat) (scroll-stop) (opt-render))
-           :else (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (reformat) (scroll-stop) (diff-render))))
+           [_ :guard manipulation?] (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (scroll-stop) (re-render))
+           [_ :guard movement?] (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (scroll-stop) (opt-render))
+           :else (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
-        eval-ctx  (Context. terminal :total start-hud start-hud start-hud repl i/empty-seeker [i/empty-vec 0])]
+        eval-ctx  (context terminal start-hud repl)]
     (loop [ctx (resize eval-ctx)]
       (when ctx
         (let [result (attempt

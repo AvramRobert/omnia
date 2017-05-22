@@ -5,7 +5,7 @@
            [lanterna.terminal :as t]
            [clojure.core.match :as m]))
 
-(declare total! diff! input! minimal! nothing!)
+(declare total! diff! input! nothing!)
 
 (defn- pad-erase [current-line former-line]
   (let [hc      (count current-line)

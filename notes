@@ -1,21 +1,98 @@
 
 Current hiccups:
-1. Highlighting primitives composed of words (e.g. true false).
-2. First element in a list of symbols is treated as syntax and highlighted.
-3. Formatting.
 
-To implement:
-1. Errors // done
-2. Evaluation history hud with highlighting.
-3. Terminal input symbol.
-4. Loading screen.
-5. nREPL server inception and destruction.
-6. Pre-loaded function for downloading artifacts and binding them.
+1. Input rendering isn't actually re-rendering the input.
+   It diff renders and pads.
+   This becomes a problem when selection is in play. For the diff, selection is invisible.
 
-To consider:
-1. Group selection. For group deletion, copying and pasting.
-2. Mouse support.
-3. Parens-oriented editing. (would facilitate slurping)
-4. Project integration.
+2. Automatic formatting leads to performance issues.
+   The larger the input, the slower it gets. Having the hud actively format input apparently
+   slows everything down when a larger volume of clojure code is provided.
+   Current solution is to explicitly ask for formatting every time you want your code formatted.
+
+3. Seekers don't insert character pairs when a closing character is inserted.
+
+4. Highlighting is coupled with input preparation.
+   Separation is required for reuse.
+
+5. The repl isn't efficiently killing apparently long-running (or possibly infinite) processes.
+
+6. Auto-completion doesn't display options for a multi-page input.
+   Auto-completion doesn't consider `ov` as of yet.
+
+7. Auto-completion doesn't recognise movement.
+   This leads to me using diff-rendering when moving around.
+   Ideally I would want to avoid any operation all-together.
+
+8. Syntax highlighting doesn't highlight:
+        - special words, like `nil` or `true`
+        - explicit collections after `(`
+        - comments
+        - `^:` - constructs
+
+9. Dependency retrieval doesn't show any progress whatsoever.
+
+10. Some key combinations don't work (lanterna problem):
+        - ctrl + up
+        - ctrl + down
+        - ctrl + enter
+        - ctrl + backspace
+
+11. Expansion is currently limit only to words.
+    It needs to also support expressions.
+
+12. Subsets of input cannot be selected and explicitly formatted.
+    The whole input is.
+
+13. Selections of input do not get overridden, when the user types.
+    A selected input should be completely overridden when the
+    user starts typing.
+
+14. Formatting doesn't issue a warning when invalid code is provided.
+    Currently, it just simply ignores the input.
+    Use `halfing.result` to compose formatters and display an error
+    when it tries to format invalid code.
+
+15. Joining seekers is limited to only 2 now.
+    One should be able to joing an invariable number of seekers.
+
+16. Preserve and join sort-of do the same thing.
+    One ends the line, one keeps it current.
+    They are however implemented slightly differently.
+    That should not be.
+
+17. Seekers cannot be created from a simple string.
+    There's a call to `str->lines` required.
+
+18. Inputs cannot have more than one selection.
+    Input selection cardinality is limited to 1.
+    It should be possible to have multiple selections
+    at one time. Or at least one selection that spans
+    multiple ranges.
+
+19. Lines are unbound in their width.
+    Input lines should have a limit.
+    For performance purposes at least.
+
+20. `complete-hud` rebase (and other things) get repeated.
+    In a lot of functions, the `complete-hud` gets rebased
+    by means of the `persisted-hud` and `seeker`.
+    This happens so much so, that it has become a pattern.
+    This needs to be separated and reused. Same for the other things.
+
+Prospects:
+
+- Parenthesis highlighting
+- Tests for input and hud.
+- I-search
+- Input configuration
+- REPL sessions
+- Parametricity and arity lookup
+- ClojureDoc support
+- Command mode (with input filtering)
+- More efficient seeker
+- Refactor and reuse
+- Documentation
+
 
 

@@ -11,13 +11,6 @@
     [omnia.formatting :as f]
     [clojure.edn :as edn]))
 
-(comment
-  ;; FIXME
-  " 1. Add nrepl server start and stop. // done
-    2. Refactor repl initiation // done
-    3. Add preloading of functions and dependencies. // done
-    4. Add repl session loading.")
-
 (defrecord REPL [eval-f complete-f stop-f history hsize timeline result])
 
 (def ritz-middleware
