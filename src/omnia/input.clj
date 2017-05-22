@@ -1,6 +1,7 @@
 (ns omnia.input
   (require [clojure.core.match :as m]
            [clojure.string :as s]
+           [clojure.set :refer [map-invert]]
            [omnia.more :refer [do-until]]))
 
 (defrecord Seeker [lines cursor height selection clipboard])
@@ -14,7 +15,7 @@
                      \( \)
                      \" \"})
 
-(def matchee-rules (clojure.set/map-invert matching-rules))
+(def matchee-rules (map-invert matching-rules))
 
 (defn resize [seeker]
   (assoc seeker :height (delay (-> seeker :lines count))))
@@ -40,6 +41,9 @@
          (map char-vec)
          (newlines)
          (vec))))
+
+(defn from-string [s]
+  (-> s (str->lines) (seeker)))
 
 (defn blank? [character]
   (= \space character))
@@ -118,10 +122,10 @@
   (move seeker (fn [[_ y]] [(-> seeker line count) y])))
 
 (defn start-x [seeker]
-  (move-x seeker (fn [_] 0)))
+  (reset-x seeker 0))
 
 (defn start-y [seeker]
-  (move-y seeker (fn [_] 0)))
+  (reset-y seeker 0))
 
 (defn end-y [seeker]
   (move seeker (fn [[x _]] [x (height seeker)])))
@@ -258,18 +262,19 @@
 (defn pair-insert [seeker [key pair]]
   (-> seeker (slicel #(conj % key pair)) (move-x inc)))
 
-(defn insert                                                ;; this doesn't insert two parens if a closing parens is typed
+(defn insert
   ([seeker key]
    (insert seeker key matching-rules))
   ([seeker key rules]
    (let [left-hand  (get rules key)
-         right-hand (-> rules (clojure.set/map-invert) (get key))]
+         right-hand (-> rules (map-invert) (get key))]
      (cond
        (and (nil? left-hand) (nil? right-hand)) (simple-insert seeker key)
        (and (nil? left-hand) (center seeker #(= % key))) (move-x seeker inc)
-       (nil? right-hand) (pair-insert seeker [key left-hand])
+       (and left-hand right-hand) (pair-insert seeker [key key])
+       (and (nil? right-hand) left-hand) (pair-insert seeker [key left-hand])
+       (and (nil? left-hand) right-hand) (pair-insert seeker [right-hand key])
        (and (= key right-hand) (center seeker #(= % key))) (move-x seeker inc)
-       (= key right-hand) (pair-insert seeker [key key])
        :else (simple-insert seeker key)))))
 
 (defn start? [seeker]

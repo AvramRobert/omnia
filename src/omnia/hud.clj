@@ -61,12 +61,7 @@
     (-> ctx :persisted-hud :fov)))
 
 (defn preserve [hud & seekers]
-  (let [data (->> seekers
-                  (map :lines)
-                  (apply i/join-lines))]
-    (-> hud
-        (i/rebase #(into % data))
-        (i/end-y))))
+  (->> seekers (reduce i/join hud) (i/end-y)))
 
 (defn auto-complete [seeker sgst]
   (if (empty? sgst)
@@ -76,137 +71,6 @@
         (i/delete)
         (i/slicer #(concat sgst %))
         (i/move-x #(+ % (count sgst))))))
-
-;; === Screen scrolling ===
-
-(defn nowards [height fov _ ov]
-  (if (> height fov) (+ fov ov) height))
-
-(defn upwards [height _ lor _]
-  (bound-inc lor (inc height)))
-
-(defn downwards [height fov lor ov]
-  (bound-dec lor (nowards height fov lor ov)))
-
-(defn scroll [hud f]
-  (let [{lor :lor
-         fov :fov
-         ov  :ov
-         h   :height} hud]
-    (-> hud
-        (assoc :scroll? true)
-        (assoc :lor (f @h fov lor ov)))))
-
-(defn noscroll [hud]
-  (-> hud
-      (scroll nowards)
-      (assoc :scroll? false)))
-
-(defn scroll-up [ctx]
-  (update ctx :complete-hud #(scroll % upwards)))
-
-(defn scroll-down [ctx]
-  (update ctx :complete-hud #(scroll % downwards)))
-
-(defn scroll-stop [ctx]
-  (-> ctx
-      (update :complete-hud noscroll)
-      (update :persisted-hud noscroll)))
-
-#_(defn jump [hud line]
-    (assoc hud :lor (-> hud (i/height) (- line))))
-
-;; === REPL ===
-
-(defn roll [ctx f]
-  (let [then-repl   (-> ctx :repl f)
-        then-seeker (r/then then-repl)]
-    (assoc ctx
-      :complete-hud (-> ctx (:persisted-hud) (i/join then-seeker))
-      :repl then-repl
-      :seeker then-seeker
-      :raw-seeker then-seeker)))
-
-(defn roll-back [ctx]
-  (roll ctx r/travel-back))
-
-(defn roll-forward [ctx]
-  (roll ctx r/travel-forward))
-
-(defn evaluate [ctx]
-  (let [evaluation (r/evaluate (:repl ctx) (:raw-seeker ctx))
-        persisted  (-> ctx
-                       (:complete-hud)
-                       (preserve (r/result evaluation)
-                                 (i/seeker caret))
-                       (i/move-x (fn [_] 0)))]
-    (assoc ctx
-      :previous-hud (:complete-hud ctx)
-      :persisted-hud persisted
-      :complete-hud persisted
-      :repl evaluation
-      :seeker i/empty-seeker
-      :raw-seeker i/empty-seeker)))
-
-(defn suggest [ctx]
-  (let [suggestion (r/suggest (:repl ctx) (:seeker ctx))]
-    (-> ctx
-        (assoc :previous-hud (:complete-hud ctx))
-        (update :complete-hud #(-> % (preserve (i/seeker delimiter) suggestion) (i/end))))))
-
-(defn paginate [ctx suggestions]
-  (let [sgst-idx (-> ctx :suggestion second inc)
-        fov      (get-in ctx [:persisted-hud :fov])
-        h-seeker (-> ctx :seeker i/height)
-        space    (- fov h-seeker 2)]
-    (i/rebase suggestions
-              #(cond->> %
-                        (> sgst-idx space) (drop (- sgst-idx space))
-                        :always (take space)))))
-
-(defn complete [ctx]
-  (let [{persisted    :persisted-hud
-         seeker       :seeker
-         repl         :repl
-         [_ sgst-idx] :suggestion} ctx
-        suggestions (-> (r/suggest repl seeker)
-                        (i/reset-y sgst-idx)
-                        (i/end-x))
-        suggestion  (i/line suggestions)
-        seeker      (auto-complete seeker suggestion)
-        nidx        (-> sgst-idx (inc) (mod* (i/height suggestions)))]
-    (-> ctx
-        (assoc :previous-hud (:complete-hud ctx))
-        (assoc :suggestion [suggestion nidx])
-        (assoc :complete-hud (-> persisted
-                                 (i/join seeker)
-                                 (preserve (i/seeker delimiter))
-                                 (i/join (paginate ctx suggestions)))))))
-
-(defn uncomplete [ctx]
-  (let [[sgst _] (:suggestion ctx)]
-    (-> ctx
-        (update :seeker #(auto-complete % sgst))
-        (update :raw-seeker #(auto-complete % sgst))
-        (assoc :suggestion [i/empty-vec 0]))))
-
-;; === Input ===
-(defn capture [ctx stroke]
-  (let [seeker     (-> ctx (:seeker) (i/inputs stroke))
-        raw-seeker (-> ctx (:raw-seeker) (i/inputs stroke))]
-    (assoc ctx
-      :previous-hud (:complete-hud ctx)
-      :complete-hud (-> ctx
-                        (:persisted-hud)
-                        (i/join seeker))
-      :seeker seeker
-      :raw-seeker raw-seeker)))
-
-(defn reformat [ctx]
-  (let [formatted (-> ctx :raw-seeker (f/lisp-format))
-        joined    (-> ctx (:persisted-hud) (i/join formatted))]
-    (assoc ctx :complete-hud joined
-               :seeker formatted)))
 
 ;; === Rendering ===
 
@@ -302,6 +166,138 @@
         (assoc :seeker i/empty-seeker)
         (re-render))))
 
+;; === Screen scrolling ===
+
+(defn nowards [height fov _ ov]
+  (if (> height fov) (+ fov ov) height))
+
+(defn upwards [height _ lor _]
+  (bound-inc lor (inc height)))
+
+(defn downwards [height fov lor ov]
+  (bound-dec lor (nowards height fov lor ov)))
+
+(defn scroll [hud f]
+  (let [{lor :lor
+         fov :fov
+         ov  :ov
+         h   :height} hud]
+    (-> hud
+        (assoc :scroll? true)
+        (assoc :lor (f @h fov lor ov)))))
+
+(defn noscroll [hud]
+  (-> hud
+      (scroll nowards)
+      (assoc :scroll? false)))
+
+(defn scroll-up [ctx]
+  (update ctx :complete-hud #(scroll % upwards)))
+
+(defn scroll-down [ctx]
+  (update ctx :complete-hud #(scroll % downwards)))
+
+(defn scroll-stop [ctx]
+  (-> ctx
+      (update :complete-hud noscroll)
+      (update :persisted-hud noscroll)))
+
+#_(defn jump [hud line]
+    (assoc hud :lor (-> hud (i/height) (- line))))
+
+;; === REPL ===
+
+(defn roll [ctx f]
+  (let [then-repl   (-> ctx :repl f)
+        then-seeker (r/then then-repl)]
+    (assoc ctx
+      :complete-hud (-> ctx (:persisted-hud) (i/join then-seeker))
+      :repl then-repl
+      :seeker then-seeker
+      :raw-seeker then-seeker)))
+
+(defn roll-back [ctx]
+  (roll ctx r/travel-back))
+
+(defn roll-forward [ctx]
+  (roll ctx r/travel-forward))
+
+(defn evaluate [ctx]
+  (let [evaluation (r/evaluate (:repl ctx) (:raw-seeker ctx))
+        persisted  (-> ctx
+                       (:complete-hud)
+                       (preserve (r/result evaluation)
+                                 (i/seeker caret))
+                       (i/start-x))]
+    (assoc ctx
+      :previous-hud (:complete-hud ctx)
+      :persisted-hud persisted
+      :complete-hud persisted
+      :repl evaluation
+      :seeker i/empty-seeker
+      :raw-seeker i/empty-seeker)))
+
+(defn suggest [ctx]
+  (let [suggestion (r/suggest (:repl ctx) (:seeker ctx))]
+    (-> ctx
+        (assoc :previous-hud (:complete-hud ctx))
+        (update :complete-hud #(-> % (preserve (i/seeker delimiter) suggestion) (i/end))))))
+
+(defn paginate [ctx suggestions]
+  (let [sgst-idx (-> ctx :suggestion second inc)
+        fov      (get-in ctx [:persisted-hud :fov])
+        ov       (get-in ctx [:persisted-hud :ov])
+        h-seeker (-> ctx :seeker i/height)
+        space    (if (> h-seeker fov) (- fov 2) (- fov h-seeker 2))]
+    (i/rebase suggestions
+              #(cond->> %
+                        (> sgst-idx space) (drop (- sgst-idx space))
+                        :always (take space)))))
+
+(defn complete [ctx]
+  (let [{persisted    :persisted-hud
+         seeker       :seeker
+         repl         :repl
+         [_ sgst-idx] :suggestion} ctx
+        suggestions (-> (r/suggest repl seeker)
+                        (i/reset-y sgst-idx)
+                        (i/end-x))
+        suggestion  (i/line suggestions)
+        seeker      (auto-complete seeker suggestion)
+        nidx        (-> sgst-idx (inc) (mod* (i/height suggestions)))]
+    (-> ctx
+        (assoc :previous-hud (:complete-hud ctx))
+        (assoc :suggestion [suggestion nidx])
+        (assoc :complete-hud (-> persisted
+                                 (i/join seeker)
+                                 (preserve (i/seeker delimiter))
+                                 (i/join (paginate ctx suggestions)))))))
+
+(defn uncomplete [ctx]
+  (let [[sgst _] (:suggestion ctx)]
+    (-> ctx
+        (update :seeker #(auto-complete % sgst))
+        (update :raw-seeker #(auto-complete % sgst))
+        (assoc :suggestion [i/empty-vec 0]))))
+
+;; === Input ===
+(defn capture [ctx stroke]
+  (let [seeker     (-> ctx (:seeker) (i/inputs stroke))
+        raw-seeker (-> ctx (:raw-seeker) (i/inputs stroke))]
+    (assoc ctx
+      :previous-hud (:complete-hud ctx)
+      :complete-hud (-> ctx
+                        (:persisted-hud)
+                        (i/join seeker))
+      :seeker seeker
+      :raw-seeker raw-seeker)))
+
+(defn reformat [ctx]
+  (let [formatted (-> ctx :raw-seeker (f/lisp-format))
+        joined    (-> ctx (:persisted-hud) (i/join formatted))]
+    (assoc ctx :complete-hud joined
+               :seeker formatted)))
+
 ;; === Events ===
 
 (defn movement? [stroke]
@@ -318,7 +314,7 @@
            [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
            [{:key :up :alt true}] (-> ctx (resize) (uncomplete) (roll-back) (scroll-stop) (re-render))
            [{:key :down :alt true}] (-> ctx (resize) (uncomplete) (roll-forward) (scroll-stop) (re-render))
-           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (scroll-stop) (deselect) (diff-render))
+           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (scroll-stop) (opt-render))
            [{:key \r :ctrl true}] (-> ctx (clear) (uncomplete) (deselect)  (re-render))
            [{:key \e :alt true}] (-> ctx (resize) (uncomplete) (evaluate) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (resize) (uncomplete) (scroll-stop) (deselect) (re-render) (exit))

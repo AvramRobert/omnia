@@ -50,8 +50,8 @@
 (defn reselect [original formatted]
   (i/reselect original
     (fn [[xs ys]]
-      (let [spaces-start (- (-> formatted (i/move-y (fn [_] ys)) (spaces))
-                            (-> original (i/move-y (fn [_] ys)) (spaces)))]
+      (let [spaces-start (- (-> formatted (i/reset-y ys) (spaces))
+                            (-> original (i/reset-y ys) (spaces)))]
         [(+ xs spaces-start) ys]))))
 
 (defn normalise [original formatted]
