@@ -271,10 +271,10 @@
      (cond
        (and (nil? left-hand) (nil? right-hand)) (simple-insert seeker key)
        (and (nil? left-hand) (center seeker #(= % key))) (move-x seeker inc)
+       (and (= key right-hand) (center seeker #(= % key))) (move-x seeker inc)
        (and left-hand right-hand) (pair-insert seeker [key key])
        (and (nil? right-hand) left-hand) (pair-insert seeker [key left-hand])
        (and (nil? left-hand) right-hand) (pair-insert seeker [right-hand key])
-       (and (= key right-hand) (center seeker #(= % key))) (move-x seeker inc)
        :else (simple-insert seeker key)))))
 
 (defn start? [seeker]

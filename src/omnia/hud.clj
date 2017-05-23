@@ -20,6 +20,7 @@
 
 (def ^:const empty-line [i/empty-vec])
 (def ^:const delimiter (i/str->lines "------"))
+(def ^:const continuation (i/str->lines "..."))
 (def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
 (def ^:const caret (i/str->lines "Ω=>"))
 (def ^:const goodbye (i/str->lines "Bye..for now\nFor even the very wise cannot see all ends"))
@@ -62,6 +63,13 @@
 
 (defn preserve [hud & seekers]
   (->> seekers (reduce i/join hud) (i/end-y)))
+
+(defn adjoin [ths tht]
+  (i/rebase ths #(concat % (:lines tht))))
+
+(defn indent [hud n]
+  (let [padding (repeat n \space)]
+    (i/rebase hud (fn [lines] (map #(concat padding %) lines)))))
 
 (defn auto-complete [seeker sgst]
   (if (empty? sgst)
@@ -112,11 +120,13 @@
          {ph :height}    :previous-hud} ctx
         upper-y (- @h fov ov)
         lower-y (- @h ov)
-        nov     (cond
-                  (< @h @ph) (-- ov @ph @h)
-                  (< y upper-y) (-- @h fov y)
-                  (> (inc y) lower-y) (-- @h (inc y))
-                  :else ov)]
+        nov (cond
+              (< y upper-y) (-- @h fov y)
+              (> (inc y) lower-y) (-- @h (inc y))
+              (= y (dec @h)) ov
+              (and (> @h fov) (< @h @ph)) (++ ov (- @h @ph))
+              (> @h fov) (++ ov (- @h @ph))
+              :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
         (assoc-in [:complete-hud :ov] nov))))
@@ -243,35 +253,52 @@
         (assoc :previous-hud (:complete-hud ctx))
         (update :complete-hud #(-> % (preserve (i/seeker delimiter) suggestion) (i/end))))))
 
-(defn paginate [ctx suggestions]
-  (let [sgst-idx (-> ctx :suggestion second inc)
-        fov      (get-in ctx [:persisted-hud :fov])
-        ov       (get-in ctx [:persisted-hud :ov])
-        h-seeker (-> ctx :seeker i/height)
-        space    (if (> h-seeker fov) (- fov 2) (- fov h-seeker 2))]
-    (i/rebase suggestions
-              #(cond->> %
-                        (> sgst-idx space) (drop (- sgst-idx space))
-                        :always (take space)))))
+(defn- paginate [suggestions sgst-idx]
+  (let [per-page 10
+        nxt-sgst-idx (inc sgst-idx)
+        hs (i/height suggestions)
+        dots         (cond
+                       (<= hs per-page) i/empty-seeker
+                       (< (inc sgst-idx) hs) (i/seeker continuation)
+                       :else i/empty-seeker)]
+    (-> suggestions
+        (i/rebase #(cond->> %
+                            (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
+                            :always (take per-page)))
+        (adjoin dots)
+        (indent 1)
+        (i/move-y #(if (>= % per-page) (dec per-page) %))
+        (i/end-x))))
 
-(defn complete [ctx]
+(defn suggestion-window [ctx suggestions]
   (let [{persisted    :persisted-hud
          seeker       :seeker
+         [_ sgst-idx] :suggestion} ctx
+        completed     (auto-complete seeker (i/line suggestions))
+        delim         (i/seeker delimiter)
+        paginated (paginate suggestions sgst-idx)
+        ph (i/height paginated)]
+    (-> persisted
+        (i/join (i/peer completed (fn [l [x & _]] (conj l x))))
+        (i/join delim)
+        (i/end-y)
+        (i/join paginated)
+        (adjoin delim)
+        (adjoin (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))))))
+
+(defn complete [ctx]
+  (let [{seeker       :seeker
          repl         :repl
          [_ sgst-idx] :suggestion} ctx
         suggestions (-> (r/suggest repl seeker)
                         (i/reset-y sgst-idx)
                         (i/end-x))
         suggestion  (i/line suggestions)
-        seeker      (auto-complete seeker suggestion)
         nidx        (-> sgst-idx (inc) (mod* (i/height suggestions)))]
     (-> ctx
         (assoc :previous-hud (:complete-hud ctx))
         (assoc :suggestion [suggestion nidx])
-        (assoc :complete-hud (-> persisted
-                                 (i/join seeker)
-                                 (preserve (i/seeker delimiter))
-                                 (i/join (paginate ctx suggestions)))))))
+        (assoc :complete-hud (suggestion-window ctx suggestions)))))
 
 (defn uncomplete [ctx]
   (let [[sgst _] (:suggestion ctx)]
@@ -309,7 +336,7 @@
 
 (defn handle [ctx stroke]
   (m/match [stroke]
-           [{:key :tab}] (-> ctx (resize) (rebase) (complete) (scroll-stop) (deselect) (re-render))
+           [{:key :tab}] (-> ctx (resize) (rebase) (complete) #_(navigate) (scroll-stop) (deselect) (re-render))
            [{:key :page-up}] (-> ctx (resize) (scroll-up) (deselect) (re-render))
            [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
            [{:key :up :alt true}] (-> ctx (resize) (uncomplete) (roll-back) (scroll-stop) (re-render))
