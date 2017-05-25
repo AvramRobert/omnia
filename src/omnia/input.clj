@@ -201,6 +201,9 @@
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (move (fn [[_ oy]] [x (+ y oy)])))))
 
+(defn join-many [& seekers]
+  (reduce join seekers))
+
 (defn climb [seeker]
   (let [offset (move-y seeker dec)]
     (if (sym-at offset)
