@@ -18,13 +18,13 @@
                     raw-seeker
                     suggestion])
 
-(def ^:const empty-line [i/empty-vec])
-(def ^:const delimiter (i/str->lines "------"))
-(def ^:const continuation (i/str->lines "..."))
-(def ^:const greeting (i/str->lines "Welcome to the Omnia REPL! (ALPHA)"))
-(def ^:const caret (i/str->lines "Ω=>"))
-(def ^:const goodbye (i/str->lines "Bye..for now\nFor even the very wise cannot see all ends"))
-(def ^:const error (i/str->lines "I have not the heart to tell you, but something went wrong internally.."))
+(def empty-line (i/seeker [i/empty-vec]))
+(def delimiter (i/from-string "------"))
+(def continuation (i/from-string "..."))
+(def greeting (i/from-string "Welcome to the Omnia REPL! (ALPHA)"))
+(def caret (i/from-string "Ω=>"))
+(def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
+(def error (i/from-string "I have not the heart to tell you, but something went wrong internally.."))
 
 (defn hud [fov & prelude]
   "lor = line of reference
@@ -39,7 +39,7 @@
      Conceptually it is the same as the `lor`, but only on input seeker level.
    scroll? = scrolling flag
      indicates if there should be scrolled currently"
-  (let [seeker (->> prelude (apply i/join-lines) (i/seeker))]
+  (let [seeker (apply i/join-many prelude)]
     (-> seeker
         (i/end-y)
         (assoc :scroll? false)
@@ -112,7 +112,7 @@
           (assoc-in [:complete-hud :fov] ssize))
       ctx)))
 
-(defn navigate [ctx]
+(defn calibrate [ctx]
   (let [{{fov   :fov
           ov    :ov
           h     :height
@@ -120,13 +120,13 @@
          {ph :height}    :previous-hud} ctx
         upper-y (- @h fov ov)
         lower-y (- @h ov)
-        nov (cond
-              (< y upper-y) (-- @h fov y)
-              (> (inc y) lower-y) (-- @h (inc y))
-              (= y (dec @h)) ov
-              (and (> @h fov) (< @h @ph)) (++ ov (- @h @ph))
-              (> @h fov) (++ ov (- @h @ph))
-              :else ov)]
+        nov     (cond
+                  (< y upper-y) (-- @h fov y)
+                  (> (inc y) lower-y) (-- @h (inc y))
+                  (= y (dec @h)) ov
+                  (and (> @h fov) (< @h @ph)) (++ ov (- @h @ph))
+                  (> @h fov) (++ ov (- @h @ph))
+                  :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
         (assoc-in [:complete-hud :ov] nov))))
@@ -139,12 +139,16 @@
       :persisted-hud start-hud
       :previous-hud start-hud)))
 
-(defn rebase [ctx]
-  (assoc ctx :complete-hud (i/join (:persisted-hud ctx) (:seeker ctx))))
+(defn rebase
+  ([ctx] (rebase ctx (:seeker ctx)))
+  ([ctx seeker]
+   (->> seeker
+        (i/join (:persisted-hud ctx))
+        (assoc ctx :complete-hud))))
 
 (defn exit [ctx]
   (-> ctx
-      (update :complete-hud #(preserve % (i/seeker goodbye)))
+      (update :complete-hud #(preserve % goodbye))
       (assoc-in [:persisted-hud :ov] 0)
       (assoc-in [:complete-hud :ov] 0)
       (render-context))
@@ -164,15 +168,10 @@
                             (.getMethodName element)
                             (.getFileName element)
                             (.getLineNumber element))
-                    (i/str->lines))
-        text    (-> (i/join-lines error
-                                  msg
-                                  empty-line
-                                  caret)
-                    (i/seeker))]
+                    (i/from-string))]
     (-> ctx
-        (update :persisted-hud #(preserve % (:seeker ctx) text))
-        (update :complete-hud #(-> % (preserve text) (i/start-x)))
+        (update :persisted-hud #(preserve % (:seeker ctx) error msg empty-line caret))
+        (update :complete-hud #(-> % (preserve error msg empty-line caret) (i/start-x)))
         (assoc :seeker i/empty-seeker)
         (re-render))))
 
@@ -236,8 +235,7 @@
   (let [evaluation (r/evaluate (:repl ctx) (:raw-seeker ctx))
         persisted  (-> ctx
                        (:complete-hud)
-                       (preserve (r/result evaluation)
-                                 (i/seeker caret))
+                       (preserve (r/result evaluation) caret)
                        (i/start-x))]
     (assoc ctx
       :previous-hud (:complete-hud ctx)
@@ -251,15 +249,15 @@
   (let [suggestion (r/suggest (:repl ctx) (:seeker ctx))]
     (-> ctx
         (assoc :previous-hud (:complete-hud ctx))
-        (update :complete-hud #(-> % (preserve (i/seeker delimiter) suggestion) (i/end))))))
+        (update :complete-hud #(-> % (preserve delimiter suggestion) (i/end))))))
 
 (defn- paginate [suggestions sgst-idx]
-  (let [per-page 10
+  (let [per-page     10
         nxt-sgst-idx (inc sgst-idx)
-        hs (i/height suggestions)
+        hs           (i/height suggestions)
         dots         (cond
                        (<= hs per-page) i/empty-seeker
-                       (< (inc sgst-idx) hs) (i/seeker continuation)
+                       (< (inc sgst-idx) hs) continuation
                        :else i/empty-seeker)]
     (-> suggestions
         (i/rebase #(cond->> %
@@ -267,24 +265,26 @@
                             :always (take per-page)))
         (adjoin dots)
         (indent 1)
-        (i/move-y #(if (>= % per-page) (dec per-page) %))
-        (i/end-x))))
+        (i/move-y #(if (>= % per-page) (dec per-page) %)))))
 
 (defn suggestion-window [ctx suggestions]
   (let [{persisted    :persisted-hud
          seeker       :seeker
          [_ sgst-idx] :suggestion} ctx
-        completed     (auto-complete seeker (i/line suggestions))
-        delim         (i/seeker delimiter)
+        completed (auto-complete seeker (i/line suggestions))
         paginated (paginate suggestions sgst-idx)
-        ph (i/height paginated)]
+        ph        (i/height paginated)
+        top       (i/peer completed (fn [l [x & _]] (conj l x)))
+        bottom    (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
     (-> persisted
-        (i/join (i/peer completed (fn [l [x & _]] (conj l x))))
-        (i/join delim)
+        (i/join top)
+        (i/join delimiter)
         (i/end-y)
         (i/join paginated)
-        (adjoin delim)
-        (adjoin (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))))))
+        (i/join delimiter)
+        (i/end-x)
+        (adjoin bottom)
+        (assoc :ov (-- (i/height bottom) ph)))))
 
 (defn complete [ctx]
   (let [{seeker       :seeker
@@ -336,18 +336,18 @@
 
 (defn handle [ctx stroke]
   (m/match [stroke]
-           [{:key :tab}] (-> ctx (resize) (rebase) (complete) #_(navigate) (scroll-stop) (deselect) (re-render))
+           [{:key :tab}] (-> ctx (resize) (rebase) (complete) (scroll-stop) (deselect) (re-render))
            [{:key :page-up}] (-> ctx (resize) (scroll-up) (deselect) (re-render))
            [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
            [{:key :up :alt true}] (-> ctx (resize) (uncomplete) (roll-back) (scroll-stop) (re-render))
            [{:key :down :alt true}] (-> ctx (resize) (uncomplete) (roll-forward) (scroll-stop) (re-render))
            [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (scroll-stop) (opt-render))
-           [{:key \r :ctrl true}] (-> ctx (clear) (uncomplete) (deselect)  (re-render))
+           [{:key \r :ctrl true}] (-> ctx (clear) (uncomplete) (deselect) (re-render))
            [{:key \e :alt true}] (-> ctx (resize) (uncomplete) (evaluate) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (resize) (uncomplete) (scroll-stop) (deselect) (re-render) (exit))
-           [_ :guard manipulation?] (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (scroll-stop) (re-render))
-           [_ :guard movement?] (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (scroll-stop) (opt-render))
-           :else (-> ctx (resize) (uncomplete) (capture stroke) (navigate) (scroll-stop) (diff-render))))
+           [_ :guard manipulation?] (-> ctx (resize) (uncomplete) (capture stroke) (calibrate) (scroll-stop) (re-render))
+           [_ :guard movement?] (-> ctx (resize) (uncomplete) (capture stroke) (calibrate) (scroll-stop) (opt-render))
+           :else (-> ctx (resize) (uncomplete) (capture stroke) (calibrate) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)

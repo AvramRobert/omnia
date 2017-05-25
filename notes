@@ -55,8 +55,8 @@ Current hiccups:
     Use `halfing.result` to compose formatters and display an error
     when it tries to format invalid code.
 
-15. Joining seekers is limited to only 2 now.
-    One should be able to join an invariable number of seekers.
+ > 15. Joining seekers is limited to only 2 now.
+       One should be able to join an invariable number of seekers.
 
  > 16. Preserve and join sort-of do the same thing.
        One ends the line, one keeps it current.
@@ -86,14 +86,18 @@ Current hiccups:
     Things like `greeting` and `caret` all become seekers when integrated in the hud.
     Why not define them as seekers from the start, instead of transforming them every time.
 
-22. New lines in multi-pages lead to the page scrolling down after insertion.
-    In the upper part of the editor, new lines that are added lead to a downward
-    scroll. I believe this is the doing of `navigation`. Essentially,
-    what should happen is that, in that case, everything should shifted downwards,
-    and not scrolled downwards. You want to essentially maintain the current rendering
-    position as long as possible.
-    => That's because I always take-last. I always start with the end.
-       I don't push existing input down.
+ > 22. New lines in multi-pages lead to the page scrolling down after insertion.
+       In the upper part of the editor, new lines that are added lead to a downward
+       scroll. I believe this is the doing of `navigation`. Essentially,
+       what should happen is that, in that case, everything should shifted downwards,
+       and not scrolled downwards. You want to essentially maintain the current rendering
+       position as long as possible.
+       => That's because I always take-last. I always start with the end.
+          I don't push existing input down.
+
+ > 23. Dropping the lines at the end still leads to `ov` overflow when autocompletion windows is extended.
+       This is due to the fact that these lines were already considered outside the fov. Dropping them means,
+       that the suggestion window now simply replaces the unviewable lines.
 
 Prospects:
 

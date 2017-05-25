@@ -201,6 +201,9 @@
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (move (fn [[_ oy]] [x (+ y oy)])))))
 
+(defn join-many [& seekers]
+  (reduce join seekers))
+
 (defn climb [seeker]
   (let [offset (move-y seeker dec)]
     (if (sym-at offset)
@@ -359,6 +362,30 @@
       (matching-rules l) (-> seeker (select) (jump advance))
       (or (nil? l) (blank? l)) (-> seeker (select) (jump advance))
       :else (-> seeker (jump regress) (select) (jump advance)))))
+
+(defn expand [seeker progress bump? end?]
+  (-> seeker
+      (progress)
+      (vector 0)
+      (do-until (fn [[s i]]
+                  (cond
+                    (neg? i) [s i]
+                    (bump? s) [(progress s) (inc i)]
+                    (end? s) [(progress s) (dec i)]
+                    :else [(progress s) i]))
+                (fn [[s i]] (and (end? s) (zero? i))))
+      (first)))
+
+
+(defn expand-left [seeker]
+  (expand seeker regress
+          #(->> % (center) (contains? matchee-rules))
+          #(->> % (center) (contains? matching-rules))))
+
+(defn expand-right [seeker]
+  (expand seeker advance
+          #(->> % (left) (contains? matching-rules))
+          #(->> % (left) (contains? matchee-rules))))
 
 (defn print-seeker [seeker]
   (->> seeker
