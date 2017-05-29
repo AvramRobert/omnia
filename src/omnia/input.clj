@@ -2,13 +2,13 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]
            [clojure.set :refer [map-invert]]
-           [omnia.more :refer [do-until]]))
+           [omnia.more :refer [do-until foreach]]))
 
-(defrecord Seeker [lines cursor height selection clipboard])
+(defrecord Seeker [lines cursor height expansion selection clipboard])
 (defrecord Select [start end dir])
 
 (def empty-vec [])
-(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) nil nil))
+(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) :word nil nil))
 
 (def matching-rules {\{ \}
                      \[ \]
@@ -130,6 +130,9 @@
 (defn end-y [seeker]
   (move seeker (fn [[x _]] [x (height seeker)])))
 
+(defn start [seeker]
+  (-> seeker (start-y) (start-x)))
+
 (defn end [seeker]
   (-> seeker (end-y) (move-y dec) (end-x)))
 
@@ -180,7 +183,9 @@
   (reselect seeker identity (constantly (:cursor seeker))))
 
 (defn deselect [seeker]
-  (reselect seeker (constantly nil)))
+  (-> seeker
+      (reselect (constantly nil))
+      (assoc :expansion :word)))
 
 (defn selection [seeker]
   (let [cursor (:cursor seeker)
@@ -280,16 +285,14 @@
        (and (nil? left-hand) right-hand) (pair-insert seeker [right-hand key])
        :else (simple-insert seeker key)))))
 
-(defn start? [seeker]
-  (-> seeker :cursor first zero?))
-
 (defn jump [seeker f]
-  (do-until (f seeker) f #(or (start? %)
-                              (nil? (center %))
-                              (blank? (left %))
-                              (blank? (center %))
-                              (expr? (regress %) matching-rules)
-                              (expr? % matching-rules))))
+  (letfn [(beginning? [s] (-> s :cursor first zero?))]
+    (do-until (f seeker) f #(or (beginning? %)
+                                (nil? (center %))
+                                (blank? (left %))
+                                (blank? (center %))
+                                (expr? (regress %) matching-rules)
+                                (expr? % matching-rules)))))
 
 (defn munch
   ([seeker] (munch seeker matching-rules))
@@ -353,50 +356,69 @@
 (defn select-all [seeker]
   (-> seeker (deselect) (start-y) (start-x) (select) (end)))
 
+(defn- expansion [seeker progress bump? end?]
+  (letfn [(limit? [s] (or (= (end seeker) s)
+                          (= (start seeker) s)))]
+    (-> seeker
+        (progress)
+        (vector 0)
+        (do-until (fn [[s i]]
+                    (cond
+                      (neg? i) [s i]
+                      (bump? s) [(progress s) (inc i)]
+                      (end? s) [(progress s) (dec i)]
+                      :else [(progress s) i]))
+                  (fn [[s i]] (or (and (end? s) (zero? i))
+                                  (limit? s))))
+        (first))))
+
+
+(defn expand-left [seeker]
+  (expansion seeker regress
+             #(->> % (center) (contains? matchee-rules))
+             #(->> % (center) (contains? matching-rules))))
+
+(defn expand-right [seeker]
+  (expansion seeker advance
+             #(->> % (left) (contains? matching-rules))
+             #(->> % (left) (contains? matchee-rules))))
+
+(defn expand-expr [seeker]
+  (let [l (-> seeker (expand-left) :cursor)
+        r (-> seeker (expand-right) :cursor)]
+    (-> seeker
+        (deselect)
+        (move (fn [_] r))
+        (assoc :selection l)
+        (assoc :expansion :expr))))
+
 (defn expand-word [seeker]
   (let [l (left seeker)
         c (center seeker)]
     (cond
-      (and (matching-rules l) (matchee-rules c)) (select seeker)
+      (matching-rules c) (-> seeker (advance) (expand-expr))
+      (and (matchee-rules c) (blank? l)) (-> seeker (expand-expr))
+      (and (matching-rules l) (matchee-rules c)) (expand-expr seeker)
       (and (matchee-rules l) (or (nil? c) (blank? c))) (select seeker)
       (matching-rules l) (-> seeker (select) (jump advance))
       (or (nil? l) (blank? l)) (-> seeker (select) (jump advance))
       :else (-> seeker (jump regress) (select) (jump advance)))))
 
-(defn expand [seeker progress bump? end?]
-  (-> seeker
-      (progress)
-      (vector 0)
-      (do-until (fn [[s i]]
-                  (cond
-                    (neg? i) [s i]
-                    (bump? s) [(progress s) (inc i)]
-                    (end? s) [(progress s) (dec i)]
-                    :else [(progress s) i]))
-                (fn [[s i]] (and (end? s) (zero? i))))
-      (first)))
-
-
-(defn expand-left [seeker]
-  (expand seeker regress
-          #(->> % (center) (contains? matchee-rules))
-          #(->> % (center) (contains? matching-rules))))
-
-(defn expand-right [seeker]
-  (expand seeker advance
-          #(->> % (left) (contains? matching-rules))
-          #(->> % (left) (contains? matchee-rules))))
+(defn expand [seeker]
+  (case (:expansion seeker)
+    :word (-> seeker (expand-word) (assoc :expansion :expr))
+    :expr (expand-expr seeker)
+    seeker))
 
 (defn print-seeker [seeker]
   (->> seeker
        (:lines)
        (map #(apply str %))
-       (map println)
-       (doall)))
+       (foreach println)))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]
-           [{:key \w :ctrl true}] (expand-word seeker)
+           [{:key \w :ctrl true}] (-> seeker expand)
            [{:key \a :ctrl true}] (-> seeker (select-all))
            [{:key \v :alt true}] (-> seeker (paste) (deselect))
            [{:key \c :alt true}] (-> seeker (copy) (deselect))
