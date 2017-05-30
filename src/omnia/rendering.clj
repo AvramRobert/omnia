@@ -62,17 +62,14 @@
       (total! ctx)
       (f terminal current former))))
 
-;; FIXME: Rewrite this. Separate function into one that prepares the input to be highlighted, and one that acutally hightlights
-(defn highlight! [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx
-        fov (:fov complete)
-        {[xs ys] :start
-         [xe ye] :end} (project-selection complete)]
+
+(defn hightlight-selection! [terminal hud selection]
+  (let [{[xs ys] :start
+         [xe ye] :end} selection]
     (loop [x xs
            y ys]
-      (let [ch (i/sym-at complete [x y])
-            sy (screen-y complete y)]
+      (let [ch (i/sym-at hud [x y])
+            sy (screen-y hud y)]
         (cond
           (> y ye) ()
           (and (>= y ye) (>= x xe)) ()
@@ -83,6 +80,24 @@
                             (recur (inc x) y))
           :else (recur 0 (inc y)))))
     (t/set-bg-color terminal :default)))
+
+(defn highlight! [ctx]
+  (let [{terminal :terminal
+         complete :complete-hud} ctx]
+    (hightlight-selection! terminal complete (project-selection complete))))
+
+(defn hightlight-parens! [ctx]
+  (letfn [(paint! [f] (-> ctx (update :complete-hud f) (highlight!)))
+          (paint-left []
+            (paint! (comp i/advance i/select))
+            (paint! (comp i/regress i/select i/expand-right)))
+          (paint-right []
+            (paint! (comp i/advance i/select))
+            (paint! (comp i/advance i/select i/expand-left)))]
+    (m/match [(:complete-hud ctx)]
+             [_ :guard #(contains? i/matching-rules (i/center %))] (paint-left)
+             [_ :guard #(contains? i/matchee-rules (i/center %))] (paint-right)
+             :else ())))
 
 (defn print-row! [y terminal line]
   (reduce-idx

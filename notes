@@ -5,22 +5,22 @@ Current hiccups:
    It diff renders and pads.
    This becomes a problem when selection is in play. For the diff, selection is invisible.
 
-|  2. Automatic formatting leads to performance issues.
+ | 2. Automatic formatting leads to performance issues.
       The larger the input, the slower it gets. Having the hud actively format input apparently
       slows everything down when a larger volume of clojure code is provided.
       Current solution is to explicitly ask for formatting every time you want your code formatted.
 
  > 3. Seekers don't insert character pairs when a closing character is inserted.
 
-4. Highlighting is coupled with input preparation.
-   Separation is required for reuse.
+ > 4. Highlighting is coupled with input preparation.
+      Separation is required for reuse.
 
 5. The repl isn't efficiently killing apparently long-running (or possibly infinite) processes.
 
-6. Navigate interferes with the suggestion offset.
-   When a suggestion is `uncomplete`d, if `ov` is non-zero, navigate
-   will kill it briefly. If I try to rebase at some point, the previous-hud
-   becomes identical to the current hud.
+ | 6. Navigate interferes with the suggestion offset.
+      When a suggestion is `uncomplete`d, if `ov` is non-zero, navigate
+      will kill it briefly. If I try to rebase at some point, the previous-hud
+      becomes identical to the current hud.
 
 7. Auto-completion doesn't recognise movement.
    This leads to me using diff-rendering when moving around.
@@ -40,8 +40,8 @@ Current hiccups:
         - ctrl + enter
         - ctrl + backspace
 
-11. Expansion is currently limited only to words.
-    It needs to also support expressions.
+ > 11. Expansion is currently limited only to words.
+       It needs to also support expressions.
 
 12. Subsets of input cannot be selected and explicitly formatted.
     The whole input is.
@@ -82,9 +82,9 @@ Current hiccups:
     This happens so much so, that it has become a pattern.
     This needs to be separated and reused. Same for the other things.
 
-21. The template info data are simple strings converted to lines, and not seekers.
-    Things like `greeting` and `caret` all become seekers when integrated in the hud.
-    Why not define them as seekers from the start, instead of transforming them every time.
+ > 21. The template info data are simple strings converted to lines, and not seekers.
+       Things like `greeting` and `caret` all become seekers when integrated in the hud.
+       Why not define them as seekers from the start, instead of transforming them every time.
 
  > 22. New lines in multi-pages lead to the page scrolling down after insertion.
        In the upper part of the editor, new lines that are added lead to a downward
@@ -99,9 +99,27 @@ Current hiccups:
        This is due to the fact that these lines were already considered outside the fov. Dropping them means,
        that the suggestion window now simply replaces the unviewable lines.
 
+24. Different rendering strategies interfere with varying selection patterns.
+    Most notably this occurs when highlighting parenthesis. In the case of
+    diff or (broken) input rendering, the hightlights the came before lines
+    are still visible, even after deselection.
+    I do wonder if a deselection should sort-of prompt a clean-up render,
+    where previous selections get re-rendered.
+    That would actually be a rather good strategy.
+    Deselection accumulates the affected areas and a clean-up render is performed
+    the rendering engine. Re-render would be the only exception. In that case,
+    the clean-up operation would be redundant.
+
+25. Selection should explicitly define a range.
+    An input selection has to store the selected range and
+    not take the cursor as one of the end points.
+    The selection can be based on the cursor, but
+    it shouldn't explicitly use it when actually
+    creating it.
+
 Prospects:
 
-- Parenthesis highlighting
+- Parenthesis highlighting // done
 - Tests for input and hud.
 - I-search
 - Input configuration
@@ -112,6 +130,16 @@ Prospects:
 - More efficient seeker
 - Refactor and reuse
 - Documentation
+
+Current task:
+
+-> Make selection explicitly store a range
+-> Add support for multiple selections
+-> Define parens hightlighting in terms of multiple selections and move to `hud.clj`
+
+
+Next task:
+-> Add a clean-up rendering strategy
 
 
 
