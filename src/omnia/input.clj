@@ -5,7 +5,6 @@
            [omnia.more :refer [do-until foreach]]))
 
 (defrecord Seeker [lines cursor height expansion selection clipboard])
-(defrecord Select [start end dir])
 
 (def empty-vec [])
 (def empty-seeker (Seeker. empty-vec [0 0] (delay 0) :word nil nil))

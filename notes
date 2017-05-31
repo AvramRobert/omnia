@@ -133,10 +133,7 @@ Prospects:
 
 Current task:
 
--> Make selection explicitly store a range
--> Add support for multiple selections
--> Define parens hightlighting in terms of multiple selections and move to `hud.clj`
-
+-> create a buffer for selections
 
 Next task:
 -> Add a clean-up rendering strategy
