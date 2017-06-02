@@ -34,14 +34,17 @@
         y (screen-y hud hy)]
     [x y]))
 
-(defn project-selection [hud]
-  (let [fov     (:fov hud)
-        {[xs ys] :start
-         [xe ye] :end} (i/selection hud)
-        start-y (- ye fov)
-        start   (if (> start-y ys) [0 (inc start-y)] [xs ys])]
-    {:start start
-     :end   [xe ye]}))
+(defn project-selection
+  ([hud]
+    (project-selection hud (i/selection hud)))
+  ([hud selection]
+   (let [fov (:fov hud)
+         {[xs ys] :start
+          [xe ye] :end} selection
+         start-y (- ye fov)
+         start (if (> start-y ys) [0 (inc start-y)] [xs ys])]
+     {:start start
+      :end [xe ye]})))
 
 (defn project-hud [hud]
   (let [{lor     :lor
@@ -62,27 +65,40 @@
       (total! ctx)
       (f terminal current former))))
 
-;; FIXME: Rewrite this. Separate function into one that prepares the input to be highlighted, and one that acutally hightlights
-(defn highlight! [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx
-        fov (:fov complete)
-        {[xs ys] :start
-         [xe ye] :end} (project-selection complete)]
+
+(defn hightlight-selection! [terminal hud selection colour]
+  (let [{[xs ys] :start
+         [xe ye] :end} selection]
     (loop [x xs
            y ys]
-      (let [ch (i/sym-at complete [x y])
-            sy (screen-y complete y)]
+      (let [ch (i/sym-at hud [x y])
+            sy (screen-y hud y)]
         (cond
           (> y ye) ()
           (and (>= y ye) (>= x xe)) ()
           (not (nil? ch)) (do
                             (doto terminal
-                              (t/set-bg-color :blue)
+                              (t/set-bg-color colour)
                               (t/put-character ch x sy))
                             (recur (inc x) y))
           :else (recur 0 (inc y)))))
     (t/set-bg-color terminal :default)))
+
+
+(defn highlight!
+  ([ctx regions]
+    (highlight! ctx regions :blue))
+  ([ctx regions colour]
+    (let [{terminal :terminal
+           complete :complete-hud} ctx]
+      (foreach
+        #(hightlight-selection! terminal complete (project-selection complete %) colour) regions))))
+
+(defn selections! [ctx]
+  (highlight! ctx (:highlights ctx)))
+
+(defn clean! [ctx]
+  (highlight! ctx (:garbage ctx) :default))
 
 (defn print-row! [y terminal line]
   (reduce-idx
@@ -133,8 +149,8 @@
          complete :complete-hud} ctx
         [x y] (project-cursor complete)]
     (case (:render ctx)
-      :diff (doto ctx (diff!) (highlight!))
-      :input (doto ctx (input!) (highlight!))
-      :nothing (doto ctx (nothing!) (highlight!))
-      (doto ctx (total!) (highlight!)))
+      :diff (doto ctx (clean!) (diff!) (selections!))
+      :input (doto ctx (clean!) (input!) (selections!))
+      :nothing (doto ctx (clean!) (nothing!) (selections!))
+      (doto ctx (total!) (selections!)))
     (t/move-cursor terminal x y)))

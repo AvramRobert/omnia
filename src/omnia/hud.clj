@@ -16,8 +16,11 @@
                     repl
                     seeker
                     raw-seeker
-                    suggestion])
+                    suggestion
+                    highlights
+                    garbage])
 
+(def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
 (def delimiter (i/from-string "------"))
 (def continuation (i/from-string "..."))
@@ -49,7 +52,7 @@
 
 
 (defn context [terminal hud repl]
-  (Context. terminal :total hud hud hud repl i/empty-seeker i/empty-seeker [i/empty-vec 0]))
+  (Context. terminal :total hud hud hud repl i/empty-seeker i/empty-seeker [i/empty-vec 0] empty-set empty-set))
 
 ;; === Utils ===
 
@@ -97,9 +100,33 @@
 (defn opt-render [ctx]
   (let [{complete :previous-hud
          [sgst _] :suggestion} ctx]
-    (if (i/selection? complete)
-      (input-render ctx)
-      (diff-render ctx))))
+    (diff-render ctx)
+    #_(if (i/selection? complete)
+        (input-render ctx)
+        (diff-render ctx))))
+
+(defn highlight [ctx]
+  (let [complete (:complete-hud ctx)]
+    (update ctx :highlights
+            #(if (i/selection? complete)
+               (conj % (i/selection complete)) %))))
+
+(defn gc [ctx]
+  (assoc ctx :highlights empty-set
+             :garbage (:highlights ctx)))
+
+(defn parens-highlight [ctx]
+  (letfn [(paint [& selections] (update ctx :highlights #(concat % selections)))
+          (left [hud]
+            (paint (-> hud i/select i/advance i/selection)
+                   (-> hud i/advance i/expand-right i/regress i/select i/expand-right i/selection)))
+          (right [hud]
+            (paint (-> hud i/select i/advance i/selection)
+                   (-> hud i/expand-left i/select i/advance i/selection)))]
+    (m/match [(:complete-hud ctx)]
+             [complete :guard #(contains? i/matching-rules (i/center %))] (left complete)
+             [complete :guard #(contains? i/matchee-rules (i/center %))] (right complete)
+             :else ctx)))
 
 ;; === Control ===
 
@@ -336,18 +363,19 @@
 
 (defn handle [ctx stroke]
   (m/match [stroke]
-           [{:key :tab}] (-> ctx (resize) (rebase) (complete) (scroll-stop) (deselect) (re-render))
-           [{:key :page-up}] (-> ctx (resize) (scroll-up) (deselect) (re-render))
-           [{:key :page-down}] (-> ctx (resize) (scroll-down) (deselect) (re-render))
-           [{:key :up :alt true}] (-> ctx (resize) (uncomplete) (roll-back) (scroll-stop) (re-render))
-           [{:key :down :alt true}] (-> ctx (resize) (uncomplete) (roll-forward) (scroll-stop) (re-render))
-           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (scroll-stop) (opt-render))
-           [{:key \r :ctrl true}] (-> ctx (clear) (uncomplete) (deselect) (re-render))
-           [{:key \e :alt true}] (-> ctx (resize) (uncomplete) (evaluate) (scroll-stop) (re-render))
-           [{:key \d :ctrl true}] (-> ctx (resize) (uncomplete) (scroll-stop) (deselect) (re-render) (exit))
-           [_ :guard manipulation?] (-> ctx (resize) (uncomplete) (capture stroke) (calibrate) (scroll-stop) (re-render))
-           [_ :guard movement?] (-> ctx (resize) (uncomplete) (capture stroke) (calibrate) (scroll-stop) (opt-render))
-           :else (-> ctx (resize) (uncomplete) (capture stroke) (calibrate) (scroll-stop) (diff-render))))
+           [{:key \p :ctrl true :alt true}] (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
+           [{:key :tab}] (-> ctx (gc) (resize) (rebase) (complete) (scroll-stop) (deselect) (highlight) (re-render))
+           [{:key :page-up}] (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render))
+           [{:key :page-down}] (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render))
+           [{:key :up :alt true}] (-> ctx (gc) (resize) (uncomplete) (roll-back) (highlight) (scroll-stop) (re-render))
+           [{:key :down :alt true}] (-> ctx (gc) (resize) (uncomplete) (roll-forward) (highlight) (scroll-stop) (re-render))
+           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (highlight) (scroll-stop) (opt-render))
+           [{:key \r :ctrl true}] (-> ctx (gc) (resize) (clear) (uncomplete) (deselect) (highlight) (re-render))
+           [{:key \e :alt true}] (-> ctx (gc) (resize) (uncomplete) (evaluate) (highlight) (scroll-stop) (re-render))
+           [{:key \d :ctrl true}] (-> ctx (gc) (resize) (uncomplete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
+           [_ :guard manipulation?] (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (re-render))
+           [_ :guard movement?] (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (opt-render))
+           :else (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
