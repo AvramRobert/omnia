@@ -124,6 +124,10 @@ Current hiccups:
     And expansion doesn't work accurately. For example: ( ""_>).
     If cursor at `_>`, then the expansion with select `"` and ")" respectively.
 
+27. Highlighting currently doesn't support different colourschemes.
+    To support various highlighting methods, the colourscheme must be
+    easily interchangable. 
+
 Prospects:
 
 - Parenthesis highlighting // done

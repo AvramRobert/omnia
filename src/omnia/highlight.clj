@@ -10,13 +10,16 @@
 (def ^:const std :standard)
 (def ^:const std* :standard*)
 
-(def colour-map {stx :yellow
-                 dst :white
-                 kwd :cyan
-                 stg :green
-                 chr :green
-                 nr  :blue
-                 std :white})
+(def ^:const s0 std)
+
+(def default-colorscheme
+  {stx :yellow
+   dst :white
+   kwd :cyan
+   stg :green
+   chr :green
+   nr  :blue
+   std :white})
 
 (defn ->syntax? [c] (= c \())
 (defn ->structure? [c] (or (= c \{)
@@ -38,86 +41,91 @@
 (defn ->decimal? [c] (or (= c \.)
                          (= c \f)))
 
-(defn emit [state]
-  (get colour-map state))
+(defmacro deftrans [name & transitions]
+  (assert (even? (count transitions)) "Transition excepts an even number of forms")
+  (let [character (gensym)
+        colourscheme (gensym)]
+    `(def ~name
+       (fn [~character ~colourscheme]
+         (cond
+           ~@(->> transitions
+                  (partition 2)
+                  (map
+                    (fn [[pred# [next-state# colour-key#]]]
+                      [(list pred# character)
+                       [next-state# (list colourscheme colour-key#)]]))
+                  (reduce concat)))))))
 
-(defn ->std [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->structure? c) [dst (emit dst)]
-    (->keyword? c) [kwd (emit kwd)]
-    (->string? c) [stg (emit stg)]
-    (->char? c) [chr (emit chr)]
-    (->number? c) [nr (emit nr)]
-    (->standard? c) [std (emit std)]
-    :else [std* (emit std)]))
 
-(defn ->std* [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->string? c) [stg (emit stg)]
-    (->standard? c) [std (emit std)]
-    :else [std* (emit std)]))
+(deftrans standard
+          ->syntax? [stx std]
+          ->structure? [dst dst]
+          ->keyword? [kwd kwd]
+          ->string? [stg stg]
+          ->char? [chr chr]
+          ->number? [nr nr]
+          ->standard? [std std]
+          :else [std std])
 
-(defn ->dst [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->keyword? c) [kwd (emit kwd)]
-    (->number? c) [nr (emit nr)]
-    (->string? c) [stg (emit stg)]
-    :else [std (emit std)]))
+(deftrans standard*
+          ->syntax? [stx std]
+          ->string? [stg stg]
+          ->standard? [std std]
+          :else [std* std])
 
-(defn ->stx [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->keyword? c) [kwd (emit kwd)]
-    (->number? c) [nr (emit nr)]
-    (->char? c) [chr (emit chr)]
-    (->string? c) [stg (emit stg)]
-    (->standard? c) [std (emit std)]
-    :else [stx* (emit stx)]))
+(deftrans datastructure
+          ->syntax? [stx std]
+          ->keyword? [kwd kwd]
+          ->number? [nr nr]
+          ->string? [stg stg]
+          :else [std std])
 
-(defn ->stx* [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->standard? c) [std (emit std)]
-    :else [stx* (emit stx)]))
+(deftrans syntax
+          ->syntax? [stx std]
+          ->keyword? [kwd kwd]
+          ->number? [nr nr]
+          ->char? [chr chr]
+          ->string? [stg stg]
+          ->standard? [std std]
+          :else [stx* stx])
 
-(defn ->kwd [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->standard? c) [std (emit std)]
-    :else [kwd (emit kwd)]))
+(deftrans syntax*
+          ->syntax? [stx std]
+          ->standard? [std std]
+          :else [stx* stx])
 
-(defn ->stg [c]
-  (cond
-    (->string? c) [std (emit stg)]
-    :else [stg (emit stg)]))
+(deftrans keywords
+          ->syntax? [stx std]
+          ->standard? [std std]
+          :else [kwd kwd])
 
-(defn ->chr [c]
-  [std (emit stg)])
+(deftrans string
+          ->string? [std stg]
+          :else [stg stg])
 
-(defn ->nr [c]
-  (cond
-    (->syntax? c) [stx (emit std)]
-    (->number? c) [nr (emit nr)]
-    (->decimal? c) [nr (emit nr)]
-    :else [std (emit std)]))
+(deftrans character
+          :else [std stg])
 
-(def state-machine {std  ->std
-                    std* ->std*
-                    stx  ->stx
-                    stx* ->stx*
-                    dst  ->dst
-                    kwd  ->kwd
-                    stg  ->stg
-                    chr  ->chr
-                    nr   ->nr})
+(deftrans number
+          ->syntax? [stx std]
+          ->number? [nr nr]
+          ->decimal? [nr nr]
+          :else [std std])
 
-(def ^:const s0 std)
-(defn reset [state] s0)
+(def state-machine {std  standard
+                    std* standard*
+                    stx  syntax
+                    stx* syntax*
+                    dst  datastructure
+                    kwd  keywords
+                    stg  string
+                    chr  character
+                    nr   number})
 
-(defn process [state input]
-  (if-let [transition (get state-machine state)]
-    (transition input)
-    [s0 (emit s0)]))
+(defn process
+  ([state input]
+    (process state input default-colorscheme))
+  ([state input colourscheme]
+   (if-let [transition (state-machine state)]
+     (transition input colourscheme)
+     [s0 (colourscheme s0)])))
