@@ -356,9 +356,6 @@
 
 ;; === Events ===
 
-(defn movement? [stroke]
-  (contains? #{:up :down :left :right} (:key stroke)))
-
 (defn handle [ctx stroke]
   (m/match [stroke]
            [{:key \p :ctrl true :alt true}] (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
@@ -371,7 +368,6 @@
            [{:key \r :ctrl true}] (-> ctx (gc) (resize) (clear) (uncomplete) (deselect) (highlight) (re-render))
            [{:key \e :alt true}] (-> ctx (gc) (resize) (uncomplete) (evaluate) (highlight) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (gc) (resize) (uncomplete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
-           [_ :guard movement?] (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (no-render))
            :else (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]

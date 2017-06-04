@@ -88,6 +88,7 @@
 
 (deftrans syntax
           ->syntax? [stx std]
+          ->structure? [dst dst]
           ->keyword? [kwd kwd]
           ->number? [nr nr]
           ->char? [chr chr]

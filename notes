@@ -27,9 +27,9 @@ Legend:
       will kill it briefly. If I try to rebase at some point, the previous-hud
       becomes identical to the current hud.
 
-7. Auto-completion doesn't recognise movement.
-   This leads to me using diff-rendering when moving around.
-   Ideally I would want to avoid any operation all-together.
+ | 7. Auto-completion doesn't recognise movement.
+      This leads to me using diff-rendering when moving around.
+      Ideally I would want to avoid any operation all-together.
 
 8. Syntax highlighting doesn't highlight:
         - special words, like `nil` or `true`

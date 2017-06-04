@@ -11,7 +11,6 @@
 
 (def open-exps #{\( \[ \{})
 (def closing-exps #{\) \] \}})
-
 (def exprs (union open-exps closing-exps #{\"}))
 
 (defn resize [seeker]
@@ -192,7 +191,6 @@
      :end   end}))
 
 (defn join [this-seeker that-seeker]
-  "Until I add multiple selections, always keep the selections of the latest seeker"
   (let [[x y] (:cursor that-seeker)
         ths (height this-seeker)
         tht (height that-seeker)]
@@ -301,13 +299,6 @@
       (pair? seeker) (-> seeker (pair-delete) (regress))
       :else (delete x))))
 
-(defn stringify [seeker]
-  (->> (repeat "\n")
-       (take (height seeker))
-       (interleave (:lines seeker))
-       (map #(apply str %))
-       (s/join)))
-
 (defn is-empty? [seeker]
   (= (:lines seeker) (:lines empty-seeker)))
 
@@ -411,6 +402,13 @@
     :word (-> seeker (expand-word) (assoc :expansion :expr))
     :expr (expand-expr seeker)
     seeker))
+
+(defn stringify [seeker]
+  (->> (repeat "\n")
+       (take (height seeker))
+       (interleave (:lines seeker))
+       (map #(apply str %))
+       (s/join)))
 
 (defn print-seeker [seeker]
   (->> seeker
