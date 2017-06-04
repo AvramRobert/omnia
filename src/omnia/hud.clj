@@ -126,8 +126,8 @@
             (paint (-> hud i/select i/advance i/selection)
                    (-> hud i/expand-left i/select i/advance i/selection)))]
     (m/match [(:complete-hud ctx)]
-             [complete :guard #(contains? i/matching-rules (i/center %))] (left complete)
-             [complete :guard #(contains? i/matchee-rules (i/center %))] (right complete)
+             [complete :guard #(contains? i/open-exps (i/center %))] (left complete)
+             [complete :guard #(contains? i/closing-exps (i/center %))] (right complete)
              :else ctx)))
 
 ;; === Control ===

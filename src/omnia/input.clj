@@ -1,7 +1,7 @@
 (ns omnia.input
   (require [clojure.core.match :as m]
            [clojure.string :as s]
-           [clojure.set :refer [map-invert]]
+           [clojure.set :refer [union]]
            [omnia.more :refer [do-until foreach]]))
 
 (defrecord Seeker [lines cursor height expansion selection clipboard])
@@ -9,12 +9,10 @@
 (def empty-vec [])
 (def empty-seeker (Seeker. empty-vec [0 0] (delay 0) :word nil nil))
 
-(def matching-rules {\{ \}
-                     \[ \]
-                     \( \)
-                     \" \"})
+(def open-exps #{\( \[ \{})
+(def closing-exps #{\) \] \}})
 
-(def matchee-rules (map-invert matching-rules))
+(def exprs (union open-exps closing-exps #{\"}))
 
 (defn resize [seeker]
   (assoc seeker :height (delay (-> seeker :lines count))))
@@ -248,20 +246,23 @@
         (move (fn [_] end))
         (do-until simple-delete #(-> % :cursor (= start))))))
 
-(defn pair? [seeker rules]
-  (some-> seeker (left #(get rules %)) (= (sym-at seeker))))
+(defn pair? [seeker]
+  (m/match [(left seeker) (center seeker)]
+           [\( \)] true
+           [\[ \]] true
+           [\{ \}] true
+           [\" \"] true
+           :else false))
 
-(defn expr? [seeker rules]
-  (-> (keys rules) (concat (vals rules)) (set) (contains? (sym-at seeker))))
+(defn expr? [seeker]
+  (contains? exprs (center seeker)))
 
-(defn delete
-  ([seeker] (delete seeker matching-rules))
-  ([seeker rules]
-   (cond
-     (selection? seeker) (chunk-delete seeker)
-     (pair? seeker rules) (pair-delete seeker)
-     (expr? (regress seeker) rules) (regress seeker)
-     :else (simple-delete seeker))))
+(defn delete [seeker]
+  (cond
+    (selection? seeker) (chunk-delete seeker)
+    (pair? seeker) (pair-delete seeker)
+    (expr? (regress seeker)) (regress seeker)
+    :else (simple-delete seeker)))
 
 (defn simple-insert [seeker value]
   (-> seeker (slicel #(conj % value)) (move-x inc)))
@@ -269,20 +270,20 @@
 (defn pair-insert [seeker [key pair]]
   (-> seeker (slicel #(conj % key pair)) (move-x inc)))
 
-(defn insert
-  ([seeker key]
-   (insert seeker key matching-rules))
-  ([seeker key rules]
-   (let [left-hand  (get rules key)
-         right-hand (-> rules (map-invert) (get key))]
-     (cond
-       (and (nil? left-hand) (nil? right-hand)) (simple-insert seeker key)
-       (and (nil? left-hand) (center seeker #(= % key))) (move-x seeker inc)
-       (and (= key right-hand) (center seeker #(= % key))) (move-x seeker inc)
-       (and left-hand right-hand) (pair-insert seeker [key key])
-       (and (nil? right-hand) left-hand) (pair-insert seeker [key left-hand])
-       (and (nil? left-hand) right-hand) (pair-insert seeker [right-hand key])
-       :else (simple-insert seeker key)))))
+(defn insert [seeker input]
+  (m/match [input (center seeker)]
+           [\) \)] (move-x seeker inc)
+           [\] \]] (move-x seeker inc)
+           [\} \}] (move-x seeker inc)
+           [\" \"] (move-x seeker inc)
+           [\( _] (pair-insert seeker [\( \)])
+           [\[ _] (pair-insert seeker [\[ \]])
+           [\{ _] (pair-insert seeker [\{ \}])
+           [\) _] (pair-insert seeker [\( \)])
+           [\] _] (pair-insert seeker [\[ \]])
+           [\} _] (pair-insert seeker [\{ \}])
+           [\" _] (pair-insert seeker [\" \"])
+           :else (simple-insert seeker input)))
 
 (defn jump [seeker f]
   (letfn [(beginning? [s] (-> s :cursor first zero?))]
@@ -290,17 +291,15 @@
                                 (nil? (center %))
                                 (blank? (left %))
                                 (blank? (center %))
-                                (expr? (regress %) matching-rules)
-                                (expr? % matching-rules)))))
+                                (expr? (regress %))
+                                (expr? %)))))
 
-(defn munch
-  ([seeker] (munch seeker matching-rules))
-  ([seeker rules]
-   (let [x (advance seeker)]
-     (cond
-       (= (:cursor seeker) (:cursor x)) seeker
-       (pair? seeker rules) (-> seeker (pair-delete) (regress))
-       :else (delete x rules)))))
+(defn munch [seeker]
+  (let [x (advance seeker)]
+    (cond
+      (= (:cursor seeker) (:cursor x)) seeker
+      (pair? seeker) (-> seeker (pair-delete) (regress))
+      :else (delete x))))
 
 (defn stringify [seeker]
   (->> (repeat "\n")
@@ -374,13 +373,13 @@
 
 (defn expand-left [seeker]
   (expansion seeker regress
-             #(->> % (center) (contains? matchee-rules))
-             #(->> % (center) (contains? matching-rules))))
+             #(->> % (center) (contains? closing-exps))
+             #(->> % (center) (contains? open-exps))))
 
 (defn expand-right [seeker]
   (expansion seeker advance
-             #(->> % (left) (contains? matching-rules))
-             #(->> % (left) (contains? matchee-rules))))
+             #(->> % (left) (contains? open-exps))
+             #(->> % (left) (contains? closing-exps))))
 
 (defn expand-expr [seeker]
   (let [l (-> seeker (expand-left) :cursor)
@@ -392,16 +391,20 @@
         (assoc :expansion :expr))))
 
 (defn expand-word [seeker]
-  (let [l (left seeker)
-        c (center seeker)]
-    (cond
-      (matching-rules c) (-> seeker (advance) (expand-expr))
-      (and (matchee-rules c) (blank? l)) (-> seeker (expand-expr))
-      (and (matching-rules l) (matchee-rules c)) (expand-expr seeker)
-      (and (matchee-rules l) (or (nil? c) (blank? c))) (select seeker)
-      (matching-rules l) (-> seeker (select) (jump advance))
-      (or (nil? l) (blank? l)) (-> seeker (select) (jump advance))
-      :else (-> seeker (jump regress) (select) (jump advance)))))
+  (m/match [(left seeker) (center seeker)]
+           [\( \)] (expand-expr seeker)
+           [\[ \]] (expand-expr seeker)
+           [\{ \}] (expand-expr seeker)
+           [\" \"] (expand-expr seeker)
+           [\space \space] (expand-expr seeker)
+           [\space (:or \) \] \})] (expand-expr seeker)
+           [(:or \( \[ \{) \space] (expand-expr seeker)
+           [_ (:or \( \[ \{)] (expand-expr seeker)
+           [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
+           [(:or \( \[ \{) _] (-> seeker (select) (jump advance))
+           [_ \space] (-> seeker (regress) (expand-word))
+           [(:or \space \") _] (-> seeker (advance) (expand-word))
+           :else (-> seeker (jump regress) (select) (jump advance))))
 
 (defn expand [seeker]
   (case (:expansion seeker)

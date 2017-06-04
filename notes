@@ -123,15 +123,25 @@ Legend:
          More concretely, for any range [x0, y0] - [xe, ye], start from the character at [x0-1, y0]
          and start rendering the syntax from there.
 
-26. Letting pairs of characters be configurable is a waste of time.
-    Beside the normal string quotes and parenthesis, there isn't really any
-    other relevant thing to pair-insert. Just use these things directly.
-    And expansion doesn't work accurately. For example: ( ""_>).
-    If cursor at `_>`, then the expansion with select `"` and ")" respectively.
+ > 26. Letting pairs of characters be configurable is a waste of time.
+       Beside the normal string quotes and parenthesis, there isn't really any
+       other relevant thing to pair-insert. Just use these things directly.
+       And expansion doesn't work accurately. For example: ( ""_>).
+       If cursor at `_>`, then the expansion with select `"` and ")" respectively.
 
-  > 27. Highlighting currently doesn't support different colourschemes.
-        To support various highlighting methods, the colourscheme must be
-        easily interchangable.
+ > 27. Highlighting currently doesn't support different colourschemes.
+         To support various highlighting methods, the colourscheme must be
+         easily interchangable.
+
+ > 28. Highlight states with the same start and end transition condition (like string)
+         produce syntax highlighting artifacts after clean-up.
+         After clean-up, syntax highlighting is essentially resumed based on the context
+         of the last character from which the selection started. In the case of a string,
+         you cannot really distinguish locally between start and finish, such that,
+         after highlighting the tail of a string, including `"`, then the highlighter
+         starts in the string state and proceeds to highlight the rest as a string.
+         => for " asds"), where ds") were highlighted, after cleanup, both " and ) are
+         green.
 
 Prospects:
 
