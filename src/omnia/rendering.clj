@@ -110,13 +110,14 @@
       (highlight! (:highlights ctx))))
 
 (defn clean! [ctx]
-  ;; Always clean from the beginning of the line to avoid syntax highlighting artifacts
+  ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (update selection :start (fn [[_ y]] [0 y])))]
+            (update selection :start (fn [[_ y]] [0 y])))
+          (clean-up! [context] (highlight! context (:garbage context)))]
     (-> ctx
         (update :colourscheme clean-up-scheme)
         (update :garbage #(mapv reset %))
-        (highlight! (:garbage ctx)))))
+        (clean-up!))))
 
 (defn print-row! [y terminal line colourscheme]
   (reduce-idx

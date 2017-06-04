@@ -1,25 +1,30 @@
 (ns omnia.highlight)
 
-(def ^:const stx :syntax)
-(def ^:const stx* :syntax*)
-(def ^:const dst :structure)
+(def ^:const fnc :function)
+(def ^:const fnc* :function*)
+(def ^:const lst :list)
+(def ^:const vct :vector)
+(def ^:const hmp :map)
 (def ^:const kwd :keyword)
 (def ^:const stg :string)
 (def ^:const chr :char)
 (def ^:const nr :number)
+(def ^:const cmt :comment)
 (def ^:const std :standard)
-(def ^:const std* :standard*)
 (def ^:const slc-bg :selection-bg)
 
 (def ^:const s0 std)
 
 (def syntax-colourscheme
-  {stx :yellow
-   dst :white
+  {lst :white
+   vct :white
+   hmp :white
+   fnc :yellow
    kwd :cyan
    stg :green
    chr :green
    nr  :blue
+   cmt :magenta
    std :white})
 
 (def ops-colourscheme
@@ -28,16 +33,10 @@
 (def default-colourscheme
   (merge syntax-colourscheme ops-colourscheme))
 
-(defn ->syntax? [c] (= c \())
-(defn ->structure? [c] (or (= c \{)
-                           (= c \[)))
+(defn ->list? [c] (= c \())
+(defn ->vector? [c] (= c \[))
+(defn ->map? [c] (= c \{))
 (defn ->keyword? [c] (= c \:))
-(defn ->standard? [c] (or (= c \space)
-                          (= c \newline)
-                          (= c \))
-                          (= c \])
-                          (= c \})))
-
 (defn ->string? [c] (= c \"))
 (defn ->char? [c] (= c \\))
 (defn ->number? [c]
@@ -47,9 +46,18 @@
 
 (defn ->decimal? [c] (or (= c \.)
                          (= c \f)))
+(defn ->comment? [c] (= c \;))
+
+(defn ->break? [c] (= c \newline))
+
+(defn ->reset? [c] (or (->break? c)
+                       (= c \space)
+                       (= c \))
+                       (= c \])
+                       (= c \})))
 
 (defmacro deftrans [name & transitions]
-  (assert (even? (count transitions)) "Transition excepts an even number of forms")
+  (assert (even? (count transitions)) "`deftrans` expects an even number of forms")
   (let [character (gensym)
         colourscheme (gensym)]
     `(def ~name
@@ -63,71 +71,69 @@
                        [state# (list colourscheme ckey#)]]))
                   (reduce concat)))))))
 
-(deftrans standard
-          ->syntax? [stx std]
-          ->structure? [dst dst]
+(deftrans ->comment
+          ->break? [std cmt]
+          :else [cmt cmt])
+
+(deftrans ->standard
+          ->comment? [cmt cmt]
+          ->list? [fnc lst]
+          ->vector? [std vct]
+          ->map? [std hmp]
           ->keyword? [kwd kwd]
           ->string? [stg stg]
           ->char? [chr chr]
           ->number? [nr nr]
-          ->standard? [std std]
-          :else [std* std])
-
-(deftrans standard*
-          ->syntax? [stx std]
-          ->string? [stg stg]
-          ->standard? [std std]
-          :else [std* std])
-
-(deftrans datastructure
-          ->syntax? [stx std]
-          ->keyword? [kwd kwd]
-          ->number? [nr nr]
-          ->string? [stg stg]
           :else [std std])
 
-(deftrans syntax
-          ->syntax? [stx std]
-          ->structure? [dst dst]
+(deftrans ->function
+          ->comment? [cmt cmt]
+          ->list? [fnc lst]
+          ->vector? [std vct]
+          ->map? [std hmp]
           ->keyword? [kwd kwd]
           ->number? [nr nr]
           ->char? [chr chr]
           ->string? [stg stg]
-          ->standard? [std std]
-          :else [stx* stx])
+          ->reset? [std std]
+          :else [fnc* fnc])
 
-(deftrans syntax*
-          ->syntax? [stx std]
-          ->standard? [std std]
-          :else [stx* stx])
+(deftrans ->function*
+          ->comment? [cmt cmt]
+          ->list? [fnc lst]
+          ->vector? [std vct]
+          ->map? [std hmp]
+          ->reset? [std std]
+          :else [fnc* fnc])
 
-(deftrans keywords
-          ->syntax? [stx std]
-          ->standard? [std std]
+(deftrans ->keyword
+          ->comment? [cmt cmt]
+          ->list? [fnc lst]
+          ->reset? [std std]
           :else [kwd kwd])
 
-(deftrans string
+(deftrans ->string
           ->string? [std stg]
           :else [stg stg])
 
-(deftrans character
+(deftrans ->character
           :else [std stg])
 
-(deftrans number
-          ->syntax? [stx std]
+(deftrans ->number
+          ->comment? [cmt cmt]
+          ->list? [fnc lst]
           ->number? [nr nr]
           ->decimal? [nr nr]
           :else [std std])
 
-(def state-machine {std  standard
-                    std* standard*
-                    stx  syntax
-                    stx* syntax*
-                    dst  datastructure
-                    kwd  keywords
-                    stg  string
-                    chr  character
-                    nr   number})
+(def state-machine {std  ->standard
+                    fnc  ->function
+                    fnc* ->function*
+                    kwd  ->keyword
+                    stg  ->string
+                    chr  ->character
+                    nr   ->number
+                    cmt  ->comment})
 
 (defn process
   ([input state]

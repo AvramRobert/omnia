@@ -393,8 +393,7 @@
            [_ (:or \( \[ \{)] (expand-expr seeker)
            [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
            [(:or \( \[ \{) _] (-> seeker (select) (jump advance))
-           [_ \space] (-> seeker (regress) (expand-word))
-           [(:or \space \") _] (-> seeker (advance) (expand-word))
+           [(:or \space \") _] (-> seeker (select) (jump advance))
            :else (-> seeker (jump regress) (select) (jump advance))))
 
 (defn expand [seeker]

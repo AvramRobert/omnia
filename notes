@@ -134,14 +134,14 @@ Legend:
          easily interchangable.
 
  > 28. Highlight states with the same start and end transition condition (like string)
-         produce syntax highlighting artifacts after clean-up.
-         After clean-up, syntax highlighting is essentially resumed based on the context
-         of the last character from which the selection started. In the case of a string,
-         you cannot really distinguish locally between start and finish, such that,
-         after highlighting the tail of a string, including `"`, then the highlighter
-         starts in the string state and proceeds to highlight the rest as a string.
-         => for " asds"), where ds") were highlighted, after cleanup, both " and ) are
-         green.
+       produce syntax highlighting artifacts after clean-up.
+       After clean-up, syntax highlighting is essentially resumed based on the context
+       of the last character from which the selection started. In the case of a string,
+       you cannot really distinguish locally between start and finish, such that,
+       after highlighting the tail of a string, including `"`, then the highlighter
+       starts in the string state and proceeds to highlight the rest as a string.
+       => for " asds"), where ds") were highlighted, after cleanup, both " and ) are
+       green.
 
 Prospects:
 
