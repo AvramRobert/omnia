@@ -110,13 +110,13 @@ Current hiccups:
         the rendering engine. Re-render would be the only exception. In that case,
         the clean-up operation would be redundant.
 
-25. Decoupled highlighting leads to the disruption of syntax highlighting.
-    The explicit re-rendering of previously highlighted text is done
-    without considering syntax highlighting. In case that selection was previously
-    syntactically highlighted, the re-rendered lacks this characteristic.
-    The solution would be to explicitly trigger the state machine also when highlighting.
-    More concretely, for any range [x0, y0] - [xe, ye], start from the character at [x0-1, y0]
-    and start rendering the syntax from there.
+  > 25. Decoupled highlighting leads to the disruption of syntax highlighting.
+        The explicit re-rendering of previously highlighted text is done
+        without considering syntax highlighting. In case that selection was previously
+        syntactically highlighted, the re-rendered lacks this characteristic.
+        The solution would be to explicitly trigger the state machine also when highlighting.
+        More concretely, for any range [x0, y0] - [xe, ye], start from the character at [x0-1, y0]
+        and start rendering the syntax from there.
 
 26. Letting pairs of characters be configurable is a waste of time.
     Beside the normal string quotes and parenthesis, there isn't really any
@@ -124,9 +124,9 @@ Current hiccups:
     And expansion doesn't work accurately. For example: ( ""_>).
     If cursor at `_>`, then the expansion with select `"` and ")" respectively.
 
-27. Highlighting currently doesn't support different colourschemes.
-    To support various highlighting methods, the colourscheme must be
-    easily interchangable. 
+  > 27. Highlighting currently doesn't support different colourschemes.
+        To support various highlighting methods, the colourscheme must be
+        easily interchangable.
 
 Prospects:
 

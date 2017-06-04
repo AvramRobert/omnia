@@ -7,12 +7,12 @@
 
 (declare total! diff! input! nothing!)
 
-(defn selection-scheme [colourscheme]
+(defn- selection-scheme [colourscheme]
   (-> (fn [_] :white)
       (map-vals colourscheme)
       (assoc slc-bg (colourscheme slc-bg))))
 
-(defn clean-up-scheme [colourscheme]
+(defn- clean-up-scheme [colourscheme]
   (assoc colourscheme slc-bg :default))
 
 (defn- pad-erase [current-line former-line]
@@ -42,17 +42,13 @@
         y (screen-y hud hy)]
     [x y]))
 
-(defn project-selection
-  ([hud]
-    (project-selection hud (i/selection hud)))
-  ([hud selection]
-   (let [fov (:fov hud)
-         {[xs ys] :start
-          [xe ye] :end} selection
-         start-y (- ye fov)
-         start (if (> start-y ys) [0 (inc start-y)] [xs ys])]
-     {:start start
-      :end [xe ye]})))
+(defn project-selection [selection fov]
+  (let [{[xs ys] :start
+         [xe ye] :end} selection
+        start-y (- ye fov)
+        start (if (> start-y ys) [0 (inc start-y)] [xs ys])]
+    {:start start
+     :end [xe ye]}))
 
 (defn project-hud [hud]
   (let [{lor     :lor
@@ -72,7 +68,6 @@
     (if (not= (:ov current) (:ov former))
       (total! ctx)
       (f terminal current former))))
-
 
 (defn hightlight-selection! [{:keys [terminal hud selection colourscheme]}]
   (let [{[xs ys] :start
@@ -101,11 +96,12 @@
 (defn highlight! [ctx regions]
   (let [{terminal     :terminal
          complete     :complete-hud
-         colourscheme :colorscheme} ctx]
+         colourscheme :colourscheme} ctx
+        fov (get-in ctx [:complete-hud :fov])]
     (foreach
       #(hightlight-selection! {:terminal     terminal
                                :hud          complete
-                               :selection    (project-selection complete %)
+                               :selection    (project-selection % fov)
                                :colourscheme colourscheme}) regions)))
 
 (defn selections! [ctx]

@@ -58,11 +58,10 @@
            ~@(->> transitions
                   (partition 2)
                   (map
-                    (fn [[pred# [next-state# colour-key#]]]
-                      [(list pred# character)
-                       [next-state# (list colourscheme colour-key#)]]))
+                    (fn [[pred# [state# ckey#]]]
+                      [(if (= :else pred#) :else (list pred# character))
+                       [state# (list colourscheme ckey#)]]))
                   (reduce concat)))))))
-
 
 (deftrans standard
           ->syntax? [stx std]
@@ -72,7 +71,7 @@
           ->char? [chr chr]
           ->number? [nr nr]
           ->standard? [std std]
-          :else [std std])
+          :else [std* std])
 
 (deftrans standard*
           ->syntax? [stx std]
