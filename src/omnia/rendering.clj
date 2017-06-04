@@ -69,40 +69,40 @@
       (total! ctx)
       (f terminal current former))))
 
-(defn hightlight-selection! [{:keys [terminal hud selection colourscheme]}]
-  (let [{[xs ys] :start
-         [xe ye] :end} selection
-        bg-colour (:selection-bg colourscheme)
-        x' (bound-dec xs 0)
-        [state-0 _] (process s0 (i/sym-at hud [x' ys]) colourscheme)]
-    (loop [x xs
-           y ys
-           state state-0]
-      (let [ch (i/sym-at hud [x y])
-            sy (screen-y hud y)
-            [next-state colour] (process state ch colourscheme)]
-        (cond
-          (> y ye) ()
-          (and (>= y ye) (>= x xe)) ()
-          (not (nil? ch)) (do
-                            (doto terminal
-                              (t/set-bg-color bg-colour)
-                              (t/set-fg-color colour)
-                              (t/put-character ch x sy))
-                            (recur (inc x) y next-state))
-          :else (recur 0 (inc y) s0))))
-    (t/set-bg-color terminal :default)))
-
 (defn highlight! [ctx regions]
   (let [{terminal     :terminal
          complete     :complete-hud
          colourscheme :colourscheme} ctx
-        fov (get-in ctx [:complete-hud :fov])]
-    (foreach
-      #(hightlight-selection! {:terminal     terminal
-                               :hud          complete
-                               :selection    (project-selection % fov)
-                               :colourscheme colourscheme}) regions)))
+        fov (get-in ctx [:complete-hud :fov])
+        bg-colour (get-in ctx [:colourscheme slc-bg])]
+    (->> regions
+         (mapv #(project-selection % fov))
+         (foreach
+           (fn [{[xs ys] :start
+                 [xe ye] :end}]
+             (let [start-state (-> complete
+                                   (i/reset-y ys)
+                                   (i/reset-x (dec xs))
+                                   (i/center)
+                                   (process s0 colourscheme)
+                                   (first))]
+               (loop [x xs
+                      y ys
+                      state start-state]
+                 (let [sy (screen-y complete y)
+                       ch (i/sym-at complete [x y])
+                       [next-state colour] (process ch state colourscheme)]
+                   (cond
+                     (> y ye) ()
+                     (and (>= y ye) (>= x xe)) ()
+                     (nil? ch) (recur 0 (inc y) s0)
+                     :else (do
+                             (doto terminal
+                               (t/set-bg-color bg-colour)
+                               (t/set-fg-color colour)
+                               (t/put-character ch x sy))
+                             (recur (inc x) y next-state)))))))))
+    (t/set-bg-color terminal :default)))
 
 (defn selections! [ctx]
   (-> ctx
@@ -116,11 +116,11 @@
 
 (defn print-row! [y terminal line colourscheme]
   (reduce-idx
-    (fn [x state c]
-      (let [[next-state colour] (process state c colourscheme)]
+    (fn [x state input]
+      (let [[next-state colour] (process input state colourscheme)]
         (doto terminal
           (t/set-fg-color colour)
-          (t/put-character c x y))
+          (t/put-character input x y))
         next-state)) s0 line))
 
 (defn print! [terminal hud colourscheme]

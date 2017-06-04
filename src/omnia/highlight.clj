@@ -129,9 +129,9 @@
                     nr   number})
 
 (defn process
-  ([state input]
-    (process state input default-colourscheme))
-  ([state input colourscheme]
+  ([input state]
+    (process input state default-colourscheme))
+  ([input state colourscheme]
    (if-let [transition (state-machine state)]
      (transition input colourscheme)
      [s0 (colourscheme s0)])))
