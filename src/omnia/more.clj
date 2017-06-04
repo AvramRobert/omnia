@@ -45,6 +45,11 @@
   (let [pdiv (if (zero? div) 1 div)]
     (mod num pdiv)))
 
+(defn map-vals [f hmap]
+  (->> hmap
+       (mapcat (fn [[k v]] [k (f v)]))
+       (apply hash-map)))
+
 (defn or-else [nilable else]
   (if nilable nilable else))
 

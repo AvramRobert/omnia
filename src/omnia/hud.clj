@@ -6,7 +6,8 @@
            [omnia.repl :as r]
            [omnia.input :as i]
            [clojure.core.match :as m]
-           [omnia.formatting :as f]))
+           [omnia.formatting :as f]
+           [omnia.highlight :refer [default-colourscheme]]))
 
 (defrecord Context [terminal
                     render
@@ -18,7 +19,8 @@
                     raw-seeker
                     suggestion
                     highlights
-                    garbage])
+                    garbage
+                    colourscheme])
 
 (def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
@@ -51,8 +53,19 @@
         (assoc :ov 0))))
 
 
-(defn context [terminal hud repl]
-  (Context. terminal :total hud hud hud repl i/empty-seeker i/empty-seeker [i/empty-vec 0] empty-set empty-set))
+(defn context [terminal hud repl colourscheme]
+  (Context. terminal
+            :total
+            hud
+            hud
+            hud
+            repl
+            i/empty-seeker
+            i/empty-seeker
+            [i/empty-vec 0]
+            empty-set
+            empty-set
+            colourscheme))
 
 ;; === Utils ===
 
@@ -379,7 +392,7 @@
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
-        eval-ctx  (context terminal start-hud repl)]
+        eval-ctx  (context terminal start-hud repl default-colourscheme)]
     (loop [ctx (resize eval-ctx)]
       (when ctx
         (let [result (attempt

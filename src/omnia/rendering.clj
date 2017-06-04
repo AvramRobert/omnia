@@ -7,6 +7,14 @@
 
 (declare total! diff! input! nothing!)
 
+(defn selection-scheme [colourscheme]
+  (-> (fn [_] :white)
+      (map-vals colourscheme)
+      (assoc slc-bg (colourscheme slc-bg))))
+
+(defn clean-up-scheme [colourscheme]
+  (assoc colourscheme slc-bg :default))
+
 (defn- pad-erase [current-line former-line]
   (let [hc      (count current-line)
         hf      (count former-line)
@@ -66,72 +74,84 @@
       (f terminal current former))))
 
 
-(defn hightlight-selection! [terminal hud selection colour]
+(defn hightlight-selection! [{:keys [terminal hud selection colourscheme]}]
   (let [{[xs ys] :start
-         [xe ye] :end} selection]
+         [xe ye] :end} selection
+        bg-colour (:selection-bg colourscheme)
+        x' (bound-dec xs 0)
+        [state-0 _] (process s0 (i/sym-at hud [x' ys]) colourscheme)]
     (loop [x xs
-           y ys]
+           y ys
+           state state-0]
       (let [ch (i/sym-at hud [x y])
-            sy (screen-y hud y)]
+            sy (screen-y hud y)
+            [next-state colour] (process state ch colourscheme)]
         (cond
           (> y ye) ()
           (and (>= y ye) (>= x xe)) ()
           (not (nil? ch)) (do
                             (doto terminal
-                              (t/set-bg-color colour)
+                              (t/set-bg-color bg-colour)
+                              (t/set-fg-color colour)
                               (t/put-character ch x sy))
-                            (recur (inc x) y))
-          :else (recur 0 (inc y)))))
+                            (recur (inc x) y next-state))
+          :else (recur 0 (inc y) s0))))
     (t/set-bg-color terminal :default)))
 
-
-(defn highlight!
-  ([ctx regions]
-    (highlight! ctx regions :blue))
-  ([ctx regions colour]
-    (let [{terminal :terminal
-           complete :complete-hud} ctx]
-      (foreach
-        #(hightlight-selection! terminal complete (project-selection complete %) colour) regions))))
+(defn highlight! [ctx regions]
+  (let [{terminal     :terminal
+         complete     :complete-hud
+         colourscheme :colorscheme} ctx]
+    (foreach
+      #(hightlight-selection! {:terminal     terminal
+                               :hud          complete
+                               :selection    (project-selection complete %)
+                               :colourscheme colourscheme}) regions)))
 
 (defn selections! [ctx]
-  (highlight! ctx (:highlights ctx)))
+  (-> ctx
+      (update :colourscheme selection-scheme)
+      (highlight! (:highlights ctx))))
 
 (defn clean! [ctx]
-  (highlight! ctx (:garbage ctx) :default))
+  (-> ctx
+      (update :colourscheme clean-up-scheme)
+      (highlight! (:garbage ctx))))
 
-(defn print-row! [y terminal line]
+(defn print-row! [y terminal line colourscheme]
   (reduce-idx
     (fn [x state c]
-      (let [[next-state colour] (process state c)]
+      (let [[next-state colour] (process state c colourscheme)]
         (doto terminal
           (t/set-fg-color colour)
           (t/put-character c x y))
         next-state)) s0 line))
 
-(defn print! [terminal seeker]
+(defn print! [terminal hud colourscheme]
   (reduce-idx
-    (fn [y _ line] (print-row! y terminal line))
-    nil (:lines seeker)))
+    (fn [y _ line] (print-row! y terminal line colourscheme))
+    nil (:lines hud)))
 
 ;; === Rendering strategies ===
 
 (defn total! [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx]
+  (let [{terminal     :terminal
+         complete     :complete-hud
+         colourscheme :colourscheme} ctx]
     (doto terminal
       (t/clear)
-      (print! (project-hud complete)))))
+      (print! (project-hud complete) colourscheme))))
 
 (defn diff! [ctx]
-  (when-unscrolled ctx
-                   (fn [terminal current former]
-                     (->> (:lines former)
-                          (zip-all (:lines current))
-                          (map-indexed (fn [idx paired] (conj paired idx)))
-                          (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-                          (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-                          (foreach (fn [[line y]] (print-row! y terminal line)))))))
+  (let [cs (:colourscheme ctx)]
+    (when-unscrolled ctx
+                     (fn [terminal current former]
+                       (->> (:lines former)
+                            (zip-all (:lines current))
+                            (map-indexed (fn [idx paired] (conj paired idx)))
+                            (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
+                            (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
+                            (foreach (fn [[line y]] (print-row! y terminal line cs))))))))
 
 (defn input! [ctx]
   (let [{persisted :persisted-hud

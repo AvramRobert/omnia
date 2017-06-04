@@ -9,10 +9,11 @@
 (def ^:const nr :number)
 (def ^:const std :standard)
 (def ^:const std* :standard*)
+(def ^:const slc-bg :selection-bg)
 
 (def ^:const s0 std)
 
-(def default-colorscheme
+(def syntax-colourscheme
   {stx :yellow
    dst :white
    kwd :cyan
@@ -20,6 +21,12 @@
    chr :green
    nr  :blue
    std :white})
+
+(def ops-colourscheme
+  {slc-bg :blue})
+
+(def default-colourscheme
+  (merge syntax-colourscheme ops-colourscheme))
 
 (defn ->syntax? [c] (= c \())
 (defn ->structure? [c] (or (= c \{)
@@ -124,7 +131,7 @@
 
 (defn process
   ([state input]
-    (process state input default-colorscheme))
+    (process state input default-colourscheme))
   ([state input colourscheme]
    (if-let [transition (state-machine state)]
      (transition input colourscheme)
