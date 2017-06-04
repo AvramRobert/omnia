@@ -104,19 +104,8 @@
 (defn diff-render [ctx]
   (assoc ctx :render :diff))
 
-(defn input-render [ctx]
-  (assoc ctx :render :input))
-
 (defn no-render [ctx]
   (assoc ctx :render :nothing))
-
-(defn opt-render [ctx]
-  (let [{complete :previous-hud
-         [sgst _] :suggestion} ctx]
-    (diff-render ctx)
-    #_(if (i/selection? complete)
-        (input-render ctx)
-        (diff-render ctx))))
 
 (defn highlight [ctx]
   (let [complete (:complete-hud ctx)]
@@ -370,10 +359,6 @@
 (defn movement? [stroke]
   (contains? #{:up :down :left :right} (:key stroke)))
 
-(defn manipulation? [stroke]
-  (and (contains? #{\v \c \x} (:key stroke))
-       (:alt stroke)))
-
 (defn handle [ctx stroke]
   (m/match [stroke]
            [{:key \p :ctrl true :alt true}] (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
@@ -382,12 +367,11 @@
            [{:key :page-down}] (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render))
            [{:key :up :alt true}] (-> ctx (gc) (resize) (uncomplete) (roll-back) (highlight) (scroll-stop) (re-render))
            [{:key :down :alt true}] (-> ctx (gc) (resize) (uncomplete) (roll-forward) (highlight) (scroll-stop) (re-render))
-           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (highlight) (scroll-stop) (opt-render))
+           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (highlight) (scroll-stop) (diff-render))
            [{:key \r :ctrl true}] (-> ctx (gc) (resize) (clear) (uncomplete) (deselect) (highlight) (re-render))
            [{:key \e :alt true}] (-> ctx (gc) (resize) (uncomplete) (evaluate) (highlight) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (gc) (resize) (uncomplete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
-           [_ :guard manipulation?] (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (re-render))
-           [_ :guard movement?] (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (opt-render))
+           [_ :guard movement?] (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (no-render))
            :else (-> ctx (gc) (resize) (uncomplete) (capture stroke) (calibrate) (highlight) (scroll-stop) (diff-render))))
 
 (defn read-eval-print [terminal repl]

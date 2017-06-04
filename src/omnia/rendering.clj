@@ -5,7 +5,7 @@
            [lanterna.terminal :as t]
            [clojure.core.match :as m]))
 
-(declare total! diff! input! nothing!)
+(declare total! diff! nothing!)
 
 (defn- selection-scheme [colourscheme]
   (-> (fn [_] :white)
@@ -149,14 +149,6 @@
                             (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
                             (foreach (fn [[line y]] (print-row! y terminal line cs))))))))
 
-(defn input! [ctx]
-  (let [{persisted :persisted-hud
-         seeker    :seeker} ctx
-        padding (->> i/empty-vec (repeat) (take (i/height seeker)) (vec) (i/seeker))]
-    (-> ctx
-        (assoc :previous-hud (i/join persisted padding))
-        (diff!))))
-
 (defn nothing! [ctx]
   (when-unscrolled ctx (fn [_ _ _] ())))
 
@@ -166,7 +158,6 @@
         [x y] (project-cursor complete)]
     (case (:render ctx)
       :diff (doto ctx (clean!) (diff!) (selections!))
-      :input (doto ctx (clean!) (input!) (selections!))
       :nothing (doto ctx (clean!) (nothing!) (selections!))
       (doto ctx (total!) (selections!)))
     (t/move-cursor terminal x y)))
