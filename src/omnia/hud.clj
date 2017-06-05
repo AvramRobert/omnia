@@ -16,7 +16,6 @@
                     complete-hud
                     repl
                     seeker
-                    raw-seeker
                     suggestion
                     highlights
                     garbage
@@ -60,7 +59,6 @@
             hud
             hud
             repl
-            i/empty-seeker
             i/empty-seeker
             [i/empty-vec 0]
             empty-set
@@ -251,8 +249,7 @@
     (assoc ctx
       :complete-hud (-> ctx (:persisted-hud) (i/join then-seeker))
       :repl then-repl
-      :seeker then-seeker
-      :raw-seeker then-seeker)))
+      :seeker then-seeker)))
 
 (defn roll-back [ctx]
   (roll ctx r/travel-back))
@@ -261,7 +258,7 @@
   (roll ctx r/travel-forward))
 
 (defn evaluate [ctx]
-  (let [evaluation (r/evaluate (:repl ctx) (:raw-seeker ctx))
+  (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
         persisted  (-> ctx
                        (:complete-hud)
                        (preserve (r/result evaluation) caret)
@@ -271,8 +268,7 @@
       :persisted-hud persisted
       :complete-hud persisted
       :repl evaluation
-      :seeker i/empty-seeker
-      :raw-seeker i/empty-seeker)))
+      :seeker i/empty-seeker)))
 
 (defn suggest [ctx]
   (let [suggestion (r/suggest (:repl ctx) (:seeker ctx))]
@@ -333,25 +329,23 @@
   (let [[sgst _] (:suggestion ctx)]
     (-> ctx
         (update :seeker #(auto-complete % sgst))
-        (update :raw-seeker #(auto-complete % sgst))
         (assoc :suggestion [i/empty-vec 0]))))
 
 ;; === Input ===
 (defn capture [ctx stroke]
-  (let [seeker     (-> ctx (:seeker) (i/inputs stroke))
-        raw-seeker (-> ctx (:raw-seeker) (i/inputs stroke))]
+  (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
     (assoc ctx
       :previous-hud (:complete-hud ctx)
       :complete-hud (-> ctx
                         (:persisted-hud)
                         (i/join seeker))
-      :seeker seeker
-      :raw-seeker raw-seeker)))
+      :seeker seeker)))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx :raw-seeker (f/lisp-format))
+  (let [formatted (-> ctx :seeker (f/lisp-format))
         joined    (-> ctx (:persisted-hud) (i/join formatted))]
-    (assoc ctx :complete-hud joined
+    (assoc ctx :previous-hud (:complete-hud ctx)
+               :complete-hud joined
                :seeker formatted)))
 
 ;; === Events ===
@@ -364,7 +358,7 @@
            [{:key :page-down}] (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render))
            [{:key :up :alt true}] (-> ctx (gc) (resize) (uncomplete) (roll-back) (highlight) (scroll-stop) (re-render))
            [{:key :down :alt true}] (-> ctx (gc) (resize) (uncomplete) (roll-forward) (highlight) (scroll-stop) (re-render))
-           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (reformat) (highlight) (scroll-stop) (diff-render))
+           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (uncomplete) (reformat) (highlight) (scroll-stop) (diff-render))
            [{:key \r :ctrl true}] (-> ctx (gc) (resize) (clear) (uncomplete) (deselect) (highlight) (re-render))
            [{:key \e :alt true}] (-> ctx (gc) (resize) (uncomplete) (evaluate) (highlight) (scroll-stop) (re-render))
            [{:key \d :ctrl true}] (-> ctx (gc) (resize) (uncomplete) (scroll-stop) (deselect) (highlight) (re-render) (exit))

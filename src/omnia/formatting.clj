@@ -1,7 +1,9 @@
 (ns omnia.formatting
   (require
     [omnia.input :as i]
+    [omnia.more :refer [--]]
     [fipp.engine :as e]
+    [clojure.edn :as clj-edn]
     [fipp.edn :as edn]
     [fipp.visit :refer [visit]]
     [clojure.core.match :as m]
@@ -44,7 +46,7 @@
 
 (defn spaces [seeker]
   (->> (i/line seeker)
-       (take-while #(= % \space))
+       (take-while i/blank?)
        (count)))
 
 (defn reselect [original formatted]
@@ -63,6 +65,15 @@
         (reselect formatted)
         (i/rebase (fn [_] (:lines formatted)))
         (i/move-x #(-> % (+ form-indent) (- real-indent))))))
+
+(defn deform [seeker]
+  (let [cursor-onset (spaces seeker)
+        select-onset (some->> seeker (:selection) (constantly) (i/move seeker) (spaces))]
+    (-> seeker
+        (i/rebase (fn [lines]
+                    (mapv #(->> % (drop-while i/blank?) (vec)) lines)))
+        (i/move-x #(-- % cursor-onset))
+        (i/reselect (fn [[x y]] [(-- x select-onset) y])))))
 
 (defn edn-document
   ([x] (edn-document x {}))
@@ -97,7 +108,7 @@
   (try
     (if (edn? edn-str)
       (->> edn-str
-           (read-string)
+           (clj-edn/read-string)
            (edn-document)
            (educe)
            (apply str))
@@ -105,18 +116,18 @@
     (catch Exception _ (fmt-lisp edn-str))))
 
 (defn lisp-format [seeker]
-  (try (->> seeker
-            (i/stringify)
-            (fmt-lisp)                                      ;; i think this step can be omitted
-            (i/str->lines)
-            (i/seeker)
-            (normalise seeker))
-       (catch Exception _ seeker)))
+  (let [original (deform seeker)]
+    (try (->> original
+              (i/stringify)
+              (fmt-lisp)                                      ;; i think this step can be omitted
+              (i/from-string)
+              (normalise original))
+         (catch Exception _ seeker))))
 
 (defn edn-format [seeker]
   (try (->> seeker
             (i/stringify)
-            (read-string)
+            (clj-edn/read-string)
             (edn-document)
             (educe)
             (apply str)

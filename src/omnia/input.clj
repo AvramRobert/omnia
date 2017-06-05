@@ -390,7 +390,7 @@
            [\space \space] (expand-expr seeker)
            [\space (:or \) \] \})] (expand-expr seeker)
            [(:or \( \[ \{) \space] (expand-expr seeker)
-           [_ (:or \( \[ \{)] (expand-expr seeker)
+           [_ (:or \( \[ \{)] (-> seeker (advance) (expand-expr))
            [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
            [(:or \( \[ \{) _] (-> seeker (select) (jump advance))
            [(:or \space \") _] (-> seeker (select) (jump advance))

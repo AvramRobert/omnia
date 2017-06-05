@@ -143,6 +143,11 @@ Legend:
        => for " asds"), where ds") were highlighted, after cleanup, both " and ) are
        green.
 
+ > 29. Inconsistencies between the raw and normal seeker lead to problems after auto-completion
+       and re-formatting.
+       Because formatted seekers essentially have more than raw ones, discrepancies between cursor
+       positions can occur.
+
 Prospects:
 
 - Parenthesis highlighting // done
