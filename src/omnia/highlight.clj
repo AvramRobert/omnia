@@ -33,9 +33,12 @@
 (def default-colourscheme
   (merge syntax-colourscheme ops-colourscheme))
 
-(defn ->list? [c] (= c \())
-(defn ->vector? [c] (= c \[))
-(defn ->map? [c] (= c \{))
+(defn ->start-list? [c] (= c \())
+(defn ->end-list? [c] (= c \)))
+(defn ->start-vector? [c] (= c \[))
+(defn ->end-vector? [c] (= c \]))
+(defn ->start-map? [c] (= c \{))
+(defn ->end-map? [c] (= c \}))
 (defn ->keyword? [c] (= c \:))
 (defn ->string? [c] (= c \"))
 (defn ->char? [c] (= c \\))
@@ -51,10 +54,7 @@
 (defn ->break? [c] (= c \newline))
 
 (defn ->reset? [c] (or (->break? c)
-                       (= c \space)
-                       (= c \))
-                       (= c \])
-                       (= c \})))
+                       (= c \space)))
 
 (defmacro deftrans [name & transitions]
   (assert (even? (count transitions)) "`deftrans` expects an even number of forms")
@@ -77,9 +77,12 @@
 
 (deftrans ->standard
           ->comment? [cmt cmt]
-          ->list? [fnc lst]
-          ->vector? [std vct]
-          ->map? [std hmp]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
           ->keyword? [kwd kwd]
           ->string? [stg stg]
           ->char? [chr chr]
@@ -88,9 +91,12 @@
 
 (deftrans ->function
           ->comment? [cmt cmt]
-          ->list? [fnc lst]
-          ->vector? [std vct]
-          ->map? [std hmp]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
           ->keyword? [kwd kwd]
           ->number? [nr nr]
           ->char? [chr chr]
@@ -100,15 +106,23 @@
 
 (deftrans ->function*
           ->comment? [cmt cmt]
-          ->list? [fnc lst]
-          ->vector? [std vct]
-          ->map? [std hmp]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
           ->reset? [std std]
           :else [fnc* fnc])
 
 (deftrans ->keyword
           ->comment? [cmt cmt]
-          ->list? [fnc lst]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
           ->reset? [std std]
           :else [kwd kwd])
 
@@ -121,7 +135,12 @@
 
 (deftrans ->number
           ->comment? [cmt cmt]
-          ->list? [fnc lst]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
           ->number? [nr nr]
           ->decimal? [nr nr]
           :else [std std])
