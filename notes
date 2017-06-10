@@ -33,9 +33,6 @@ Legend:
 
 8. Syntax highlighting doesn't highlight:
         - special words, like `nil` or `true`
-        - explicit collections after `(`
-        - comments
-        - `^:` - constructs
 
 9. Dependency retrieval doesn't show any progress whatsoever.
 
