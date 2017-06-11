@@ -11,6 +11,7 @@
 (def ^:const nr :number)
 (def ^:const cmt :comment)
 (def ^:const std :standard)
+(def ^:const std* :standard*)
 (def ^:const slc-bg :selection-bg)
 
 (def ^:const s0 std)
@@ -87,7 +88,20 @@
           ->string? [stg stg]
           ->char? [chr chr]
           ->number? [nr nr]
-          :else [std std])
+          :else [std* std])
+
+(deftrans ->standard*
+          ->reset? [std std]
+          ->comment? [cmt cmt]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
+          ->string? [stg stg]
+          ->char? [chr chr]
+          :else [std* std])
 
 (deftrans ->function
           ->comment? [cmt cmt]
@@ -131,7 +145,14 @@
           :else [stg stg])
 
 (deftrans ->character
-          :else [std stg])
+          ->reset? [std std]
+          ->start-list? [fnc lst]
+          ->end-list? [std lst]
+          ->start-vector? [std vct]
+          ->end-vector? [std vct]
+          ->start-map? [std hmp]
+          ->end-map? [std hmp]
+          :else [chr chr])
 
 (deftrans ->number
           ->comment? [cmt cmt]
@@ -146,6 +167,7 @@
           :else [std std])
 
 (def state-machine {std  ->standard
+                    std* ->standard*
                     fnc  ->function
                     fnc* ->function*
                     kwd  ->keyword
