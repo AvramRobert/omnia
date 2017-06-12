@@ -77,6 +77,7 @@
           :else [cmt cmt])
 
 (deftrans ->standard
+          ->reset? [std std]
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
           ->end-list? [std lst]
