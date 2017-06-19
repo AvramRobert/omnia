@@ -18,9 +18,9 @@
    #'ritz.nrepl.middleware.simple-complete/wrap-simple-complete])
 
 (def predef
-  (->> (str '(require '[omnia.resolution :refer [retrieve retrieve-from]]))
-       (i/str->lines)
-       (i/seeker)))
+  (-> '(require '[omnia.resolution :refer [retrieve retrieve-from]])
+      (str)
+      (i/from-string)))
 
 (def gibberish "~/~")
 
@@ -101,10 +101,10 @@
   (update repl :timeline (fn [_] (:hsize repl))))
 
 (defn travel-back [repl]
-  (update repl :timeline #(bound-dec % 0)))
+  (update repl :timeline #(dec< % 0)))
 
 (defn travel-forward [repl]
-  (update repl :timeline #(bound-inc % (:hsize repl))))
+  (update repl :timeline #(inc< % (:hsize repl))))
 
 (defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))

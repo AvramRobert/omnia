@@ -1,9 +1,9 @@
 (ns omnia.rendering
-  (use omnia.highlight
-       omnia.more)
   (require [omnia.input :as i]
            [lanterna.terminal :as t]
-           [clojure.core.match :as m]))
+           [clojure.core.match :as m]
+           [omnia.highlight :refer [slc-bg s0 process]]
+           [omnia.more :refer [take-right reduce-idx zip-all map-vals]]))
 
 (declare total! diff! nothing!)
 
@@ -73,11 +73,11 @@
   (let [{terminal     :terminal
          complete     :complete-hud
          colourscheme :colourscheme} ctx
-        fov (get-in ctx [:complete-hud :fov])
-        bg-colour (get-in ctx [:colourscheme slc-bg])]
+        fov (:fov complete)
+        bg-colour (get colourscheme slc-bg)]
     (->> regions
          (mapv #(project-selection % fov))
-         (foreach
+         (run!
            (fn [{[xs ys] :start
                  [xe ye] :end}]
              (let [start-state (-> complete
@@ -152,7 +152,7 @@
                             (map-indexed (fn [idx paired] (conj paired idx)))
                             (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
                             (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-                            (foreach (fn [[line y]] (print-row! y terminal line cs))))))))
+                            (run! (fn [[line y]] (print-row! y terminal line cs))))))))
 
 (defn nothing! [ctx]
   (when-unscrolled ctx (fn [_ _ _] ())))

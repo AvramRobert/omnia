@@ -2,7 +2,7 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]
            [clojure.set :refer [union]]
-           [omnia.more :refer [do-until foreach]]))
+           [omnia.more :refer [do-until]]))
 
 (defrecord Seeker [lines cursor height expansion selection clipboard])
 
@@ -95,7 +95,7 @@
         (fn [[x y]]
           (let [length (-> seeker line count)
                 nx     (f x)]
-            (if (and (>= nx 0) (<= nx length))
+            (if (<= 0 nx length)
               [nx y]
               [x y])))))
 
@@ -104,7 +104,7 @@
         (fn [[x y]]
           (let [height (height seeker)
                 ny     (f y)]
-            (if (and (>= ny 0) (< ny height))
+            (if (<= 0 ny (dec height))
               [x ny]
               [x y])))))
 
@@ -413,7 +413,7 @@
   (->> seeker
        (:lines)
        (map #(apply str %))
-       (foreach println)))
+       (run! println)))
 
 (defn inputs [seeker stroke]
   (m/match [stroke]

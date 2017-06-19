@@ -78,11 +78,11 @@ Legend:
     Input lines should have a limit.
     For performance purposes at least.
 
-20. `complete-hud` rebase (and other things) get repeated.
-    In a lot of functions, the `complete-hud` gets rebased
-    by means of the `persisted-hud` and `seeker`.
-    This happens so much so, that it has become a pattern.
-    This needs to be separated and reused. Same for the other things.
+ > 20. `complete-hud` rebase (and other things) get repeated.
+       In a lot of functions, the `complete-hud` gets rebased
+       by means of the `persisted-hud` and `seeker`.
+       This happens so much so, that it has become a pattern.
+       This needs to be separated and reused. Same for the other things.
 
  > 21. The template info data are simple strings converted to lines, and not seekers.
        Things like `greeting` and `caret` all become seekers when integrated in the hud.
@@ -145,18 +145,22 @@ Legend:
        Because formatted seekers essentially have more than raw ones, discrepancies between cursor
        positions can occur.
 
+30. Calibration normalises ov in a rather ad-hoc manner, which I don't know if it always works.
+    Think about and add more concrete guards for the top and bottom of the page, that more
+    accurately and invariantly detect page movement.
+
 Prospects:
 
 - Parenthesis highlighting // done
-- Tests for input and hud.
-- I-search
 - Input configuration
 - REPL sessions
+- Tests for input and hud
 - Parametricity and arity lookup
-- ClojureDoc support
-- Command mode (with input filtering)
-- More efficient seeker
+- I-search
 - Refactor and reuse
 - Documentation
+- ClojureDoc support
+- More efficient seeker
+- Command mode (with input filtering)
 
 

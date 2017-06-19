@@ -4,11 +4,11 @@
 (defn take-right [n coll]
   (if-let [x (take-last n coll)] x '()))
 
-(defn bound-inc [value max]
+(defn inc< [value max]
   (let [x (inc value)]
     (if (>= x max) value x)))                               ;; >= because we count from 0
 
-(defn bound-dec [value min]
+(defn dec< [value min]
   (let [x (dec value)]
     (if (< x min) value x)))
 
@@ -19,9 +19,6 @@
 (defn ++ [& values]
   (let [r (apply + values)]
     (if (neg? r) 0 r)))
-
-(defn foreach [f coll]
-  (doall (map f coll)))
 
 (defn zip-all [coll-a coll-b]
   (m/match [coll-a coll-b]
@@ -52,7 +49,6 @@
 
 (defn or-else [nilable else]
   (if nilable nilable else))
-
 
 (defmacro time-return [& body]
   `(let [s# (System/nanoTime)

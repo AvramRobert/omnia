@@ -1,8 +1,7 @@
 (ns omnia.core
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
-           [omnia.hud :as h]
-           [clojure.core.match :as m]))
+           [omnia.hud :as h]))
 
 (defn shutdown [terminal repl]
   (t/stop terminal)
