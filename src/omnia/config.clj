@@ -1,6 +1,8 @@
 (ns omnia.config
   (require [omnia.input :as i]
            [omnia.more :refer [map-vals]]
+           [clojure.string :refer [join]]
+           [halfling.result :refer [success failure]]
            [omnia.highlight :refer [default-colourscheme no-colourscheme]]
            [clojure.core.match :as m]
            [clojure.set :refer [map-invert]]
@@ -56,12 +58,29 @@
    keymap       default-keymap
    colourscheme default-colourscheme})
 
-(def local-config
+(defn validate [config]
+  (let [ks (get config keymap)
+        handle (fn [errs]
+                 (if (empty? errs)
+                   (success config)
+                   (failure "Duplicate bindings in keymap" (join "\n" errs))))]
+    (->> ks
+         (group-by val)
+         (vals)
+         (filter #(> (count %) 1))
+         (mapv
+           (fn [actions]
+             (format "Actions %s share the same key binding %s"
+                     (clojure.string/join "," (map first actions))
+                     (-> actions first second))))
+         (handle))))
+
+(def get-local-config
   (let [path (format "%s/omnia.edn" (System/getProperty "user.dir"))
         file (io/file path)]
     (if (.exists file)
-      (-> path (slurp) (edn/read-string))
-      default-config)))
+      (-> path (slurp) (edn/read-string) (validate))
+      (success default-config))))
 
 (defn normalise [config]
   (map-vals
