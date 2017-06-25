@@ -19,7 +19,7 @@
 
 (defn -main [& args]
   (fold get-local-config
-        #(start (:val %))
+        start
         #(println (format "Error: %s\n%s"
-                          (-> % :val :cause)
-                          (-> % :val :message)))))
+                          (:cause %)
+                          (:message %)))))
