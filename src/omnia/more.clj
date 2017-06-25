@@ -56,3 +56,8 @@
         e# (System/nanoTime)
         total# (/ (- e# s#) 1000000.0)]
     [(str total# " ms") val#]))
+
+(defmacro time-out [& body]
+  `(let [[s# v#] (time-return ~@body)]
+     (spit "debug" s#)
+     v#))

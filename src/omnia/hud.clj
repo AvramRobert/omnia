@@ -4,14 +4,16 @@
            [omnia.rendering :refer [render-context]]
            [omnia.repl :as r]
            [omnia.input :as i]
+           [omnia.config :refer [match-stroke default-keymap]]
            [clojure.core.match :as m]
            [omnia.formatting :as f]
            [omnia.highlight :refer [default-colourscheme]]
-           [omnia.more :refer [-- ++ inc< dec< mod*]]))
+           [omnia.more :refer [-- ++ inc< dec< mod* time-out]]))
 
 (defrecord Context [terminal
                     repl
                     render
+                    keymap
                     colourscheme
                     previous-hud
                     persisted-hud
@@ -52,10 +54,11 @@
         (assoc :ov 0))))
 
 
-(defn context [terminal repl colourscheme hud]
+(defn context [terminal repl keymap colourscheme hud]
   (Context. terminal
             repl
             :total
+            keymap
             colourscheme
             hud
             hud
@@ -93,9 +96,9 @@
 
 (defn rebase
   ([ctx]
-    (rebase ctx (:seeker ctx)))
+   (rebase ctx (:seeker ctx)))
   ([ctx seeker]
-    (assoc ctx :complete-hud (i/join (:persisted-hud ctx) seeker))))
+   (assoc ctx :complete-hud (i/join (:persisted-hud ctx) seeker))))
 
 (defn preserve [ctx & seekers]
   (update ctx :complete-hud #(->> seekers (reduce i/join %) (i/start-x) (i/end-y))))
@@ -260,7 +263,7 @@
 
 (defn evaluate [ctx]
   (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
-        result (r/result evaluation)]
+        result     (r/result evaluation)]
     (-> (remember ctx)
         (preserve result caret)
         (persist)
@@ -321,8 +324,9 @@
         (assoc :suggestion [i/empty-vec 0]))))
 
 ;; === Input ===
-(defn capture [ctx stroke]
-  (let [seeker (-> ctx (:seeker) (i/inputs stroke))]
+
+(defn capture [ctx event]
+  (let [seeker (-> ctx (:seeker) (i/process event))]
     (-> (remember ctx)
         (rebase seeker)
         (seek seeker))))
@@ -335,28 +339,29 @@
 
 ;; === Events ===
 
-(defn handle [ctx stroke]
-  (m/match [stroke]
-           [{:key \p :ctrl true :alt true}] (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
-           [{:key :tab}] (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render))
-           [{:key :page-up}] (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render))
-           [{:key :page-down}] (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render))
-           [{:key :up :alt true}] (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render))
-           [{:key :down :alt true}] (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render))
-           [{:key \l :ctrl true :alt true}] (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render))
-           [{:key \r :ctrl true}] (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render))
-           [{:key \e :alt true}] (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render))
-           [{:key \d :ctrl true}] (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
-           :else (-> ctx (gc) (resize) (complete) (capture stroke) (calibrate) (highlight) (scroll-stop) (diff-render))))
+(defn process [ctx stroke]
+  (let [event (-> ctx (:keymap) (match-stroke stroke))]
+    (case (:action event)
+      :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
+      :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render))
+      :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render))
+      :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render))
+      :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render))
+      :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render))
+      :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render))
+      :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render))
+      :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render))
+      :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
+      (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render)))))
 
 (defn read-eval-print [terminal repl]
   (let [start-hud (init-hud 0)
-        eval-ctx  (context terminal repl default-colourscheme start-hud)]
+        eval-ctx  (context terminal repl default-keymap default-colourscheme start-hud)]
     (loop [ctx (resize eval-ctx)]
       (when ctx
         (let [result (attempt
                        (render-context ctx)
-                       (handle ctx (t/get-keystroke-blocking terminal)))]
+                       (process ctx (t/get-keystroke-blocking terminal)))]
           (m/match [result]
                    [{:status :success :val nctx}] (recur nctx)
                    [{:status :failure :val errs}] (recur (failure errs ctx))))))))
