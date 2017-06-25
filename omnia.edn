@@ -1,0 +1,48 @@
+{
+ :syntax-highlighting true
+ :suggestions         true
+ :scrolling           true
+
+ :colourscheme        {:standard  :white
+                       :list      :white
+                       :vector    :white
+                       :map       :white
+                       :keyword   :cyan
+                       :string    :green
+                       :char      :green
+                       :number    :blue
+                       :comment   :magenta
+                       :function  :yellow
+                       :selection :blue}
+
+ :keymap              {:hightlight        {:key \p :ctrl true}
+                       :suggest           {:key :tab}
+                       :scroll-up         {:key :page-up}
+                       :scroll-down       {:key :page-down}
+                       :prev-eval         {:key :up :alt true}
+                       :next-eval         {:key :down :alt true}
+                       :reformat          {:key \l :ctrl true :alt true}
+                       :clear             {:key \r :ctrl true}
+                       :eval              {:key \e :alt true}
+                       :exit              {:key \d :ctrl true}
+                       :expand            {:key \w :ctrl true}
+                       :paste             {:key \v :alt true}
+                       :copy              {:key \c :alt true}
+                       :cut               {:key \x :alt true}
+                       :select-all        {:key \a :ctrl true}
+                       :up                {:key :up}
+                       :down              {:key :down}
+                       :left              {:key :left}
+                       :right             {:key :right}
+                       :jump-left         {:key :left :ctrl true}
+                       :jump-right        {:key :right :ctrl true}
+                       :select-up         {:key :up :shift true}
+                       :select-down       {:key :down :shift true}
+                       :select-left       {:key :left :shift true}
+                       :select-right      {:key :right :shift true}
+                       :jump-select-left  {:key :left :shift true :ctrl true}
+                       :jump-select-right {:key :right :shift true :ctrl true}
+                       :backspace         {:key :backspace}
+                       :delete            {:key :delete}
+                       :enter             {:key :enter}}
+ }

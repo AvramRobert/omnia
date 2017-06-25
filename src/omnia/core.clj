@@ -2,7 +2,7 @@
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
            [omnia.hud :as h]
-           [omnia.config :refer [default-config]]))
+           [omnia.config :refer [local-config]]))
 
 (defn shutdown [{:keys [terminal repl]}]
   (t/stop terminal)
@@ -15,5 +15,5 @@
     (t/start (:terminal internal-config))
     (h/read-eval-print (merge
                          internal-config
-                         default-config))
+                         local-config))
     (shutdown internal-config)))

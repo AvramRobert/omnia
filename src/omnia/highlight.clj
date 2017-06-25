@@ -12,7 +12,7 @@
 (def ^:const cmt :comment)
 (def ^:const std :standard)
 (def ^:const std* :standard*)
-(def ^:const slc-bg :selection-bg)
+(def ^:const slc-bg :selection)
 
 (def ^:const s0 std)
 

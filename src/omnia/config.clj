@@ -3,7 +3,15 @@
            [omnia.more :refer [map-vals]]
            [omnia.highlight :refer [default-colourscheme no-colourscheme]]
            [clojure.core.match :as m]
-           [clojure.set :refer [map-invert]]))
+           [clojure.set :refer [map-invert]]
+           [clojure.java.io :as io]
+           [clojure.edn :as edn]))
+
+(def ^:const highlighting :syntax-highlighting)
+(def ^:const scrolling :scrolling)
+(def ^:const suggestions :suggestions)
+(def ^:const keymap :keymap)
+(def ^:const colourscheme :colourscheme)
 
 (def editor-keymap
   {:expand            {:key \w :ctrl true}
@@ -42,11 +50,18 @@
 (def default-keymap (merge editor-keymap hud-keymap))
 
 (def default-config
-  {:syntax-highlighting true
-   :scrolling           true
-   :suggestions         true
-   :keymap              default-keymap
-   :colourscheme        default-colourscheme})
+  {highlighting true
+   scrolling    true
+   suggestions  true
+   keymap       default-keymap
+   colourscheme default-colourscheme})
+
+(def local-config
+  (let [path (format "%s/omnia.edn" (System/getProperty "user.dir"))
+        file (io/file path)]
+    (if (.exists file)
+      (-> path (slurp) (edn/read-string))
+      default-config)))
 
 (defn normalise [config]
   (map-vals
@@ -57,13 +72,14 @@
 
 (defn with-features [config]
   (cond-> config
-          (not (:syntax-highlighting config)) (assoc :colourscheme no-colourscheme)
-          (not (:scrolling config)) (update :keymap #(dissoc % :scroll-up :scroll-down))
-          (not (:suggestions config)) (update :keymap #(dissoc % :suggest))
-          :always (update :keymap (comp map-invert normalise))))
+          (not (get config highlighting)) (assoc colourscheme no-colourscheme)
+          (not (get config scrolling)) (update keymap #(dissoc % :scroll-up :scroll-down))
+          (not (get config suggestions)) (update keymap #(dissoc % :suggest))
+          (get config highlighting) (update colourscheme #(or % default-colourscheme))
+          :always (update keymap (comp map-invert normalise))))
 
 (defn match-stroke [config stroke]
-  (m/match [(-> config (:keymap) (get stroke))]
+  (m/match [(-> (get config keymap) (get stroke))]
            [nil :guard (constantly (i/char-key? stroke))] (i/->Event :char (:key stroke))
            [nil] (i/->Event :none (:key stroke))
            [action] (i/->Event action (:key stroke))))
