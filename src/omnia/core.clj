@@ -1,16 +1,19 @@
 (ns omnia.core
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
-           [omnia.hud :as h]))
+           [omnia.hud :as h]
+           [omnia.config :refer [default-config]]))
 
-(defn shutdown [terminal repl]
+(defn shutdown [{:keys [terminal repl]}]
   (t/stop terminal)
   (r/stop repl)
   (System/exit 1))
 
 (defn -main [& args]
-    (let [terminal (t/get-terminal :text)
-          repl (r/repl {:kind :local})]
-      (t/start terminal)
-      (h/read-eval-print terminal repl)
-      (shutdown terminal repl)))
+  (let [internal-config {:terminal (t/get-terminal :text)
+                         :repl     (r/repl {:kind :local})}]
+    (t/start (:terminal internal-config))
+    (h/read-eval-print (merge
+                         internal-config
+                         default-config))
+    (shutdown internal-config)))

@@ -34,6 +34,8 @@
 (def default-colourscheme
   (merge syntax-colourscheme ops-colourscheme))
 
+(def no-colourscheme ops-colourscheme)
+
 (defn ->start-list? [c] (= c \())
 (defn ->end-list? [c] (= c \)))
 (defn ->start-vector? [c] (= c \[))
@@ -69,7 +71,7 @@
                   (map
                     (fn [[pred# [state# ckey#]]]
                       [(if (= :else pred#) :else (list pred# character))
-                       [state# (list colourscheme ckey#)]]))
+                       [state# (list colourscheme ckey# :white)]]))
                   (reduce concat)))))))
 
 (deftrans ->comment

@@ -43,9 +43,8 @@
     (mod num pdiv)))
 
 (defn map-vals [f hmap]
-  (->> hmap
-       (mapcat (fn [[k v]] [k (f v)]))
-       (apply hash-map)))
+  (reduce (fn [nmap [k v]]
+            (assoc nmap k (f v))) {} hmap))
 
 (defn or-else [nilable else]
   (if nilable nilable else))

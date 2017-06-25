@@ -4,7 +4,7 @@
            [omnia.rendering :refer [render-context]]
            [omnia.repl :as r]
            [omnia.input :as i]
-           [omnia.config :refer [match-stroke default-keymap]]
+           [omnia.config :refer [match-stroke with-features]]
            [clojure.core.match :as m]
            [omnia.formatting :as f]
            [omnia.highlight :refer [default-colourscheme]]
@@ -12,9 +12,9 @@
 
 (defrecord Context [terminal
                     repl
-                    render
                     keymap
                     colourscheme
+                    render
                     previous-hud
                     persisted-hud
                     complete-hud
@@ -25,12 +25,16 @@
 
 (def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
+(def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
+(def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
 (def delimiter (i/from-string "------"))
 (def continuation (i/from-string "..."))
-(def greeting (i/from-string "Welcome to the Omnia REPL! (ALPHA)"))
+(def greeting (i/from-string (format "Welcome to Omnia! (ALPHA v%s)" (System/getProperty "omnia.version"))))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
 (def error (i/from-string "I have not the heart to tell you, but something went wrong internally.."))
+
+;; === Utils ===
 
 (defn hud [fov & prelude]
   "lor = line of reference
@@ -53,30 +57,33 @@
         (assoc :fov fov)
         (assoc :ov 0))))
 
-
-(defn context [terminal repl keymap colourscheme hud]
-  (Context. terminal
-            repl
-            :total
-            keymap
-            colourscheme
-            hud
-            hud
-            hud
-            i/empty-seeker
-            [i/empty-vec 0]
-            empty-set
-            empty-set))
-
-;; === Utils ===
-
 (defn init-hud [fov]
-  (hud fov greeting empty-line caret))
+  (hud fov
+       greeting
+       clj-version
+       java-version
+       empty-line
+       caret))
 
-(defn screen-size [ctx]
-  (if-let [terminal (:terminal ctx)]
-    (-> terminal (.getTerminalSize) (.getRows))
-    (-> ctx :persisted-hud :fov)))
+(defn get-screen-size [terminal alt]
+  (or (some-> terminal (.getTerminalSize) (.getRows))
+      alt))
+
+(defn context [{:keys [terminal repl keymap colourscheme]}]
+  (let [hud (init-hud (get-screen-size terminal 0))]
+    (Context.
+      terminal
+      repl
+      keymap
+      colourscheme
+      :total
+      hud
+      hud
+      hud
+      i/empty-seeker
+      [i/empty-vec 0]
+      empty-set
+      empty-set)))
 
 (defn adjoin [ths tht]
   (i/rebase ths #(concat % (:lines tht))))
@@ -150,7 +157,7 @@
 
 (defn resize [ctx]
   (let [fov   (get-in ctx [:persisted-hud :fov])
-        ssize (screen-size ctx)]
+        ssize (-> ctx (:terminal) (get-screen-size fov))]
     (if (not= ssize fov)
       (-> ctx
           (assoc-in [:persisted-hud :fov] ssize)
@@ -177,7 +184,8 @@
         (assoc-in [:complete-hud :ov] nov))))
 
 (defn clear [ctx]
-  (let [start-hud (-> ctx (screen-size) (init-hud))]
+  (let [fov (get-in ctx [:persisted-hud :fov])
+        start-hud (-> ctx (:terminal) (get-screen-size fov) (init-hud))]
     (assoc ctx
       :complete-hud (i/join start-hud (:seeker ctx))
       :persisted-hud start-hud
@@ -340,7 +348,7 @@
 ;; === Events ===
 
 (defn process [ctx stroke]
-  (let [event (-> ctx (:keymap) (match-stroke stroke))]
+  (let [event (match-stroke ctx stroke)]
     (case (:action event)
       :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
       :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render))
@@ -354,14 +362,16 @@
       :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
       (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render)))))
 
-(defn read-eval-print [terminal repl]
-  (let [start-hud (init-hud 0)
-        eval-ctx  (context terminal repl default-keymap default-colourscheme start-hud)]
-    (loop [ctx (resize eval-ctx)]
-      (when ctx
-        (let [result (attempt
-                       (render-context ctx)
-                       (process ctx (t/get-keystroke-blocking terminal)))]
-          (m/match [result]
-                   [{:status :success :val nctx}] (recur nctx)
-                   [{:status :failure :val errs}] (recur (failure errs ctx))))))))
+(defn read-process [ctx]
+  (->> (:terminal ctx)
+       (t/get-keystroke-blocking)
+       (process ctx)))
+
+(defn read-eval-print [config]
+  (loop [ctx (context (with-features config))]
+    (when ctx
+      (m/match [(attempt
+                  (render-context ctx)
+                  (read-process ctx))]
+               [{:status :success :val nctx}] (recur nctx)
+               [{:status :failure :val errs}] (recur (failure errs ctx))))))
