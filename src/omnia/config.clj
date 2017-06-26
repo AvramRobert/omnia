@@ -1,5 +1,5 @@
 (ns omnia.config
-  (require [omnia.input :as i]
+  (require [omnia.input :refer [->Event]]
            [omnia.more :refer [map-vals]]
            [clojure.string :refer [join]]
            [halfling.result :refer [success failure]]
@@ -38,7 +38,7 @@
    :enter             {:key :enter}})
 
 (def hud-keymap
-  {:hightlight  {:key \p :ctrl true}
+  {:highlight   {:key \p :ctrl true}
    :suggest     {:key :tab}
    :scroll-up   {:key :page-up}
    :scroll-down {:key :page-down}
@@ -98,7 +98,8 @@
           :always (update keymap (comp map-invert normalise))))
 
 (defn match-stroke [config stroke]
-  (m/match [(-> (get config keymap) (get stroke))]
-           [nil :guard (constantly (i/char-key? stroke))] (i/->Event :char (:key stroke))
-           [nil] (i/->Event :none (:key stroke))
-           [action] (i/->Event action (:key stroke))))
+  (letfn [(char-key? [stroke] (char? (:key stroke)))]
+    (m/match [(-> (get config keymap) (get stroke))]
+             [nil :guard (constantly (char-key? stroke))] (->Event :char (:key stroke))
+             [nil] (->Event :none (:key stroke))
+             [action] (->Event action (:key stroke)))))

@@ -15,7 +15,7 @@
                        :function  :yellow
                        :selection :blue}
 
- :keymap              {:hightlight        {:key \p :ctrl true}
+ :keymap              {:highlight         {:key \p :ctrl true}
                        :suggest           {:key :tab}
                        :scroll-up         {:key :page-up}
                        :scroll-down       {:key :page-down}

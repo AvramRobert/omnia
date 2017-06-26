@@ -152,7 +152,7 @@ Legend:
 Prospects:
 
 - Parenthesis highlighting // done
-- Input configuration
+- Input configuration // done
 - REPL sessions
 - Tests for input and hud
 - Parametricity and arity lookup

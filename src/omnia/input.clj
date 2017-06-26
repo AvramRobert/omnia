@@ -303,9 +303,6 @@
 (defn is-empty? [seeker]
   (= (:lines seeker) (:lines empty-seeker)))
 
-(defn char-key? [stroke]
-  (char? (:key stroke)))
-
 (defn extract [seeker]
   (let [{start :start
          end   :end} (selection seeker)]
