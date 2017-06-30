@@ -1,14 +1,15 @@
 (ns omnia.hud
   (require [lanterna.terminal :as t]
-           [halfling.result :refer [attempt]]
-           [omnia.rendering :refer [render-context]]
+           [halfling.result :refer [get! fold]]
+           [halfling.task :as tsk]
+           [omnia.rendering :refer [render]]
            [omnia.repl :as r]
            [omnia.input :as i]
            [omnia.config :refer [match-stroke with-features]]
            [clojure.core.match :as m]
            [omnia.formatting :as f]
            [omnia.highlight :refer [default-colourscheme]]
-           [omnia.more :refer [-- ++ inc< dec< mod* time-out]]))
+           [omnia.more :refer [-- ++ inc< dec< mod*]]))
 
 (defrecord Context [terminal
                     repl
@@ -155,6 +156,12 @@
 
 ;; === Control ===
 
+(defn continue [ctx]
+  [:continue ctx])
+
+(defn terminate [ctx]
+  [:terminate ctx])
+
 (defn resize [ctx]
   (let [fov   (get-in ctx [:persisted-hud :fov])
         ssize (-> ctx (:terminal) (get-screen-size fov))]
@@ -194,9 +201,7 @@
 (defn exit [ctx]
   (-> (preserve ctx goodbye)
       (assoc-in [:persisted-hud :ov] 0)
-      (assoc-in [:complete-hud :ov] 0)
-      (render-context))
-  (Thread/sleep 1200))
+      (assoc-in [:complete-hud :ov] 0)))
 
 (defn deselect [ctx]
   (-> ctx
@@ -350,28 +355,40 @@
 (defn process [ctx stroke]
   (let [event (match-stroke ctx stroke)]
     (case (:action event)
-      :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render))
-      :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render))
-      :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render))
-      :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render))
-      :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render))
-      :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render))
-      :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render))
-      :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render))
-      :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render))
-      :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit))
-      (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render)))))
+      :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render) (continue))
+      :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
+      :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
+      :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))
+      :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (continue))
+      :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (continue))
+      :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render) (continue))
+      :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render) (continue))
+      :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (continue))
+      :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit) (terminate))
+      (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (continue)))))
 
-(defn read-process [ctx]
-  (->> (:terminal ctx)
-       (t/get-keystroke-blocking)
-       (process ctx)))
+(defn iread [ctx]
+  (tsk/task (t/get-keystroke-blocking (:terminal ctx))))
+
+(defn ieval [ctx stroke]
+  (tsk/task (process ctx stroke)))
+
+(defn save [ctx failed]
+  (-> failed (failure ctx) (continue)))
+
+(defn sleep [msecs]
+  (tsk/task (Thread/sleep msecs)))
 
 (defn read-eval-print [config]
-  (loop [ctx (context (with-features config))]
-    (when ctx
-      (m/match [(attempt
-                  (render-context ctx)
-                  (read-process ctx))]
-               [{:status :success :val nctx}] (recur nctx)
-               [{:status :failure :val errs}] (recur (failure errs ctx))))))
+  (loop [[stage ctx] (-> config (with-features) (context) (continue))]
+    (case stage
+      :continue (-> (tsk/task (render ctx))
+                    (tsk/then (fn [_] (iread ctx)))
+                    (tsk/then (fn [s] (ieval ctx s)))
+                    (tsk/recover (fn [e] (save ctx e)))
+                    (tsk/get-or-else (terminate ctx))
+                    (recur))
+      :terminate (-> (tsk/task (render ctx))
+                     (tsk/then (fn [_] (sleep 1200)))
+                     (tsk/then (fn [_] ctx))
+                     (tsk/get-or-else ctx)))))

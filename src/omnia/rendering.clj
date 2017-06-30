@@ -157,7 +157,7 @@
 (defn nothing! [ctx]
   (when-unscrolled ctx (fn [_ _ _] ())))
 
-(defn render-context [ctx]
+(defn render [ctx]
   (let [{terminal :terminal
          complete :complete-hud} ctx
         [x y] (project-cursor complete)]

@@ -46,9 +46,6 @@
   (reduce (fn [nmap [k v]]
             (assoc nmap k (f v))) {} hmap))
 
-(defn or-else [nilable else]
-  (if nilable nilable else))
-
 (defmacro time-return [& body]
   `(let [s# (System/nanoTime)
         val# ~@body
@@ -60,3 +57,6 @@
   `(let [[s# v#] (time-return ~@body)]
      (spit "debug" s#)
      v#))
+
+(defmacro debug [body]
+  `(spit "debug" ~body))
