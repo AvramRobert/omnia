@@ -1,14 +1,12 @@
 (ns omnia.config
   (require [omnia.input :refer [->Event]]
-           [omnia.more :refer [map-vals]]
+           [omnia.more :refer [map-vals gulp-or-else]]
            [clojure.string :refer [join]]
            [halfling.result :refer [success failure]]
            [omnia.highlight :refer [default-colourscheme no-colourscheme]]
-           [clojure.core.match :as m]
            [clojure.set :refer [map-invert]]
-           [clojure.java.io :as io]
-           [clojure.edn :as edn]
-           [halfling.task :as tsk]))
+           [halfling.task :refer [task]]
+           [clojure.core.match :as m]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)
@@ -103,7 +101,7 @@
 
 
 (defn read-config [path]
-  (tsk/task
-    (if (-> path (io/file) (.exists))
-      (-> path (slurp) (edn/read-string) (validate))
-      default-config)))
+  (task
+    (-> path
+        (gulp-or-else default-config)
+        (validate))))

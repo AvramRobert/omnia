@@ -1,5 +1,7 @@
 (ns omnia.more
-  (require [clojure.core.match :as m]))
+  (require [clojure.core.match :as m]
+           [clojure.java.io :as io]
+           [clojure.edn :as edn]))
 
 (defn take-right [n coll]
   (if-let [x (take-last n coll)] x '()))
@@ -45,6 +47,11 @@
 (defn map-vals [f hmap]
   (reduce (fn [nmap [k v]]
             (assoc nmap k (f v))) {} hmap))
+
+(defn gulp-or-else [path else]
+  (if (-> path (io/file) (.exists))
+    (-> path (slurp) (edn/read-string))
+    else))
 
 (defmacro time-return [& body]
   `(let [s# (System/nanoTime)

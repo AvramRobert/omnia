@@ -11,3 +11,5 @@ pom.xml.asc
 .hg/
 .idea/
 *.iml
+.omnia.history
+.omnia.error

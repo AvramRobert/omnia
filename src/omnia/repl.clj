@@ -1,13 +1,14 @@
 (ns omnia.repl
-  (use omnia.more)
   (require
     ritz.nrepl.middleware.javadoc
     ritz.nrepl.middleware.simple-complete
     [clojure.tools.nrepl.server :as s]
     [clojure.tools.nrepl :as nrepl]
+    [omnia.more :refer [dec< inc< gulp-or-else debug]]
+    [clojure.string :refer [split trim-newline]]
+    [halfling.task :refer [task]]
     [omnia.input :as i]
     [clojure.core.match :as m]
-    [clojure.string :refer [split trim-newline]]
     [omnia.formatting :as f]
     [clojure.edn :as edn]))
 
@@ -23,6 +24,20 @@
       (i/from-string)))
 
 (def gibberish "~/~")
+(def empty-history [i/empty-seeker])
+
+(defn read-history [path]
+  (task
+    (->> [i/empty-vec]
+         (gulp-or-else path)
+         (mapv i/seeker))))
+
+(defn write-history [path repl]
+  (task (->> (:history repl)
+             (mapv :lines)
+             (take-last 100)
+             (vec)
+             (spit path))))
 
 (defn- out? [response]
   (contains? response :out))
@@ -71,19 +86,19 @@
           (transform)))))
 
 (defn- eval-msg [seeker]
-  {:op :eval
+  {:op   :eval
    :code (i/stringify seeker)})
 
 (defn- complete-msg [seeker]
   (letfn [(purge [word] (if (empty? word) gibberish word))]
-    {:op :complete
+    {:op     :complete
      :symbol (-> seeker
                  (i/expand-word)
                  (i/extract)
                  (i/stringify)
                  (trim-newline)
                  (purge))
-     :ns (ns-name *ns*)}))
+     :ns     (ns-name *ns*)}))
 
 (defn- cache-result [repl result]
   (update repl :result (fn [_] result)))
@@ -125,26 +140,28 @@
 
 (defn stop [repl] ((:stop-f repl)))
 
-(defn- repl-with [eval-f complete-f stop-f]
-  (REPL. eval-f complete-f stop-f [i/empty-seeker] 1 0 i/empty-seeker))
+(defn- repl-with [eval-f complete-f stop-f history]
+  (let [hsize (count history)]
+    (REPL. eval-f complete-f stop-f history hsize hsize i/empty-seeker)))
 
 (defn repl [{:as   params
-             :keys [kind port host timeout]
+             :keys [kind port host timeout history]
              :or   {kind    :local
-                    timeout 5000                           ;; fixme: kill infinte processes and return warning
+                    timeout 5000                            ;; fixme: kill infinte processes and return warning
                     port    11111
-                    host    "localhost"}}]
+                    host    "localhost"
+                    history empty-history}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (case kind
-    :identity (repl-with identity identity (fn [] nil))
-    :remote (repl-with (connect host port timeout) identity (fn [] nil))
+    :identity (repl-with identity identity (fn [] nil) history)
+    :remote (repl-with (connect host port timeout) identity (fn [] nil) history)
     :local (let [handler (apply s/default-handler ritz-middleware)
-                 server (s/start-server :port port
-                                        :handler handler)
-                 send-f (connect "localhost" port timeout)
-                 eval-f #(send-f (eval-msg %) seekify-responses)
-                 comp-f #(send-f (complete-msg %) suggestion)
-                 stop-f #(s/stop-server server)]
+                 server  (s/start-server :port port
+                                         :handler handler)
+                 send-f  (connect "localhost" port timeout)
+                 eval-f  #(send-f (eval-msg %) seekify-responses)
+                 comp-f  #(send-f (complete-msg %) suggestion)
+                 stop-f  #(s/stop-server server)]
              (eval-f predef)
-             (repl-with eval-f comp-f stop-f))))
+             (repl-with eval-f comp-f stop-f history))))
 
