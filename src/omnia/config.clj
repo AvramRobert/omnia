@@ -7,7 +7,8 @@
            [clojure.core.match :as m]
            [clojure.set :refer [map-invert]]
            [clojure.java.io :as io]
-           [clojure.edn :as edn]))
+           [clojure.edn :as edn]
+           [halfling.task :as tsk]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)
@@ -58,13 +59,15 @@
    keymap       default-keymap
    colourscheme default-colourscheme})
 
+(defn failed [msg cause]
+  (throw (new Exception (str msg "\n" cause))))
+
 (defn validate [config]
-  (let [ks (get config keymap)
-        handle (fn [errs]
-                 (if (empty? errs)
-                   (success config)
-                   (failure "Duplicate bindings in keymap" (join "\n" errs))))]
-    (->> ks
+  (letfn [(report! [errs]
+            (if (empty? errs)
+              config
+              (failed "Duplicate bindings in keymap:" (join "\n" errs))))]
+    (->> (get config keymap)
          (group-by val)
          (vals)
          (filter #(> (count %) 1))
@@ -73,14 +76,8 @@
              (format "Actions %s share the same key binding %s"
                      (clojure.string/join "," (map first actions))
                      (-> actions first second))))
-         (handle))))
 
-(def get-local-config
-  (let [path (format "%s/omnia.edn" (System/getProperty "user.dir"))
-        file (io/file path)]
-    (if (.exists file)
-      (-> path (slurp) (edn/read-string) (validate))
-      (success default-config))))
+         (report!))))
 
 (defn normalise [config]
   (map-vals
@@ -103,3 +100,10 @@
              [nil :guard (constantly (char-key? stroke))] (->Event :char (:key stroke))
              [nil] (->Event :none (:key stroke))
              [action] (->Event action (:key stroke)))))
+
+
+(defn read-config [path]
+  (tsk/task
+    (if (-> path (io/file) (.exists))
+      (-> path (slurp) (edn/read-string) (validate))
+      default-config)))
