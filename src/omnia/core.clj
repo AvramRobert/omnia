@@ -20,10 +20,14 @@
          (clojure.string/join "\n"))))
 
 (defn failure [result]
+  (println)
+  (println "-----")
   (println "I don't have the heart to tell you.. but something went wrong internally")
   (println (format "Take a look at %s for a complete trace of the error" error-path))
+  (println "Omnia will be shut down")
+  (println "-----")
   (spit error-path (error result))
-  (Thread/sleep 1200)
+  (Thread/sleep 3000)
   (System/exit -1))
 
 (defn hooks [{:keys [repl]}]

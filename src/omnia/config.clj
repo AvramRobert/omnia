@@ -99,7 +99,6 @@
              [nil] (->Event :none (:key stroke))
              [action] (->Event action (:key stroke)))))
 
-
 (defn read-config [path]
   (task
     (-> path

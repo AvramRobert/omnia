@@ -1,6 +1,6 @@
 (ns omnia.hud
   (require [lanterna.terminal :as t]
-           [halfling.result :refer [get! fold]]
+           [halfling.result :as res]
            [halfling.task :as tsk]
            [omnia.rendering :refer [render]]
            [omnia.repl :as r]
@@ -9,7 +9,8 @@
            [clojure.core.match :as m]
            [omnia.formatting :as f]
            [omnia.highlight :refer [default-colourscheme]]
-           [omnia.more :refer [-- ++ inc< dec< mod*]]))
+           [omnia.more :refer [-- ++ inc< dec< mod*]])
+  (:import (halfling.result Result)))
 
 (defrecord Context [terminal
                     repl
@@ -33,7 +34,6 @@
 (def greeting (i/from-string (format "Welcome to Omnia! (ALPHA v%s)" (System/getProperty "omnia.version"))))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
-(def error (i/from-string "I have not the heart to tell you, but something went wrong internally.."))
 
 ;; === Utils ===
 
@@ -163,7 +163,7 @@
   [:terminate ctx])
 
 (defn resize [ctx]
-  (let [fov   (get-in ctx [:persisted-hud :fov])
+  (let [fov (get-in ctx [:persisted-hud :fov])
         ssize (-> ctx (:terminal) (get-screen-size fov))]
     (if (not= ssize fov)
       (-> ctx
@@ -172,20 +172,20 @@
       ctx)))
 
 (defn calibrate [ctx]
-  (let [{{fov   :fov
-          ov    :ov
-          h     :height
+  (let [{{fov :fov
+          ov :ov
+          h :height
           [_ y] :cursor} :complete-hud
-         {ph :height}    :previous-hud} ctx
+         {ph :height} :previous-hud} ctx
         upper-y (- @h fov ov)
         lower-y (- @h ov)
-        nov     (cond
-                  (< y upper-y) (-- @h fov y)
-                  (> (inc y) lower-y) (-- @h (inc y))
-                  (= y (dec @h)) ov
-                  (and (> @h fov) (< @h @ph)) (++ ov (- @h @ph))
-                  (> @h fov) (++ ov (- @h @ph))
-                  :else ov)]
+        nov (cond
+              (< y upper-y) (-- @h fov y)
+              (> (inc y) lower-y) (-- @h (inc y))
+              (= y (dec @h)) ov
+              (and (> @h fov) (< @h @ph)) (++ ov (- @h @ph))
+              (> @h fov) (++ ov (- @h @ph))
+              :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
         (assoc-in [:complete-hud :ov] nov))))
@@ -208,21 +208,6 @@
       (update :complete-hud i/deselect)
       (update :persisted-hud i/deselect)
       (update :seeker i/deselect)))
-
-(defn failure [{:keys [message trace]} ctx]
-  (let [element (first trace)
-        msg     (-> "Exception: %s, at %s.%s (%s:%s)"
-                    (format message
-                            (.getClassName element)
-                            (.getMethodName element)
-                            (.getFileName element)
-                            (.getLineNumber element))
-                    (i/from-string))]
-    (-> ctx
-        (preserve error msg empty-line caret)
-        (persist)
-        (seek i/empty-seeker)
-        (re-render))))
 
 ;; === Screen scrolling ===
 
@@ -262,7 +247,7 @@
 ;; === REPL ===
 
 (defn roll [ctx f]
-  (let [then-repl   (-> ctx :repl f)
+  (let [then-repl (-> ctx :repl f)
         then-seeker (r/then then-repl)]
     (-> (rebase ctx then-seeker)
         (seek then-seeker)
@@ -276,7 +261,7 @@
 
 (defn evaluate [ctx]
   (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
-        result     (r/result evaluation)]
+        result (r/result evaluation)]
     (-> (remember ctx)
         (preserve result caret)
         (persist)
@@ -284,13 +269,13 @@
         (assoc :repl evaluation))))
 
 (defn- paginate [suggestions sgst-idx]
-  (let [per-page     10
+  (let [per-page 10
         nxt-sgst-idx (inc sgst-idx)
-        hs           (i/height suggestions)
-        dots         (cond
-                       (<= hs per-page) i/empty-seeker
-                       (< (inc sgst-idx) hs) continuation
-                       :else i/empty-seeker)]
+        hs (i/height suggestions)
+        dots (cond
+               (<= hs per-page) i/empty-seeker
+               (< (inc sgst-idx) hs) continuation
+               :else i/empty-seeker)]
     (-> suggestions
         (i/rebase #(cond->> %
                             (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
@@ -300,13 +285,13 @@
         (i/move-y #(if (>= % per-page) (dec per-page) %)))))
 
 (defn suggestion-window [ctx suggestions]
-  (let [{seeker       :seeker
+  (let [{seeker :seeker
          [_ sgst-idx] :suggestion} ctx
         completed (auto-complete seeker (i/line suggestions))
         paginated (paginate suggestions sgst-idx)
-        ph        (i/height paginated)
-        top       (i/peer completed (fn [l [x & _]] (conj l x)))
-        bottom    (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
+        ph (i/height paginated)
+        top (i/peer completed (fn [l [x & _]] (conj l x)))
+        bottom (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
     (-> i/empty-seeker
         (i/join top)
         (i/join delimiter)
@@ -318,14 +303,14 @@
         (assoc :ov (-- (i/height bottom) ph)))))
 
 (defn suggest [ctx]
-  (let [{seeker       :seeker
-         repl         :repl
+  (let [{seeker :seeker
+         repl :repl
          [_ sgst-idx] :suggestion} ctx
         suggestions (-> (r/suggest repl seeker)
                         (i/reset-y sgst-idx)
                         (i/end-x))
-        suggestion  (i/line suggestions)
-        nidx        (-> sgst-idx (inc) (mod* (i/height suggestions)))]
+        suggestion (i/line suggestions)
+        nidx (-> sgst-idx (inc) (mod* (i/height suggestions)))]
     (-> (remember ctx)
         (rebase (suggestion-window ctx suggestions))
         (assoc :suggestion [suggestion nidx]))))
@@ -373,22 +358,22 @@
 (defn ieval [ctx stroke]
   (tsk/task (process ctx stroke)))
 
-(defn save [ctx failed]
-  (-> failed (failure ctx) (continue)))
-
 (defn sleep [msecs]
   (tsk/task (Thread/sleep msecs)))
 
 (defn read-eval-print [config]
-  (loop [[stage ctx] (-> config (with-features) (context) (continue))]
-    (case stage
-      :continue (-> (tsk/task (render ctx))
-                    (tsk/then (fn [_] (iread ctx)))
-                    (tsk/then (fn [s] (ieval ctx s)))
-                    (tsk/recover (fn [e] (save ctx e)))
-                    (tsk/get-or-else (terminate ctx))
-                    (recur))
-      :terminate (-> (tsk/task (render ctx))
-                     (tsk/then (fn [_] (sleep 1200)))
-                     (tsk/then (fn [_] ctx))
-                     (tsk/get-or-else ctx)))))
+  (loop [result (-> config (with-features) (context) (continue) (res/success))]
+    (if (res/success? result)
+      (let [[stage ctx] (res/get! result)]
+        (case stage
+          :continue (-> (tsk/task (render ctx))
+                        (tsk/then (fn [_] (iread ctx)))
+                        (tsk/then (fn [s] (ieval ctx s)))
+                        (tsk/run)
+                        (recur))
+          :terminate (-> (tsk/task (render ctx))
+                         (tsk/then (fn [_] (sleep 1200)))
+                         (tsk/then (fn [_] ctx))
+                         (tsk/run)
+                         (tsk/from-result))))
+      (tsk/from-result result))))

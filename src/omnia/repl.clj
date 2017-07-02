@@ -4,7 +4,7 @@
     ritz.nrepl.middleware.simple-complete
     [clojure.tools.nrepl.server :as s]
     [clojure.tools.nrepl :as nrepl]
-    [omnia.more :refer [dec< inc< gulp-or-else debug]]
+    [omnia.more :refer [dec< inc< gulp-or-else]]
     [clojure.string :refer [split trim-newline]]
     [halfling.task :refer [task]]
     [omnia.input :as i]
@@ -28,13 +28,13 @@
 
 (defn read-history [path]
   (task
-    (->> [i/empty-vec]
+    (->> [""]
          (gulp-or-else path)
-         (mapv i/seeker))))
+         (mapv i/from-string))))
 
 (defn write-history [path repl]
   (task (->> (:history repl)
-             (mapv :lines)
+             (mapv i/stringify)
              (take-last 100)
              (vec)
              (spit path))))
