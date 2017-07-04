@@ -3,7 +3,8 @@
            [omnia.repl :as r]
            [omnia.hud :as h]
            [omnia.config :as c]
-           [halfling.task :as tsk]))
+           [halfling.task :as tsk])
+  (:import (java.util Calendar)))
 
 (def ^:const dir (System/getProperty "user.dir"))
 (def ^:const config-path (format "%s/omnia.edn" dir))
@@ -12,9 +13,10 @@
 
 (defn error [{:keys [message cause trace]}]
   (format
-    "java.lang.Exception: %s\nCause: %s\n%s"
-    (or message "Unknown message")
+    "Time: %s\nCause: %s\njava.lang.Exception: %s\n%s"
+    (-> (Calendar/getInstance) (.getTime) (str))
     (or cause "Unknown cause")
+    (or message "Unknown message")
     (->> trace
          (mapv #(str "   " (.toString %)))
          (clojure.string/join "\n"))))
@@ -24,7 +26,7 @@
   (println "-----")
   (println "I don't have the heart to tell you.. but something went wrong internally")
   (println (format "Take a look at %s for a complete trace of the error" error-path))
-  (println "Omnia will be shut down")
+  (println (format "Message: %s" (:message result)))
   (println "-----")
   (spit error-path (error result))
   (Thread/sleep 3000)

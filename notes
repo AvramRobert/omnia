@@ -149,12 +149,12 @@ Legend:
     Think about and add more concrete guards for the top and bottom of the page, that more
     accurately and invariantly detect page movement.
 
-31. Errors are not reported anywhere.
-    If something wrong happens internally, this has to be written into an error log.
-    I tend to think that the application should also die gracefully after such an occurrence.
-    The user should however be informed.
-    Don't capture errors in the hud and display them, but rather propagate them to `core`,
-    print that something wrong happened, publish error and then exit.
+ > 31. Errors are not reported anywhere.
+       If something wrong happens internally, this has to be written into an error log.
+       I tend to think that the application should also die gracefully after such an occurrence.
+       The user should however be informed.
+       Don't capture errors in the hud and display them, but rather propagate them to `core`,
+       print that something wrong happened, publish error and then exit.
 
 Prospects:
 
