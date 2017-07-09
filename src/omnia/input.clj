@@ -64,6 +64,16 @@
   (-> seeker (update :lines (comp vec f)) (resize)))
 
 (defn peer [seeker f]
+  "Morphism: Lines => Lines
+  Looks between the lines specified by the current line number (y-position) and
+  applies a binary function `f` on the lines that come before it (left), together with the ones that
+  come `after` (right).
+  The left parameter of `f` contains the lines that come before the current line.
+  The right parameter of `f` contains the current line and the rest that come after.
+
+  `f` is expected to return valid `lines` of text.
+  These then replace the previous lines on the seeker.
+  Returns a new seeker that includes the transformation of `f`."
   (let [[_ y] (:cursor seeker)]
     (rebase seeker #(->> (split-at y %)
                          (map vec)
@@ -71,12 +81,36 @@
                          (map vec)))))
 
 (defn split [seeker f]
+  "Morphism: Line => Lines
+  Looks within the line specified by the current line number and cursor position (x:y position).
+  Applies a binary function `f` on the characters that come `before` the current cursor position (left),
+  together with the ones that come `after` (right).
+  The left parameter of `f` contains the characters that come before the cursor position at the
+  current line.
+  The right parameter of `f` contains the current character and the rest that come after at the
+  current line.
+
+  `f` is expected to return valid `lines` of text.
+  These then replace the one line on which `f` was applied and get merged with the rest.
+  Returns a new seeker that includes the transformation of `f`."
   (let [[x _] (:cursor seeker)]
     (peer seeker (fn [l [line & r]]
                    (let [lines (->> line (split-at x) (map vec) (apply f))]
                      (concat l lines r))))))
 
 (defn slice [seeker f]
+  "Morphism: Line => Line
+  Looks within the line specified by the current line number and cursor position (x:y postion).
+  Applies a binary function `f` on the characters that come `before` the current cursor position (left),
+  together with the ones that come `after` (right).
+  The left parameter of `f` contains the characters that come before the cursor position at the
+  current line.
+  The right parameter of `f` contains the current character and the rest that come after at the
+  current line.
+
+  `f` is expected to return one valid `line` of text.
+  This then replaces the line on which `f` was applied.
+  Returns a new seeker that includes the transformation of `f`."
   (split seeker (fn [l r] [(f l r)])))
 
 (defn slicel [seeker f]
