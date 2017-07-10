@@ -15,16 +15,37 @@
   ([seeker y]
    (-> seeker (i/reset-y y) (i/line) (count) (rand-int))))
 
-(def gen-seeker (->> gen/char-ascii
-                     (gen/vector)
-                     (gen/vector)
+(defmacro <=> [this-seeker that-seeker]
+  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))))
+
+(defmacro can-be [val & fs]
+  `(do ~@(map (fn [f#] `(is (~f# ~val))) fs)))
+
+(defn before? [this-seeker that-seeker]
+  (let [[xt yt] (:cursor this-seeker)
+        [xa ya] (:cursor that-seeker)]
+    (if (= yt ya)
+      (< xt xa)
+      (< yt ya))))
+
+(defn after? [this-seeker that-seeker]
+  (not (before? this-seeker that-seeker)))
+
+(defn there? [this-seeker that-seeker]
+  (= (:cursor this-seeker)
+     (:cursor that-seeker)))
+
+(def gen-line (->> gen/char-ascii
+                   (gen/vector)
+                   (gen/such-that (comp not empty?))
+                   (gen/vector)
+                   (gen/such-that (comp not empty?))))
+
+(def gen-seeker (->> gen-line
                      (gen/fmap i/seeker)
                      (gen/fmap #(let [y (rand-line %)
                                       x (rand-pos % y)]
                                   (i/move % (fn [_] [x y]))))))
-
-(defmacro <=> [this-seeker that-seeker]
-  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))))
 
 ;; I. Peering
 
@@ -196,7 +217,254 @@
     (is (= cursor (:cursor x-moved)))
     (is (= cursor (:cursor y-moved)))))
 
+(defn unbounded [seeker]
+  (let [some-line [\a \b]]
+    (-> seeker
+        (i/split (fn [a b] [a some-line b]))
+        (i/move-y inc)
+        (i/start-x)
+        (can-be #(-> % (i/line) (= some-line))
+                #(-> % (i/center) (= \a))))))
+
 (defspec moving
          100
          (for-all [seeker gen-seeker]
-                  (bounded seeker)))
+                  (bounded seeker)
+                  (unbounded seeker)))
+
+;; V. Retrieving
+
+(defn previous [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/start-x)
+        (i/move-y inc)
+        (can-be #(-> % (i/regress) (i/left) (= \b))
+                #(-> % (i/move-y dec) (i/move-x inc) (i/left) (= \a))))))
+
+(defn current [seeker]
+  (let [expected (-> (:lines seeker) (first) (first))]
+    (-> (i/start seeker)
+        (i/center)
+        (= expected)
+        (is))))
+
+(defn following [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> (i/end seeker)
+        (i/peer (fn [a b] (concat a b some-text)))
+        (i/end)
+        (i/start-x)
+        (can-be #(-> % (i/move-y dec) (i/end-x) (i/right) (= \c))
+                #(-> % (i/right) (= \d))))))
+
+(defspec retrieving
+         100
+         (for-all [seeker gen-seeker]
+                  (previous seeker)
+                  (current seeker)
+                  (following seeker)))
+
+
+;; VI. Advancing
+
+(defn increment [seeker]
+  (let [some-line [\a \b]]
+    (-> (i/start seeker)
+        (i/split (fn [a b] [some-line a b]))
+        (can-be #(-> % (i/advance) (after? %))))))
+
+(defn increment-stop [seeker]
+  (-> (i/end seeker)
+      (can-be #(-> % (i/advance) (there? %)))))
+
+(defn post-wrap [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> (i/start seeker)
+        (i/peer (fn [a b] (concat some-text a b)))
+        (i/end-x)
+        (can-be #(-> % (i/advance) (after? %))))))
+
+(defspec advancing
+         100
+         (for-all [seeker gen-seeker]
+                  (increment seeker)
+                  (increment-stop seeker)
+                  (post-wrap seeker)))
+
+;; VII. Regressing
+
+(defn decrement [seeker]
+  (let [some-line [\a \b]]
+    (-> seeker
+        (i/split (fn [a b] [a some-line b]))
+        (can-be #(-> % (i/advance) (i/regress) (there? %))))))
+
+(defn decrement-stop [seeker]
+  (-> (i/start-x seeker)
+      (i/regress)
+      (there? seeker)))
+
+(defn pre-wrap [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a b some-text)))
+        (i/end)
+        (i/start-x)
+        (can-be #(-> % (i/regress) (before? %))))))
+
+(defspec regressing
+         100
+         (for-all [seeker gen-seeker]
+                  (decrement seeker)
+                  (decrement-stop seeker)
+                  (pre-wrap seeker)))
+
+;; VIII. Climbing
+
+(defn ascend [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/move-y inc)
+        (can-be #(-> % (i/climb) (before? %))))))
+
+(defn ascend-reset [seeker]
+  (let [some-text [[\a \b] [\a \b \c]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (can-be #(-> % (i/move-y inc) (i/end-x) (i/climb) (there? (i/end-x %)))))))
+
+(defspec climbing
+         100
+         (for-all [seeker gen-seeker]
+                  (ascend seeker)
+                  (ascend-reset seeker)))
+
+;; IX. Falling
+
+(defn descend [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (can-be #(-> % (i/fall) (after? %))))))
+
+(defn descend-reset [seeker]
+  (let [some-text [[\a \b \c] [\d \e]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/move-y inc)
+        (can-be #(-> % (i/move-y dec) (i/end-x) (i/fall) (there? (i/end-x %)))))))
+
+(defspec falling
+         100
+         (for-all [seeker gen-seeker]
+                  (descend seeker)
+                  (descend-reset seeker)))
+
+;; X. Deleting
+
+(defn backward [seeker]
+  (let [some-text [[\a \b]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a b some-text)))
+        (i/end)
+        (can-be #(-> % (i/delete) (i/left) (= \a))
+                #(-> % (i/delete) (i/delete) (i/left) (nil?))
+                #(-> % (i/delete) (i/delete) (i/delete) (<=> seeker))))))
+
+(defn forward [seeker]
+  (let [some-text [[\a \b]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat some-text a b)))
+        (i/start)
+        (can-be #(-> % (i/munch) (i/center) (= \b))
+                #(-> % (i/munch) (i/munch) (i/center) (nil?))
+                #(-> % (i/munch) (i/munch) (i/munch) (<=> seeker))))))
+
+(defn paired [seeker]
+  (let [remove-line #(-> % (i/delete) (i/delete) (i/delete))
+        round [[\( \)]]
+        brackets [[\[ \]]]
+        squiggly [[\{ \}]]
+        quote [[\"\"]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a b round brackets squiggly quote))) ;; use split instead of peer to remove (vector) from tests
+        (i/end)
+        (can-be #(-> % (remove-line) (i/line) (vector) (= squiggly))
+                #(-> % (remove-line) (remove-line) (i/line) (vector) (= brackets))
+                #(-> % (remove-line) (remove-line) (remove-line) (i/line) (vector) (= round))
+                #(-> % (remove-line) (remove-line) (remove-line) (remove-line) (<=> seeker))))))
+
+(defn omitted [seeker]
+  (letfn [(f [s c] (i/slicel s #(conj % c)))]
+    (-> (i/end seeker)
+        (can-be #(-> (f % \)) (i/advance) (i/delete) (<=> (f % \))))
+                #(-> (f % \]) (i/advance) (i/delete) (<=> (f % \])))
+                #(-> (f % \}) (i/advance) (i/delete) (<=> (f % \})))
+                #(-> (f % \") (i/advance) (i/delete) (<=> (f % \")))))))
+
+(defspec deleting
+         100
+         (for-all [seeker gen-seeker]
+                  (backward seeker)
+                  (forward seeker)
+                  (paired seeker)
+                  (omitted seeker)))
+
+;; XI. Inserting
+
+(defn literal [seeker c]
+  (-> (i/insert seeker c)
+      (i/left)
+      (= c)
+      (is)))
+
+(defn pairs [seeker]
+  (letfn [(f [s l r] (i/slicel s #(conj % l r)))]
+    (-> (i/end seeker)
+        (can-be
+          #(-> % (i/insert \() (<=> (f % \( \))))
+          #(-> % (i/insert \[) (<=> (f % \[ \])))
+          #(-> % (i/insert \{) (<=> (f % \{ \})))
+          #(-> % (i/insert \") (<=> (f % \" \")))))))
+
+(defn ignored [seeker]
+  (letfn [(f [s l r] (i/slicel s #(conj % l r)))]
+    (-> (i/end seeker)
+        (can-be
+          #(-> % (i/insert \() (i/insert \)) (<=> (f % \( \))))
+          #(-> % (i/insert \[) (i/insert \]) (<=> (f % \[ \])))
+          #(-> % (i/insert \{) (i/insert \}) (<=> (f % \{ \})))
+          #(-> % (i/insert \") (i/insert \") (<=> (f % \" \")))))))
+
+(defspec inserting
+         100
+         (for-all [seeker gen-seeker
+                   c gen/char-alpha-numeric]
+                  (literal seeker c)
+                  (pairs seeker)
+                  (ignored seeker)))
+
+;; XII. Jumping
+;; XIII. Selecting
+;; XVI. Merging
+(defn additive [seeker1 seeker2]
+  (-> (i/join seeker1 seeker2)
+      (can-be #(<=> % (i/seeker (concat (:lines seeker1)
+                                        (:lines seeker2)))))))
+
+(defn selective [seeker1 seeker2] true)
+
+(defspec merging
+         100
+         (for-all [seeker1 gen-seeker
+                   seeker2 gen-seeker]
+                  (additive seeker1 seeker2)
+                  (selective seeker1 seeker2)))
+
+;; XV. Expanding
+;; XVI. Copying
+;; XVII. Cutting
+;; XVIII. Pasting
