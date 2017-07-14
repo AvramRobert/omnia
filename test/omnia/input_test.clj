@@ -453,7 +453,9 @@
 (defn additive [seeker1 seeker2]
   (-> (i/join seeker1 seeker2)
       (can-be #(<=> % (i/seeker (concat (:lines seeker1)
-                                        (:lines seeker2)))))))
+                                        (:lines seeker2))))
+              #(or (after? % seeker1)
+                   (there? % seeker1)))))
 
 (defn selective [seeker1 seeker2] true)
 

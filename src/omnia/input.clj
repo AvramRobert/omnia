@@ -228,13 +228,16 @@
 (defn join [this-seeker that-seeker]
   (let [[x y] (:cursor that-seeker)
         ths (height this-seeker)
-        tht (height that-seeker)]
+        tht (height that-seeker)
+        fxy (fn [[ox oy]] (if (or (zero? y) (zero? oy))
+                            [(+ x ox) (+ y oy)]
+                            [x (+ y oy)]))]
     (-> this-seeker
         (update :lines #(join-lines % (:lines that-seeker)))
         (assoc :height (delay (+ ths tht)))
         (assoc :selection (:selection that-seeker))
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
-        (move (fn [[_ oy]] [x (+ y oy)])))))
+        (move fxy))))
 
 (defn join-many [& seekers]
   (reduce join seekers))
