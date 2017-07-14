@@ -228,16 +228,13 @@
 (defn join [this-seeker that-seeker]
   (let [[x y] (:cursor that-seeker)
         ths (height this-seeker)
-        tht (height that-seeker)
-        fxy (fn [[ox oy]] (if (or (zero? y) (zero? oy))
-                            [(+ x ox) (+ y oy)]
-                            [x (+ y oy)]))]
+        tht (height that-seeker)]
     (-> this-seeker
         (update :lines #(join-lines % (:lines that-seeker)))
         (assoc :height (delay (+ ths tht)))
         (assoc :selection (:selection that-seeker))
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
-        (move fxy))))
+        (move (fn [_] [x (+ y ths)])))))
 
 (defn join-many [& seekers]
   (reduce join seekers))
@@ -329,6 +326,12 @@
                                 (blank? (center %))
                                 (expr? (regress %))
                                 (expr? %)))))
+
+(defn jump-left [seeker]
+  (jump seeker regress))
+
+(defn jump-right [seeker]
+  (jump seeker advance))
 
 (defn munch [seeker]
   (let [x (advance seeker)]
@@ -427,9 +430,11 @@
            [(:or \( \[ \{) \space] (expand-expr seeker)
            [_ (:or \( \[ \{)] (-> seeker (advance) (expand-expr))
            [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
-           [(:or \( \[ \{) _] (-> seeker (select) (jump advance))
-           [(:or \space \") _] (-> seeker (select) (jump advance))
-           :else (-> seeker (jump regress) (select) (jump advance))))
+           [(:or \( \[ \{) _] (-> seeker (select) (jump-right))
+           [(:or \space \") _] (-> seeker (select) (jump-right))
+           [nil _] (-> seeker (select) (jump-right))
+           [_ nil] (-> seeker (select) (jump-left))
+           :else (-> seeker (jump-left) (select) (jump-right))))
 
 (defn expand [seeker]
   (case (:expansion seeker)
@@ -461,14 +466,14 @@
     :down (-> seeker (fall) (deselect))
     :left (-> seeker (regress) (deselect))
     :right (-> seeker (advance) (deselect))
-    :jump-left (-> seeker (jump regress) (deselect))
-    :jump-right (-> seeker (jump advance) (deselect))
+    :jump-left (-> seeker (jump-left) (deselect))
+    :jump-right (-> seeker (jump-right) (deselect))
     :select-up (-> seeker (select) (climb))
     :select-down (-> seeker (select) (fall))
     :select-left (-> seeker (select) (regress))
     :select-right (-> seeker (select) (advance))
-    :jump-select-left (-> seeker (select) (jump regress))
-    :jump-select-right (-> seeker (select) (jump advance))
+    :jump-select-left (-> seeker (select) (jump-left))
+    :jump-select-right (-> seeker (select) (jump-right))
     :backspace (-> seeker (delete) (deselect))
     :delete (-> seeker (munch) (deselect))
     :enter (-> seeker (break) (deselect))
