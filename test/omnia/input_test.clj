@@ -405,13 +405,20 @@
                 #(-> (f % \}) (i/advance) (i/delete) (<=> (f % \})))
                 #(-> (f % \") (i/advance) (i/delete) (<=> (f % \")))))))
 
+(defn selectively [seeker]
+  (-> seeker
+      (i/select-all)
+      (i/delete)
+      (<=> (i/seeker [[]]))))
+
 (defspec deleting
          100
          (for-all [seeker gen-seeker]
                   (backward seeker)
                   (forward seeker)
                   (paired seeker)
-                  (omitted seeker)))
+                  (omitted seeker)
+                  (selectively seeker)))
 
 ;; XI. Inserting
 
@@ -439,25 +446,124 @@
           #(-> % (i/insert \{) (i/insert \}) (<=> (f % \{ \})))
           #(-> % (i/insert \") (i/insert \") (<=> (f % \" \")))))))
 
+;; FIXME
+(defn overridingly [seeker] true)
+
 (defspec inserting
          100
          (for-all [seeker gen-seeker
                    c gen/char-alpha-numeric]
                   (literal seeker c)
                   (pairs seeker)
-                  (ignored seeker)))
+                  (ignored seeker)
+                  (overridingly seeker)))
 
 ;; XII. Jumping
+
+(defn iso [seeker]
+  (let [some-text [[\a \b]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/start-x)
+        (can-be #(-> % (i/jump-right) (i/jump-left) (there? %))))))
+
+(defn until-spaces [seeker]
+  (let [some-text [[\a \b \c \space \d \e]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (can-be #(-> % (i/start-x) (i/jump-right) (i/center) (= \space))
+                #(-> % (i/end-x) (i/jump-left) (i/left) (= \space))))))
+
+(defn until-exprs [seeker]
+  (letfn [(f [s c]
+            (-> (i/peer s #(concat %1 [[\a \b c]] %2))
+                (i/start-x)))]
+    (can-be seeker
+            #(-> (f % \() (i/jump-right) (i/center) (= \())
+            #(-> (f % \[) (i/jump-right) (i/center) (= \[))
+            #(-> (f % \{) (i/jump-right) (i/center) (= \{))
+            #(-> (f % \") (i/jump-right) (i/center) (= \"))
+            #(-> (f % \)) (i/jump-right) (i/center) (= \)))
+            #(-> (f % \]) (i/jump-right) (i/center) (= \]))
+            #(-> (f % \}) (i/jump-right) (i/center) (= \})))))
+
+(defn over-lines [seeker]
+  (let [some-text [[\a \b]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/end-x)
+        (can-be #(-> % (i/jump-right) (after? %))))))
+
+;; FIXME
+(defn over-spaces [seeker] true)
+
+(defspec jumping
+         100
+         (for-all [seeker gen-seeker]
+                  (iso seeker)
+                  (until-spaces seeker)
+                  (over-lines seeker)
+                  (until-exprs seeker)
+                  (over-spaces seeker)))
+
 ;; XIII. Selecting
+
+(defn single [seeker]
+  (let [some-text [[\a \b]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/start-x)
+        (i/select)
+        (i/move-x inc)
+        (i/selection)
+        (can-be #(-> (:start %) (first) (zero?))
+                #(-> (:end %) (first) (= 1))))))
+
+(defn jumps [seeker]
+  (-> seeker
+      (i/start-x)
+      (i/select)
+      (i/end-x)
+      (can-be #(-> (i/selection %) (:start) (= (:cursor (i/start-x %))))
+              #(-> (i/selection %) (:end) (= (:cursor (i/end-x %)))))))
+
+(defn lines [seeker]
+  (let [some-text [[\a \b] [\c \d]]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/start-x)
+        (i/select)
+        (i/fall)
+        (can-be #(-> (i/selection %) (:start) (= (:cursor (i/climb %))))
+                #(-> (i/selection %) (:end) (= (:cursor %)))))))
+
+(defn blocks [seeker]
+  (-> seeker
+      (i/select-all)
+      (can-be #(-> (i/selection %) (:start) (= (:cursor (i/start %))))
+              #(-> (i/selection %) (:end) (= (:cursor (i/end %)))))))
+
+(defspec selecting
+         100
+         (for-all [seeker gen-seeker]
+                  (single seeker)
+                  (jumps seeker)
+                  (lines seeker)
+                  (blocks seeker)))
+
 ;; XVI. Merging
+
 (defn additive [seeker1 seeker2]
   (-> (i/join seeker1 seeker2)
       (can-be #(<=> % (i/seeker (concat (:lines seeker1)
                                         (:lines seeker2))))
-              #(or (after? % seeker1)
-                   (there? % seeker1)))))
+              #(-> (i/line %) (= (i/line seeker2))))))
 
-(defn selective [seeker1 seeker2] true)
+(defn selective [seeker1 seeker2]
+  (let [s1 (-> seeker1 (i/select) (i/end))
+        s2 (-> seeker2 (i/select) (i/end))]
+    (-> (i/join s1 s2)
+        (can-be #(-> (i/selection %) (:end) (= (:cursor (i/end %))))))))
 
 (defspec merging
          100
@@ -467,6 +573,51 @@
                   (selective seeker1 seeker2)))
 
 ;; XV. Expanding
+
+(defn word [seeker] true)
+(defn expr [seeker] true)
+(defn scoped-expr [seeker] true)
+(defn break-out [seeker] true)
+
+(defspec expanding
+         100
+         (for-all [seeker gen-seeker]
+                  (word seeker)
+                  (expr seeker)
+                  (scoped-expr seeker)
+                  (break-out seeker)))
+
 ;; XVI. Copying
+
+(defn block-copy [seeker] true)
+
+(defspec copying
+         100
+         (for-all [seeker gen-seeker]
+                  (block-copy seeker)))
+
 ;; XVII. Cutting
+
+(defn block-cut [seeker] true)
+
+(defspec cutting
+         100
+         (for-all [seeker gen-seeker]
+                  (block-cut seeker)))
+
 ;; XVIII. Pasting
+
+(defn stand-alone [seeker] true)
+(defn in-between [seeker] true)
+(defn new-lined [seeker] true)
+(defn concatenated [seeker] true)
+(defn overriden [seeker] true)
+
+(defspec pasting
+         100
+         (for-all [seeker gen-seeker]
+                  (stand-alone seeker)
+                  (in-between seeker)
+                  (new-lined seeker)
+                  (concatenated seeker)
+                  (overriden seeker)))
