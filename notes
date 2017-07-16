@@ -156,6 +156,17 @@ Legend:
        Don't capture errors in the hud and display them, but rather propagate them to `core`,
        print that something wrong happened, publish error and then exit.
 
+32. Test `can-be` macro doesn't display the compared values, which leads to confusion when
+    trying to find out what went wrong.
+    Try to make the macro pre-evaluate the values and display them appropriately.
+
+33. Extraction seems to be very inefficient. In the tests, it takes quite a lot of time.
+    I believe it is due to the fact, that it sequentially deletes everything around
+    a selected area, instead of just selecting the area and taking it out.
+    And i also believe this is further due to the fact, that delete seems to be
+    slower than it should. The tests for delete also take noticeably longer than
+    expected. Try to optimise them. Use `subvec` to delete.
+
 Prospects:
 
 - Parenthesis highlighting // done

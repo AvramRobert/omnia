@@ -424,7 +424,6 @@
            [\( \)] (expand-expr seeker)
            [\[ \]] (expand-expr seeker)
            [\{ \}] (expand-expr seeker)
-           [\" \"] (expand-expr seeker)
            [\space \space] (expand-expr seeker)
            [\space (:or \) \] \})] (expand-expr seeker)
            [(:or \( \[ \{) \space] (expand-expr seeker)
