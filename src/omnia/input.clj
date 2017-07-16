@@ -424,7 +424,6 @@
            [\( \)] (expand-expr seeker)
            [\[ \]] (expand-expr seeker)
            [\{ \}] (expand-expr seeker)
-           [\" \"] (expand-expr seeker)
            [\space \space] (expand-expr seeker)
            [\space (:or \) \] \})] (expand-expr seeker)
            [(:or \( \[ \{) \space] (expand-expr seeker)
@@ -432,6 +431,8 @@
            [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
            [(:or \( \[ \{) _] (-> seeker (select) (jump-right))
            [(:or \space \") _] (-> seeker (select) (jump-right))
+           [nil _] (-> seeker (select) (jump-right))
+           [_ nil] (-> seeker (select) (jump-left))
            :else (-> seeker (jump-left) (select) (jump-right))))
 
 (defn expand [seeker]

@@ -176,7 +176,7 @@
 
 (defn slice-enhance [seeker]
   (let [some-line [\a \b]
-        expected (->> seeker (i/line) (concat some-line))]
+        expected  (->> seeker (i/line) (concat some-line))]
     (-> seeker
         (i/slice (fn [a b] (concat some-line a b)))
         (i/line)
@@ -211,7 +211,7 @@
 ;; IV. Moving
 
 (defn bounded [seeker]
-  (let [cursor (:cursor seeker)
+  (let [cursor  (:cursor seeker)
         x-moved (i/move-x seeker #(+ 1000 %))
         y-moved (i/move-y seeker #(+ 1000 %))]
     (is (= cursor (:cursor x-moved)))
@@ -385,10 +385,10 @@
 
 (defn paired [seeker]
   (let [remove-line #(-> % (i/delete) (i/delete) (i/delete))
-        round [[\( \)]]
-        brackets [[\[ \]]]
-        squiggly [[\{ \}]]
-        quote [[\"\"]]]
+        round       [[\( \)]]
+        brackets    [[\[ \]]]
+        squiggly    [[\{ \}]]
+        quote       [[\" \"]]]
     (-> seeker
         (i/peer (fn [a b] (concat a b round brackets squiggly quote))) ;; use split instead of peer to remove (vector) from tests
         (i/end)
@@ -574,13 +574,65 @@
 
 ;; XV. Expanding
 
-(defn word [seeker] true)
-(defn expr [seeker] true)
-(defn scoped-expr [seeker] true)
-(defn break-out [seeker] true)
+(defn word [seeker]
+  (let [start-word [\a \b]
+        end-word [\c \d]
+        some-text [(concat start-word [\space] end-word)]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a some-text b)))
+        (i/start-x)
+        (can-be #(-> (i/expand %) (i/extract) (i/line) (= start-word))
+                #(-> (i/jump-right %) (i/expand) (i/extract) (i/line) (= start-word))
+                #(-> (i/end-x %) (i/expand) (i/extract) (i/line) (= end-word))
+                #(-> (i/jump-right %) (i/jump-right) (i/expand) (i/extract) (i/line) (= end-word))))))
+
+(defn expr [seeker]
+  (reduce
+    (fn [_ [l r]]
+      (let [some-line [l \a \b \space \space \c \d r]]
+        (-> seeker
+            (i/peer (fn [a b] (concat a [some-line] b)))
+            (can-be #(-> % (i/start-x) (i/expand) (i/extract) (i/line) (= some-line))
+                    #(-> % (i/end-x) (i/expand) (i/extract) (i/line) (= some-line))
+                    #(-> (i/start-x %)
+                         (i/jump-right)
+                         (i/jump-right)
+                         (i/jump-right)
+                         (i/expand)
+                         (i/extract)
+                         (i/line)
+                         (= some-line))))))
+    nil
+    [[\( \)] [\[ \]] [\{ \}]]))
+
+(defn scoped-expr [seeker]
+  (let [content [\a \b \c \d]
+        some-line (concat [\(] content [\)])]
+    (-> seeker
+        (i/peer (fn [a b] (concat a [some-line] b)))
+        (i/start-x)
+        (i/move-x inc)
+        (can-be #(-> % (i/expand) (i/extract) (i/line) (= content))
+                #(-> % (i/move-x inc) (i/move-x inc) (i/expand) (i/extract) (i/line) (= content))
+                #(-> % (i/jump-right) (i/expand) (i/extract) (i/line) (= content))))))
+
+(defn break-out [seeker]
+  (let [inner-line [\c \d]
+        inner-expr (concat [\{] inner-line [\}])
+        some-line  (concat [\(] [\a \b] inner-expr [\e \f] [\)])]
+    (-> seeker
+        (i/peer (fn [a b] (concat a [some-line] b)))
+        (i/start-x)
+        (i/jump-right)
+        (i/jump-right)
+        (i/jump-right)
+        (i/jump-right)
+        (can-be #(-> (i/expand %) (i/extract) (i/line) (= inner-line))
+                #(-> (i/expand %) (i/expand) (i/extract) (i/line) (= inner-expr))
+                #(-> (i/expand %) (i/expand) (i/expand) (i/extract) (i/line) (= some-line))))))
 
 (defspec expanding
-         100
+         40
          (for-all [seeker gen-seeker]
                   (word seeker)
                   (expr seeker)
