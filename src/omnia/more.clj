@@ -48,6 +48,10 @@
   (reduce (fn [nmap [k v]]
             (assoc nmap k (f v))) {} hmap))
 
+(defn tear-at [n v]
+  [(subvec v 0 n)
+   (subvec v n)])
+
 (defn gulp-or-else [path else]
   (if (-> path (io/file) (.exists))
     (-> path (slurp) (edn/read-string))

@@ -2,7 +2,7 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]
            [clojure.set :refer [union]]
-           [omnia.more :refer [do-until]]))
+           [omnia.more :refer [do-until tear-at]]))
 
 (defrecord Event [action key])
 (defrecord Seeker [lines cursor height expansion selection clipboard])
@@ -121,9 +121,6 @@
 
 (defn move [seeker f]
   (update seeker :cursor f))
-
-(defn displace [seeker]
-  (slicel seeker drop-last))
 
 (defn move-x [seeker f]
   (move seeker
@@ -256,16 +253,16 @@
                  (-> (conj l (concat a b))
                      (concat t)))))
 
-(defn rollback [seeker]
-  (regress-with seeker merge-lines))
-
 (defn break [seeker]
   (-> seeker
       (split vector)
       (move-y inc)
       (start-x)))
 
-(def simple-delete (comp rollback displace))
+(defn simple-delete [seeker]
+  (-> seeker
+      (slicel drop-last)
+      (regress-with merge-lines)))
 
 (defn pair-delete [seeker]
   (-> seeker
@@ -344,14 +341,14 @@
   (= (:lines seeker) (:lines empty-seeker)))
 
 (defn extract [seeker]
-  (let [{start :start
-         end   :end} (selection seeker)]
+  (let [{[sx sy] :start
+         [ex ey] :end} (selection seeker)]
     (-> seeker
-        (end-y)
-        (end-x)
-        (do-until simple-delete #(-> % :cursor (= end)))
-        (move (fn [_] start))
-        (do-until simple-delete #(-> % :cursor (= [0 0]))))))
+        (rebase #(subvec % sy (inc ey)))
+        (end)
+        (slicel #(subvec % 0 ex))
+        (start)
+        (slicer #(drop sx %)))))
 
 (defn copy [seeker]
   (->> seeker (extract) (assoc seeker :clipboard)))
