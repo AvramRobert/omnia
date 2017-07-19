@@ -295,10 +295,9 @@
     (-> i/empty-seeker
         (i/join top)
         (i/join delimiter)
-        (i/end-y)
         (i/join paginated)
-        (i/join delimiter)
         (i/end-x)
+        (adjoin delimiter)
         (adjoin bottom)
         (assoc :ov (-- (i/height bottom) ph)))))
 
