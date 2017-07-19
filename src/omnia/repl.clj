@@ -54,11 +54,11 @@
 
 (defn- response->lines [response]
   (cond
-    (out? response) (-> response (:out) (f/fmt-edn) (i/str->lines))
+    (out? response) (-> response (:out) (f/string-format) (i/str->lines))
     (err? response) (-> response (:err) (i/str->lines))
     (eff? response) [[\n \i \l]]
     (ex? response) []
-    :else (-> response (:value) (str) (f/fmt-edn) (i/str->lines))))
+    :else (-> response (:value) (str) (f/string-format) (i/str->lines))))
 
 (defn- suggestion [responses]
   (->> responses

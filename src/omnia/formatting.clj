@@ -1,5 +1,6 @@
 (ns omnia.formatting
   (require
+    [halfling.result :as r]
     [omnia.input :as i]
     [omnia.more :refer [--]]
     [fipp.engine :as e]
@@ -93,9 +94,6 @@
          (e/annotate-begins {:width 10})
          (e/format-nodes {:width 10}))))
 
-(defn fmt-lisp [sexprs]
-  (->> sexprs (parse) (educe) (apply str)))
-
 (defn edn? [string]
   (let [trimmed (s/trim string)
         starts-with? (fn [pattern] (s/starts-with? trimmed pattern))]
@@ -104,33 +102,36 @@
         (starts-with? "{")
         (starts-with? "#{"))))
 
-(defn fmt-edn [edn-str]
-  (try
-    (if (edn? edn-str)
-      (->> edn-str
-           (clj-edn/read-string)
-           (edn-document)
-           (educe)
-           (apply str))
-      (fmt-lisp edn-str))
-    (catch Exception _ (fmt-lisp edn-str))))
+(defn- fmt-lisp [sexprs]
+  (->> sexprs (parse) (educe) (apply str)))
+
+(defn- fmt-edn [edn-str]
+  (->> edn-str
+       (clj-edn/read-string)
+       (edn-document)
+       (educe)
+       (apply str)))
+
+(defn- fmt [x f]
+  (-> (r/attempt (f x))
+      (r/recover (constantly x))
+      (r/get!)))
+
+(defn string-format [expr]
+  (fmt expr #(if (edn? %)
+               (fmt-edn %)
+               (fmt-lisp %))))
 
 (defn lisp-format [seeker]
-  (let [original (deform seeker)]
-    (try (->> original
-              (i/stringify)
-              (fmt-lisp)                                      ;; i think this step can be omitted
-              (i/from-string)
-              (normalise original))
-         (catch Exception _ seeker))))
+  (fmt seeker
+       #(let [original (deform %)]
+          (->> (i/stringify original)
+               (fmt-lisp)
+               (i/from-string)
+               (normalise original)))))
 
 (defn edn-format [seeker]
-  (try (->> seeker
-            (i/stringify)
-            (clj-edn/read-string)
-            (edn-document)
-            (educe)
-            (apply str)
-            (i/str->lines)
-            (i/seeker))
-       (catch Exception _ seeker)))
+  (fmt seeker
+       #(-> (i/stringify %)
+            (fmt-edn)
+            (i/from-string))))
