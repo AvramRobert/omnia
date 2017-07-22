@@ -691,12 +691,12 @@
 (defn expr [seeker]
   (reduce
     (fn [_ [l r]]
-      (let [some-line [l \a \b \space \space \c \d r]]
+      (let [some-line [l l \a \b \space \space \c \d r r]]
         (-> seeker
             (i/peer (fn [a b] (concat a [some-line] b)))
             (can-be #(-> % (i/start-x) (i/expand) (i/extract) (i/line) (= some-line))
                     #(-> % (i/end-x) (i/expand) (i/extract) (i/line) (= some-line))
-                    #(-> (i/start-x %)
+                    #_#(-> (i/start-x %)
                          (i/jump-right)
                          (i/jump-right)
                          (i/jump-right)

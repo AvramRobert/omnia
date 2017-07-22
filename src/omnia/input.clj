@@ -445,7 +445,7 @@
            [\space \space] (expand-expr seeker)
            [\space (:or \) \] \})] (expand-expr seeker)
            [(:or \( \[ \{) \space] (expand-expr seeker)
-           [_ (:or \( \[ \{)] (-> seeker (advance) (expand-expr))
+           [_ (:or \( \[ \{)] (expand-expr seeker)
            [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
            [(:or \( \[ \{) _] (-> seeker (select) (jump-right))
            [(:or \space \") _] (-> seeker (select) (jump-right))
