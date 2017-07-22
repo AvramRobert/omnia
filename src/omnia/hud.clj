@@ -142,17 +142,11 @@
              :garbage (:highlights ctx)))
 
 (defn parens-highlight [ctx]
-  (letfn [(paint [& selections] (update ctx :highlights #(concat % selections)))
-          (left [hud]
-            (paint (-> hud i/select i/advance i/selection)
-                   (-> hud i/advance i/expand-right i/regress i/select i/expand-right i/selection)))
-          (right [hud]
-            (paint (-> hud i/select i/advance i/selection)
-                   (-> hud i/expand-left i/select i/advance i/selection)))]
-    (m/match [(:complete-hud ctx)]
-             [complete :guard #(contains? i/open-exps (i/center %))] (left complete)
-             [complete :guard #(contains? i/closing-exps (i/center %))] (right complete)
-             :else ctx)))
+  (if-let [{[xs ys] :start
+            [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
+    (update ctx :highlights
+            #(conj % {:start [xs ys] :end [(inc xs) ys]} {:start [xe ye] :end [(inc xe) ye]}))
+    ctx))
 
 ;; === Control ===
 

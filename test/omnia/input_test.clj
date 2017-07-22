@@ -40,7 +40,7 @@
   ([generator n] (vec (repeatedly n #(just-one generator)))))
 ;; FIXME: more-than combinator?
 
-(def gen-line (->> gen/char-ascii
+(def gen-line (->> gen/char-alphanumeric
                    (gen/vector)
                    (gen/such-that (comp not empty?))))
 
@@ -887,3 +887,104 @@
                   (pasting seeker)))
 
 (defbench pasting-bench pasting)
+
+;; XIX. Pairing
+
+(defn- chars-at [seeker {:keys [start end]}]
+  (letfn [(f [there] (-> (i/move seeker (constantly there))
+                         (i/center)))]
+    [(f start)
+     (f end)]))
+
+(defn pair-outer [seeker]
+  (let [parens [[\( \)] [\[ \]] [\{ \}]]]
+    (reduce
+      (fn [_ [l r]]
+        (-> seeker
+            (i/slice (fn [a b] (concat [l] a b [r])))
+            (can-be #(->> (i/start-x %) (i/find-pair) (chars-at %) (= [l r]))
+                    #(->> (i/end-x %) (i/regress) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
+
+(defn pair-inner [seeker line]
+  (let [parens [[\( \)] [\[ \]] [\{ \}]]
+        offset #(+ % 1 (count line))]
+    (reduce
+      (fn [_ [ol or]]
+        (reduce
+          (fn [_ [il ir]]
+            (-> seeker
+                (i/peer (fn [a b] (concat a [(concat [ol] [il] line [ir] [or])] b)))
+                (i/start-x)
+                (can-be #(->> (i/find-pair %) (chars-at %) (= [ol or]))
+                        #(->> (i/advance %) (i/find-pair) (chars-at %) (= [il ir])))))
+          nil parens))
+      nil parens)))
+
+(defn dont-pair [seeker]
+  (let [parens [[\( \)] [\[ \]] [\{ \}]]]
+    (reduce
+      (fn [_ [l r]]
+        (-> seeker
+            (i/slice (fn [a b] (concat [l l l] a b [r r])))
+            (i/start-x)
+            (can-be #(->> (i/find-pair %) (nil?))
+                    #(->> (i/advance %) (i/find-pair) (chars-at %) (= [l r]))
+                    #(->> (i/advance %) (i/advance) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
+
+;; FIXME
+(defn look-correctly [seeker] true)
+
+(defn pairing [seeker]
+  (pair-outer seeker)
+  (pair-inner seeker (just-one gen-line))
+  (dont-pair seeker)
+  (look-correctly seeker))
+
+(defspec pairing-test
+         100
+         (for-all [seeker gen-seeker]
+                  (pairing seeker)))
+
+(defbench pairing-bench pairing)
+
+;; XX. Balancing
+
+(clojure.test/deftest balancing
+  (let [s1 (i/seeker [[\[ \[ \[ \4 \5 \] \]]])
+        s2 (i/seeker [[\[ \( \a \{ \} \b \) \]]])
+        s3 (i/seeker [[\[ \( \} \) \]]])
+        s4 (i/seeker [[\a \b \4 \( \)]])]
+    ;; s1
+    (is (= :unbalanced (-> (i/balance s1) (first))))
+    (is (= :balanced (-> (i/advance s1) (i/balance) (first))))
+    (is (= :balanced (-> (i/advance s1) (i/advance) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/advance s1) (i/advance) (i/advance) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end s1) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/start s1) (i/nearest) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/advance s1) (i/nearest) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end-x s1) (i/nearest) (i/balance) (first))))
+    (is (= :balanced (-> (i/advance s1) (i/advance) (i/nearest) (i/balance) (first))))
+    (is (= :balanced (-> (i/end-x s1) (i/regress) (i/nearest) (i/balance) (first))))
+    ;;;; s2
+    (is (= :balanced (-> (i/balance s2) (first))))
+    (is (= :balanced (-> (i/advance s2) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/advance s2) (i/advance) (i/balance) (first))))
+    (is (= :balanced (-> (i/advance s2) (i/advance) (i/advance) (i/balance) (first))))
+    (is (= :balanced (-> (i/end-x s2) (i/regress) (i/nearest) (i/balance) (first))))
+    (is (= :balanced (-> (i/end-x s2) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))
+    ;;;; s3
+    (is (= :unbalanced (-> (i/balance s3) (first))))
+    (is (= :unbalanced (-> (i/advance s3) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/advance s3) (i/advance) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/advance s3) (i/advance) (i/advance) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end-x s3) (i/regress) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end-x s3) (i/regress) (i/regress) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end-x s3) (i/regress) (i/regress) (i/regress) (i/balance) (first))))
+    ;;; s4
+    (is (= :unbalanced (-> (i/balance s4) (first))))
+    (is (= :unbalanced (-> (i/advance s4) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/advance s4) (i/advance) (i/balance) (first))))
+    (is (= :balanced (-> (i/advance s4) (i/advance) (i/advance) (i/balance) (first))))
+    (is (= :balanced (-> (i/end-x s4) (i/regress) (i/nearest) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end-x s4) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))
+    (is (= :unbalanced (-> (i/end-x s4) (i/regress) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))))

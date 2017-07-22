@@ -160,12 +160,33 @@ Legend:
     trying to find out what went wrong.
     Try to make the macro pre-evaluate the values and display them appropriately.
 
-33. Extraction seems to be very inefficient. In the tests, it takes quite a lot of time.
-    I believe it is due to the fact, that it sequentially deletes everything around
-    a selected area, instead of just selecting the area and taking it out.
-    And i also believe this is further due to the fact, that delete seems to be
-    slower than it should. The tests for delete also take noticeably longer than
-    expected. Try to optimise them. Use `subvec` to delete.
+ > 33. Extraction seems to be very inefficient. In the tests, it takes quite a lot of time.
+       I believe it is due to the fact, that it sequentially deletes everything around
+       a selected area, instead of just selecting the area and taking it out.
+       And i also believe this is further due to the fact, that delete seems to be
+       slower than it should. The tests for delete also take noticeably longer than
+       expected. Try to optimise them.
+
+ > 34. Parens-matching seems to not always match correctly.
+          Example:
+             (defn bla [coll n] (dotimes [_ n])(let [_ 1])
+          This will match `(` from `defn` with the `)` next to `let [_ 1]`
+          The problem is that I don't take into account the fact that an expansion
+          might not be total. When highlighting parens, a partial expansion means that
+          there is no pair. This means that I need to somehow elegantly propagate
+          the fact that an expansion was total, and use it in
+          the other functions appropriately.
+          Problem: Because this thing starts with a 0, if all the pairs following it
+          are complete, then it succeeds with a 0, even though the inital one hadn't been closed.
+
+35. Refactor expansion and make more reusable.
+
+36. Currently, expansion stops if an unmatched parens is seen.
+    This means, that should a rogue parens happen to find
+    itself somewhere in the seeker, and a selection expansion is made,
+    then the selection expands up to that parens.
+    Should I leave it like this (might indirectly help the user realise he
+    made a mistake), or should i let the expansion go until the end?
 
 Prospects:
 
