@@ -188,6 +188,8 @@ Legend:
     Should I leave it like this (might indirectly help the user realise he
     made a mistake), or should i let the expansion go until the end?
 
+37. Seekers don't share clipboards in hud.
+
 Prospects:
 
 - Parenthesis highlighting // done
