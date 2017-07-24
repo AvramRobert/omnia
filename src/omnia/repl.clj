@@ -64,6 +64,7 @@
   (->> responses
        (first)
        (:value)
+       (str)
        (edn/read-string)
        (first)
        (mapv i/from-string)
