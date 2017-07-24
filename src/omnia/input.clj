@@ -2,7 +2,7 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]
            [clojure.set :refer [union]]
-           [omnia.more :refer [do-until tear-at]]))
+           [omnia.more :refer [do-until]]))
 
 (defrecord Event [action key])
 (defrecord Seeker [lines cursor height expansion selection clipboard]
@@ -162,14 +162,15 @@
 (defn start-y [seeker]
   (reset-y seeker 0))
 
-(defn end-y [seeker]
-  (move seeker (fn [[x _]] [x (height seeker)])))
+(defn end-y [{:keys [height] :as seeker}]
+  (let [y-max (if (zero? height) 0 (dec height))]
+    (move seeker (fn [[x _]] [x y-max]))))
 
 (defn start [seeker]
   (-> seeker (start-y) (start-x)))
 
 (defn end [seeker]
-  (-> seeker (end-y) (move-y dec) (end-x)))
+  (-> seeker (end-y) (end-x)))
 
 (defn- advance-with [seeker f]
   (let [[_ y] (:cursor seeker)
@@ -239,7 +240,7 @@
         (move (fn [_] [x (+ y ths)])))))
 
 (defn join-many [& seekers]
-  (reduce join seekers))
+  (reduce join empty-seeker seekers))
 
 (defn climb [seeker]
   (let [offset (move-y seeker dec)]
@@ -345,11 +346,12 @@
 (defn is-empty? [seeker]
   (= (:lines seeker) (:lines empty-seeker)))
 
-(defn extract [seeker]
+(defn extract [{:keys [height] :as seeker}]
   (let [{[sx sy] :start
-         [ex ey] :end} (selection seeker)]
+         [ex ey] :end} (selection seeker)
+        y (if (= ey height) ey (inc ey))]
     (-> seeker
-        (rebase #(subvec % sy (inc ey)))
+        (rebase #(subvec % sy y))
         (end)
         (slicel #(subvec % 0 ex))
         (start)

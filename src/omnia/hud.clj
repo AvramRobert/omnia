@@ -52,7 +52,7 @@
      indicates if there should be scrolled currently"
   (let [seeker (apply i/join-many prelude)]
     (-> seeker
-        (i/end-y)
+        (i/join i/empty-seeker)
         (assoc :scroll? false)
         (assoc :lor (i/height seeker))
         (assoc :fov fov)
@@ -109,7 +109,7 @@
    (assoc ctx :complete-hud (i/join (:persisted-hud ctx) seeker))))
 
 (defn preserve [ctx & seekers]
-  (update ctx :complete-hud #(->> seekers (reduce i/join %) (i/start-x) (i/end-y))))
+  (update ctx :complete-hud #(reduce i/join % seekers)))
 
 (defn persist [ctx]
   (assoc ctx :persisted-hud (:complete-hud ctx)))
@@ -257,7 +257,7 @@
   (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
         result (r/result evaluation)]
     (-> (remember ctx)
-        (preserve result caret)
+        (preserve result caret i/empty-seeker)
         (persist)
         (seek i/empty-seeker)
         (assoc :repl evaluation))))

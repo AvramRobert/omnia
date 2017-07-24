@@ -64,10 +64,9 @@
   (->> responses
        (first)
        (:value)
-       (str)
        (edn/read-string)
        (first)
-       (map i/from-string)
+       (mapv i/from-string)
        (apply i/join-many)))
 
 (defn- seekerise [responses]

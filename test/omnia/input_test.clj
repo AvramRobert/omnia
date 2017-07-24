@@ -15,7 +15,8 @@
    (-> seeker (i/reset-y y) (i/line) (count) (rand-int))))
 
 (defmacro <=> [this-seeker that-seeker]
-  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))))
+  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
+       (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
 
 (defmacro can-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -665,31 +666,31 @@
 
 (defbench selecting-bench selecting)
 
-;; XVI. Merging
+;; XVI. Joining
 
-(defn merge-texts [seeker1 seeker2]
+(defn join-texts [seeker1 seeker2]
   (-> (i/join seeker1 seeker2)
       (can-be #(<=> % (i/seeker (concat (:lines seeker1)
                                         (:lines seeker2))))
               #(-> (i/line %) (= (i/line seeker2))))))
 
-(defn merge-texts-with-selections [seeker1 seeker2]
+(defn join-texts-with-selections [seeker1 seeker2]
   (let [s1 (-> seeker1 (i/select) (i/end))
         s2 (-> seeker2 (i/select) (i/end))]
     (-> (i/join s1 s2)
         (can-be #(-> (i/selection %) (:end) (= (:cursor (i/end %))))))))
 
-(defn merging [seeker1]
+(defn joining [seeker1]
   (let [seeker2 (first (gen/sample gen-seeker))]
-    (merge-texts seeker1 seeker2)
-    (merge-texts-with-selections seeker1 seeker2)))
+    (join-texts seeker1 seeker2)
+    (join-texts-with-selections seeker1 seeker2)))
 
-(defspec merging-test
+(defspec joining-test
          100
          (for-all [seeker gen-seeker]
-                  (merging seeker)))
+                  (joining seeker)))
 
-(defbench merging-bench merging)
+(defbench joining-bench joining)
 
 ;; XV. Expanding
 
@@ -859,7 +860,7 @@
         (i/select)
         (i/end-x)
         (i/copy)
-        (can-be #(-> % (i/end-y) (i/start-x) (i/paste) (i/line) (= some-line))))))
+        (can-be #(-> % (i/end) (i/break) (i/paste) (i/line) (= some-line))))))
 
 (defn paste-within-line [seeker]
   (let [some-line [\a \b]]
@@ -1002,3 +1003,40 @@
     (is (= :balanced (-> (i/end-x s4) (i/regress) (i/nearest) (i/balance) (first))))
     (is (= :unbalanced (-> (i/end-x s4) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))
     (is (= :unbalanced (-> (i/end-x s4) (i/regress) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))))
+
+;; XX1. Extracting
+
+(defn extract-empty []
+  (-> (i/expand i/empty-seeker)
+      (i/extract)
+      (i/line)
+      (= i/empty-vec)
+      (is)))
+
+(defn extract-bounded [seeker]
+  (-> (i/start seeker)
+      (i/select)
+      (i/end)
+      (i/extract)
+      (<=> seeker)))
+
+(defn extract-selected [seeker]
+  (let [expected (-> seeker
+                     (i/split (fn [_ b] [b]))
+                     (i/peer (fn [_ b] b)))]
+    (-> (i/select seeker)
+        (i/end)
+        (i/extract)
+        (<=> expected))))
+
+(defn extracting [seeker]
+  (extract-empty)
+  (extract-bounded seeker)
+  (extract-selected seeker))
+
+(defspec extracting-test
+         100
+         (for-all [seeker gen-seeker]
+                  (extracting seeker)))
+
+(defbench extracting-bench extracting)
