@@ -289,14 +289,11 @@
            [\" \"] true
            :else false))
 
-(defn expr? [seeker]
-  (contains? tokens (center seeker)))
-
 (defn delete [seeker]
   (cond
     (selection? seeker) (chunk-delete seeker)
     (pair? seeker) (pair-delete seeker)
-    (expr? (regress seeker)) (regress seeker)
+    (tokens (left seeker)) (regress seeker)
     :else (simple-delete seeker)))
 
 (defn simple-insert [seeker value]
@@ -320,20 +317,23 @@
            [\" _] (pair-insert seeker [\" \"])
            :else (simple-insert seeker input)))
 
-(defn jump [seeker f]
-  (letfn [(beginning? [s] (-> s :cursor first zero?))]
-    (do-until (f seeker) f #(or (beginning? %)
-                                (nil? (center %))
-                                (blank? (left %))
-                                (blank? (center %))
-                                (expr? (regress %))
-                                (expr? %)))))
+(defn jump [seeker f look]
+  (letfn [(blanks? [s] (blank? (look s)))
+          (lits? [s] (not (blanks? s)))
+          (tokens? [s] (tokens (look s)))
+          (bounds? [s] (or (-> s (:cursor) (first) (zero?))
+                           (nil? (look s))))
+          (go [pred] (do-until (f seeker) f pred))]
+    (cond
+      (blanks? seeker) (go #(or (bounds? %) (tokens? %) (lits? %)))
+      (tokens? seeker) (go #(or (bounds? %) (lits? %)))
+      :else (go #(or (bounds? %) (tokens? %) (blanks? %))))))
 
 (defn jump-left [seeker]
-  (jump seeker regress))
+  (jump seeker regress left))
 
-(defn jump-right [seeker]
-  (jump seeker advance))
+(defn jump-right [ seeker]
+  (jump seeker advance center))
 
 (defn munch [seeker]
   (let [x (advance seeker)]

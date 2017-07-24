@@ -587,15 +587,25 @@
         (i/end-x)
         (can-be #(-> % (i/jump-right) (after? %))))))
 
-;; FIXME
-(defn jump-over-spaces [seeker] true)
+(defn jump-over-spaces [seeker line1 line2]
+  (let [spaces [\space \space \space]]
+    (-> seeker
+        (i/peer (fn [a b] (concat a [(concat line1 spaces line2)] b)))
+        (i/start-x)
+        (can-be #(-> (i/center %) (= (first line1)))
+                #(-> (i/jump-right %) (i/jump-right) (i/center) (= (first line2)))
+                #(-> (i/end-x %) (i/jump-left) (i/center) (= (first line2)))
+                #(-> (i/end-x %) (i/jump-left) (i/jump-left) (i/left) (= (last line1)))
+                #(-> (i/end-x %) (i/jump-left) (i/jump-left) (i/jump-left) (i/center) (= (first line1)))))))
 
 (defn jumping [seeker]
   (jump-over-words seeker)
   (jump-until-spaces seeker)
   (jump-between-lines seeker)
   (jump-until-expr-ends seeker)
-  (jump-over-spaces seeker))
+  (jump-over-spaces seeker
+                    (just-one gen-line)
+                    (just-one gen-line)))
 
 (defspec jumping-test
          100
@@ -707,7 +717,7 @@
                          (i/jump-right)
                          (i/jump-right)
                          (i/jump-right)
-                         (i/jump-right)
+                         (i/advance)
                          (i/expand)
                          (i/expand)
                          (i/extract)
@@ -743,7 +753,6 @@
               (-> seeker
                   (i/peer (fn [a b] (concat a [some-line] b)))
                   (i/start-x)
-                  (i/jump-right)
                   (i/jump-right)
                   (i/jump-right)
                   (i/jump-right)
