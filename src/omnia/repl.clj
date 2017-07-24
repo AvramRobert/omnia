@@ -52,13 +52,13 @@
   (and (contains? response :value)
        (nil? (:value response))))
 
-(defn- response->lines [response]
+(defn- response->seeker [response]
   (cond
-    (out? response) (-> response (:out) (f/string-format) (i/str->lines))
-    (err? response) (-> response (:err) (i/str->lines))
+    (out? response) (-> response (:out) (f/string-format) (i/from-string))
+    (err? response) (-> response (:err) (i/from-string))
     (eff? response) [[\n \i \l]]
-    (ex? response) []
-    :else (-> response (:value) (str) (f/string-format) (i/str->lines))))
+    (ex? response) i/empty-seeker
+    :else (-> response (:value) (str) (f/string-format) (i/from-string))))
 
 (defn- suggestion [responses]
   (->> responses
@@ -67,16 +67,13 @@
        (str)
        (edn/read-string)
        (first)
-       (map i/str->lines)
-       (reduce concat)
-       (vec)
-       (i/seeker)))
+       (map i/from-string)
+       (apply i/join-many)))
 
-(defn- seekify-responses [responses]
+(defn- seekerise [responses]
   (->> responses
-       (map response->lines)
-       (apply i/join-lines)
-       (i/seeker)))
+       (map response->seeker)
+       (apply i/join-many)))
 
 (defn- connect [host port timeout]
   (fn [msg transform]
@@ -159,7 +156,7 @@
                  server  (s/start-server :port port
                                          :handler handler)
                  send-f  (connect "localhost" port timeout)
-                 eval-f  #(send-f (eval-msg %) seekify-responses)
+                 eval-f  #(send-f (eval-msg %) seekerise)
                  comp-f  #(send-f (complete-msg %) suggestion)
                  stop-f  #(s/stop-server server)]
              (eval-f predef)

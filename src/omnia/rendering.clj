@@ -33,8 +33,8 @@
    (let [{fov :fov
           ov  :ov
           h   :height} hud]
-     (if (> @h fov)
-       (- y' (- @h fov ov))
+     (if (> h fov)
+       (- y' (- h fov ov))
        y'))))
 
 (defn project-cursor [hud]

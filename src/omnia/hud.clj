@@ -171,14 +171,14 @@
           h :height
           [_ y] :cursor} :complete-hud
          {ph :height} :previous-hud} ctx
-        upper-y (- @h fov ov)
-        lower-y (- @h ov)
+        upper-y (- h fov ov)
+        lower-y (- h ov)
         nov (cond
-              (< y upper-y) (-- @h fov y)
-              (> (inc y) lower-y) (-- @h (inc y))
-              (= y (dec @h)) ov
-              (and (> @h fov) (< @h @ph)) (++ ov (- @h @ph))
-              (> @h fov) (++ ov (- @h @ph))
+              (< y upper-y) (-- h fov y)
+              (> (inc y) lower-y) (-- h (inc y))
+              (= y (dec h)) ov
+              (and (> h fov) (< h ph)) (++ ov (- h ph))
+              (> h fov) (++ ov (- h ph))
               :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
@@ -206,10 +206,10 @@
 ;; === Screen scrolling ===
 
 (defn nowards [{:keys [height fov ov]}]
-  (if (> @height fov) (+ fov ov) @height))
+  (if (> height fov) (+ fov ov) height))
 
 (defn upwards [{:keys [height lor]}]
-  (inc< lor (inc @height)))
+  (inc< lor (inc height)))
 
 (defn downwards [{:keys [lor] :as hud}]
   (dec< lor (nowards hud)))

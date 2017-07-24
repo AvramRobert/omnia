@@ -5,49 +5,49 @@
            [omnia.more :refer [do-until tear-at]]))
 
 (defrecord Event [action key])
-(defrecord Seeker [lines cursor height expansion selection clipboard])
+(defrecord Seeker [lines cursor height expansion selection clipboard]
+  Object
+  (toString [this]
+    (str {:lines lines
+          :height height
+          :cursor cursor
+          :expansion expansion
+          :selection selection
+          :clipboard clipboard})))
 
 (def empty-vec [])
-(def empty-seeker (Seeker. empty-vec [0 0] (delay 0) :word nil nil))
+(def empty-seeker (Seeker. empty-vec [0 0] 0 :word nil nil))
 
 (def open-pairs {\( \) \[ \] \{ \}})
 (def closed-pairs (clojure.set/map-invert open-pairs))
 (def open-tokens (set (keys open-pairs)))
 (def closed-tokens (set (vals open-pairs)))
 (def parens (union open-tokens closed-tokens))
-(def tokens (union open-tokens closed-tokens #{\"}))
+(def tokens (union parens #{\"}))
 
 (defn apair? [this that]
   (or (= (open-pairs this) that)
       (= (closed-pairs this) that)))
 
 (defn resize [seeker]
-  (assoc seeker :height (delay (-> seeker :lines count))))
+  (assoc seeker :height (-> seeker :lines count)))
 
 (defn seeker
   ([] (seeker []))
-  ([lines] (-> empty-seeker (assoc :lines lines) (resize)))
-  ([lines height] (-> empty-seeker (assoc :lines lines) (assoc :height (delay height)))))
+  ([lines] (-> empty-seeker (assoc :lines lines) (resize))))
 
-(defn join-lines [& lines]
-  (vec (apply concat lines)))
-
-(defn str->lines [string]
+(defn from-string [string]
   (letfn [(char-vec [xs] (vec (.toCharArray xs)))
           (newlines [xs] (if (empty? xs)
                            (->> string
                                 (char-vec)
-                                (map (fn [_] []))
-                                (vec))
+                                (mapv (fn [_] [])))
                            xs))]
     (->> string
          (s/split-lines)
-         (map char-vec)
+         (mapv char-vec)
          (newlines)
-         (vec))))
-
-(defn from-string [s]
-  (-> s (str->lines) (seeker)))
+         (seeker))))
 
 (defn blank? [character]
   (= \space character))
@@ -65,7 +65,7 @@
    (-> seeker (line [x y]) (nth x nil))))
 
 (defn height [seeker]
-  @(:height seeker))
+  (:height seeker))
 
 (defn rebase [seeker f]
   (-> seeker (update :lines (comp vec f)) (resize)))
@@ -231,11 +231,9 @@
 
 (defn join [this-seeker that-seeker]
   (let [[x y] (:cursor that-seeker)
-        ths (height this-seeker)
-        tht (height that-seeker)]
+        ths (height this-seeker)]
     (-> this-seeker
-        (update :lines #(join-lines % (:lines that-seeker)))
-        (assoc :height (delay (+ ths tht)))
+        (rebase #(concat % (:lines that-seeker)))
         (assoc :selection (:selection that-seeker))
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (move (fn [_] [x (+ y ths)])))))
@@ -504,5 +502,3 @@
     :enter (-> seeker (break) (deselect))
     :char (-> seeker (insert (:key event)) (deselect))
     seeker))
-
-

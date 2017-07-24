@@ -18,7 +18,7 @@
   `(is (= (:lines ~this-seeker) (:lines ~that-seeker))))
 
 (defmacro can-be [val & fs]
-  `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: " val))) fs)))
+  `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
 (defn before? [this-seeker that-seeker]
   (let [[xt yt] (:cursor this-seeker)
