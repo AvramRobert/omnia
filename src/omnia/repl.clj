@@ -102,7 +102,7 @@
 
 (defn- remember [repl seeker]
   (let [lines (:lines seeker)]
-    (if (or (i/is-empty? seeker)
+    (if (or (empty? lines)
             (-> lines first empty?))
       repl
       (-> repl

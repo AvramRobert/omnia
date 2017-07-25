@@ -1,7 +1,7 @@
 (ns omnia.input
   (require [clojure.core.match :as m]
            [clojure.string :as s]
-           [clojure.set :refer [union]]
+           [clojure.set :refer [union map-invert]]
            [omnia.more :refer [do-until]]))
 
 (defrecord Event [action key])
@@ -19,15 +19,11 @@
 (def empty-seeker (Seeker. empty-vec [0 0] 0 :word nil nil))
 
 (def open-pairs {\( \) \[ \] \{ \}})
-(def closed-pairs (clojure.set/map-invert open-pairs))
+(def closed-pairs (map-invert open-pairs))
 (def open-tokens (set (keys open-pairs)))
 (def closed-tokens (set (vals open-pairs)))
 (def parens (union open-tokens closed-tokens))
 (def tokens (union parens #{\"}))
-
-(defn apair? [this that]
-  (or (= (open-pairs this) that)
-      (= (closed-pairs this) that)))
 
 (defn resize [seeker]
   (assoc seeker :height (-> seeker :lines count)))
@@ -303,8 +299,12 @@
 (defn pair-insert [seeker [key pair]]
   (-> seeker (slicel #(conj % key pair)) (move-x inc)))
 
+(defn- overwrite [seeker]
+  (cond-> seeker
+          (selection? seeker) delete))
+
 (defn insert [seeker input]
-  (m/match [input (center seeker)]
+  (m/match [input (center (overwrite seeker))]
            [\) \)] (move-x seeker inc)
            [\] \]] (move-x seeker inc)
            [\} \}] (move-x seeker inc)
@@ -316,9 +316,10 @@
            [\] _] (pair-insert seeker [\[ \]])
            [\} _] (pair-insert seeker [\{ \}])
            [\" _] (pair-insert seeker [\" \"])
-           :else (simple-insert seeker input)))
+           [\space _] (simple-insert seeker input)
+           :else (-> (overwrite seeker) (simple-insert input))))
 
-(defn jump [seeker f look]
+(defn- jump [seeker f look]
   (letfn [(blanks? [s] (blank? (look s)))
           (lits? [s] (not (blanks? s)))
           (tokens? [s] (tokens (look s)))
@@ -333,7 +334,7 @@
 (defn jump-left [seeker]
   (jump seeker regress left))
 
-(defn jump-right [ seeker]
+(defn jump-right [seeker]
   (jump seeker advance center))
 
 (defn munch [seeker]
@@ -342,9 +343,6 @@
       (= (:cursor seeker) (:cursor x)) seeker
       (pair? seeker) (-> seeker (pair-delete) (regress))
       :else (delete x))))
-
-(defn is-empty? [seeker]
-  (= (:lines seeker) (:lines empty-seeker)))
 
 (defn extract [{:keys [height] :as seeker}]
   (let [{[sx sy] :start
@@ -368,20 +366,20 @@
   (let [copied (some-> seeker :clipboard (end))
         [x y] (some-> copied :cursor)]
     (m/match [copied]
-             [{:lines [a]}] (-> seeker
+             [{:lines [a]}] (-> (overwrite seeker)
                                 (split #(vector (concat %1 a %2)))
                                 (move-y #(+ % y))
                                 (move-x #(+ % x)))
-             [{:lines [a b]}] (-> seeker
+             [{:lines [a b]}] (-> (overwrite seeker)
                                   (split #(vector (concat %1 a) (concat b %2)))
                                   (move-y #(+ % y))
-                                  (move-x (constantly x)))
-             [{:lines [a & b]}] (-> seeker
+                                  (reset-x x))
+             [{:lines [a & b]}] (-> (overwrite seeker)
                                     (split #(concat [(concat %1 a)]
                                                     (drop-last b)
                                                     [(concat (last b) %2)]))
                                     (move-y #(+ % y))
-                                    (move-x (constantly x)))
+                                    (reset-x x))
              :else seeker)))
 
 (defn select-all [seeker]
@@ -399,6 +397,10 @@
   (update istack :stack rest))
 (defn top [{:keys [stack]}]
   (first stack))
+
+(defn- apair? [this that]
+  (or (= (open-pairs this) that)
+      (= (closed-pairs this) that)))
 
 (defn balance [seeker]
   (letfn [(expr? [s] (parens (center s)))
