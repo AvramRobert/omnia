@@ -13,3 +13,4 @@ pom.xml.asc
 *.iml
 .omnia.history
 .omnia.error
+omnia.edn
