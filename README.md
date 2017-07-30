@@ -42,10 +42,3 @@ Feature requests can be submitted as issues with the label `feature`. <br />
 I would, however, like for every feature request to have a short description of its use case. <br />
 Their implementation priority will be determined in terms of their complexity and
 said use case. 
-
-## License
-
-Copyright © 2017 Robert Marius Avram
-
-Distributed under the Eclipse Public License either version 1.0 or (at
-your option) any later version.
