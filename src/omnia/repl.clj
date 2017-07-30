@@ -12,7 +12,7 @@
     [omnia.formatting :as f]
     [clojure.edn :as edn]))
 
-(defrecord REPL [eval-f complete-f stop-f history hsize timeline result])
+(defrecord REPL [eval-f complete-f stop-f history hsize ns timeline result])
 
 (def ritz-middleware
   [#'ritz.nrepl.middleware.javadoc/wrap-javadoc
@@ -86,7 +86,7 @@
   {:op   :eval
    :code (i/stringify seeker)})
 
-(defn- complete-msg [seeker]
+(defn- complete-msg [seeker ns]
   (letfn [(purge [word] (if (empty? word) gibberish word))]
     {:op     :complete
      :symbol (-> seeker
@@ -95,7 +95,7 @@
                  (i/stringify)
                  (trim-newline)
                  (purge))
-     :ns     (ns-name *ns*)}))
+     :ns     ns}))
 
 (defn- cache-result [repl result]
   (update repl :result (fn [_] result)))
@@ -137,28 +137,29 @@
 
 (defn stop [repl] ((:stop-f repl)))
 
-(defn- repl-with [eval-f complete-f stop-f history]
+(defn- repl-with [eval-f complete-f stop-f history ns]
   (let [hsize (count history)]
-    (REPL. eval-f complete-f stop-f history hsize hsize i/empty-seeker)))
+    (REPL. eval-f complete-f stop-f history hsize hsize i/empty-seeker ns)))
 
 (defn repl [{:as   params
-             :keys [kind port host timeout history]
+             :keys [kind port host timeout history ns]
              :or   {kind    :local
                     timeout 5000                            ;; fixme: kill infinte processes and return warning
                     port    11111
                     host    "localhost"
-                    history empty-history}}]
+                    history empty-history
+                    ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (case kind
-    :identity (repl-with identity identity (fn [] nil) history)
-    :remote (repl-with (connect host port timeout) identity (fn [] nil) history)
+    :identity (repl-with identity identity (fn [] nil) history ns)
+    :remote (repl-with (connect host port timeout) identity (fn [] nil) history ns)
     :local (let [handler (apply s/default-handler ritz-middleware)
                  server  (s/start-server :port port
                                          :handler handler)
                  send-f  (connect "localhost" port timeout)
                  eval-f  #(send-f (eval-msg %) seekerise)
-                 comp-f  #(send-f (complete-msg %) suggestion)
+                 comp-f  #(send-f (complete-msg % ns) suggestion)
                  stop-f  #(s/stop-server server)]
              (eval-f predef)
-             (repl-with eval-f comp-f stop-f history))))
+             (repl-with eval-f comp-f stop-f history ns))))
 

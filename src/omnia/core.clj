@@ -11,6 +11,7 @@
 (def ^:const config-path (format "%s/omnia.edn" dir))
 (def ^:const history-path (format "%s/.omnia.history" dir))
 (def ^:const error-path (format "%s/.omnia.error" dir))
+(def ^:const repl-ns 'user)
 
 (defn error [{:keys [message cause trace]}]
   (format
@@ -47,7 +48,8 @@
      history (r/read-history history-path)
      terminal (t/get-terminal :text)
      repl (r/repl {:kind    :local
-                   :history history})
+                   :history history
+                   :ns      repl-ns})
      _ (t/start terminal)]
     (h/read-eval-print
       (assoc config :terminal terminal :repl repl))))
