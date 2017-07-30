@@ -118,7 +118,10 @@
   (assoc ctx :previous-hud (:complete-hud ctx)))
 
 (defn seek [ctx seeker]
-  (assoc ctx :seeker seeker))
+  (->> (get-in ctx [:seeker :clipboard])
+       (or (:clipboard seeker))
+       (assoc seeker :clipboard)
+       (assoc ctx :seeker)))
 
 ;; === Rendering ===
 
@@ -209,7 +212,7 @@
   (if (> height fov) (+ fov ov) height))
 
 (defn upwards [{:keys [height lor]}]
-  (inc< lor (inc height)))
+  (inc< lor height))
 
 (defn downwards [{:keys [lor] :as hud}]
   (dec< lor (nowards hud)))
@@ -241,7 +244,7 @@
 ;; === REPL ===
 
 (defn roll [ctx f]
-  (let [then-repl (-> ctx :repl f)
+  (let [then-repl   (-> ctx :repl f)
         then-seeker (r/then then-repl)]
     (-> (rebase ctx then-seeker)
         (seek then-seeker)
@@ -255,7 +258,7 @@
 
 (defn evaluate [ctx]
   (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
-        result (r/result evaluation)]
+        result     (r/result evaluation)]
     (-> (remember ctx)
         (preserve result caret i/empty-seeker)
         (persist)

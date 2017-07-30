@@ -3,7 +3,7 @@
            [lanterna.terminal :as t]
            [clojure.core.match :as m]
            [omnia.highlight :refer [slc-bg s0 process]]
-           [omnia.more :refer [take-right reduce-idx zip-all map-vals]]))
+           [omnia.more :refer [reduce-idx zip-all map-vals]]))
 
 (declare total! diff! nothing!)
 
@@ -54,7 +54,8 @@
   (let [{lor     :lor
          fov     :fov
          ov      :ov
-         scroll? :scroll?} hud]
+         scroll? :scroll?} hud
+        take-right (fn [n coll] (lazy-seq (take-last n coll)))]
     (if scroll?
       (i/rebase hud #(->> % (take-right lor) (take fov)))
       (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))

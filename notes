@@ -74,8 +74,8 @@ Legend:
        at one time. Or at least one selection that spans
        multiple ranges.
 
-19. Lines are unbound in their width.
-    Input lines should have a limit.
+19. Lines are unbound in their width and height.
+    Input lines should have a width and a height limit.
     For performance purposes at least.
 
  > 20. `complete-hud` rebase (and other things) get repeated.
@@ -188,9 +188,7 @@ Legend:
     Should I leave it like this (might indirectly help the user realise he
     made a mistake), or should i let the expansion go until the end?
 
-37. Seekers don't share clipboards in hud.
-
-38. Things longer than n lines should be truncated in the hud.
+ > 37. Seekers don't share clipboards in hud.
 
 Prospects:
 
