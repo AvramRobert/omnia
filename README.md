@@ -11,7 +11,7 @@ the actual IDE.
 [Releases](https://github.com/AvramRobert/omnia/releases)
 
 * Add this alias to your shell `rc` file (ex: `~/.bashrc`, `~/.zshrc`): <br />
-`alias omnia="cd </path/to/omnia/jar> java -jar omnia"`
+`alias omnia="cd </path/to/omnia/jar> java -jar omnia-<version>.jar"`
 
 * Restart terminal
 * Run `omnia`
