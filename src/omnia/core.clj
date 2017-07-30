@@ -1,4 +1,5 @@
 (ns omnia.core
+  (:gen-class)
   (require [lanterna.terminal :as t]
            [omnia.repl :as r]
            [omnia.hud :as h]
