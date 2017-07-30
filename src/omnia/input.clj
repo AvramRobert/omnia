@@ -79,9 +79,9 @@
   Returns a new seeker that includes the transformation of `f`."
   (let [[_ y] (:cursor seeker)]
     (rebase seeker #(->> (split-at y %)
-                         (map vec)
+                         (mapv vec)
                          (apply f)
-                         (map vec)))))
+                         (mapv vec)))))
 
 (defn split [seeker f]
   "Morphism: Line => Lines
@@ -98,7 +98,7 @@
   Returns a new seeker that includes the transformation of `f`."
   (let [[x _] (:cursor seeker)]
     (peer seeker (fn [l [line & r]]
-                   (let [lines (->> line (split-at x) (map vec) (apply f))]
+                   (let [lines (->> line (split-at x) (mapv vec) (apply f))]
                      (concat l lines r))))))
 
 (defn slice [seeker f]
