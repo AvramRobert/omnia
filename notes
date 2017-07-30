@@ -190,6 +190,11 @@ Legend:
 
  > 37. Seekers don't share clipboards in hud.
 
+38. Apparently, in the generated `.jar` file, `ritz` either doesn't see or doesn't
+    bother with the current namespace and, as such, doesn't suggest functions
+    that were defined within the repl. If I run the project directly with `lein`,
+    it does however.
+
 Prospects:
 
 - Parenthesis highlighting // done
