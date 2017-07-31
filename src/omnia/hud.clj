@@ -30,6 +30,8 @@
 
 (def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
+(def no-suggestion [i/empty-vec 0])
+
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
 (def delimiter (i/from-string "------"))
@@ -85,7 +87,7 @@
       hud
       hud
       i/empty-seeker
-      [i/empty-vec 0]
+      no-suggestion
       empty-set
       empty-set)))
 
@@ -180,11 +182,11 @@
         upper-y (- h fov ov)
         lower-y (- h ov)
         nov (cond
-              (< y upper-y) (-- h fov y)
-              (> (inc y) lower-y) (-- h (inc y))
-              (= y (dec h)) ov
-              (and (> h fov) (< h ph)) (++ ov (- h ph))
-              (> h fov) (++ ov (- h ph))
+              (< y upper-y) (-- h fov y)                    ;; upper page bound when moving in multi-pages
+              (> (inc y) lower-y) (-- h (inc y))            ;; lower page bound when moving in multi-pages
+              (= y (dec h)) ov                              ;; lower page bound when moving by creating new lines
+              (and (> h fov) (< h ph)) (++ ov (- h ph))     ;; change in size after a reduction in lines
+              (> h fov) (++ ov (- h ph))                    ;; change in size after an enhancement in lines
               :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
@@ -336,26 +338,25 @@
 
 ;; === Events ===
 
-(defn process [ctx stroke]
-  (let [event (match-stroke ctx stroke)]
-    (case (:action event)
-      :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render) (continue))
-      :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
-      :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
-      :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))
-      :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (continue))
-      :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (continue))
-      :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render) (continue))
-      :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render) (continue))
-      :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (continue))
-      :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit) (terminate))
-      (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (continue)))))
+(defn process [ctx event]
+  (case (:action event)
+    :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render) (continue))
+    :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
+    :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
+    :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))
+    :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (continue))
+    :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (continue))
+    :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render) (continue))
+    :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render) (continue))
+    :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (continue))
+    :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit) (terminate))
+    (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (continue))))
 
 (defn iread [ctx]
   (tsk/task (t/get-keystroke-blocking (:terminal ctx))))
 
 (defn ieval [ctx stroke]
-  (tsk/task (process ctx stroke)))
+  (tsk/task (process ctx (match-stroke ctx stroke))))
 
 (defn sleep [msecs]
   (tsk/task (Thread/sleep msecs)))

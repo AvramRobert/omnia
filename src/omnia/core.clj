@@ -4,7 +4,8 @@
            [omnia.repl :as r]
            [omnia.hud :as h]
            [omnia.config :as c]
-           [halfling.task :as tsk])
+           [halfling.task :as tsk]
+           [clojure.string :refer [join]])
   (:import (java.util Calendar)))
 
 (def ^:const dir (System/getProperty "user.dir"))
@@ -21,7 +22,7 @@
     (or message "Unknown message")
     (->> trace
          (mapv #(str "   " (.toString %)))
-         (clojure.string/join "\n"))))
+         (join "\n"))))
 
 (defn failure [result]
   (println)

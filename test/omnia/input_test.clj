@@ -4,57 +4,8 @@
            [clojure.test :refer [is]]
            [clojure.test.check.clojure-test :refer [defspec]]
            [clojure.test.check.properties :refer [for-all]]
-           [clojure.test.check.generators :as gen]))
-
-(defn rand-y [seeker]
-  (-> seeker (i/height) (rand-int)))
-
-(defn rand-x
-  ([seeker]
-   (-> seeker (i/line) (count) (rand-int)))
-  ([seeker y]
-   (-> seeker (i/reset-y y) (i/line) (count) (rand-int))))
-
-(defmacro <=> [this-seeker that-seeker]
-  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
-       (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
-
-(defmacro can-be [val & fs]
-  `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
-
-(defn before? [this-seeker that-seeker]
-  (let [[xt yt] (:cursor this-seeker)
-        [xa ya] (:cursor that-seeker)]
-    (if (= yt ya)
-      (< xt xa)
-      (< yt ya))))
-
-(defn after? [this-seeker that-seeker]
-  (not (before? this-seeker that-seeker)))
-
-(defn there? [this-seeker that-seeker]
-  (= (:cursor this-seeker)
-     (:cursor that-seeker)))
-
-(defn just-one [generator] (rand-nth (gen/sample generator)))
-(defn many
-  ([generator] (many (rand-int 100)))
-  ([generator n] (vec (repeatedly n #(just-one generator)))))
-;; FIXME: more-than combinator?
-
-(def gen-line (->> gen/char-alphanumeric
-                   (gen/vector)
-                   (gen/such-that (comp not empty?))))
-
-(def gen-text (->> gen-line
-                   (gen/vector)
-                   (gen/such-that (comp not empty?))))
-
-(def gen-seeker (->> gen-text
-                     (gen/fmap i/seeker)
-                     (gen/fmap #(let [y (rand-y %)
-                                      x (rand-x % y)]
-                                  (i/move % (fn [_] [x y]))))))
+           [clojure.test.check.generators :as gen]
+           [omnia.test-utils :refer :all]))
 
 (def ^:dynamic *benchmarks* [])
 
@@ -88,6 +39,20 @@
             result-string (bench f n)]
         (println result-string)
         (println))) *benchmarks*))
+
+(defn before? [this-seeker that-seeker]
+  (let [[xt yt] (:cursor this-seeker)
+        [xa ya] (:cursor that-seeker)]
+    (if (= yt ya)
+      (< xt xa)
+      (< yt ya))))
+
+(defn after? [this-seeker that-seeker]
+  (not (before? this-seeker that-seeker)))
+
+(defn there? [this-seeker that-seeker]
+  (= (:cursor this-seeker)
+     (:cursor that-seeker)))
 
 ;; I. Peering
 

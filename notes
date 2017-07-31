@@ -195,6 +195,12 @@ Legend:
        that were defined within the repl. If I run the project directly with `lein`,
        it does however.
 
+39. In the case of a multi-page, where the cursor is at the top and some of
+    the text is obscured by the fov, deleting as much text as to
+    bring the bottom into view leads to rendering artifacts.
+    The a section of the bottom obscured text doesn't get re-rendered when it comes into view.
+    When selecting it (or forcing a total re-render), it appears again.
+
 Prospects:
 
 - Parenthesis highlighting // done
