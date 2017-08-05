@@ -7,14 +7,21 @@ Omnia gives you almost all the power of a fully-fledged IDE, without
 the actual IDE. 
 
 ## Installation
-* Download the latest released jar: <br />
+* Download the latest archived release: <br />
 [Releases](https://github.com/AvramRobert/omnia/releases)
 
-* Add this alias to your shell `rc` file (ex: `~/.bashrc`, `~/.zshrc`): <br />
-`alias omnia="cd </path/to/omnia/jar> java -jar omnia-<version>.jar"`
+* Extract the `.tar` or `.zip` file
 
-* Restart terminal
-* Run `omnia`
+* Make the `omnia` file inside executable
+
+* Run
+
+Additionally, if you want to be able to run it from anywhere:
+* Either add it as an alias to your shell `rc` file (ex: `~/.bashrc`, `~/.zshrc`): <br />
+`alias omnia="</path/to/executable/directory>/omnia"`
+
+* Or create a symlink pointing to the executable: <br />
+`ln -rs <path/to/executable/directory>/omnia /usr/bin/omnia`
 
 ## Features
 
