@@ -179,14 +179,21 @@
           h :height
           [_ y] :cursor} :complete-hud
          {ph :height} :previous-hud} ctx
-        upper-y (- h fov ov)
-        lower-y (- h ov)
+        upper-y (- h fov ov)                                ;; the top viewable y
+        lower-y (dec (- h ov))                              ;; the lower viewable y
+        over-upper? (< y upper-y)
+        over-lower? (> y lower-y)
+        at-lower? (= y lower-y)
+        smaller? (< h ph)
+        larger? (> h ph)
+        unpaged? (< h fov)
+
         nov (cond
-              (< y upper-y) (-- h fov y)                    ;; upper page bound when moving in multi-pages
-              (> (inc y) lower-y) (-- h (inc y))            ;; lower page bound when moving in multi-pages
-              (= y (dec h)) ov                              ;; lower page bound when moving by creating new lines
-              (and (> h fov) (< h ph)) (++ ov (- h ph))     ;; change in size after a reduction in lines
-              (> h fov) (++ ov (- h ph))                    ;; change in size after an enhancement in lines
+              unpaged? ov                                   ;; we've not exceeded the fov
+              (and larger? at-lower?) ov                    ;; we've gotten bigger but we're still at the bottom
+              over-upper? (inc ov)                          ;; we've exceeded the upper bound
+              over-lower? (dec ov)                          ;; we've exceed the lower bound
+              (or larger? smaller?) (++ ov (- h ph))        ;; we've changed in size
               :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)

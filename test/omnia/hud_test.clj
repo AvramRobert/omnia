@@ -43,7 +43,6 @@
             (h/rebase seeker)
             (h/remember)))) (gen-seeker-of size)))
 
-
 ;; I. Calibrating
 
 (defn event [action key]
@@ -54,7 +53,10 @@
 (def left (event :left :left))
 (def right (event :right :right))
 (def select-down (event :select-down :down))
-(def delete (event :delete :delete))
+(def select-up (event :select-up :up))
+(def copy (event :copy \c))
+(def paste (event :paste \v))
+(def backspace (event :backspace :backspace))
 (def enter (event :enter :enter))
 (defn char-key [k] (event :char k))
 
@@ -137,16 +139,16 @@
   (-> (from-start ctx)
       (move-top-fov)
       (process up 2)
-      (can-be #(-> % (process select-down) (process delete) (ov) (= 1))
-              #(-> % (process select-down 2) (process delete) (ov) (= 0))
-              #(-> % (process select-down 3) (process delete) (ov) (= 0)))))
+      (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
+              #(-> % (process select-down 2) (process backspace) (ov) (= 0))
+              #(-> % (process select-down 3) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-end [ctx]
   (-> (from-start ctx)
       (move-end-fov)
       (can-be #(= (ov %) 0)
-              #(-> % (process up) (process select-down) (process delete) (ov) (= 0))
-              #(-> % (process up 2) (process select-down) (process delete) (ov) (= 0)))))
+              #(-> % (process up) (process select-down) (process backspace) (ov) (= 0))
+              #(-> % (process up 2) (process select-down) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-bottom [ctx]
   (-> (from-start ctx)
@@ -154,20 +156,17 @@
       (process up 2)
       (move-bottom-fov)
       (can-be #(= (ov %) 2)
-              #(-> % (process up) (process select-down) (process delete) (ov) (= 1))
-              #(-> % (process up 2) (process select-down 2) (process delete) (ov) (= 0))
-              #(-> % (process select-down) (process delete) (ov) (= 0)))))
+              #(-> % (process up) (process select-down) (process backspace) (ov) (= 1))
+              #(-> % (process up 2) (process select-down 2) (process backspace) (ov) (= 0))
+              #(-> % (process select-down) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-in-multi-line [ctx]
   (-> (from-start ctx)
       (move-top-fov)
       (process up 2)
       (process down 4)
-      (can-be #(-> % (process select-down) (process delete) (ov) (= 1))
-              #(-> % (process select-down 2) (process delete) (ov) (= 0)))))
-
-(defn correct-under-multi-selected-deletion [ctx])
-(defn correct-under-multi-copied-insertion [ctx])
+      (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
+              #(-> % (process select-down 2) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-insertion-top [ctx]
   (-> (move-top-fov ctx)
@@ -175,29 +174,17 @@
               #(-> % (process enter) (process enter) (ov) (= 2)))))
 
 (defn correct-under-insertion-bottom [ctx]
-  "This oscillates between an ov of 2 for even processes of new lines
-  and 3 for uneven ones.
-  This is wrong, it should be incremental"
   (-> (from-end ctx)
       (move-top-fov)
       (process up 2)
       (move-bottom-fov)
-      (process enter)
-      (process enter)
-      (process enter)
-      (process enter)
-      (:complete-hud)
-      ((constantly (is true)))
-      #_(clojure.pprint/pprint )
-      #_(can-be #(= (ov %) 2)
-              #(-> % (process enter) (ov) (= 3))
-              #(-> % (process enter 2) (ov) (= 4)))))
+      (process enter 10)
+      (can-be #(= (ov %) 2))))
 
 (defn correct-under-insertion-end [ctx]
   (-> (move-end-fov ctx)
-      (process enter)
-      (can-be #(= (ov %) 0)
-              #(-> % (process enter) (ov) (= 0)))))
+      (process enter 10)
+      (can-be #(= (ov %) 0))))
 
 (defn correct-under-insertion-in-multi-line [ctx]
   (-> (move-top-fov ctx)
@@ -207,21 +194,38 @@
               #(-> % (process enter) (ov) (= 3))
               #(-> % (process enter 2) (ov) (= 4)))))
 
+(defn correct-under-multi-copied-insertion [ctx]
+  (-> (from-end ctx)
+      (move-top-fov)
+      (process up 2)
+      (move-bottom-fov)
+      (process select-up 2)
+      (process copy)
+      (can-be #(-> % (process paste) (ov) (= 4))
+              #(-> % (process down 2) (process paste) (ov) (= 2)))))
+
+(defn correct-under-multi-selected-deletion [ctx]
+  (-> (from-start ctx)
+      (move-top-fov)
+      (process up 2)
+      (process down 3)
+      (process select-up 2)
+      (process backspace)
+      (can-be #(= (ov %) 0))))
+
 (defn correct-under-change-variance [ctx]
-  "This also oscillates curiously"
-  (-> (move-top-fov ctx)
+  (-> (from-end ctx)
+      (move-top-fov)
       (process up 2)
       (process down 3)
       (process enter)
       (process select-down 2)
-      (process delete)
-      (process enter 7)
-      (:complete-hud)
-      ((constantly (is true)))
-      #_(can-be #(= (ov %) 1)
-              #(-> % (process select-down 2) (process delete) (ov) (= 0))
-              #(-> % (process enter 3) (process select-down 2) (process delete) (ov) (= 1))
-              #_#(-> % (process enter 2) (process select-down 3) (process delete) (ov) (= 0)))))
+      (process backspace)
+      (can-be #(= (ov %) 1)
+              #(-> % (process enter 3) (process select-up 3) (process backspace) (ov) (= 0))
+              #(-> % (process select-down 2) (process backspace) (ov) (= 0))
+              #(-> % (process select-up 2) (process backspace) (ov) (= 0))
+              #(-> % (process enter) (process select-up) (process backspace) (ov) (= 1)))))
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)
@@ -236,10 +240,12 @@
   (correct-under-insertion-bottom ctx)
   (correct-under-insertion-end ctx)
   (correct-under-insertion-in-multi-line ctx)
+  (correct-under-multi-selected-deletion ctx)
+  (correct-under-multi-copied-insertion ctx)
   (correct-under-change-variance ctx))
 
 (defspec calibrating-test
-         1
+         100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
                                       :seeker (just-one (gen-seeker-of 10))})]
@@ -261,6 +267,6 @@
 
 ;; IX. Collecting highlights
 
-;; X. Parens highlighting
+;; X. Parenthesis matching
 
 ;; XI. Rendering
