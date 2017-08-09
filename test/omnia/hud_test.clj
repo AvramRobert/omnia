@@ -58,6 +58,8 @@
 (def paste (event :paste \v))
 (def backspace (event :backspace :backspace))
 (def enter (event :enter :enter))
+(def scroll-up (event :scroll-up :page-up))
+(def scroll-down (event :scroll-down :page-down))
 (defn char-key [k] (event :char k))
 
 (defn process
@@ -69,6 +71,9 @@
 
 (defn ov [ctx]
   (get-in ctx [:complete-hud :ov]))
+
+(defn lor [ctx]
+  (get-in ctx [:complete-hud :lor]))
 
 (defn move-end-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/end))
@@ -252,6 +257,71 @@
                   (calibrating tctx)))
 
 ;; II. Scrolling
+
+(defn scroll-upwards [ctx]
+  (let [fov (get-in ctx [:complete-hud :fov])]
+    (-> ctx
+        (process scroll-up 4)
+        (lor)
+        (= (+ fov 4))
+        (is))))
+
+(defn scroll-downwards [ctx n]
+  (-> ctx
+      (process scroll-up n)
+      (process scroll-down n)
+      (can-be #(= (lor %) (lor ctx)))))
+
+(defn stop-upward-scroll [ctx]
+  (let [h (get-in ctx [:complete-hud :height])]
+    (-> ctx
+        (process scroll-up 100)
+        (lor)
+        (= h)
+        (is))))
+
+(defn stop-downward-scroll [ctx]
+  (-> ctx
+      (process scroll-up 10)
+      (process scroll-down 100)
+      (lor)
+      (= (lor ctx))
+      (is)))
+
+(defn scroll-ending-with-ov [ctx]
+  (let [offset (-> (move-top-fov ctx) (process up 2))
+        ov  (get-in offset [:complete-hud :ov])
+        fov (get-in offset [:complete-hud :fov])]
+    (-> offset
+        (process scroll-up 3)
+        (process scroll-down 5)
+        (lor)
+        (= (+ ov fov))
+        (is))))
+
+(defn scroll-reset [ctx]
+  (let [lor' (get-in ctx [:complete-hud :lor])]
+    (-> ctx
+        (process scroll-up 5)
+        (process (char-key \a))
+        (lor)
+        (= lor')
+        (is))))
+
+(defn scrolling [ctx]
+  (scroll-upwards ctx)
+  (scroll-downwards ctx (just-one gen/pos-int))
+  (stop-upward-scroll ctx)
+  (stop-downward-scroll ctx)
+  (scroll-ending-with-ov ctx)
+  (scroll-reset ctx))
+
+(defspec scrolling-test
+         100
+         (for-all [tctx (gen-context {:size 20
+                                      :fov 7
+                                      :seeker (just-one (gen-seeker-of 10))})]
+                  (scrolling tctx)))
 
 ;; III. Capturing
 

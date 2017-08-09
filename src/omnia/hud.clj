@@ -59,7 +59,7 @@
     (-> seeker
         (i/join i/empty-seeker)
         (assoc :scroll? false)
-        (assoc :lor (i/height seeker))
+        (assoc :lor fov)
         (assoc :fov fov)
         (assoc :ov 0))))
 
