@@ -186,7 +186,7 @@
         at-lower? (= y lower-y)
         smaller? (< h ph)
         larger? (> h ph)
-        unpaged? (< h fov)
+        unpaged? (<= h fov)
 
         nov (cond
               unpaged? ov                                   ;; we've not exceeded the fov
