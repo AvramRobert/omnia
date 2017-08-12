@@ -29,8 +29,9 @@
                      :keymap default-keymap
                      :colourscheme default-colourscheme}))
 
-(defn gen-context [{:keys [size fov seeker]
+(defn gen-context [{:keys [size fov seeker suggestions]
                     :or {fov 10
+                         suggestions i/empty-seeker
                          seeker (:seeker ctx)}}]
   (assert (not (nil? size)) "A context must always have a hud size")
   (gen/fmap
@@ -38,7 +39,8 @@
       (let [hud (h/hud fov hud-seeker)]
         (-> ctx
             (assoc :terminal (test-terminal fov)
-                   :repl (r/repl {:kind :identity})
+                   :repl (-> (r/repl {:kind :identity})
+                             (assoc :complete-f (constantly suggestions)))
                    :seeker seeker
                    :complete-hud hud
                    :persisted-hud hud
@@ -71,6 +73,7 @@
 (def prev-eval (event :prev-eval :up))
 (def next-eval (event :next-eval :down))
 (def parens-match (event :highlight \p))
+(def suggest (event :suggest :tab))
 
 (defn process
   ([ctx event]
@@ -110,6 +113,9 @@
 
 (defn cursor [ctx]
   (get-in ctx [:complete-hud :cursor]))
+
+(defn suggestions [ctx]
+  ((get-in ctx [:repl :complete-f])))
 
 (defn move-end-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/end))
@@ -472,6 +478,67 @@
                   (rolling-forward tctx)))
 
 ;; VIII. Suggesting
+
+(defn suggestion-page [ctx]
+  (let [suggestions (-> (suggestions ctx)
+                        (i/rebase #(take 10 %))
+                        (i/join h/continuation)
+                        (i/rebase #(mapv (partial cons \space) %))
+                        (i/join-many h/delimiter)
+                        (->> (i/join h/delimiter)))]
+    (-> (move-end-fov ctx)
+        (process suggest)
+        (:complete-hud)
+        (i/rebase #(take-last 13 %))
+        (<=> suggestions))))
+
+(defn suggestion-riffle [ctx]
+  (let [suggestions (suggestions ctx)
+        suggestion-at (fn [th] (-> (i/reset-y suggestions th)
+                                   (i/start-x)
+                                   (i/slicer #(cons \space %))
+                                   (i/line)))]
+    (-> (move-end-fov ctx)
+        (can-be #(-> % (process suggest) (:complete-hud) (i/line) (= (suggestion-at 0))) ;; starts from 0
+                #(-> % (process suggest 4) (:complete-hud) (i/line) (= (suggestion-at 3)))
+                #(-> % (process suggest 11) (:complete-hud) (i/line) (= (suggestion-at 10)))
+                #(-> % (process suggest 13) (:complete-hud) (i/line) (= (suggestion-at 0)))
+                #(-> % (process suggest 14) (:complete-hud) (i/line) (= (suggestion-at 1)))))))
+
+(defn suggestion-override [ctx]
+  (let [suggestions (suggestions ctx)
+        suggestion-at (fn [th] (-> (i/reset-y suggestions th) (i/line)))
+        end (move-end-fov ctx)
+        replaced-point (cursor end)]
+    (can-be end
+            #(-> % (process suggest) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 0)))
+            #(-> % (process suggest 4) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 3)))
+            #(-> % (process suggest 11) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 10)))
+            #(-> % (process suggest 13) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 0)))
+            #(-> % (process suggest 14) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 1))))))
+
+(defn suggestion-with-calibration [ctx]
+  (-> (move-top-fov ctx)
+      (process up 2)
+      (can-be #(-> % (process suggest) (ov) (= 2))
+              #(-> % (process down 3) (process suggest) (ov) (= 2))
+              #(-> (move-bottom-fov %) (process suggest) (ov) (= 2))
+              #(-> (move-bottom-fov %) (process down) (process suggest) (ov) (= 1)))))
+
+;; FIXME: Add some test and handler for when the suggestion window > fov?
+(defn suggesting [ctx]
+  (suggestion-page ctx)
+  (suggestion-riffle ctx)
+  (suggestion-override ctx)
+  (suggestion-with-calibration ctx))
+
+(defspec suggesting-test
+         100
+         (for-all [tctx (gen-context {:size 20
+                                      :fov 15
+                                      :suggestions (just-one (gen-seeker-of 12))
+                                      :seeker (just-one (gen-seeker-of 17))})]
+                  (suggesting tctx)))
 
 ;; IX. Highlighting
 
