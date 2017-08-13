@@ -37,7 +37,7 @@
    :enter             {:key :enter}})
 
 (def hud-keymap
-  {:highlight   {:key \p :ctrl true}
+  {:match       {:key \p :ctrl true}
    :suggest     {:key :tab}
    :scroll-up   {:key :page-up}
    :scroll-down {:key :page-down}

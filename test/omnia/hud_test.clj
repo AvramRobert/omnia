@@ -72,7 +72,7 @@
 (def evaluate (event :eval \e))
 (def prev-eval (event :prev-eval :up))
 (def next-eval (event :next-eval :down))
-(def parens-match (event :highlight \p))
+(def parens-match (event :match \p))
 (def suggest (event :suggest :tab))
 
 (defn process

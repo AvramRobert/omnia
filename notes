@@ -145,9 +145,9 @@ Legend:
        Because formatted seekers essentially have more than raw ones, discrepancies between cursor
        positions can occur.
 
-30. Calibration normalises ov in a rather ad-hoc manner, which I don't know if it always works.
-    Think about and add more concrete guards for the top and bottom of the page, that more
-    accurately and invariantly detect page movement.
+ > 30. Calibration normalises ov in a rather ad-hoc manner, which I don't know if it always works.
+       Think about and add more concrete guards for the top and bottom of the page, that more
+       accurately and invariantly detect page movement.
 
  > 31. Errors are not reported anywhere.
        If something wrong happens internally, this has to be written into an error log.
@@ -206,7 +206,7 @@ Prospects:
 - Parenthesis highlighting // done
 - Input configuration // done
 - REPL sessions // done
-- Tests for input and hud
+- Tests for input and hud // done
 - Parametricity and arity lookup
 - Move to unrepl and unravel?
 - I-search

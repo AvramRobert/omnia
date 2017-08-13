@@ -149,7 +149,7 @@
   (assoc ctx :highlights empty-set
              :garbage (:highlights ctx)))
 
-(defn parens-highlight [ctx]
+(defn matching [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
     (update ctx :highlights
@@ -347,7 +347,7 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :highlight (-> ctx (gc) (resize) (scroll-stop) (deselect) (parens-highlight) (re-render) (continue))
+    :match (-> ctx (gc) (resize) (scroll-stop) (deselect) (matching) (re-render) (continue))
     :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
     :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
     :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))

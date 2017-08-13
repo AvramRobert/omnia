@@ -10,11 +10,11 @@
 (def ^:const chr :char)
 (def ^:const nr :number)
 (def ^:const cmt :comment)
-(def ^:const std :standard)
-(def ^:const std* :standard*)
+(def ^:const txt :text)
+(def ^:const txt* :txt*)
 (def ^:const slc-bg :selection)
 
-(def ^:const s0 std)
+(def ^:const s0 txt)
 
 (def syntax-colourscheme
   {lst :white
@@ -26,7 +26,7 @@
    chr :green
    nr  :blue
    cmt :magenta
-   std :white})
+   txt :white})
 
 (def ops-colourscheme
   {slc-bg :blue})
@@ -75,102 +75,102 @@
                   (reduce concat)))))))
 
 (deftrans ->comment
-          ->break? [std cmt]
+          ->break? [txt cmt]
           :else [cmt cmt])
 
 (deftrans ->standard
-          ->reset? [std std]
+          ->reset? [txt txt]
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
           ->keyword? [kwd kwd]
           ->string? [stg stg]
           ->char? [chr chr]
           ->number? [nr nr]
-          :else [std* std])
+          :else [txt* txt])
 
 (deftrans ->standard*
-          ->reset? [std std]
+          ->reset? [txt txt]
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
           ->string? [stg stg]
           ->char? [chr chr]
-          :else [std* std])
+          :else [txt* txt])
 
 (deftrans ->function
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
           ->keyword? [kwd kwd]
           ->number? [nr nr]
           ->char? [chr chr]
           ->string? [stg stg]
-          ->reset? [std std]
+          ->reset? [txt txt]
           :else [fnc* fnc])
 
 (deftrans ->function*
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
-          ->reset? [std std]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
+          ->reset? [txt txt]
           :else [fnc* fnc])
 
 (deftrans ->keyword
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
-          ->reset? [std std]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
+          ->reset? [txt txt]
           :else [kwd kwd])
 
 (deftrans ->string
-          ->string? [std stg]
+          ->string? [txt stg]
           :else [stg stg])
 
 (deftrans ->character
-          ->reset? [std std]
+          ->reset? [txt txt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
           :else [chr chr])
 
 (deftrans ->number
           ->comment? [cmt cmt]
           ->start-list? [fnc lst]
-          ->end-list? [std lst]
-          ->start-vector? [std vct]
-          ->end-vector? [std vct]
-          ->start-map? [std hmp]
-          ->end-map? [std hmp]
+          ->end-list? [txt lst]
+          ->start-vector? [txt vct]
+          ->end-vector? [txt vct]
+          ->start-map? [txt hmp]
+          ->end-map? [txt hmp]
           ->number? [nr nr]
           ->decimal? [nr nr]
-          :else [std std])
+          :else [txt txt])
 
-(def state-machine {std  ->standard
-                    std* ->standard*
+(def state-machine {txt  ->standard
+                    txt* ->standard*
                     fnc  ->function
                     fnc* ->function*
                     kwd  ->keyword
