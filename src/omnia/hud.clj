@@ -186,14 +186,14 @@
         at-lower? (= y lower-y)
         smaller? (< h ph)
         larger? (> h ph)
-        unpaged? (<= h fov)
-
+        unpaged? (and (<= h fov)
+                      (<= ph fov))
         nov (cond
               unpaged? ov                                   ;; we've not exceeded the fov
               (and larger? at-lower?) ov                    ;; we've gotten bigger but we're still at the bottom
+              (or larger? smaller?) (++ ov (- h ph))        ;; we've changed in size
               over-upper? (inc ov)                          ;; we've exceeded the upper bound
               over-lower? (dec ov)                          ;; we've exceed the lower bound
-              (or larger? smaller?) (++ ov (- h ph))        ;; we've changed in size
               :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)

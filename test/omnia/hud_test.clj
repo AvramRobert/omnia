@@ -156,8 +156,7 @@
   (-> (move-top-fov ctx)
       (can-be #(-> % (process up) (ov) (= 1))
               #(-> % (process up 2) (ov) (= 2))
-              #(-> % (process up 3) (ov) (= 3))
-              #(-> % (process up 4) (ov) (= 3)))))
+              #(-> % (process up 3) (ov) (= 2)))))
 
 (defn exceed-lower-bound [ctx]
   (-> (move-top-fov ctx)
@@ -204,6 +203,7 @@
       (move-bottom-fov)
       (can-be #(= (ov %) 2)
               #(-> % (process up) (process select-down) (process backspace) (ov) (= 1))
+              #(-> % (process select-up) (process backspace) (ov) (= 1))
               #(-> % (process up 2) (process select-down 2) (process backspace) (ov) (= 0))
               #(-> % (process select-down) (process backspace) (ov) (= 0)))))
 
@@ -269,10 +269,18 @@
       (process select-down 2)
       (process backspace)
       (can-be #(= (ov %) 1)
-              #(-> % (process enter 3) (process select-up 3) (process backspace) (ov) (= 0))
+              #(-> % (process enter 3) (process select-up 3) (process backspace) (ov) (= 1))
               #(-> % (process select-down 2) (process backspace) (ov) (= 0))
               #(-> % (process select-up 2) (process backspace) (ov) (= 0))
               #(-> % (process enter) (process select-up) (process backspace) (ov) (= 1)))))
+
+(defn correct-under-rebounded-deletion [ctx]
+  (-> (from-end ctx)
+      (move-top-fov)
+      (process up 2)
+      (process select-down 10)
+      (process backspace)
+      (can-be #(= (ov %) 0))))
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)
@@ -289,13 +297,14 @@
   (correct-under-insertion-in-multi-line ctx)
   (correct-under-multi-selected-deletion ctx)
   (correct-under-multi-copied-insertion ctx)
-  (correct-under-change-variance ctx))
+  (correct-under-change-variance ctx)
+  (correct-under-rebounded-deletion ctx))
 
 (defspec calibrating-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+         (for-all [tctx (gen-context {:size 5
+                                      :fov 27
+                                      :seeker (just-one (gen-seeker-of 29))})]
                   (calibrating tctx)))
 
 ;; II. Scrolling
@@ -751,3 +760,48 @@
                                       :fov 7
                                       :seeker (just-one (gen-seeker-of 10))})]
                   (selection-projection tctx)))
+
+;; ---- OTHER DATA ----
+
+(def test-seeker (i/end
+                   (i/seeker [[\a]
+                              [\b]
+                              [\c]
+                              [\d]
+                              [\e]
+                              [\f]
+                              [\g]
+                              [\h]
+                              [\i]
+                              [\j]
+                              [\k]
+                              [\l]
+                              [\m]
+                              [\n]
+                              [\o]
+                              [\p]
+                              [\q]
+                              [\r]
+                              [\s]
+                              [\t]
+                              [\u]
+                              [\v]
+                              [\w]
+                              [\x]
+                              [\y]
+                              [\z]
+                              [\i \t \s \y]
+                              [\b \i \t \s \y]
+                              [\s \p \i \d \e \r]])))
+
+(def real-ctx (-> ctx
+                  (assoc :terminal (test-terminal 27))
+                  (update :complete-hud #(-> (i/join % test-seeker)
+                                             (assoc :fov 27
+                                                    :lor 27)))
+                  (update :previous-hud #(-> (i/join % test-seeker)
+                                             (assoc :fov 27
+                                                    :lor 27)))
+                  (update :persisted-hud #(-> (assoc % :fov 27
+                                                       :lor 27)))
+                  (assoc :seeker test-seeker)))
