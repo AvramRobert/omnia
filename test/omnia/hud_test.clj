@@ -761,47 +761,47 @@
                                       :seeker (just-one (gen-seeker-of 10))})]
                   (selection-projection tctx)))
 
-;; ---- OTHER DATA ----
+;; ---- STATIC DATA ----
 
-(def test-seeker (i/end
-                   (i/seeker [[\a]
-                              [\b]
-                              [\c]
-                              [\d]
-                              [\e]
-                              [\f]
-                              [\g]
-                              [\h]
-                              [\i]
-                              [\j]
-                              [\k]
-                              [\l]
-                              [\m]
-                              [\n]
-                              [\o]
-                              [\p]
-                              [\q]
-                              [\r]
-                              [\s]
-                              [\t]
-                              [\u]
-                              [\v]
-                              [\w]
-                              [\x]
-                              [\y]
-                              [\z]
-                              [\i \t \s \y]
-                              [\b \i \t \s \y]
-                              [\s \p \i \d \e \r]])))
+(def static-seeker (i/end
+                     (i/seeker [[\a]
+                                [\b]
+                                [\c]
+                                [\d]
+                                [\e]
+                                [\f]
+                                [\g]
+                                [\h]
+                                [\i]
+                                [\j]
+                                [\k]
+                                [\l]
+                                [\m]
+                                [\n]
+                                [\o]
+                                [\p]
+                                [\q]
+                                [\r]
+                                [\s]
+                                [\t]
+                                [\u]
+                                [\v]
+                                [\w]
+                                [\x]
+                                [\y]
+                                [\z]
+                                [\i \t \s \y]
+                                [\b \i \t \s \y]
+                                [\s \p \i \d \e \r]])))
 
-(def real-ctx (-> ctx
-                  (assoc :terminal (test-terminal 27))
-                  (update :complete-hud #(-> (i/join % test-seeker)
-                                             (assoc :fov 27
-                                                    :lor 27)))
-                  (update :previous-hud #(-> (i/join % test-seeker)
-                                             (assoc :fov 27
-                                                    :lor 27)))
-                  (update :persisted-hud #(-> (assoc % :fov 27
-                                                       :lor 27)))
-                  (assoc :seeker test-seeker)))
+(def static-ctx (-> ctx
+                    (assoc :terminal (test-terminal 27))
+                    (update :complete-hud #(-> (i/join % test-seeker)
+                                               (assoc :fov 27
+                                                      :lor 27)))
+                    (update :previous-hud #(-> (i/join % test-seeker)
+                                               (assoc :fov 27
+                                                      :lor 27)))
+                    (update :persisted-hud #(-> (assoc % :fov 27
+                                                         :lor 27)))
+                    (assoc :seeker test-seeker)))
