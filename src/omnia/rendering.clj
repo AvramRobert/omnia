@@ -60,7 +60,7 @@
       (i/rebase hud #(->> % (take-right lor) (take fov)))
       (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
 
-(defn- when-unscrolled [ctx f]
+(defn- when-unpaged [ctx f]
   (let [{terminal :terminal
          complete :complete-hud
          previous :previous-hud} ctx
@@ -146,8 +146,8 @@
 
 (defn diff! [ctx]
   (let [cs (:colourscheme ctx)]
-    (when-unscrolled ctx
-                     (fn [terminal current former]
+    (when-unpaged ctx
+                  (fn [terminal current former]
                        (->> (:lines former)
                             (zip-all (:lines current))
                             (map-indexed (fn [idx paired] (conj paired idx)))
@@ -156,7 +156,7 @@
                             (run! (fn [[line y]] (print-row! y terminal line cs))))))))
 
 (defn nothing! [ctx]
-  (when-unscrolled ctx (fn [_ _ _] ())))
+  (when-unpaged ctx (fn [_ _ _] ())))
 
 (defn render [ctx]
   (let [{terminal :terminal

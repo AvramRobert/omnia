@@ -5,7 +5,7 @@
            [omnia.rendering :refer [render]]
            [omnia.repl :as r]
            [omnia.input :as i]
-           [omnia.config :refer [match-stroke with-features]]
+           [omnia.config :refer [with-features keymap]]
            [clojure.core.match :as m]
            [omnia.formatting :as f]
            [omnia.highlight :refer [default-colourscheme]]
@@ -149,7 +149,7 @@
   (assoc ctx :highlights empty-set
              :garbage (:highlights ctx)))
 
-(defn matching [ctx]
+(defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
     (update ctx :highlights
@@ -258,7 +258,8 @@
 (defn roll [ctx f]
   (let [then-repl   (-> ctx :repl f)
         then-seeker (r/then then-repl)]
-    (-> (rebase ctx then-seeker)
+    (-> (remember ctx)
+        (rebase then-seeker)
         (seek then-seeker)
         (assoc :repl then-repl))))
 
@@ -347,17 +348,24 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :match (-> ctx (gc) (resize) (scroll-stop) (deselect) (matching) (re-render) (continue))
+    :match (-> ctx (gc) (resize) (scroll-stop) (deselect) (match) (re-render) (continue))
     :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
     :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
     :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))
-    :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (continue))
-    :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (continue))
+    :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (calibrate) (highlight) (scroll-stop) (re-render) (continue))
+    :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (calibrate) (highlight) (scroll-stop) (re-render) (continue))
     :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render) (continue))
     :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render) (continue))
     :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (continue))
     :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit) (terminate))
     (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (continue))))
+
+(defn match-stroke [ctx stroke]
+  (letfn [(char-key? [stroke] (char? (:key stroke)))]
+    (m/match [(-> (get ctx keymap) (get stroke))]
+             [nil :guard (constantly (char-key? stroke))] (i/->Event :char (:key stroke))
+             [nil] (i/->Event :none (:key stroke))
+             [action] (i/->Event action (:key stroke)))))
 
 (defn iread [ctx]
   (tsk/task (t/get-keystroke-blocking (:terminal ctx))))

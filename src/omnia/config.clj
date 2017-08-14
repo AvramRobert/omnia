@@ -1,6 +1,5 @@
 (ns omnia.config
-  (require [omnia.input :refer [->Event]]
-           [omnia.more :refer [map-vals gulp-or-else]]
+  (require [omnia.more :refer [map-vals gulp-or-else]]
            [clojure.string :refer [join]]
            [halfling.result :refer [success failure]]
            [omnia.highlight :refer [default-colourscheme no-colourscheme]]
@@ -58,7 +57,7 @@
    colourscheme default-colourscheme})
 
 (defn failed [msg cause]
-  (throw (new Exception (str msg "\n" cause))))
+  (throw (Exception. (str msg "\n" cause))))
 
 (defn validate [config]
   (letfn [(report! [errs]
@@ -91,13 +90,6 @@
           (not (get config suggestions)) (update keymap #(dissoc % :suggest))
           (get config highlighting) (update colourscheme #(or % default-colourscheme))
           :always (update keymap (comp map-invert normalise))))
-
-(defn match-stroke [config stroke]
-  (letfn [(char-key? [stroke] (char? (:key stroke)))]
-    (m/match [(-> (get config keymap) (get stroke))]
-             [nil :guard (constantly (char-key? stroke))] (->Event :char (:key stroke))
-             [nil] (->Event :none (:key stroke))
-             [action] (->Event action (:key stroke)))))
 
 (defn read-config [path]
   (task

@@ -156,9 +156,10 @@ Legend:
        Don't capture errors in the hud and display them, but rather propagate them to `core`,
        print that something wrong happened, publish error and then exit.
 
-32. Test `can-be` macro doesn't display the compared values, which leads to confusion when
-    trying to find out what went wrong.
-    Try to make the macro pre-evaluate the values and display them appropriately.
+ | 32. Test `can-be` macro doesn't display the compared values, which leads to confusion when
+       trying to find out what went wrong.
+       Try to make the macro pre-evaluate the values and display them appropriately.
+       (Can't necessarily improve)
 
  > 33. Extraction seems to be very inefficient. In the tests, it takes quite a lot of time.
        I believe it is due to the fact, that it sequentially deletes everything around
@@ -195,11 +196,17 @@ Legend:
        that were defined within the repl. If I run the project directly with `lein`,
        it does however.
 
-39. In the case of a multi-page, where the cursor is at the top and some of
-    the text is obscured by the fov, deleting as much text as to
-    bring the bottom into view leads to rendering artifacts.
-    The a section of the bottom obscured text doesn't get re-rendered when it comes into view.
-    When selecting it (or forcing a total re-render), it appears again.
+ > 39. In the case of a multi-page, where the cursor is at the top and some of
+       the text is obscured by the fov, deleting as much text as to
+       bring the bottom into view leads to rendering artifacts.
+       The a section of the bottom obscured text doesn't get re-rendered when it comes into view.
+       When selecting it (or forcing a total re-render), it appears again.
+
+ > 40. Changes from the repl history don't get calibrated.
+
+41. There seems to be a problem when reading from history.
+    Do a bunch a println's in an expression, evaluate, exit and then restart reading from history.
+    Error: omnia.input.Seeker cannot be cast to java.lang.Number
 
 Prospects:
 
@@ -207,13 +214,13 @@ Prospects:
 - Input configuration // done
 - REPL sessions // done
 - Tests for input and hud // done
+- Look-ahead syntax highlighter
+- Undo and redo
 - Parametricity and arity lookup
-- Move to unrepl and unravel?
 - I-search
 - Refactor and reuse
+- Move to unrepl and unravel?
 - Documentation
 - ClojureDoc support
 - More efficient seeker
 - Command mode (with input filtering)
-
-
