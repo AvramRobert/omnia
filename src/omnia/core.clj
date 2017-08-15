@@ -59,7 +59,6 @@
   (tsk/do-tasks
     [config (c/read-config (config-path dir))
      history (r/read-history (history-path dir))
-     _ (omnia.more/debug history)
      terminal (t/get-terminal :text)
      repl (r/repl {:kind    :local
                    :history history
