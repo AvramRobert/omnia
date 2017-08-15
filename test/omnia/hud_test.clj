@@ -29,9 +29,10 @@
                      :keymap default-keymap
                      :colourscheme default-colourscheme}))
 
-(defn gen-context [{:keys [size fov seeker suggestions]
+(defn gen-context [{:keys [size fov seeker suggestions history]
                     :or {fov 10
                          suggestions i/empty-seeker
+                         history []
                          seeker (:seeker ctx)}}]
   (assert (not (nil? size)) "A context must always have a hud size")
   (gen/fmap
@@ -39,7 +40,8 @@
       (let [hud (h/hud fov hud-seeker)]
         (-> ctx
             (assoc :terminal (test-terminal fov)
-                   :repl (-> (r/repl {:kind :identity})
+                   :repl (-> (r/repl {:kind :identity
+                                      :history history})
                              (assoc :complete-f (constantly suggestions)))
                    :seeker seeker
                    :complete-hud hud
@@ -458,9 +460,10 @@
 
 (defspec rolling-back-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+         (for-all [tctx (gen-context {:size 5
+                                      :fov 27
+                                      :history [(just-one (gen-seeker-of 32))]
+                                      :seeker (just-one (gen-seeker-of 29))})]
                   (rolling-back tctx)))
 
 ;; VII. Rolling forward
@@ -796,12 +799,12 @@
 
 (def static-ctx (-> ctx
                     (assoc :terminal (test-terminal 27))
-                    (update :complete-hud #(-> (i/join % test-seeker)
+                    (update :complete-hud #(-> (i/join % static-seeker)
                                                (assoc :fov 27
                                                       :lor 27)))
-                    (update :previous-hud #(-> (i/join % test-seeker)
+                    (update :previous-hud #(-> (i/join % static-seeker)
                                                (assoc :fov 27
                                                       :lor 27)))
                     (update :persisted-hud #(-> (assoc % :fov 27
                                                          :lor 27)))
-                    (assoc :seeker test-seeker)))
+                    (assoc :seeker static-seeker)))

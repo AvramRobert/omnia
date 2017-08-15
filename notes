@@ -204,9 +204,11 @@ Legend:
 
  > 40. Changes from the repl history don't get calibrated.
 
-41. There seems to be a problem when reading from history.
-    Do a bunch a println's in an expression, evaluate, exit and then restart reading from history.
-    Error: omnia.input.Seeker cannot be cast to java.lang.Number
+ > 41. There seems to be a problem when reading from history.
+       Do a bunch a println's in an expression, evaluate, exit and then restart reading from history.
+       Error: omnia.input.Seeker cannot be cast to java.lang.Number
+
+42. Calibration seems to not be working when going through the repl history
 
 Prospects:
 

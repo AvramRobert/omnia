@@ -139,7 +139,7 @@
 
 (defn- repl-with [eval-f complete-f stop-f history ns]
   (let [hsize (count history)]
-    (REPL. eval-f complete-f stop-f history hsize hsize i/empty-seeker ns)))
+    (REPL. eval-f complete-f stop-f history hsize ns hsize i/empty-seeker)))
 
 (defn repl [{:as   params
              :keys [kind port host timeout history ns]

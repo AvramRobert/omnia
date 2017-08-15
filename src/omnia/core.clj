@@ -29,7 +29,7 @@
     [""
      "-----"
      "I don't have the heart to tell you.. but something went wrong internally"
-     "Take a look at ~/%s for a complete trace of the error"
+     (format "Take a look at ~/%s for a complete trace of the error" error-path)
      (format "Message: %s" (:message result))
      "-----"
      ""]
@@ -59,6 +59,7 @@
   (tsk/do-tasks
     [config (c/read-config (config-path dir))
      history (r/read-history (history-path dir))
+     _ (omnia.more/debug history)
      terminal (t/get-terminal :text)
      repl (r/repl {:kind    :local
                    :history history
