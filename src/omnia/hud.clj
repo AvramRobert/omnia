@@ -257,7 +257,7 @@
 
 (defn roll [ctx f]
   (let [then-repl   (-> ctx :repl f)
-        then-seeker (r/then then-repl)]
+        then-seeker (i/end (r/then then-repl))]
     (-> (remember ctx)
         (rebase then-seeker)
         (seek then-seeker)
@@ -352,8 +352,8 @@
     :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
     :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
     :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))
-    :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (calibrate) (highlight) (scroll-stop) (re-render) (continue))
-    :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (calibrate) (highlight) (scroll-stop) (re-render) (continue))
+    :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (continue))
+    :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (continue))
     :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render) (continue))
     :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render) (continue))
     :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (continue))

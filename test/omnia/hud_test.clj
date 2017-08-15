@@ -119,6 +119,9 @@
 (defn suggestions [ctx]
   ((get-in ctx [:repl :complete-f])))
 
+(defn history [ctx]
+  (get-in ctx [:repl :history]))
+
 (defn move-end-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/end))
        (h/rebase)
@@ -448,15 +451,15 @@
 
 ;; VI. Rolling back
 
-(defn roll-rebase [ctx]
-  (-> ctx
-      (process evaluate)
-      (process prev-eval)
-      (can-be #(<=> % ctx)
-              #(-> % (process prev-eval 10) (<=> ctx)))))
+(defn roll-rebase-remember-back [ctx]
+  (let [hist (history ctx)]
+    (-> ctx
+        (process prev-eval)
+        (can-be #(<=> (:previous-hud %) (:complete-hud ctx))
+                #(<=> (:seeker %) (first hist))))))
 
 (defn rolling-back [ctx]
-  (roll-rebase ctx))
+  (roll-rebase-remember-back ctx))
 
 (defspec rolling-back-test
          100
@@ -468,25 +471,25 @@
 
 ;; VII. Rolling forward
 
-(defn roll-rebase [ctx]
-  (letfn [(add-row [c] (process c (char-key \a) 10))]
-    (-> ctx
-        (process evaluate)
-        (add-row)
-        (process evaluate)
-        (process prev-eval)
-        (process next-eval)
-        (can-be #(<=> % (add-row ctx))
-                #(-> % (process next-eval 10) (<=> add-row))))))
+(defn roll-rebase-remember-forward [ctx]
+  (-> ctx
+      (process evaluate)
+      (process prev-eval)
+      (process prev-eval)
+      (process next-eval)
+      (can-be
+        #(<=> (:seeker %) (:seeker ctx))
+        #(-> % (process next-eval) (:previous-hud) (<=> (:complete-hud %))))))
 
 (defn rolling-forward [ctx]
-  (roll-rebase ctx))
+  (roll-rebase-remember-forward ctx))
 
 (defspec rolling-forward-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+         (for-all [tctx (gen-context {:size 5
+                                      :fov 27
+                                      :history [(just-one (gen-seeker-of 32))]
+                                      :seeker (just-one (gen-seeker-of 29))})]
                   (rolling-forward tctx)))
 
 ;; VIII. Suggesting
