@@ -56,10 +56,10 @@
    keymap       default-keymap
    colourscheme default-colourscheme})
 
-(defn failed [msg cause]
+(defn- failed [msg cause]
   (throw (Exception. (str msg "\n" cause))))
 
-(defn validate [config]
+(defn- validate [config]
   (letfn [(report! [errs]
             (if (empty? errs)
               config
@@ -76,12 +76,30 @@
 
          (report!))))
 
-(defn normalise [config]
+(defn- normalise [config]
   (map-vals
     #(merge {:key   :none
              :ctrl  false
              :shift false
              :alt   false} %) config))
+
+(defn- patch-with [patcher patchee]
+  (reduce
+    (fn [c [k v]]
+      (if (contains? c k) c (assoc c k v)))
+    patchee patcher))
+
+(defn- patch [config]
+  (-> config
+      (update colourscheme (partial patch-with default-colourscheme))
+      (update keymap (partial patch-with default-keymap))))
+
+(defn read-config [path]
+  (task
+    (-> path
+        (gulp-or-else default-config)
+        (validate)
+        (patch))))
 
 (defn with-features [config]
   (cond-> config
@@ -90,9 +108,3 @@
           (not (get config suggestions)) (update keymap #(dissoc % :suggest))
           (get config highlighting) (update colourscheme #(or % default-colourscheme))
           :always (update keymap (comp map-invert normalise))))
-
-(defn read-config [path]
-  (task
-    (-> path
-        (gulp-or-else default-config)
-        (validate))))

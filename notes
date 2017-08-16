@@ -216,6 +216,7 @@ Prospects:
 - Tests for input and hud // done
 - Look-ahead syntax highlighter
 - Undo and redo
+- Extensive validation, sane defaults and/or reporting for user config
 - Parametricity and arity lookup
 - I-search
 - Refactor and reuse

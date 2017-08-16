@@ -1,4 +1,5 @@
-(ns omnia.highlight)
+(ns omnia.highlight
+  (require [omnia.more :refer [map-vals]]))
 
 (def ^:const fnc :function)
 (def ^:const fnc* :function*)
@@ -34,7 +35,9 @@
 (def default-colourscheme
   (merge syntax-colourscheme ops-colourscheme))
 
-(def no-colourscheme ops-colourscheme)
+(def no-colourscheme (->> syntax-colourscheme
+                          (map-vals (constantly :white))
+                          (merge ops-colourscheme)))
 
 (defn ->start-list? [c] (= c \())
 (defn ->end-list? [c] (= c \)))

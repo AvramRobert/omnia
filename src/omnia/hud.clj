@@ -360,9 +360,9 @@
     :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit) (terminate))
     (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (continue))))
 
-(defn match-stroke [ctx stroke]
+(defn match-stroke [{:keys [keymap]} stroke]
   (letfn [(char-key? [stroke] (char? (:key stroke)))]
-    (m/match [(-> (get ctx keymap) (get stroke))]
+    (m/match [(get keymap stroke)]
              [nil :guard (constantly (char-key? stroke))] (i/->Event :char (:key stroke))
              [nil] (i/->Event :none (:key stroke))
              [action] (i/->Event action (:key stroke)))))
