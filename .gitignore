@@ -11,7 +11,7 @@ pom.xml.asc
 .hg/
 .idea/
 *.iml
-.omnia.history
-.omnia.error
+*.history
+*.error
 omnia.edn
 debug

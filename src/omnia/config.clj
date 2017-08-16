@@ -98,8 +98,8 @@
   (task
     (-> path
         (gulp-or-else default-config)
-        (validate)
-        (patch))))
+        (patch)
+        (validate))))
 
 (defn with-features [config]
   (cond-> config
