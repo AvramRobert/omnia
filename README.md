@@ -38,7 +38,7 @@ Bug reports can be submitted as issues here on github.
 **Note**: The REPL has a built-in failure-handling system and spits 
 out a stack-trace dump when it crashes. 
 Should it, for some reason, crash for you, then in the same directory
-as the `.jar` file, you shall find a file named
+where you ran `omnia`, you shall find a file named
 `.omnia.error` containing the said stack-trace dump. <br />
 Should you decide to report the crash, I would very much appreciate if you would, 
 together with a short description of the actions performed before the crash, also
