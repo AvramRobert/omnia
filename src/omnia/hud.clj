@@ -8,7 +8,6 @@
            [omnia.config :refer [with-features keymap]]
            [clojure.core.match :as m]
            [omnia.formatting :as f]
-           [omnia.highlight :refer [default-colourscheme]]
            [omnia.more :refer [-- ++ inc< dec< mod*]])
   (:import (halfling.result Result)))
 

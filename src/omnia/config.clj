@@ -1,11 +1,9 @@
 (ns omnia.config
   (require [omnia.more :refer [map-vals gulp-or-else]]
            [clojure.string :refer [join]]
-           [halfling.result :refer [success failure]]
-           [omnia.highlight :refer [default-colourscheme no-colourscheme]]
+           [omnia.highlight :refer [default-cs default-selection-cs]]
            [clojure.set :refer [map-invert]]
-           [halfling.task :refer [task]]
-           [clojure.core.match :as m]))
+           [halfling.task :refer [task]]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)
@@ -54,12 +52,12 @@
    scrolling    true
    suggestions  true
    keymap       default-keymap
-   colourscheme default-colourscheme})
+   colourscheme default-cs})
 
 (defn- failed [msg cause]
   (throw (Exception. (str msg "\n" cause))))
 
-(defn- validate [config]
+(defn validate [config]
   (letfn [(report! [errs]
             (if (empty? errs)
               config
@@ -83,7 +81,7 @@
              :shift false
              :alt   false} %) config))
 
-(defn- patch-with [patcher patchee]
+(defn patch-with [patcher patchee]
   (reduce
     (fn [c [k v]]
       (if (contains? c k) c (assoc c k v)))
@@ -91,7 +89,7 @@
 
 (defn- patch [config]
   (-> config
-      (update colourscheme (partial patch-with default-colourscheme))
+      (update colourscheme (partial patch-with default-cs))
       (update keymap (partial patch-with default-keymap))))
 
 (defn read-config [path]
@@ -103,8 +101,7 @@
 
 (defn with-features [config]
   (cond-> config
-          (not (get config highlighting)) (assoc colourscheme no-colourscheme)
+          (not (get config highlighting)) (assoc colourscheme default-selection-cs)
           (not (get config scrolling)) (update keymap #(dissoc % :scroll-up :scroll-down))
           (not (get config suggestions)) (update keymap #(dissoc % :suggest))
-          (get config highlighting) (update colourscheme #(or % default-colourscheme))
           :always (update keymap (comp map-invert normalise))))

@@ -5,7 +5,7 @@
            [omnia.test-utils :refer :all]
            [clojure.test.check.generators :as gen]
            [omnia.config :refer [default-keymap]]
-           [omnia.highlight :refer [default-colourscheme]]
+           [omnia.highlight :refer [default-cs]]
            [omnia.more :refer [--]]
            [omnia.hud :as h]
            [omnia.rendering :as rd]
@@ -27,7 +27,7 @@
 (def ctx (h/context {:terminal nil
                      :repl nil
                      :keymap default-keymap
-                     :colourscheme default-colourscheme}))
+                     :colourscheme default-cs}))
 
 (defn gen-context [{:keys [size fov seeker suggestions history]
                     :or {fov 10

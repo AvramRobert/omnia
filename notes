@@ -214,8 +214,10 @@ Prospects:
 - Input configuration // done
 - REPL sessions // done
 - Tests for input and hud // done
-- Look-ahead syntax highlighter
+- Config tests
 - Undo and redo
+- Look-ahead syntax highlighter
+- Highlighter tests
 - Extensive validation, sane defaults and/or reporting for user config
 - Parametricity and arity lookup
 - I-search

@@ -32,13 +32,20 @@
 (def ops-colourscheme
   {slc-bg :blue})
 
-(def default-colourscheme
+(defn no-colourscheme [cs]
+  (map-vals (constantly :white) cs))
+
+(defn selection-scheme [cs]
+  (-> (no-colourscheme cs)
+      (assoc slc-bg (cs slc-bg))))
+
+(def default-cs
   (merge syntax-colourscheme ops-colourscheme))
 
-(def no-colourscheme (->> syntax-colourscheme
-                          (map-vals (constantly :white))
-                          (merge ops-colourscheme)))
+(def default-selection-cs
+  (selection-scheme default-cs))
 
+(def ^:private nrs #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
 (defn ->start-list? [c] (= c \())
 (defn ->end-list? [c] (= c \)))
 (defn ->start-vector? [c] (= c \[))
@@ -48,16 +55,12 @@
 (defn ->keyword? [c] (= c \:))
 (defn ->string? [c] (= c \"))
 (defn ->char? [c] (= c \\))
-(defn ->number? [c]
-  (try
-    (number? (Integer/parseInt (str c)))
-    (catch Exception _ false)))
+(defn ->comment? [c] (= c \;))
+(defn ->break? [c] (= c \newline))
+(defn ->number? [c] (contains? nrs c))
 
 (defn ->decimal? [c] (or (= c \.)
                          (= c \f)))
-(defn ->comment? [c] (= c \;))
-
-(defn ->break? [c] (= c \newline))
 
 (defn ->reset? [c] (or (->break? c)
                        (= c \space)))
@@ -184,7 +187,7 @@
 
 (defn process
   ([input state]
-    (process input state default-colourscheme))
+    (process input state default-cs))
   ([input state colourscheme]
    (if-let [transition (state-machine state)]
      (transition input colourscheme)

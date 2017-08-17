@@ -2,15 +2,10 @@
   (require [omnia.input :as i]
            [lanterna.terminal :as t]
            [clojure.core.match :as m]
-           [omnia.highlight :refer [slc-bg s0 process]]
-           [omnia.more :refer [reduce-idx zip-all map-vals]]))
+           [omnia.highlight :refer [slc-bg s0 process selection-scheme]]
+           [omnia.more :refer [reduce-idx zip-all]]))
 
 (declare total! diff! nothing!)
-
-(defn- selection-scheme [colourscheme]
-  (-> (fn [_] :white)
-      (map-vals colourscheme)
-      (assoc slc-bg (colourscheme slc-bg))))
 
 (defn- clean-up-scheme [colourscheme]
   (assoc colourscheme slc-bg :default))
