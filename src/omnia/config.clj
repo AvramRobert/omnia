@@ -81,16 +81,20 @@
              :shift false
              :alt   false} %) config))
 
-(defn patch-with [patcher patchee]
+(defn- patch-with [patcher patchee]
   (reduce
     (fn [c [k v]]
       (if (contains? c k) c (assoc c k v)))
     patchee patcher))
 
-(defn- patch [config]
+;; Let missing unspecified keys be turned off by default
+(defn patch [config]
   (-> config
       (update colourscheme (partial patch-with default-cs))
-      (update keymap (partial patch-with default-keymap))))
+      (update keymap (partial patch-with default-keymap))
+      (update highlighting some?)
+      (update suggestions some?)
+      (update scrolling some?)))
 
 (defn read-config [path]
   (task

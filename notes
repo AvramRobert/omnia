@@ -214,7 +214,7 @@ Prospects:
 - Input configuration // done
 - REPL sessions // done
 - Tests for input and hud // done
-- Config tests
+- Config tests // done
 - Undo and redo
 - Look-ahead syntax highlighter
 - Highlighter tests
