@@ -2,17 +2,24 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]))
 
+(defrecord Transiton [state guard nodes valid?])
+
 (def ^:const -list :list)
 (def ^:const -vector :vector)
 (def ^:const -map :map)
 (def ^:const -char :char)
 (def ^:const -number :number)
 (def ^:const -string :string)
+(def ^:const -string* :string*)
 (def ^:const -keyword :keyword)
 (def ^:const -function :function)
 (def ^:const -comment :comment)
 (def ^:const -word :word)
-(def ^:const -text :txt)
+(def ^:const -text :text)
+(def ^:const -break :break)
+(def ^:const -space :space)
+
+(def ^:const empty-vec [])
 
 (def ^:const numbers #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
 
@@ -20,89 +27,211 @@
                      [\t \r \u \e]
                      [\f \a \l \s \e]})
 
-(def ^:const standard [-list
-                       -vector
-                       -map
-                       -text
-                       -number
-                       -word
-                       -char
-                       -string
-                       -keyword
-                       -comment])
+(defmacro deftrans [name {:keys [state
+                                 guard
+                                 nodes
+                                 valid?]
+                          :or {valid? (comp not empty?)}}]
+  `(def ~name (Transiton. ~state ~guard ~nodes ~valid?)))
 
-(def ->open-list {:pred  #(= \( %)
-                  :state -list
-                  :trans (vec (concat standard [-function]))})
 
-(def ->close-list {:pred  #(= \) %)
-                   :state -list
-                   :trans standard})
+(deftrans ->break {:state -break
+                   :guard #(= \newline %)
+                   :nodes [-space
+                           -word
+                           -text
+                           -function
+                           -list
+                           -vector
+                           -map
+                           -number
+                           -char
+                           -string
+                           -comment
+                           -keyword]})
 
-(def ->open-vector {:pred  #(= \[ %)
-                    :state -vector
-                    :trans standard})
+(deftrans ->space {:state -space
+                   :guard #(= \space %)
+                   :nodes [-break
+                           -word
+                           -text
+                           -function
+                           -list
+                           -vector
+                           -map
+                           -number
+                           -char
+                           -string
+                           -comment
+                           -keyword]})
 
-(def ->close-vector {:pred  #(= \] %)
-                     :state -vector
-                     :trans standard})
+(deftrans ->open-list {:state -list
+                       :guard #(= \( %)
+                       :nodes [-break
+                               -space
+                               -function
+                               -list
+                               -vector
+                               -map
+                               -number
+                               -char
+                               -string
+                               -comment
+                               -keyword]})
 
-(def ->open-map {:pred  #(= \{ %)
-                 :state -map
-                 :trans standard})
+(deftrans ->close-list {:state -list
+                        :guard #(= \) %)
+                        :nodes [-break
+                                -space
+                                -word
+                                -text
+                                -list
+                                -vector
+                                -map
+                                -number
+                                -char
+                                -string
+                                -comment
+                                -keyword]})
 
-(def ->close-map {:pred  #(= \} %)
-                  :state -map
-                  :trans standard})
+(deftrans ->open-vector {:state -vector
+                         :guard #(= \[ %)
+                         :nodes [-break
+                                 -space
+                                 -word
+                                 -text
+                                 -list
+                                 -vector
+                                 -map
+                                 -number
+                                 -char
+                                 -string
+                                 -comment
+                                 -keyword]})
 
-(def ->function {:pred  #(Character/isAlphabetic (int %))
-                 :state -function
-                 :trans [-text
-                         -list
-                         -vector
-                         -map
-                         -comment
-                         -char]})
+(deftrans ->close-vector {:state -vector
+                          :guard #(= \] %)
+                          :nodes [-break
+                                  -space
+                                  -word
+                                  -text
+                                  -list
+                                  -vector
+                                  -map
+                                  -number
+                                  -char
+                                  -string
+                                  -comment
+                                  -keyword]})
 
-(def ->text {:pred  #(or (= \space %) (= \newline %))
-             :state -text
-             :trans standard})
+(deftrans ->open-map {:state -map
+                      :guard #(= \{ %)
+                      :nodes [-break
+                              -space
+                              -word
+                              -text
+                              -list
+                              -vector
+                              -map
+                              -number
+                              -char
+                              -string
+                              -comment
+                              -keyword]})
 
-(def ->open-string {:pred  #(= \" %)
-                    :state -string
-                    :trans [-text]})
+(deftrans ->close-map {:state -map
+                       :guard #(= \} %)
+                       :nodes [-break
+                               -space
+                               -word
+                               -text
+                               -list
+                               -vector
+                               -map
+                               -number
+                               -char
+                               -string
+                               -comment
+                               -keyword]})
 
-(def ->close-string {:pred  #(= \" %)
-                     :state -string
-                     :trans standard})
+(deftrans ->function {:state -function
+                      :guard #(Character/isAlphabetic (int %))
+                      :nodes [-break
+                              -space
+                              -list
+                              -vector
+                              -map
+                              -comment
+                              -char
+                              -number
+                              -string]})
 
-(def ->comment {:pred  #(= \; %)
-                :state -comment
-                :trans [-text]})
+(deftrans ->text {:state -text
+                  :guard #(Character/isAlphabetic (int %))
+                  :nodes [-break
+                          -space
+                          -list
+                          -vector
+                          -map
+                          -char
+                          -string
+                          -comment]})
 
-(def ->char {:pred  #(= \\ %)
-             :state -char
-             :trans [-text]})
+(deftrans ->open-string {:state -string
+                         :guard #(= \" %)
+                         :nodes [-string*]})
 
-(def ->number {:pred  #(contains? numbers %)
-               :state -number
-               :trans [-text
-                       -list
-                       -vector
-                       -map
-                       -string]})
+(deftrans ->close-string {:state -string*
+                          :guard #(= \" %)
+                          :nodes [-break
+                                  -space
+                                  -word
+                                  -text
+                                  -list
+                                  -vector
+                                  -map
+                                  -number
+                                  -char
+                                  -string
+                                  -comment
+                                  -keyword]})
 
-(def ->keyword {:pred  #(= \: %)
-                :state -keyword
-                :trans [-text]})
+(deftrans ->comment {:state -comment
+                     :guard #(= \; %)
+                     :nodes [-break]})
 
-(def ->word {:pred  #(some (fn [[l & _]] (= l %)) words)
-             :state -word
-             :trans [-text
-                     -list
-                     -vector
-                     -map
-                     -string]})
+(deftrans ->char {:state -char
+                  :guard #(= \\ %)
+                  :nodes [-break
+                          -space]})
+
+(deftrans ->number {:state -number
+                    :guard #(contains? numbers %)
+                    :nodes [-break
+                            -space
+                            -list
+                            -vector
+                            -map
+                            -string
+                            -comment]})
+
+(deftrans ->keyword {:state -keyword
+                     :guard #(= \: %)
+                     :nodes [-break
+                             -space]})
+
+(deftrans ->word
+          {:state -word
+           :guard #(some (fn [[l & _]] (= l %)) words)
+           :nodes [-break
+                   -space
+                   -list
+                   -vector
+                   -map
+                   -string
+                   -char
+                   -comment]
+           :valid? #(some (fn [w] (= % w)) words)})
 
 (def transitions
   {-list     [->open-list ->close-list]
@@ -110,43 +239,46 @@
    -map      [->open-map ->close-map]
    -function [->function]
    -text     [->text]
-   -string   [->open-string ->close-string]
+   -string   [->open-string]
+   -string*  [->close-string]
    -comment  [->comment]
    -word     [->word]
    -number   [->number]
    -char     [->char]
-   -keyword  [->keyword]})
+   -keyword  [->keyword]
+   -break    [->break]
+   -space    [->space]})
 
 (defn- propagate [transiton c]
-  (or (some->> (:trans transiton)
+  (or (some->> (:nodes transiton)
                (map transitions)
                (flatten)
-               (some #(when ((:pred %) c) %)))
+               (some #(when ((:guard %) c) %)))
       transiton))
 
-(defn colour [state])
+(defn changed? [this that]
+  (not= (:state this) (:state that)))
 
-(defrecord Painter [transiton action store])
+(defn emit [transiton pushed f]
+  (if ((:valid? transiton) pushed)
+    (f pushed (:state transiton))
+    (f pushed (:state ->text))))
 
-(def ^:const store [])
-(def ^:const emit :emit)
-(def ^:const consume :consume)
-(def ^:const process :process)
-(def ^:const terminate :terminate)
-
-(def painter (Painter. ->text consume store))
-
-(defn push [painter c]
-  (update painter :store #(conj % c)))
-
-(defn act [painter action]
-  (update painter :action action))
-
-(defn transition [painter c]
-  (update painter :transiton #(propagate % c)))
-
-(defn react [next-painter cur-painter c])
-
-(defn rewind [{:keys [transitions]}])
-
-(defn paint! [painter f])
+;; If -text sits higher in the node list than -word, words will be processed as text
+(defn process [stream f]
+  (loop [rem stream
+         transiton ->break
+         store empty-vec
+         ems empty-vec]
+    (m/match [store rem]
+             [[] []] ems
+             [_ []] (->> (emit transiton store f)
+                         (conj ems)
+                         (recur rem transiton empty-vec))
+             [_ [a & tail]]
+             (let [t (propagate transiton a)]
+               (if (changed? transiton t)
+                  (->> (emit transiton store f)
+                       (conj ems)
+                       (recur tail t [a]) )
+                 (recur tail t (conj store a) ems))))))
