@@ -34,13 +34,20 @@
 (defn gen-alpha-with-token [gen-token]
   (gen-with-token gen/char-alpha gen-token))
 
-(defn state-detections [emissions & states]
+(defn detections [emissions & states]
+  "Based on given `states`, extracts the detected tokens from `emissions`
+  produced by the highlighting engine.
+  Returns a collection of vectors of the tokens detected."
   (let [s (set states)]
     (->> emissions
          (filter (fn [[_ type]] (contains? s type)))
          (map first))))
 
 (defn grouped-gens [generated tokens]
+  "Uses `tokens` to extract either series or individual tokens from
+  the `generated` vector of chars.
+  Returns a collection with vectors of the `tokens` it found in succession.
+  Is equivalent to aggregated state detection"
   (let [grpd? (in? tokens)]
     (->> generated
          (partition-by grpd?)
@@ -50,6 +57,16 @@
                             :or {reset? (fn [_] false)
                                  with-detect? false
                                  with-reset? false}}]
+  "Uses the predicates `detect?` and `reset?` to extract either series or
+  individual tokens from the `generated` vector of characters.
+  `detect?` is a predicate applied on the current char stating when an extraction
+            should be started.
+  `reset?` is a predicate applied on the current char stating when an ongoing
+           extraction should be stopped.
+  Both `with-detect?` and `with-reset?` denote if the characters
+  `detect?` and `reset?` initially identified should be added to the extracted tokens.
+  Returns a collection with vectors of the `tokens` it found.
+  Is equivalent to aggregate state detection relative to some other characters."
   (let [prepend (fn [item coll] (concat [item] coll))
         append (fn [item coll] (concat coll [item]))
         unviable? (comp not detect?)
@@ -74,7 +91,7 @@
          (for-all [tokens (gen-alpha-num-with-token gen-list-token)]
                   (let [gens (grouped-gens tokens [\( \)])
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-list))]
+                                       (detections h/-list))]
                     (is (= gens detections)))))
 
 (defspec detect-vectors
@@ -82,7 +99,7 @@
          (for-all [tokens (gen-alpha-num-with-token gen-vector-token)]
                   (let [gens (grouped-gens tokens [\[ \]])
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-vector))]
+                                       (detections h/-vector))]
                     (is (= gens detections)))))
 
 (defspec detect-maps
@@ -90,7 +107,7 @@
          (for-all [tokens (gen-alpha-num-with-token gen-map-token)]
                   (let [gens (grouped-gens tokens [\{ \}])
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-map))]
+                                       (detections h/-map))]
                     (is (= gens detections)))))
 
 (defspec detect-breaks
@@ -98,7 +115,7 @@
          (for-all [tokens (gen-alpha-num-with-token gen-break-token)]
                   (let [gens (grouped-gens tokens [\newline])
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-break))]
+                                       (detections h/-break))]
                     (is (= gens detections)))))
 
 (defspec detect-spaces
@@ -106,7 +123,7 @@
          (for-all [tokens (gen-alpha-num-with-token gen-space-token)]
                   (let [gens (grouped-gens tokens [\space])
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-space))]
+                                       (detections h/-space))]
                     (is (= gens detections)))))
 
 (defspec detect-comments
@@ -116,7 +133,7 @@
                                         {:detect? (in? [\;])
                                          :with-detect? true})
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-comment))]
+                                       (detections h/-comment))]
                     (is (= gens detections)))))
 
 (defspec detect-functions
@@ -126,7 +143,7 @@
                                         {:detect? (in? [\(])
                                          :reset? (in? [\( \)])})
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-function))]
+                                       (detections h/-function))]
                     (is (= gens detections)))))
 
 (defspec detect-chars
@@ -136,7 +153,7 @@
                                         {:detect? (in? [\\])
                                          :with-detect? true})
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-char))]
+                                       (detections h/-char))]
                     (is (= gens detections)))))
 
 (defspec detect-keywords
@@ -147,7 +164,7 @@
                                          :reset? (in? [\space])
                                          :with-detect? true})
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-keyword))]
+                                       (detections h/-keyword))]
                     (is (= gens detections)))))
 
 (defspec detect-numbers
@@ -158,7 +175,7 @@
                                          :reset? (in? [\space])
                                          :with-detect? true})
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-number))]
+                                       (detections h/-number))]
                     (is (= gens detections)))))
 
 (defspec detect-strings
@@ -170,7 +187,7 @@
                                          :with-detect? true
                                          :with-reset? true})
                         processed (-> (h/process tokens vector)
-                                      (state-detections h/-string h/-string*)
+                                      (detections h/-string h/-string*)
                                       (->> (reduce concat)))]
                     (is (= (apply concat gens) processed)))))
 
@@ -182,7 +199,7 @@
                                          :reset? (in? [\space])
                                          :with-detect? true})
                         detections (-> (h/process tokens vector)
-                                       (state-detections h/-text)
+                                       (detections h/-text)
                                        (->> (filter (comp not empty?))))] ;; the interpreter always emits an empty text with the first transition
                     (is (= gens detections)))))
 
@@ -197,7 +214,7 @@
                                  (gen/fmap (comp vec flatten)))]
                     (let [gens (words tokens)
                           detections (-> (h/process tokens vector)
-                                         (state-detections h/-word))]
+                                         (detections h/-word))]
                       (is (= gens detections))))))
 
 (deftest transition-from-lists (is true))

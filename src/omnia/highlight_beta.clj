@@ -27,6 +27,8 @@
                      [\t \r \u \e]
                      [\f \a \l \s \e]})
 
+(defn- alphabetic? [c] (Character/isAlphabetic (int c)))
+
 (defmacro deftrans [name {:keys [state
                                  guard
                                  nodes
@@ -155,7 +157,7 @@
                                -keyword]})
 
 (deftrans ->function {:state -function
-                      :guard #(Character/isAlphabetic (int %))
+                      :guard alphabetic?
                       :nodes [-break
                               -space
                               -list
@@ -167,7 +169,7 @@
                               -string]})
 
 (deftrans ->text {:state -text
-                  :guard #(Character/isAlphabetic (int %))
+                  :guard alphabetic?
                   :nodes [-break
                           -space
                           -list
