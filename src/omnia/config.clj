@@ -3,7 +3,8 @@
            [clojure.string :refer [join]]
            [omnia.highlight :refer [default-cs default-selection-cs]]
            [clojure.set :refer [map-invert]]
-           [halfling.task :refer [task]]))
+           [halfling.task :refer [task]]
+           [omnia.highlight-beta :as h]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)
@@ -45,7 +46,29 @@
    :eval        {:key \e :alt true}
    :exit        {:key \d :ctrl true}})
 
+(def syntax-cs
+  {h/-list :white
+   h/-vector :white
+   h/-map :white
+   h/-number :blue
+   h/-char :green
+   h/-string :green
+   h/-keyword :cyan
+   h/-comment :magenta
+   h/-word :yellow
+   h/-function :yellow
+   h/-text :white
+   h/-select :blue})
+
+(def control-cs
+  {h/-break :default
+   h/-space :default})
+
+(defn ext-cs [cs]
+  {h/-string* (cs h/-string :green)})
+
 (def default-keymap (merge editor-keymap hud-keymap))
+(def default-cs-2 (merge syntax-cs control-cs (ext-cs syntax-cs)))
 
 (def default-config
   {highlighting true

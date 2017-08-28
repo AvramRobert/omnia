@@ -5,11 +5,36 @@
             [clojure.test.check.generators :as gen]
             [clojure.string :as s]
             [omnia.highlight-beta :as h]))
+
+(def state-chars
+  {h/-list [\( \)]
+   h/-vector [\[ \]]
+   h/-map [\{ \}]
+   h/-char [\\]
+   h/-number h/numbers
+   h/-string [\"]
+   h/-string* [\"]
+   h/-function [\l \a \m \b \d \a]
+   h/-text [\s \o \m \e]
+   h/-word [\f \t \n]
+   h/-break [\newline]
+   h/-space [\space]
+   h/-comment [\;]
+   h/-keyword [\:]})
+
+(def states (keys state-chars))
+
+(defn chars-for [state]
+  (get state-chars state []))
+
 (defn gen-tokens [& tokens] (gen/elements tokens))
 
 (defn in? [tokens]
   (let [s (set tokens)]
     #(contains? s %)))
+
+(defn is-state [transiton state]
+  (is (= state (:state transiton))))
 
 (def gen-list-token (gen-tokens \( \)))
 (def gen-vector-token (gen-tokens \[ \]))
@@ -85,6 +110,18 @@
                           (and with-reset? reset) (append reset)
                           :always (conj items))
                  (if with-reset? (rest post) post)))))))
+
+(defn transition! [transiton disallowed]
+  "Given a `transiton`, it forces it through all the available states
+  and checks its transitions. Disallowed transitions are specified
+  in `disallowed` as key-value pairs. The key represents the
+  disallowed state, whist the value represents the actual state
+  the transiton should transition to, should it encounter a character
+  that would, in the standard case, lead to the disallowed state."
+  (doseq [state states
+          c (chars-for state)
+          :let [nxt (h/transition transiton c)]]
+    (is-state nxt (get disallowed state state))))
 
 (defspec detect-lists
          100
@@ -217,16 +254,109 @@
                                          (detections h/-word))]
                       (is (= gens detections))))))
 
-(deftest transition-from-lists (is true))
-(deftest transition-from-vectors (is true))
-(deftest transition-from-maps (is true))
-(deftest transition-from-words (is true))
-(deftest transition-from-chars (is true))
-(deftest transition-from-numbers (is true))
-(deftest transition-from-strings (is true))
-(deftest transition-from-keywords (is true))
-(deftest transition-from-comments (is true))
-(deftest transition-from-breaks (is true))
-(deftest transition-from-spaces (is true))
-(deftest transition-from-text (is true))
-(deftest transition-from-functions (is true))
+(deftest transition-from-lists
+  (transition! h/->open-list {h/-text h/-function
+                              h/-word h/-function
+                              h/-string* h/-string})
+  (transition! h/->close-list {h/-function h/-text
+                               h/-string* h/-string}))
+
+(deftest transition-from-vectors
+  (transition! h/->open-vector {h/-function h/-text
+                                h/-string* h/-string})
+  (transition! h/->close-vector {h/-function h/-text
+                                 h/-string* h/-string}))
+
+(deftest transition-from-maps
+  (transition! h/->open-map {h/-function h/-text
+                             h/-string* h/-string})
+  (transition! h/->close-map {h/-function h/-text
+                              h/-string* h/-string}))
+
+(deftest transition-from-words
+  (transition! h/->word {h/-function h/-word
+                         h/-number h/-word
+                         h/-keyword h/-word
+                         h/-text h/-word
+                         h/-string* h/-string}))
+
+(deftest transition-from-chars
+  (transition! h/->char {h/-list h/-char
+                         h/-vector h/-char
+                         h/-map h/-char
+                         h/-function h/-char
+                         h/-text h/-char
+                         h/-word h/-char
+                         h/-number h/-char
+                         h/-string h/-char
+                         h/-string* h/-char
+                         h/-comment h/-char
+                         h/-keyword h/-char}))
+
+(deftest transition-from-numbers
+  (transition! h/->number {h/-function h/-number
+                           h/-text h/-number
+                           h/-word h/-number
+                           h/-keyword h/-number
+                           h/-char h/-number
+                           h/-string* h/-string}))
+
+(deftest transition-from-strings
+  (transition! h/->open-string {h/-list h/-string
+                                h/-vector h/-string
+                                h/-map h/-string
+                                h/-function h/-string
+                                h/-text h/-string
+                                h/-word h/-string
+                                h/-number h/-string
+                                h/-comment h/-string
+                                h/-keyword h/-string
+                                h/-space h/-string
+                                h/-break h/-string
+                                h/-char h/-string
+                                h/-string h/-string*})
+
+  (transition! h/->close-string {h/-string* h/-string
+                                 h/-function h/-text}))
+
+(deftest transition-from-keywords
+  (transition! h/->keyword {h/-string* h/-string
+                            h/-function h/-keyword
+                            h/-number h/-keyword
+                            h/-text h/-keyword
+                            h/-word h/-keyword}))
+
+(deftest transition-from-comments
+  (transition! h/->comment {h/-list h/-comment
+                            h/-vector h/-comment
+                            h/-map h/-comment
+                            h/-function h/-comment
+                            h/-text h/-comment
+                            h/-word h/-comment
+                            h/-number h/-comment
+                            h/-keyword h/-comment
+                            h/-space h/-comment
+                            h/-char h/-comment
+                            h/-string h/-comment
+                            h/-string* h/-comment}))
+
+(deftest transition-from-breaks
+  (transition! h/->break {h/-string* h/-string
+                          h/-function h/-text}))
+
+(deftest transition-from-spaces
+  (transition! h/->space {h/-string* h/-string
+                          h/-function h/-text}))
+
+(deftest transition-from-text
+  (transition! h/->text {h/-string* h/-string
+                         h/-number h/-text
+                         h/-keyword h/-text
+                         h/-word h/-text
+                         h/-function h/-text}))
+
+(deftest transition-from-functions
+  (transition! h/->function {h/-string* h/-string
+                             h/-word h/-function
+                             h/-text h/-function
+                             h/-keyword h/-function}))

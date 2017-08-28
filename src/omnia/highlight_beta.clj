@@ -18,6 +18,7 @@
 (def ^:const -text :text)
 (def ^:const -break :break)
 (def ^:const -space :space)
+(def ^:const -select :selection)
 
 (def ^:const empty-vec [])
 
@@ -219,7 +220,13 @@
 
 (deftrans ->keyword {:state -keyword
                      :guard #(= \: %)
-                     :nodes [-break
+                     :nodes [-list
+                             -vector
+                             -map
+                             -string
+                             -char
+                             -comment
+                             -break
                              -space]})
 
 (deftrans ->word
@@ -251,7 +258,7 @@
    -break    [->break]
    -space    [->space]})
 
-(defn- propagate [transiton c]
+(defn transition [transiton c]
   (or (some->> (:nodes transiton)
                (map transitions)
                (flatten)
@@ -278,7 +285,7 @@
                          (conj ems)
                          (recur rem transiton empty-vec))
              [_ [a & tail]]
-             (let [t (propagate transiton a)]
+             (let [t (transition transiton a)]
                (if (changed? transiton t)
                   (->> (emit transiton store f)
                        (conj ems)
