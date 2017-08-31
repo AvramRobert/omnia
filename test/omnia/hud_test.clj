@@ -63,6 +63,7 @@
 (def select-down (event :select-down :down))
 (def select-up (event :select-up :up))
 (def select-right (event :select-right :right))
+(def select-left (event :select-left :left))
 (def copy (event :copy \c))
 (def paste (event :paste \v))
 (def backspace (event :backspace :backspace))

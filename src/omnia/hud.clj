@@ -95,7 +95,7 @@
 
 (defn indent [hud n]
   (let [padding (repeat n \space)]
-    (i/rebase hud (fn [lines] (map #(concat padding %) lines)))))
+    (i/rebase hud (fn [lines] (mapv #(vec (concat padding %)) lines)))))
 
 (defn auto-complete [seeker sgst]
   (if (empty? sgst)
@@ -286,9 +286,10 @@
                (< (inc sgst-idx) hs) continuation
                :else i/empty-seeker)]
     (-> suggestions
-        (i/rebase #(cond->> %
-                            (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
-                            :always (take per-page)))
+        (i/rebase
+          #(cond->> %
+                   (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
+                   :always (take per-page)))
         (adjoin dots)
         (indent 1)
         (i/move-y #(if (>= % per-page) (dec per-page) %)))))

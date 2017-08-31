@@ -28,11 +28,11 @@
 
 (defn reduce-idx
   ([f seed coll]
-   (reduce-idx 0 f seed coll))
-  ([from f seed coll]
+   (reduce-idx f 0 seed coll))
+  ([f from seed coll]
    (if (empty? coll)
      seed
-     (recur (inc from) f (f from seed (first coll)) (rest coll)))))
+     (recur f (inc from) (f from seed (first coll)) (rest coll)))))
 
 (defn do-until [elm f p]
   (if (p elm) elm (recur (f elm) f p)))

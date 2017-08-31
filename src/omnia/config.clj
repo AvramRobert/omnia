@@ -1,7 +1,7 @@
 (ns omnia.config
   (require [omnia.more :refer [map-vals gulp-or-else]]
            [clojure.string :refer [join]]
-           [omnia.highlight :refer [default-cs default-selection-cs]]
+           [omnia.highlight :refer [default-selection-cs]]
            [clojure.set :refer [map-invert]]
            [halfling.task :refer [task]]
            [omnia.highlight-beta :as h]))
@@ -68,7 +68,7 @@
   {h/-string* (cs h/-string :green)})
 
 (def default-keymap (merge editor-keymap hud-keymap))
-(def default-cs-2 (merge syntax-cs control-cs (ext-cs syntax-cs)))
+(def default-cs (merge syntax-cs control-cs (ext-cs syntax-cs)))
 
 (def default-config
   {highlighting true

@@ -156,7 +156,7 @@
                                -string
                                -comment
                                -keyword]})
-
+;; FIXME: alphabetic? is not sufficient for neither functions nor text, as things like * - are valid
 (deftrans ->function {:state -function
                       :guard alphabetic?
                       :nodes [-break
