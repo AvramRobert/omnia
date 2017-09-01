@@ -58,7 +58,8 @@
    h/-word :yellow
    h/-function :yellow
    h/-text :white
-   h/-select :blue})
+   h/-select :blue
+   h/-back :default})
 
 (def control-cs
   {h/-break :default

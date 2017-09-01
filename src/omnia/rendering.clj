@@ -8,16 +8,18 @@
 
 (declare total! diff! nothing!)
 
+;; === Various colourschemes ===
+
 (defn- no-cs [cs]
   (let [text-colour (cs h/-text :white)]
     (map-vals (constantly text-colour) cs)))
 
 (defn- clean-cs [cs]
-  (assoc cs h/-select :default))
+  (assoc cs h/-select :default h/-back :default))
 
 (defn- select-cs [cs]
   (-> (no-cs cs)
-      (assoc h/-select (cs h/-select))))
+      (assoc h/-back (cs h/-select))))
 
 (defn- pad-erase [current-line former-line]
   (let [hc      (count current-line)
@@ -28,14 +30,13 @@
          (concat current-line)
          (vec))))
 
-(defn- display! [emission terminal x y]
-  (reduce-idx (fn [ix _ input] (t/put-character terminal input ix y)) x nil emission))
+;; === Projections ===
 
-(defn screen-y
+(defn project-y
   "gy = cy - (h - fov - ov)
    cy = gy + (h - fov - ov)"
   ([hud]
-   (screen-y hud (-> hud :cursor second)))
+   (project-y hud (-> hud :cursor second)))
   ([hud y']
    (let [{fov :fov
           ov  :ov
@@ -46,7 +47,7 @@
 
 (defn project-cursor [hud]
   (let [[x hy] (:cursor hud)
-        y (screen-y hud hy)]
+        y (project-y hud hy)]
     [x y]))
 
 (defn project-selection [selection fov]
@@ -67,17 +68,9 @@
       (i/rebase hud #(->> % (take-right lor) (take fov)))
       (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
 
-(defn- when-unpaged [ctx f]
-  (let [{terminal :terminal
-         complete :complete-hud
-         previous :previous-hud} ctx
-        current (project-hud complete)
-        former  (project-hud previous)]
-    (if (not= (:ov current) (:ov former))
-      (total! ctx)
-      (f terminal current former))))
+;; === Rendering primitives ===
 
-(defn region [hud selection]
+(defn- region [hud selection]
   (let [{[xs ys] :start
          [xe ye] :end} selection]
     (-> (i/deselect hud)
@@ -87,37 +80,42 @@
         (i/reset-y ye)
         (i/reset-x xe)
         (i/extract)
-        (:lines))))
+        (assoc :height (:height hud)))))                    ;; for accurate projection
+
+(defn- display! [emission terminal x y]
+  (reduce-idx (fn [ix _ input] (t/put-character terminal input ix y)) x nil emission))
 
 (defn print-line! [line terminal cs [x y]]
   (let [ix (atom x)]
+    (t/set-bg-color terminal (cs h/-back))
     (h/process line
                (fn [emission type]
                  (let [colour (cs type)]
                    (t/set-fg-color terminal colour)
                    (display! emission terminal @ix y)
-                   (swap! ix #(+ % (count emission))))))))
+                   (swap! ix #(+ % (count emission))))))
+    (t/set-bg-color terminal :default)))
 
-(defn print! [hud terminal cs]
-  (reduce-idx (fn [y _ line] (print-line! line terminal cs [0 y])) nil (:lines hud)))
+(defn print-hud!
+  ([hud terminal cs]
+   (print-hud! hud terminal cs [0 0]))
+  ([hud terminal cs [x y]]
+   (reduce-idx
+     (fn [cy cx line]
+       (print-line! line terminal cs [cx (project-y hud cy)])
+       0) y x (:lines hud))))
 
 (defn highlight! [ctx regions]
   (let [{terminal :terminal
          complete :complete-hud
          cs       :colourscheme} ctx
-        fov (:fov complete)
-        bg-colour (cs h/-select)]
+        fov (:fov complete)]
     (run!
       #(let [projection (project-selection % fov)
              {[xs ys] :start
               [xe ye] :end} projection]
-         (->> (region complete projection)
-              (reduce-idx
-                (fn [y x line]
-                  (t/set-bg-color terminal bg-colour)
-                  (print-line! line terminal cs [x (screen-y complete y)])
-                  0) ys xs))) regions)
-    (t/set-bg-color terminal :default)))
+         (-> (region complete projection)
+             (print-hud! terminal cs [xs ys]))) regions)))
 
 (defn clean! [ctx]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
@@ -133,14 +131,28 @@
       (update :colourscheme select-cs)
       (highlight! (:highlights ctx))))
 
+(defn position! [{:keys [terminal complete-hud]}]
+  (let [[x y] (project-cursor complete-hud)]
+    (t/move-cursor terminal x y)))
+
 ;; === Rendering strategies ===
+
+(defn- when-unpaged [ctx f]
+  (let [{terminal :terminal
+         complete :complete-hud
+         previous :previous-hud} ctx
+        current (project-hud complete)
+        former  (project-hud previous)]
+    (if (not= (:ov current) (:ov former))
+      (total! ctx)
+      (f terminal current former))))
 
 (defn total! [ctx]
   (let [{terminal  :terminal
          complete  :complete-hud
          cs        :colourscheme} ctx]
     (t/clear terminal)
-    (print! (project-hud complete) terminal cs)))
+    (print-hud! (project-hud complete) terminal cs)))
 
 (defn diff! [{:keys [colourscheme] :as ctx}]
   (when-unpaged
@@ -157,11 +169,7 @@
   (when-unpaged ctx (fn [_ _ _] ())))
 
 (defn render [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx
-        [x y] (project-cursor complete)]
-    (case (:render ctx)
-      :diff (doto ctx (clean!) (diff!) (selections!))
-      :nothing (doto ctx (clean!) (nothing!) (selections!))
-      (doto ctx (total!) (selections!)))
-    (t/move-cursor terminal x y)))
+  (case (:render ctx)
+    :diff (doto ctx (clean!) (diff!) (selections!) (position!))
+    :nothing (doto ctx (clean!) (nothing!) (selections!) (position!))
+    (doto ctx (total!) (selections!) (position!))))

@@ -19,6 +19,7 @@
 (def ^:const -break :break)
 (def ^:const -space :space)
 (def ^:const -select :selection)
+(def ^:const -back :background)
 
 (def ^:const empty-vec [])
 
