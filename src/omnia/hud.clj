@@ -191,8 +191,8 @@
               unpaged? ov                                   ;; we've not exceeded the fov
               (and larger? at-lower?) ov                    ;; we've gotten bigger but we're still at the bottom
               (or larger? smaller?) (++ ov (- h ph))        ;; we've changed in size
-              over-upper? (inc ov)                          ;; we've exceeded the upper bound
-              over-lower? (dec ov)                          ;; we've exceed the lower bound
+              over-upper? (++ ov (- upper-y y))             ;; we've exceeded the upper bound
+              over-lower? (-- ov (- y lower-y))             ;; we've exceeded the lower bound
               :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)

@@ -173,6 +173,24 @@
               #(-> % (process down 2) (ov) (= 0))
               #(-> % (process down 3) (ov) (= 0)))))
 
+(defn exceed-lower-bound-non-incrementally [ctx]
+  (-> (move-top-fov ctx)
+      (process up 2)
+      (move-bottom-fov)
+      (update :seeker #(i/move % (fn [[x y]] [x (+ 2 y)])))
+      (h/preserve)
+      (h/rebase)
+      (h/calibrate)
+      (can-be #(= (ov %) 0))))
+
+(defn exceed-upper-bound-non-incrementally [ctx]
+  (-> (move-top-fov ctx)
+      (update :seeker #(i/move % (fn [[x y]] [x (- 2 y)])))
+      (h/preserve)
+      (h/rebase)
+      (h/calibrate)
+      (can-be #(= (ov %) 2))))
+
 (defn scroll-upper-bound [ctx]
   (-> (move-top-fov ctx)
       (process up)
@@ -290,7 +308,9 @@
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)
+  (exceed-upper-bound-non-incrementally ctx)
   (exceed-lower-bound ctx)
+  (exceed-lower-bound-non-incrementally ctx)
   (scroll-upper-bound ctx)
   (scroll-lower-bound ctx)
   (correct-under-deletion-top ctx)
