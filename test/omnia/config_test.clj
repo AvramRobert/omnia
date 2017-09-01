@@ -3,7 +3,7 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [omnia.test-utils :refer [just-one can-be]]
+            [omnia.test-utils :refer [one can-be]]
             [omnia.highlight :as h]
             [omnia.config :as c]
             [halfling.result :as r]))
@@ -15,7 +15,7 @@
 (defspec detect-duplicate-bindings
          100
          (for-all [[ik v] gen-keybind]
-                  (let [[k _] (just-one (gen-keybind-unlike ik))]
+                  (let [[k _] (one (gen-keybind-unlike ik))]
                     (-> (assoc-in c/default-config [c/keymap k] v)
                         (c/validate)
                         (r/attempt)
@@ -37,16 +37,19 @@
       (update c/highlighting (constantly false))
       (c/with-features)
       (get c/colourscheme)
-      (= h/default-selection-cs)
-      (is)))
+      (->> (run! (fn [[state colour]]
+                   (cond
+                     (= state h/-select) (is (= :blue colour))
+                     (= state h/-back) (is (= :blue colour))
+                     :else (is (= :white colour))))))))
 
 (deftest deactivate-scrolling
   (-> c/default-config
       (update c/scrolling (constantly false))
       (c/with-features)
       (get c/keymap)
-      (can-be #(is (not (contains? % :scroll-up)))
-              #(is (not (contains? % :scroll-down))))))
+      (can-be #(not (contains? % :scroll-up))
+              #(not (contains? % :scroll-down)))))
 
 (deftest deactivate-suggestions
   (-> c/default-config
@@ -58,11 +61,10 @@
 (deftest normalise-keymap
   (-> (c/with-features c/default-config)
       (get c/keymap)
-      (->> (every? (fn [[k _]]
-                     (and (contains? k :key)
-                          (contains? k :ctrl)
-                          (contains? k :shift)
-                          (contains? k :alt)))))
-      (is)))
+      (->> (run! (fn [[k _]]
+                   (is (contains? k :key))
+                   (is (contains? k :ctrl))
+                   (is (contains? k :shift))
+                   (is (contains? k :alt)))))))
 
 

@@ -2,161 +2,12 @@
   (require [clojure.test :refer [is]]
            [clojure.test.check.clojure-test :refer [defspec]]
            [clojure.test.check.properties :refer [for-all]]
-           [omnia.test-utils :refer :all]
            [clojure.test.check.generators :as gen]
-           [omnia.config :refer [default-keymap]]
-           [omnia.highlight :refer [default-cs]]
-           [omnia.more :refer [--]]
+           [omnia.test-utils :refer :all]
            [omnia.hud :as h]
-           [omnia.rendering :as rd]
-           [omnia.repl :as r]
            [omnia.input :as i]))
 
-(defprotocol TRowed
-  (getRows [_]))
-
-(defprotocol TSized
-  (getTerminalSize [_]))
-
-(defn test-terminal [size]
-  (reify TSized
-    (getTerminalSize [_]
-      (reify TRowed
-        (getRows [_] size)))))
-
-(def ctx (h/context {:terminal nil
-                     :repl nil
-                     :keymap default-keymap
-                     :colourscheme default-cs}))
-
-(defn gen-context [{:keys [size fov seeker suggestions history]
-                    :or {fov 10
-                         suggestions i/empty-seeker
-                         history []
-                         seeker (:seeker ctx)}}]
-  (assert (not (nil? size)) "A context must always have a hud size")
-  (gen/fmap
-    (fn [hud-seeker]
-      (let [hud (h/hud fov hud-seeker)]
-        (-> ctx
-            (assoc :terminal (test-terminal fov)
-                   :repl (-> (r/repl {:kind :identity
-                                      :history history})
-                             (assoc :complete-f (constantly suggestions)))
-                   :seeker seeker
-                   :complete-hud hud
-                   :persisted-hud hud
-                   :previous-hud hud)
-            (h/rebase seeker)
-            (h/remember)))) (gen-seeker-of size)))
-
 ;; I. Calibrating
-
-(defn event [action key]
-  (i/->Event action key))
-
-(def up (event :up :up))
-(def down (event :down :down))
-(def left (event :left :left))
-(def right (event :right :right))
-(def select-all (event :select-all \a))
-(def select-down (event :select-down :down))
-(def select-up (event :select-up :up))
-(def select-right (event :select-right :right))
-(def select-left (event :select-left :left))
-(def copy (event :copy \c))
-(def paste (event :paste \v))
-(def backspace (event :backspace :backspace))
-(def enter (event :enter :enter))
-(def scroll-up (event :scroll-up :page-up))
-(def scroll-down (event :scroll-down :page-down))
-(defn char-key [k] (event :char k))
-(def clear (event :clear \r))
-(def evaluate (event :eval \e))
-(def prev-eval (event :prev-eval :up))
-(def next-eval (event :next-eval :down))
-(def parens-match (event :match \p))
-(def suggest (event :suggest :tab))
-
-(defn process
-  ([ctx event]
-    (process ctx event 1))
-  ([ctx event n]
-   (->> (range 0 n)
-        (reduce (fn [nctx _] (second (h/process nctx event))) ctx))))
-
-(defn fov [ctx]
-  (get-in ctx [:complete-hud :fov]))
-
-(defn ov [ctx]
-  (get-in ctx [:complete-hud :ov]))
-
-(defn lor [ctx]
-  (get-in ctx [:complete-hud :lor]))
-
-(defn project-hud [ctx]
-  (rd/project-hud (:complete-hud ctx)))
-
-(defn project-cursor [ctx]
-  (rd/project-cursor (:complete-hud ctx)))
-
-(defn project-selection [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
-        selection (first (:highlights ctx))]
-    (rd/project-selection selection fov)))
-
-(defn make-total [ctx]
-  (let [h (get-in ctx [:complete-hud :height])]
-    (-> ctx
-        (assoc :terminal (test-terminal h))
-        (assoc-in [:persisted-hud :fov] h)
-        (assoc-in [:persisted-hud :lor] h)
-        (h/rebase)
-        (h/remember))))
-
-(defn cursor [ctx]
-  (get-in ctx [:complete-hud :cursor]))
-
-(defn suggestions [ctx]
-  ((get-in ctx [:repl :complete-f])))
-
-(defn history [ctx]
-  (get-in ctx [:repl :history]))
-
-(defn move-end-fov [ctx]
-  (->> (update ctx :seeker (comp i/start-x i/end))
-       (h/rebase)
-       (h/remember)))
-
-(defn move-top-fov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
-        top #(-- % (dec fov))]                              ;; (dec) because you want to land on the fov'th line
-    (-> (move-end-fov ctx)
-        (update :seeker #(i/move-y % top))
-        (h/rebase)
-        (h/remember))))
-
-(defn move-bottom-fov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
-        bottom #(+ % (dec fov))]
-    (-> (update ctx :seeker #(i/move-y % bottom))
-        (h/rebase)
-        (h/remember))))
-
-(defn from-start [ctx]
-  (-> ctx
-      (update :persisted-hud i/start-x)
-      (update :seeker i/start-x)
-      (h/rebase)
-      (h/remember)))
-
-
-(defn from-end [ctx]
-  (-> ctx
-      (update :persisted-hud i/end-x)
-      (update :seeker i/end-x)
-      (h/rebase)
-      (h/remember)))
 
 (defn exceed-upper-bound [ctx]
   (-> (move-top-fov ctx)
@@ -330,7 +181,7 @@
          100
          (for-all [tctx (gen-context {:size 5
                                       :fov 27
-                                      :seeker (just-one (gen-seeker-of 29))})]
+                                      :seeker (one (gen-seeker-of 29))})]
                   (calibrating tctx)))
 
 ;; II. Scrolling
@@ -397,7 +248,7 @@
 
 (defn scrolling [ctx]
   (scroll-upwards ctx)
-  (scroll-downwards ctx (just-one gen/pos-int))
+  (scroll-downwards ctx (one gen/pos-int))
   (stop-upward-scroll ctx)
   (stop-downward-scroll ctx)
   (scroll-ending-with-ov ctx)
@@ -408,7 +259,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (scrolling tctx)))
 
 ;; III. Capturing
@@ -427,7 +278,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (capturing tctx)))
 
 ;; IV. Clearing
@@ -445,7 +296,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (clearing tctx)))
 
 ;; V. Evaluating
@@ -467,7 +318,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (evaluating tctx)))
 
 ;; VI. Rolling back
@@ -486,8 +337,8 @@
          100
          (for-all [tctx (gen-context {:size 5
                                       :fov 27
-                                      :history [(just-one (gen-seeker-of 32))]
-                                      :seeker (just-one (gen-seeker-of 29))})]
+                                      :history [(one (gen-seeker-of 32))]
+                                      :seeker (one (gen-seeker-of 29))})]
                   (rolling-back tctx)))
 
 ;; VII. Rolling forward
@@ -509,8 +360,8 @@
          100
          (for-all [tctx (gen-context {:size 5
                                       :fov 27
-                                      :history [(just-one (gen-seeker-of 32))]
-                                      :seeker (just-one (gen-seeker-of 29))})]
+                                      :history [(one (gen-seeker-of 32))]
+                                      :seeker (one (gen-seeker-of 29))})]
                   (rolling-forward tctx)))
 
 ;; VIII. Suggesting
@@ -572,8 +423,8 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 15
-                                      :suggestions (just-one (gen-seeker-of 12))
-                                      :seeker (just-one (gen-seeker-of 17))})]
+                                      :suggestions (one (gen-seeker-of 12))
+                                      :seeker (one (gen-seeker-of 17))})]
                   (suggesting tctx)))
 
 ;; IX. Highlighting
@@ -629,7 +480,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (highlighting tctx)))
 
 ;; X. Parenthesis matching
@@ -667,7 +518,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (parens-matching tctx)))
 
 ;; XI. Hud projection
@@ -709,7 +560,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (hud-projection tctx)))
 
 ;; XII. Cursor projection
@@ -745,7 +596,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (cursor-projection tctx)))
 
 ;; XIII. Selection projection
@@ -785,7 +636,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
-                                      :seeker (just-one (gen-seeker-of 10))})]
+                                      :seeker (one (gen-seeker-of 10))})]
                   (selection-projection tctx)))
 
 ;; ---- STATIC DATA ----

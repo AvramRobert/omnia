@@ -129,7 +129,7 @@
 
 (defn with-features [config]
   (cond-> config
-          (not (get config highlighting)) (assoc colourscheme r/select-cs)
+          (not (get config highlighting)) (update colourscheme r/select-cs)
           (not (get config scrolling)) (update keymap #(dissoc % :scroll-up :scroll-down))
           (not (get config suggestions)) (update keymap #(dissoc % :suggest))
           :always (update keymap (comp map-invert normalise))))

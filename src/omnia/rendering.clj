@@ -17,7 +17,8 @@
 
 (defn select-cs [cs]
   (-> (no-cs cs)
-      (assoc h/-back (cs h/-select))))
+      (assoc h/-back (cs h/-select)
+             h/-select (cs h/-select))))
 
 ;; === Projections ===
 
