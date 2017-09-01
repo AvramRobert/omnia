@@ -1,194 +1,294 @@
 (ns omnia.highlight
-  (require [omnia.more :refer [map-vals]]))
+  (require [clojure.core.match :as m]
+           [clojure.string :as s]))
 
-(def ^:const fnc :function)
-(def ^:const fnc* :function*)
-(def ^:const lst :list)
-(def ^:const vct :vector)
-(def ^:const hmp :map)
-(def ^:const kwd :keyword)
-(def ^:const stg :string)
-(def ^:const chr :char)
-(def ^:const nr :number)
-(def ^:const cmt :comment)
-(def ^:const txt :text)
-(def ^:const txt* :txt*)
-(def ^:const slc-bg :selection)
+(defrecord Transiton [state guard nodes valid?])
 
-(def ^:const s0 txt)
+(def ^:const -list :list)
+(def ^:const -vector :vector)
+(def ^:const -map :map)
+(def ^:const -char :char)
+(def ^:const -number :number)
+(def ^:const -string :string)
+(def ^:const -string* :string*)
+(def ^:const -keyword :keyword)
+(def ^:const -function :function)
+(def ^:const -comment :comment)
+(def ^:const -word :word)
+(def ^:const -text :text)
+(def ^:const -break :break)
+(def ^:const -space :space)
+(def ^:const -select :selection)
+(def ^:const -back :background)
 
-(def syntax-colourscheme
-  {lst :white
-   vct :white
-   hmp :white
-   fnc :yellow
-   kwd :cyan
-   stg :green
-   chr :green
-   nr  :blue
-   cmt :magenta
-   txt :white})
+(def ^:const empty-vec [])
 
-(def ops-colourscheme
-  {slc-bg :blue})
+(def ^:const numbers #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
 
-(defn no-colourscheme [cs]
-  (map-vals (constantly :white) cs))
+(def ^:const words #{[\n \i \l]
+                     [\t \r \u \e]
+                     [\f \a \l \s \e]})
 
-(defn selection-scheme [cs]
-  (-> (no-colourscheme cs)
-      (assoc slc-bg (cs slc-bg))))
+(defn- alphabetic? [c] (Character/isAlphabetic (int c)))
 
-(def default-cs
-  (merge syntax-colourscheme ops-colourscheme))
+(defmacro deftrans [name {:keys [state
+                                 guard
+                                 nodes
+                                 valid?]
+                          :or {valid? (comp not empty?)}}]
+  `(def ~name (Transiton. ~state ~guard ~nodes ~valid?)))
 
-(def default-selection-cs
-  (selection-scheme default-cs))
 
-(def ^:private nrs #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
-(defn ->start-list? [c] (= c \())
-(defn ->end-list? [c] (= c \)))
-(defn ->start-vector? [c] (= c \[))
-(defn ->end-vector? [c] (= c \]))
-(defn ->start-map? [c] (= c \{))
-(defn ->end-map? [c] (= c \}))
-(defn ->keyword? [c] (= c \:))
-(defn ->string? [c] (= c \"))
-(defn ->char? [c] (= c \\))
-(defn ->comment? [c] (= c \;))
-(defn ->break? [c] (= c \newline))
-(defn ->number? [c] (contains? nrs c))
+(deftrans ->break {:state -break
+                   :guard #(= \newline %)
+                   :nodes [-space
+                           -word
+                           -text
+                           -function
+                           -list
+                           -vector
+                           -map
+                           -number
+                           -char
+                           -string
+                           -comment
+                           -keyword]})
 
-(defn ->decimal? [c] (or (= c \.)
-                         (= c \f)))
+(deftrans ->space {:state -space
+                   :guard #(= \space %)
+                   :nodes [-break
+                           -word
+                           -text
+                           -function
+                           -list
+                           -vector
+                           -map
+                           -number
+                           -char
+                           -string
+                           -comment
+                           -keyword]})
 
-(defn ->reset? [c] (or (->break? c)
-                       (= c \space)))
+(deftrans ->open-list {:state -list
+                       :guard #(= \( %)
+                       :nodes [-break
+                               -space
+                               -function
+                               -list
+                               -vector
+                               -map
+                               -number
+                               -char
+                               -string
+                               -comment
+                               -keyword]})
 
-(defmacro deftrans [name & transitions]
-  (assert (even? (count transitions)) "`deftrans` expects an even number of forms")
-  (let [character (gensym)
-        colourscheme (gensym)]
-    `(def ~name
-       (fn [~character ~colourscheme]
-         (cond
-           ~@(->> transitions
-                  (partition 2)
-                  (map
-                    (fn [[pred# [state# ckey#]]]
-                      [(if (= :else pred#) :else (list pred# character))
-                       [state# (list colourscheme ckey# :white)]]))
-                  (reduce concat)))))))
+(deftrans ->close-list {:state -list
+                        :guard #(= \) %)
+                        :nodes [-break
+                                -space
+                                -word
+                                -text
+                                -list
+                                -vector
+                                -map
+                                -number
+                                -char
+                                -string
+                                -comment
+                                -keyword]})
 
-(deftrans ->comment
-          ->break? [txt cmt]
-          :else [cmt cmt])
+(deftrans ->open-vector {:state -vector
+                         :guard #(= \[ %)
+                         :nodes [-break
+                                 -space
+                                 -word
+                                 -text
+                                 -list
+                                 -vector
+                                 -map
+                                 -number
+                                 -char
+                                 -string
+                                 -comment
+                                 -keyword]})
 
-(deftrans ->standard
-          ->reset? [txt txt]
-          ->comment? [cmt cmt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          ->keyword? [kwd kwd]
-          ->string? [stg stg]
-          ->char? [chr chr]
-          ->number? [nr nr]
-          :else [txt* txt])
+(deftrans ->close-vector {:state -vector
+                          :guard #(= \] %)
+                          :nodes [-break
+                                  -space
+                                  -word
+                                  -text
+                                  -list
+                                  -vector
+                                  -map
+                                  -number
+                                  -char
+                                  -string
+                                  -comment
+                                  -keyword]})
 
-(deftrans ->standard*
-          ->reset? [txt txt]
-          ->comment? [cmt cmt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          ->string? [stg stg]
-          ->char? [chr chr]
-          :else [txt* txt])
+(deftrans ->open-map {:state -map
+                      :guard #(= \{ %)
+                      :nodes [-break
+                              -space
+                              -word
+                              -text
+                              -list
+                              -vector
+                              -map
+                              -number
+                              -char
+                              -string
+                              -comment
+                              -keyword]})
 
-(deftrans ->function
-          ->comment? [cmt cmt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          ->keyword? [kwd kwd]
-          ->number? [nr nr]
-          ->char? [chr chr]
-          ->string? [stg stg]
-          ->reset? [txt txt]
-          :else [fnc* fnc])
+(deftrans ->close-map {:state -map
+                       :guard #(= \} %)
+                       :nodes [-break
+                               -space
+                               -word
+                               -text
+                               -list
+                               -vector
+                               -map
+                               -number
+                               -char
+                               -string
+                               -comment
+                               -keyword]})
+;; FIXME: alphabetic? is not sufficient for neither functions nor text, as things like * - are valid
+(deftrans ->function {:state -function
+                      :guard alphabetic?
+                      :nodes [-break
+                              -space
+                              -list
+                              -vector
+                              -map
+                              -comment
+                              -char
+                              -number
+                              -string]})
 
-(deftrans ->function*
-          ->comment? [cmt cmt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          ->reset? [txt txt]
-          :else [fnc* fnc])
+(deftrans ->text {:state -text
+                  :guard alphabetic?
+                  :nodes [-break
+                          -space
+                          -list
+                          -vector
+                          -map
+                          -char
+                          -string
+                          -comment]})
 
-(deftrans ->keyword
-          ->comment? [cmt cmt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          ->reset? [txt txt]
-          :else [kwd kwd])
+(deftrans ->open-string {:state -string
+                         :guard #(= \" %)
+                         :nodes [-string*]})
 
-(deftrans ->string
-          ->string? [txt stg]
-          :else [stg stg])
+(deftrans ->close-string {:state -string*
+                          :guard #(= \" %)
+                          :nodes [-break
+                                  -space
+                                  -word
+                                  -text
+                                  -list
+                                  -vector
+                                  -map
+                                  -number
+                                  -char
+                                  -string
+                                  -comment
+                                  -keyword]})
 
-(deftrans ->character
-          ->reset? [txt txt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          :else [chr chr])
+(deftrans ->comment {:state -comment
+                     :guard #(= \; %)
+                     :nodes [-break]})
 
-(deftrans ->number
-          ->comment? [cmt cmt]
-          ->start-list? [fnc lst]
-          ->end-list? [txt lst]
-          ->start-vector? [txt vct]
-          ->end-vector? [txt vct]
-          ->start-map? [txt hmp]
-          ->end-map? [txt hmp]
-          ->number? [nr nr]
-          ->decimal? [nr nr]
-          :else [txt txt])
+(deftrans ->char {:state -char
+                  :guard #(= \\ %)
+                  :nodes [-break
+                          -space]})
 
-(def state-machine {txt  ->standard
-                    txt* ->standard*
-                    fnc  ->function
-                    fnc* ->function*
-                    kwd  ->keyword
-                    stg  ->string
-                    chr  ->character
-                    nr   ->number
-                    cmt  ->comment})
+(deftrans ->number {:state -number
+                    :guard #(contains? numbers %)
+                    :nodes [-break
+                            -space
+                            -list
+                            -vector
+                            -map
+                            -string
+                            -comment]})
 
-(defn process
-  ([input state]
-    (process input state default-cs))
-  ([input state colourscheme]
-   (if-let [transition (state-machine state)]
-     (transition input colourscheme)
-     [s0 (colourscheme s0)])))
+(deftrans ->keyword {:state -keyword
+                     :guard #(= \: %)
+                     :nodes [-list
+                             -vector
+                             -map
+                             -string
+                             -char
+                             -comment
+                             -break
+                             -space]})
+
+(deftrans ->word
+          {:state -word
+           :guard #(some (fn [[l & _]] (= l %)) words)
+           :nodes [-break
+                   -space
+                   -list
+                   -vector
+                   -map
+                   -string
+                   -char
+                   -comment]
+           :valid? #(some (fn [w] (= % w)) words)})
+
+(def transitions
+  {-list     [->open-list ->close-list]
+   -vector   [->open-vector ->close-vector]
+   -map      [->open-map ->close-map]
+   -function [->function]
+   -text     [->text]
+   -string   [->open-string]
+   -string*  [->close-string]
+   -comment  [->comment]
+   -word     [->word]
+   -number   [->number]
+   -char     [->char]
+   -keyword  [->keyword]
+   -break    [->break]
+   -space    [->space]})
+
+(defn transition [transiton c]
+  (or (some->> (:nodes transiton)
+               (map transitions)
+               (flatten)
+               (some #(when ((:guard %) c) %)))
+      transiton))
+
+(defn changed? [this that]
+  (not= (:state this) (:state that)))
+
+(defn emit [transiton pushed f]
+  (if ((:valid? transiton) pushed)
+    (f pushed (:state transiton))
+    (f pushed (:state ->text))))
+
+;; If -text sits higher in the node list than -word, words will be processed as text
+(defn process [stream f]
+  (loop [rem stream
+         transiton ->break
+         store empty-vec
+         ems empty-vec]
+    (m/match [store rem]
+             [[] []] ems
+             [_ []] (->> (emit transiton store f)
+                         (conj ems)
+                         (recur rem transiton empty-vec))
+             [_ [a & tail]]
+             (let [t (transition transiton a)]
+               (if (changed? transiton t)
+                  (->> (emit transiton store f)
+                       (conj ems)
+                       (recur tail t [a]) )
+                 (recur tail t (conj store a) ems))))))

@@ -1,34 +1,23 @@
 (ns omnia.rendering
   (require [omnia.input :as i]
            [lanterna.terminal :as t]
-           [clojure.core.match :as m]
-           [omnia.highlight-beta :as h]
-           [omnia.config :as c]
+           [omnia.highlight :as h]
            [omnia.more :refer [map-vals reduce-idx zip-all]]))
 
 (declare total! diff! nothing!)
 
 ;; === Various colourschemes ===
 
-(defn- no-cs [cs]
+(defn no-cs [cs]
   (let [text-colour (cs h/-text :white)]
     (map-vals (constantly text-colour) cs)))
 
-(defn- clean-cs [cs]
+(defn clean-cs [cs]
   (assoc cs h/-select :default h/-back :default))
 
-(defn- select-cs [cs]
+(defn select-cs [cs]
   (-> (no-cs cs)
       (assoc h/-back (cs h/-select))))
-
-(defn- pad-erase [current-line former-line]
-  (let [hc      (count current-line)
-        hf      (count former-line)
-        largest (max hc hf)]
-    (->> (repeat \space)
-         (take (- largest hc))
-         (concat current-line)
-         (vec))))
 
 ;; === Projections ===
 
@@ -136,6 +125,15 @@
     (t/move-cursor terminal x y)))
 
 ;; === Rendering strategies ===
+
+(defn- pad-erase [current-line former-line]
+  (let [hc      (count current-line)
+        hf      (count former-line)
+        largest (max hc hf)]
+    (->> (repeat \space)
+         (take (- largest hc))
+         (concat current-line)
+         (vec))))
 
 (defn- when-unpaged [ctx f]
   (let [{terminal :terminal

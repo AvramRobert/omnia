@@ -1,10 +1,10 @@
 (ns omnia.config
   (require [omnia.more :refer [map-vals gulp-or-else]]
            [clojure.string :refer [join]]
-           [omnia.highlight :refer [default-selection-cs]]
            [clojure.set :refer [map-invert]]
            [halfling.task :refer [task]]
-           [omnia.highlight-beta :as h]))
+           [omnia.highlight :as h]
+           [omnia.rendering :as r]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)
@@ -129,7 +129,7 @@
 
 (defn with-features [config]
   (cond-> config
-          (not (get config highlighting)) (assoc colourscheme default-selection-cs)
+          (not (get config highlighting)) (assoc colourscheme r/select-cs)
           (not (get config scrolling)) (update keymap #(dissoc % :scroll-up :scroll-down))
           (not (get config suggestions)) (update keymap #(dissoc % :suggest))
           :always (update keymap (comp map-invert normalise))))

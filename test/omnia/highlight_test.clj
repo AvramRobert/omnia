@@ -4,7 +4,7 @@
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.generators :as gen]
             [clojure.string :as s]
-            [omnia.highlight-beta :as h]))
+            [omnia.highlight :as h]))
 
 (def state-chars
   {h/-list [\( \)]
