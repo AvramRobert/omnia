@@ -3,7 +3,7 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.generators :as gen]
-            [omnia.test-utils :as t]
+            [omnia.test-utils :refer :all]
             [omnia.rendering :as r]))
 
 ;; I. Total rendering
@@ -17,9 +17,9 @@
 
 (defspec test-total-render
          100
-         (for-all [tctx (t/gen-context {:size   5
-                                        :fov    27
-                                        :seeker (one (gen-seeker-of 29))})]
+         (for-all [tctx (gen-context {:size   5
+                                      :fov    27
+                                      :seeker (one (gen-seeker-of 29))})]
                   (total-render tctx)))
 
 ;; II. Diffed rendering
