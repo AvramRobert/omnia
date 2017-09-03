@@ -1,6 +1,6 @@
 (ns omnia.rendering
-  (require [omnia.input :as i]
-           [lanterna.terminal :as t]
+  (require [omnia.terminal :as t]
+           [omnia.input :as i]
            [omnia.highlight :as h]
            [omnia.more :refer [map-vals reduce-idx zip-all]]))
 
@@ -73,18 +73,17 @@
         (assoc :height (:height hud)))))                    ;; for accurate projection
 
 (defn- display! [emission terminal x y]
-  (reduce-idx (fn [ix _ input] (t/put-character terminal input ix y)) x nil emission))
+  (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
 
 (defn print-line! [line terminal cs [x y]]
   (let [ix (atom x)]
-    (t/set-bg-color terminal (cs h/-back))
+    (t/background! terminal (cs h/-back))
     (h/process line
                (fn [emission type]
-                 (let [colour (cs type)]
-                   (t/set-fg-color terminal colour)
-                   (display! emission terminal @ix y)
-                   (swap! ix #(+ % (count emission))))))
-    (t/set-bg-color terminal :default)))
+                 (t/foreground! terminal (cs type))
+                 (display! emission terminal @ix y)
+                 (swap! ix #(+ % (count emission)))))
+    (t/background! terminal :default)))
 
 (defn print-hud!
   ([hud terminal cs]
@@ -123,7 +122,7 @@
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]
-    (t/move-cursor terminal x y)))
+    (t/move! terminal x y)))
 
 ;; === Rendering strategies ===
 
@@ -150,7 +149,7 @@
   (let [{terminal  :terminal
          complete  :complete-hud
          cs        :colourscheme} ctx]
-    (t/clear terminal)
+    (t/clear! terminal)
     (print-hud! (project-hud complete) terminal cs)))
 
 (defn diff! [{:keys [colourscheme] :as ctx}]
@@ -160,8 +159,8 @@
       (->> (zip-all (:lines current) (:lines former))
            (map-indexed (fn [idx paired] (conj paired idx)))
            (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-           (run! (fn [[current-line former-line y]]
-                   (print-line! (pad-erase current-line former-line) terminal colourscheme [0 (project-y y)])))))))
+           (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
+           (run! (fn [[line y]] (print-line! line terminal colourscheme [0 y])))))))
 
 (defn nothing! [ctx]
   (when-unpaged ctx (fn [_ _ _] ())))

@@ -135,7 +135,7 @@
   (let [f (:complete-f repl)]
     (f seeker)))
 
-(defn stop [repl] ((:stop-f repl)))
+(defn stop! [repl] ((:stop-f repl)))
 
 (defn- repl-with [eval-f complete-f stop-f history ns]
   (let [hsize (count history)]

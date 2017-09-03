@@ -6,6 +6,7 @@
            [omnia.input :as i]
            [omnia.hud :as h]
            [omnia.repl :as r]
+           [omnia.terminal :as t]
            [omnia.rendering :as rd]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
@@ -46,17 +47,17 @@
        (gen/fmap i/seeker)
        (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
 
-(defprotocol TRowed
-  (getRows [_]))
-
-(defprotocol TSized
-  (getTerminalSize [_]))
-
 (defn test-terminal [size]
-  (reify TSized
-    (getTerminalSize [_]
-      (reify TRowed
-        (getRows [_] size)))))
+  (t/map->Terminal
+    {:background! (constantly nil)
+     :foreground! (constantly nil)
+     :clear!      (constantly nil)
+     :size        (fn [] size)
+     :move!       (constantly nil)
+     :put!        (constantly nil)
+     :stop!       (constantly nil)
+     :start!      (constantly nil)
+     :keystroke!  (constantly nil)}))
 
 (def ctx (h/context {:terminal nil
                      :repl nil

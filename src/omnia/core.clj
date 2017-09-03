@@ -1,6 +1,6 @@
 (ns omnia.core
   (:gen-class)
-  (require [lanterna.terminal :as t]
+  (require [omnia.terminal :as t]
            [omnia.repl :as r]
            [omnia.hud :as h]
            [omnia.config :as c]
@@ -52,18 +52,18 @@
 
 (defn shutdown [{:keys [terminal repl]}]
   (tsk/task
-    (t/stop terminal)
-    (r/stop repl)))
+    (t/stop! terminal)
+    (r/stop! repl)))
 
 (defn start [{:keys [dir]}]
   (tsk/do-tasks
     [config (c/read-config (config-path dir))
      history (r/read-history (history-path dir))
-     terminal (t/get-terminal :text)
+     terminal (t/terminal :text)
      repl (r/repl {:kind    :local
                    :history history
                    :ns      repl-ns})
-     _ (t/start terminal)]
+     _ (t/start! terminal)]
     (h/read-eval-print
       (assoc config :terminal terminal :repl repl))))
 

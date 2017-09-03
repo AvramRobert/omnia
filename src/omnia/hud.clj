@@ -1,6 +1,5 @@
 (ns omnia.hud
-  (require [lanterna.terminal :as t]
-           [halfling.result :as res]
+  (require [halfling.result :as res]
            [halfling.task :as tsk]
            [omnia.rendering :refer [render]]
            [omnia.repl :as r]
@@ -8,6 +7,7 @@
            [omnia.config :refer [with-features keymap]]
            [clojure.core.match :as m]
            [omnia.formatting :as f]
+           [omnia.terminal :as t]
            [omnia.more :refer [-- ++ inc< dec< mod*]])
   (:import (halfling.result Result)))
 
@@ -71,8 +71,7 @@
        caret))
 
 (defn get-screen-size [terminal alt]
-  (or (some-> terminal (.getTerminalSize) (.getRows))
-      alt))
+  (or (t/size terminal) alt))
 
 (defn context [{:keys [terminal repl keymap colourscheme]}]
   (let [hud (init-hud (get-screen-size terminal 0))]
@@ -368,7 +367,7 @@
              [action] (i/->Event action (:key stroke)))))
 
 (defn iread [ctx]
-  (tsk/task (t/get-keystroke-blocking (:terminal ctx))))
+  (tsk/task (t/keystroke! (:terminal ctx))))
 
 (defn ieval [ctx stroke]
   (tsk/task (process ctx (match-stroke ctx stroke))))
