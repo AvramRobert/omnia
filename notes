@@ -213,6 +213,11 @@ Legend:
        leads to a number of top lines (most probably ov amount of lines)
        to remain unselected.
 
+43. Chunked sequences may introduce performance problems.
+    Chunked sequences makes sense for large inputs.
+    Verify if their unchunked version is faster for my purposes or
+    if I should stick with chunked ones.
+
 Prospects:
 
 - Parenthesis highlighting // done

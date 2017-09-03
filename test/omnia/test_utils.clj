@@ -1,4 +1,5 @@
 (ns omnia.test-utils
+  (:refer-clojure :exclude [flush])
   (require [clojure.test.check.generators :as gen]
            [clojure.test :refer [is]]
            [omnia.more :refer [--]]
@@ -52,11 +53,56 @@
 (defprotocol TSized
   (getTerminalSize [_]))
 
+(defprotocol TColoured
+  (setForegroundColor [_ colour])
+  (setBackgroundColor [_ colour]))
+
+(defprotocol TPrinted
+  (putCharacter [_ char x y]))
+
+(defprotocol TMoved
+  (setCursorPosition [_ x y]))
+
+(defprotocol TCleared
+  (clearScreen [_]))
+
+(defprotocol TFlushed
+  (flush [_]))
+
+(defrecord TestTerminal [size
+                         chars
+                         coords
+                         fgs
+                         bgs
+                         pos
+                         clears
+                         flushes]
+  TSized
+  (getTerminalSize [_] (reify TRowed (getRows [_] size)))
+  TColoured
+  (setForegroundColor [_ colour] (swap! fgs #(conj % colour)))
+  (setBackgroundColor [_ colour] (swap! bgs #(conj % colour)))
+  TPrinted
+  (putCharacter [_ char x y]
+    (swap! chars #(conj % char))
+    (swap! coords #(conj % [x y])))
+  TMoved
+  (setCursorPosition [_ x y] (swap! pos #(conj % [x y])))
+  TCleared
+  (clearScreen [_] (swap! clears inc))
+  TFlushed
+  (flush [_] (swap! flushes inc)))
+
 (defn test-terminal [size]
-  (reify TSized
-    (getTerminalSize [_]
-      (reify TRowed
-        (getRows [_] size)))))
+  (let [empty-vec []]
+    (TestTerminal. size
+                   (atom empty-vec)
+                   (atom empty-vec)
+                   (atom empty-vec)
+                   (atom empty-vec)
+                   (atom empty-vec)
+                   0
+                   0)))
 
 (def ctx (h/context {:terminal nil
                      :repl nil

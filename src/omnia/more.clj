@@ -34,6 +34,10 @@
      seed
      (recur f (inc from) (f from seed (first coll)) (rest coll)))))
 
+(defn unchunk [s]
+  (when (seq s)
+    (lazy-seq (cons (first s) (unchunk (next s))))))
+
 (defn do-until [elm f p]
   (if (p elm) elm (recur (f elm) f p)))
 

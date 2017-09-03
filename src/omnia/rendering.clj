@@ -157,12 +157,11 @@
   (when-unpaged
     ctx
     (fn [terminal current former]
-      (->> (:lines former)
-           (zip-all (:lines current))
+      (->> (zip-all (:lines current) (:lines former))
            (map-indexed (fn [idx paired] (conj paired idx)))
            (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-           (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-           (run! (fn [[line y]] (print-line! line terminal colourscheme [0 y])))))))
+           (run! (fn [[current-line former-line y]]
+                   (print-line! (pad-erase current-line former-line) terminal colourscheme [0 (project-y y)])))))))
 
 (defn nothing! [ctx]
   (when-unpaged ctx (fn [_ _ _] ())))
