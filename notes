@@ -218,6 +218,10 @@ Legend:
     Verify if their unchunked version is faster for my purposes or
     if I should stick with chunked ones.
 
+44. `calibrate` doesn't check changes in fov.
+    If I resize the terminal, calibrate should normally pick that up
+    and correct.
+
 Prospects:
 
 - Parenthesis highlighting // done
@@ -225,9 +229,10 @@ Prospects:
 - REPL sessions // done
 - Tests for input and hud // done
 - Config tests // done
+- Look-ahead syntax highlighter // done
+- Highlighter tests // done
+- Rendering tests
 - Undo and redo
-- Look-ahead syntax highlighter
-- Highlighter tests
 - Extensive validation, sane defaults and/or reporting for user config
 - Parametricity and arity lookup
 - I-search

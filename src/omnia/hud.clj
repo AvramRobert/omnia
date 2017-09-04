@@ -70,11 +70,12 @@
        empty-line
        caret))
 
-(defn get-screen-size [terminal alt]
-  (or (t/size terminal) alt))
-
 (defn context [{:keys [terminal repl keymap colourscheme]}]
-  (let [hud (init-hud (get-screen-size terminal 0))]
+  (assert (not (nil? terminal)) "Please provide a proper terminal (look in omnia.terminal)")
+  (assert (not (nil? repl)) "Please provide a proper repl (look in omnia.repl)")
+  (assert (not (nil? keymap)) "Please provide a proper keymap (look in omnia.config)")
+  (assert (not (nil? colourscheme)) "Please provide a proper colourscheme (look in omnia.config)")
+  (let [hud (init-hud (t/size terminal))]
     (Context.
       terminal
       repl
@@ -114,8 +115,9 @@
 (defn preserve [ctx & seekers]
   (update ctx :complete-hud #(reduce i/join % seekers)))
 
-(defn persist [ctx]
-  (assoc ctx :persisted-hud (:complete-hud ctx)))
+(defn persist
+  ([ctx] (persist ctx (:complete-hud ctx)))
+  ([ctx hud] (assoc ctx :persisted-hud hud)))
 
 (defn remember [ctx]
   (assoc ctx :previous-hud (:complete-hud ctx)))
@@ -164,11 +166,11 @@
 
 (defn resize [ctx]
   (let [fov (get-in ctx [:persisted-hud :fov])
-        ssize (-> ctx (:terminal) (get-screen-size fov))]
-    (if (not= ssize fov)
+        size (-> ctx (:terminal) (t/size))]
+    (if (not= size fov)
       (-> ctx
-          (assoc-in [:persisted-hud :fov] ssize)
-          (assoc-in [:complete-hud :fov] ssize))
+          (assoc-in [:persisted-hud :fov] size)
+          (assoc-in [:complete-hud :fov] size))
       ctx)))
 
 (defn calibrate [ctx]
@@ -199,11 +201,10 @@
 
 (defn clear [ctx]
   (let [fov (get-in ctx [:persisted-hud :fov])
-        start-hud (-> ctx (:terminal) (get-screen-size fov) (init-hud))]
-    (assoc ctx
-      :complete-hud (i/join start-hud (:seeker ctx))
-      :persisted-hud start-hud
-      :previous-hud start-hud)))
+        start-hud (-> ctx (:terminal) (t/size) (init-hud))]
+    (-> (remember ctx)
+        (persist start-hud)
+        (rebase (:seeker ctx)))))
 
 (defn exit [ctx]
   (-> (preserve ctx goodbye)

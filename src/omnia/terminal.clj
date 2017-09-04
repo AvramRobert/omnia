@@ -38,7 +38,7 @@
   ((:keystroke! terminal)))
 
 (defn size [terminal]
-  (some-> (:size terminal) (apply [])))
+  ((:size terminal)))
 
 (defn terminal [kind]
   (let [terminal (t/get-terminal kind)]

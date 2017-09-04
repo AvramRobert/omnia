@@ -47,43 +47,49 @@
        (gen/fmap i/seeker)
        (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
 
-(defn test-terminal [size]
-  (t/map->Terminal
-    {:background! (constantly nil)
-     :foreground! (constantly nil)
-     :clear!      (constantly nil)
-     :size        (fn [] size)
-     :move!       (constantly nil)
-     :put!        (constantly nil)
-     :stop!       (constantly nil)
-     :start!      (constantly nil)
-     :keystroke!  (constantly nil)}))
-
-(def ctx (h/context {:terminal nil
-                     :repl nil
-                     :keymap default-keymap
-                     :colourscheme default-cs}))
+(defn test-terminal [{:keys [background!
+                             foreground!
+                             clear!
+                             size
+                             move!
+                             put!
+                             stop!
+                             start!
+                             keystroke!]
+                      :as fns}]
+  (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
+  (let [unit (constantly nil)]
+    (t/map->Terminal
+      {:background! (or background! unit)
+       :foreground! (or foreground! unit)
+       :clear!      (or clear! unit)
+       :size        (or (constantly size) (constantly 10))
+       :move!       (or move! unit)
+       :put!        (or put! unit)
+       :stop!       (or stop! unit)
+       :start!      (or start! unit)
+       :keystroke!  (or keystroke! unit)})))
 
 (defn gen-context [{:keys [size fov seeker suggestions history]
-                    :or {fov 10
+                    :or {size 0
+                         fov 10
+                         seeker i/empty-seeker
                          suggestions i/empty-seeker
-                         history []
-                         seeker (:seeker ctx)}}]
-  (assert (not (nil? size)) "A context must always have a hud size")
-  (gen/fmap
-    (fn [hud-seeker]
-      (let [hud (h/hud fov hud-seeker)]
-        (-> ctx
-            (assoc :terminal (test-terminal fov)
-                   :repl (-> (r/repl {:kind :identity
-                                      :history history})
-                             (assoc :complete-f (constantly suggestions)))
-                   :seeker seeker
-                   :complete-hud hud
-                   :persisted-hud hud
-                   :previous-hud hud)
-            (h/rebase seeker)
-            (h/remember)))) (gen-seeker-of size)))
+                         history []}}]
+  (->> (gen-seeker-of size)
+       (gen/fmap
+         (fn [hud-seeker]
+           (let [hud (h/hud fov hud-seeker)]
+             (-> (h/context {:terminal (test-terminal {:size fov})
+                             :repl (-> (r/repl {:kind :identity
+                                                :history history})
+                                       (assoc :complete-f (constantly suggestions)))
+                             :keymap default-keymap
+                             :colourscheme default-cs})
+                 (h/seek seeker)
+                 (h/persist hud)
+                 (h/rebase)
+                 (h/remember)))))))
 
 (defn event [action key]
   (i/->Event action key))
@@ -141,7 +147,7 @@
 (defn make-total [ctx]
   (let [h (get-in ctx [:complete-hud :height])]
     (-> ctx
-        (assoc :terminal (test-terminal h))
+        (assoc :terminal (test-terminal {:size h}))
         (assoc-in [:persisted-hud :fov] h)
         (assoc-in [:persisted-hud :lor] h)
         (h/rebase)
@@ -182,7 +188,6 @@
       (update :seeker i/start-x)
       (h/rebase)
       (h/remember)))
-
 
 (defn from-end [ctx]
   (-> ctx

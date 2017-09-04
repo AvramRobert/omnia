@@ -283,11 +283,14 @@
 
 ;; IV. Clearing
 
-(defn clear-remember-persist [some-ctx]
-  (-> some-ctx
-      (process clear)
-      (<=> ctx)
-      (is)))
+(defn clear-remember-persist [ctx]
+  (let [expected-persisted (h/init-hud (get-in ctx [:complete-hud :fov]))
+        expected-complete (i/join expected-persisted (:seeker ctx))]
+    (-> ctx
+        (process clear)
+        (can-be #(<=> (:complete-hud %) expected-complete)
+                #(<=> (:persisted-hud %) expected-persisted)
+                #(<=> (:previous-hud %) (:complete-hud ctx))))))
 
 (defn clearing [ctx]
   (clear-remember-persist ctx))
@@ -672,14 +675,6 @@
                                 [\b \i \t \s \y]
                                 [\s \p \i \d \e \r]])))
 
-(def static-ctx (-> ctx
-                    (assoc :terminal (test-terminal 27))
-                    (update :complete-hud #(-> (i/join % static-seeker)
-                                               (assoc :fov 27
-                                                      :lor 27)))
-                    (update :previous-hud #(-> (i/join % static-seeker)
-                                               (assoc :fov 27
-                                                      :lor 27)))
-                    (update :persisted-hud #(-> (assoc % :fov 27
-                                                         :lor 27)))
-                    (assoc :seeker static-seeker)))
+(def static-ctx (one (gen-context {:size 0
+                                   :fov 27
+                                   :seeker static-seeker})))
