@@ -43,27 +43,6 @@
   (f ctx)
   ctx)
 
-(defn hud-cursors [{:keys [lines]}]
-  (->> lines
-       (reduce-idx
-         (fn [y cursors line]
-           (reduce-idx
-             (fn [x icursors _]
-               (conj icursors [x y])) cursors line)) [])
-       (sort-by (juxt second first))))
-
-(defn hud-chars [{:keys [lines]}]
-  (reduce concat lines))
-
-(defn extract-highlighted-chars [{:keys [complete-hud highlights]}]
-  (let [{start :start
-         end   :end} (first highlights)]
-    (-> complete-hud
-        (assoc :cursor start
-               :selection end)
-        (i/extract)
-        (hud-chars))))
-
 (defn hud-traversal [ctx]
   (-> (project-hud ctx)
       (i/rebase #(map-indexed
@@ -81,15 +60,17 @@
                (update :cursors #(conj % (:cursor item)))
                (update :chars #(conj % (:char item))))) {:cursors [] :chars []})))
 
-(defn expected-print [ctx]
+(defn discretise [ctx]
   (-> (hud-traversal ctx)
       (aggregate)))
 
-(defn expected-highlight [{:keys [complete-hud highlights] :as ctx}]
-  (let [{start :start
+(defn discretise-h [{:keys [complete-hud highlights] :as ctx}]
+  (let [fov (:fov complete-hud)
+        {start :start
          end   :end} (-> (first highlights)
                          (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
-                         (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
+                         (update :end (fn [[x y]] [x (r/project-y complete-hud y)]))
+                         (r/project-selection fov))]
     (-> (hud-traversal ctx)
         (assoc :cursor start
                :selection end)
@@ -101,9 +82,8 @@
 (defn projected-total-render [ctx]
   (let [processed (-> (move-top-fov ctx)
                       (process up 2))
-        projected (project-hud processed)
-        expected-chars (hud-chars projected)
-        expected-cursors (hud-cursors projected)]
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise processed)]
     (-> (stateful processed)
         (execute r/total!)
         (inspect
@@ -117,26 +97,23 @@
 
 (defspec total-render-test
          100
-         (for-all [tctx (gen-context {:size   5
+         (for-all [ctx (gen-context {:size   5
                                       :fov    27
                                       :seeker (one (gen-seeker-of 29))})]
-                  (total-render tctx)))
+                  (total-render ctx)))
 
 ;; II. Diffed rendering
 
 (defn padded-diff-render [ctx]
-  (let [processed (-> (move-end-fov ctx)
-                      (process select-right 2))
-        projected (project-hud processed)
-        deleted (process processed backspace)
-        expected-chars (-> projected
-                           (i/rebase #(take-last 1 %))
-                           (hud-chars)
-                           (->> (drop 2))
-                           (concat [\space \space]))
-        expected-cursors (->> (hud-cursors projected)
-                              (take-last (count expected-chars)))]
-    (-> (stateful deleted)
+  (let [selected (-> (move-end-fov ctx)
+                     (process select-right 100))
+        processed (process selected backspace)
+        n-last (-> (:complete-hud ctx) (:lines) (last) (count))
+        expected-chars (repeat n-last \space)
+        expected-cursors (->> (discretise selected)
+                              (:cursors)
+                              (take-last n-last))]
+    (-> (stateful processed)
         (execute r/diff!)
         (inspect
           (fn [{:keys [chars cursors]}]
@@ -146,13 +123,11 @@
 (defn projected-diff-render [ctx k]
   (let [processed (-> (move-end-fov ctx)
                       (process (char-key k) 10))
-        expected-chars (-> (:complete-hud processed)
-                           (:lines)
-                           (last))
-        expected-cursors (->> (:complete-hud processed)
-                              (r/project-hud)
-                              (hud-cursors)
-                              (take-last (count expected-chars)))]
+        last-n (-> (:complete-hud processed) (:lines) (last) (count))
+        {chars   :chars
+         cursors :cursors} (discretise processed)
+        expected-chars (take-last last-n chars)
+        expected-cursors (take-last last-n cursors)]
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
@@ -163,9 +138,8 @@
 (defn diff-reset-to-total-render [ctx]
   (let [processed (-> (move-top-fov ctx)
                       (process up))
-        projected (project-hud processed)
-        expected-chars (hud-chars projected)
-        expected-cursors (hud-cursors projected)]
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise processed)]
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
@@ -181,10 +155,10 @@
 
 (defspec diff-render-test
          100
-         (for-all [tctx (gen-context {:size   5
+         (for-all [ctx (gen-context {:size   5
                                       :fov    27
                                       :seeker (one (gen-seeker-of 29))})]
-                  (diff-render tctx)))
+                  (diff-render ctx)))
 
 ;; III. No rendering
 
@@ -200,7 +174,7 @@
   (let [processed (-> (move-top-fov ctx)
                       (process up))
         {expected-chars   :chars
-         expected-cursors :cursors} (expected-print processed)]
+         expected-cursors :cursors} (discretise processed)]
     (-> (stateful processed)
         (execute r/nothing!)
         (inspect
@@ -215,10 +189,10 @@
 
 (defspec no-render-test
          100
-         (for-all [tctx (gen-context {:size 5
+         (for-all [ctx (gen-context {:size 5
                                       :fov 27
                                       :seeker (one (gen-seeker-of 29))})]
-                  (no-render tctx)))
+                  (no-render ctx)))
 
 ;; IV. Selection highlighting
 
@@ -226,7 +200,7 @@
   (let [processed (-> (move-end-fov ctx)
                       (process select-right 3))
         {expected-chars   :chars
-         expected-cursors :cursors} (expected-highlight processed)]
+         expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
         (execute #(r/highlight! % (:highlights %)))
         (inspect
@@ -239,7 +213,7 @@
                       (process right 3)
                       (process select-left 3))
         {expected-chars   :chars
-         expected-cursors :cursors} (expected-highlight processed)]
+         expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
         (execute #(r/highlight! % (:highlights %)))
         (inspect
@@ -247,7 +221,16 @@
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
-(defn projected-selection-render [ctx] true)
+(defn projected-selection-render [ctx]
+  (let [processed (process ctx select-all)
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise-h processed)]
+    (-> (stateful processed)
+        (execute #(r/highlight! % (:highlights %)))
+        (inspect
+          (fn [{:keys [chars cursors]}]
+            (is (= expected-chars chars))
+            (is (= expected-cursors cursors)))))))
 
 (defn selection-render [ctx]
   (total-selection-render-right ctx)
@@ -256,13 +239,40 @@
 
 (defspec selection-render-test
          100
-         (for-all [tctx (gen-context {:size 5
+         (for-all [ctx (gen-context {:size 5
                                       :fov 27
                                       :seeker (one (gen-seeker-of 29))})]
-                  (selection-render tctx)))
+                  (selection-render ctx)))
 
 ;; V. Clean-up highlighting
-(defn clean-up-render [ctx] true)
+
+(defn line-start-clean-up-render [ctx]
+  (let [processed (-> (move-end-fov ctx)
+                      (process right)
+                      (process select-right 100)
+                      (process up))
+        last-n (-> (:complete-hud ctx) (:lines) (last) (count))
+        {chars   :chars
+         cursors :cursors} (discretise processed)
+        expected-chars (take-last last-n chars)
+        expected-cursors (take-last last-n cursors)]
+    (-> (stateful processed)
+        (execute r/clean!)
+        (inspect
+          (fn [{:keys [chars cursors bgs]}]
+            (is (= :default (first (distinct bgs))))
+            (is (= expected-chars chars))
+            (is (= expected-cursors cursors)))))))
+
+(defn clean-up-render [ctx]
+  (line-start-clean-up-render ctx))
+
+(defspec clean-up-render-test
+         100
+         (for-all [ctx (gen-context {:size 5
+                                      :fov 27
+                                      :seeker (one (gen-seeker-of 29))})]
+                  (clean-up-render ctx)))
 
 ;; VI. Hud projection
 
@@ -301,10 +311,10 @@
 
 (defspec hud-projection-test
          100
-         (for-all [tctx (gen-context {:size 20
+         (for-all [ctx (gen-context {:size 20
                                       :fov 7
                                       :seeker (one (gen-seeker-of 10))})]
-                  (hud-projection tctx)))
+                  (hud-projection ctx)))
 
 ;; VII. Selection projection
 
@@ -341,10 +351,10 @@
 
 (defspec selection-projection-test
          100
-         (for-all [tctx (gen-context {:size 20
+         (for-all [ctx (gen-context {:size 20
                                       :fov 7
                                       :seeker (one (gen-seeker-of 10))})]
-                  (selection-projection tctx)))
+                  (selection-projection ctx)))
 
 
 ;; VIII. Cursor projection
@@ -382,10 +392,10 @@
 
 (defspec cursor-projection-test
          100
-         (for-all [tctx (gen-context {:size 20
+         (for-all [ctx (gen-context {:size 20
                                       :fov 7
                                       :seeker (one (gen-seeker-of 10))})]
-                  (cursor-projection tctx)))
+                  (cursor-projection ctx)))
 
 
 
