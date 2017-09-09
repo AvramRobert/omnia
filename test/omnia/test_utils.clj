@@ -133,6 +133,14 @@
 (defn lor [ctx]
   (get-in ctx [:complete-hud :lor]))
 
+(defn y [ctx]
+  (get-in ctx [:complete-hud :cursor 1]))
+
+(defn project-y [ctx]
+  (let [complete (:complete-hud ctx)
+        [_ y] (:cursor complete)]
+    (rd/project-y complete y)))
+
 (defn project-hud [ctx]
   (rd/project-hud (:complete-hud ctx)))
 

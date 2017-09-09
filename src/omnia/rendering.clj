@@ -2,7 +2,7 @@
   (require [omnia.terminal :as t]
            [omnia.input :as i]
            [omnia.highlight :as h]
-           [omnia.more :refer [map-vals reduce-idx zip-all]]))
+           [omnia.more :refer [map-vals reduce-idx zip-all --]]))
 
 (declare total! diff! nothing!)
 
@@ -22,18 +22,29 @@
 
 ;; === Projections ===
 
-(defn project-y
-  "gy = cy - (h - fov - ov)
-   cy = gy + (h - fov - ov)"
-  ([hud]
-   (project-y hud (-> hud :cursor second)))
-  ([hud y']
-   (let [{fov :fov
-          ov  :ov
-          h   :height} hud]
-     (if (> h fov)
-       (- y' (- h fov ov))
-       y'))))
+(defn bottom-y [hud]
+  "The lower y bound of a page (exclusive)
+  bottom-y = height - ov - 1
+  Subtract 1 because we count from 0"
+  (let [{height :height
+         ov     :ov} hud]
+    (-- height ov 1)))
+
+(defn top-y [hud]
+  "The upper y bound of a page (inclusive)
+  top-y = (height - fov - ov)"
+  (let [{height :height
+         fov    :fov
+         ov     :ov} hud]
+    (-- height fov ov)))
+
+(defn project-y [hud y]
+  "given hud-y, screen-y = hud-y - top-y
+   given screen-y, hud-y = screen-y + top-y"
+  (let [{fov :fov
+         h   :height} hud
+        ys (top-y hud)]
+    (if (> h fov) (- y ys) y)))
 
 (defn project-cursor [hud]
   (let [[x hy] (:cursor hud)
@@ -44,9 +55,9 @@
   (let [{[xs ys] :start
          [xe ye] :end} selection
         start-y (- ye fov)
-        start (if (> start-y ys) [0 (inc start-y)] [xs ys])]
+        start   (if (> start-y ys) [0 (inc start-y)] [xs ys])]
     {:start start
-     :end [xe ye]}))
+     :end   [xe ye]}))
 
 (defn project-hud [hud]
   (let [{lor     :lor
@@ -146,9 +157,9 @@
       (f terminal current former))))
 
 (defn total! [ctx]
-  (let [{terminal  :terminal
-         complete  :complete-hud
-         cs        :colourscheme} ctx]
+  (let [{terminal :terminal
+         complete :complete-hud
+         cs       :colourscheme} ctx]
     (t/clear! terminal)
     (print-hud! (project-hud complete) terminal cs)))
 

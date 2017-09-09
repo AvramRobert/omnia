@@ -14,7 +14,6 @@
         cursors (atom [])
         bgs     (atom [])
         fgs     (atom [])
-        moves   (atom [])
         clears  (atom 0)
         acc     (fn [atm val] (swap! atm #(conj % val)))
         cnt     (fn [atm] (swap! atm inc))
@@ -23,7 +22,6 @@
       :terminal (test-terminal {:background! (fn [colour] (acc bgs colour))
                                 :foreground! (fn [colour] (acc fgs colour))
                                 :clear!      (fn [] (cnt clears))
-                                :move!       (fn [x y] (acc moves [x y]))
                                 :put!        (fn [ch x y]
                                                (acc chars ch)
                                                (acc cursors [x y]))
@@ -32,8 +30,7 @@
               :cursors cursors
               :bgs     bgs
               :fgs     fgs
-              :clears  clears
-              :moves   moves})))
+              :clears  clears})))
 
 (defn inspect [ctx p]
   (when-let [state (:state ctx)]
@@ -141,6 +138,18 @@
             (is (= expected-cursors cursors))
             (is (= expected-chars chars)))))))
 
+(defn no-change-diff-render [ctx]
+  (-> (move-end-fov ctx)
+      (process up)
+      (stateful)
+      (execute r/diff!)
+      (inspect
+        (fn [{:keys [chars cursors fgs bgs]}]
+          (is (empty? chars))
+          (is (empty? cursors))
+          (is (empty? fgs))
+          (is (empty? bgs))))))
+
 (defn diff-reset-to-total-render [ctx]
   (let [processed (-> (move-top-fov ctx)
                       (process up))
@@ -159,6 +168,7 @@
 (defn diff-render [ctx]
   (projected-diff-render ctx (one gen/char-alpha))
   (padded-diff-render ctx)
+  (no-change-diff-render ctx)
   (diff-reset-to-total-render ctx))
 
 (defspec diff-render-test
@@ -341,12 +351,11 @@
 (defn total-selection-projection [ctx]
   (let [total (move-end-fov (make-total ctx))
         [x y] (cursor total)]
-    (-> total
-        (process select-up 5)
-        (:highlights)
-        (contains? {:start [x (- y 5)]
-                    :end   [x y]})
-        (is))))
+    (can-be total
+            #(-> (process % select-up 5)
+                 (:highlights)
+                 (contains? {:start [x (- y 5)]
+                             :end   [x y]})))))
 
 (defn paged-selection-projection [ctx]
   (let [start (move-top-fov ctx)
@@ -376,7 +385,6 @@
                                      :seeker (one (gen-seeker-of 10))})]
                   (selection-projection ctx)))
 
-
 ;; VIII. Cursor projection
 
 (defn total-cursor-projection [ctx]
@@ -402,13 +410,9 @@
           #(-> % (move-bottom-fov) (process down) (project-cursor) (= [0 end-y]))
           #(-> % (move-bottom-fov) (process down 2) (project-cursor) (= [0 end-y]))))))
 
-;; FIXME: Implement test
-(defn y-projection [ctx] true)
-
 (defn cursor-projection [ctx]
   (total-cursor-projection ctx)
-  (paged-cursor-projection ctx)
-  (y-projection ctx))
+  (paged-cursor-projection ctx))
 
 (defspec cursor-projection-test
          100
@@ -417,8 +421,32 @@
                                      :seeker (one (gen-seeker-of 10))})]
                   (cursor-projection ctx)))
 
+;; IX. Y Projection
 
+(defn- bounded? [ctx y]
+  (<= 0 y (fov ctx)))
 
-;; IX. Line printing ???
+(defn top-bounded-y-projection [ctx]
+  (-> (move-end-fov ctx)
+      (can-be #(bounded? % (-> % (process up 5) (project-y)))
+              #(= 0 (-> % (process up 15) (project-y)))
+              #(= 0 (-> % (process up 100) (project-y))))))
 
-(defn line-print [] true)
+(defn bottom-bounded-y-projection [ctx]
+  (let [end-y (dec (fov ctx))]                              ;; starts from 0
+    (-> (move-top-fov ctx)
+        (process up 5)
+        (can-be #(bounded? % (-> % (process down 10) (project-y)))
+                #(= end-y (-> % (process down 15) (project-y)))
+                #(= end-y (-> % (process down 100) (project-y)))))))
+
+(defn y-projection [ctx]
+  (top-bounded-y-projection ctx)
+  (bottom-bounded-y-projection ctx))
+
+(defspec y-projection-test
+         100
+         (for-all [ctx (gen-context {:size   30
+                                     :fov    10
+                                     :seeker (one (gen-seeker-of 20))})]
+                  (y-projection ctx)))

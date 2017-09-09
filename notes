@@ -213,14 +213,15 @@ Legend:
        leads to a number of top lines (most probably ov amount of lines)
        to remain unselected.
 
-43. Chunked sequences may introduce performance problems.
-    Chunked sequences makes sense for large inputs.
-    Verify if their unchunked version is faster for my purposes or
-    if I should stick with chunked ones.
+ | 43. Chunked sequences may introduce performance problems.
+       Chunked sequences makes sense for large inputs.
+       Verify if their unchunked version is faster for my purposes or
+       if I should stick with chunked ones.
 
-44. `calibrate` doesn't check changes in fov.
-    If I resize the terminal, calibrate should normally pick that up
-    and correct.
+44. Enlarging the terminal doesn't trigger a complete re-render.
+    Apparently, after an enlargement, somehow the context gets polluted
+    and not all visible lines get rendered anymore. Even after inserting
+    new characters. Only clearing solves the problem.
 
 Prospects:
 
@@ -231,7 +232,7 @@ Prospects:
 - Config tests // done
 - Look-ahead syntax highlighter // done
 - Highlighter tests // done
-- Rendering tests
+- Rendering tests // done
 - Undo and redo
 - Extensive validation, sane defaults and/or reporting for user config
 - Parametricity and arity lookup

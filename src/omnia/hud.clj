@@ -1,7 +1,7 @@
 (ns omnia.hud
   (require [halfling.result :as res]
            [halfling.task :as tsk]
-           [omnia.rendering :refer [render]]
+           [omnia.rendering :refer [render top-y bottom-y]]
            [omnia.repl :as r]
            [omnia.input :as i]
            [omnia.config :refer [with-features keymap]]
@@ -165,7 +165,7 @@
   [:terminate ctx])
 
 (defn resize [ctx]
-  (let [fov (get-in ctx [:persisted-hud :fov])
+  (let [fov  (get-in ctx [:persisted-hud :fov])
         size (-> ctx (:terminal) (t/size))]
     (if (not= size fov)
       (-> ctx
@@ -174,13 +174,14 @@
       ctx)))
 
 (defn calibrate [ctx]
-  (let [{{fov :fov
-          ov :ov
-          h :height
+  (let [{{fov   :fov
+          ov    :ov
+          h     :height
           [_ y] :cursor} :complete-hud
-         {ph :height} :previous-hud} ctx
-        upper-y (- h fov ov)                                ;; the top viewable y
-        lower-y (dec (- h ov))                              ;; the lower viewable y
+         complete        :complete-hud
+         {ph :height}    :previous-hud} ctx
+        upper-y (top-y complete)                            ;; the top viewable y
+        lower-y (bottom-y complete)                         ;; the lower viewable y
         over-upper? (< y upper-y)
         over-lower? (> y lower-y)
         at-lower? (= y lower-y)
@@ -200,7 +201,7 @@
         (assoc-in [:complete-hud :ov] nov))))
 
 (defn clear [ctx]
-  (let [fov (get-in ctx [:persisted-hud :fov])
+  (let [fov       (get-in ctx [:persisted-hud :fov])
         start-hud (-> ctx (:terminal) (t/size) (init-hud))]
     (-> (remember ctx)
         (persist start-hud)
@@ -278,30 +279,30 @@
         (assoc :repl evaluation))))
 
 (defn- paginate [suggestions sgst-idx]
-  (let [per-page 10
+  (let [per-page     10
         nxt-sgst-idx (inc sgst-idx)
-        hs (i/height suggestions)
-        dots (cond
-               (<= hs per-page) i/empty-seeker
-               (< (inc sgst-idx) hs) continuation
-               :else i/empty-seeker)]
+        hs           (i/height suggestions)
+        dots         (cond
+                       (<= hs per-page) i/empty-seeker
+                       (< (inc sgst-idx) hs) continuation
+                       :else i/empty-seeker)]
     (-> suggestions
         (i/rebase
           #(cond->> %
-                   (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
-                   :always (take per-page)))
+                    (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
+                    :always (take per-page)))
         (adjoin dots)
         (indent 1)
         (i/move-y #(if (>= % per-page) (dec per-page) %)))))
 
 (defn suggestion-window [ctx suggestions]
-  (let [{seeker :seeker
+  (let [{seeker       :seeker
          [_ sgst-idx] :suggestion} ctx
         completed (auto-complete seeker (i/line suggestions))
         paginated (paginate suggestions sgst-idx)
-        ph (i/height paginated)
-        top (i/peer completed (fn [l [x & _]] (conj l x)))
-        bottom (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
+        ph        (i/height paginated)
+        top       (i/peer completed (fn [l [x & _]] (conj l x)))
+        bottom    (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
     (-> i/empty-seeker
         (i/join top)
         (i/join delimiter)
@@ -312,14 +313,14 @@
         (assoc :ov (-- (i/height bottom) ph)))))
 
 (defn suggest [ctx]
-  (let [{seeker :seeker
-         repl :repl
+  (let [{seeker       :seeker
+         repl         :repl
          [_ sgst-idx] :suggestion} ctx
         suggestions (-> (r/suggest repl seeker)
                         (i/reset-y sgst-idx)
                         (i/end-x))
-        suggestion (i/line suggestions)
-        nidx (-> sgst-idx (inc) (mod* (i/height suggestions)))]
+        suggestion  (i/line suggestions)
+        nidx        (-> sgst-idx (inc) (mod* (i/height suggestions)))]
     (-> (remember ctx)
         (rebase (suggestion-window ctx suggestions))
         (assoc :suggestion [suggestion nidx]))))
