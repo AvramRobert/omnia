@@ -31,217 +31,233 @@
 
 (defn- alphabetic? [c] (Character/isAlphabetic (int c)))
 
-(defmacro deftrans [name {:keys [state
-                                 guard
-                                 nodes
-                                 valid?]
-                          :or {valid? (comp not empty?)}}]
-  `(def ~name (Transiton. ~state ~guard ~nodes ~valid?)))
+(defn transiton [{:keys [state
+                         guard
+                         nodes
+                         valid?]
+                  :or   {valid? (comp not empty?)}}]
+  (Transiton. state guard nodes valid?))
 
 
-(deftrans ->break {:state -break
-                   :guard #(= \newline %)
-                   :nodes [-space
-                           -word
-                           -text
-                           -function
-                           -list
-                           -vector
-                           -map
-                           -number
-                           -char
-                           -string
-                           -comment
-                           -keyword]})
+(def ->break
+  (transiton {:state -break
+              :guard #(= \newline %)
+              :nodes [-space
+                      -word
+                      -text
+                      -function
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->space {:state -space
-                   :guard #(= \space %)
-                   :nodes [-break
-                           -word
-                           -text
-                           -function
-                           -list
-                           -vector
-                           -map
-                           -number
-                           -char
-                           -string
-                           -comment
-                           -keyword]})
+(def ->space
+  (transiton {:state -space
+              :guard #(= \space %)
+              :nodes [-break
+                      -word
+                      -text
+                      -function
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->open-list {:state -list
-                       :guard #(= \( %)
-                       :nodes [-break
-                               -space
-                               -function
-                               -list
-                               -vector
-                               -map
-                               -number
-                               -char
-                               -string
-                               -comment
-                               -keyword]})
+(def ->open-list
+  (transiton {:state -list
+              :guard #(= \( %)
+              :nodes [-break
+                      -space
+                      -function
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->close-list {:state -list
-                        :guard #(= \) %)
-                        :nodes [-break
-                                -space
-                                -word
-                                -text
-                                -list
-                                -vector
-                                -map
-                                -number
-                                -char
-                                -string
-                                -comment
-                                -keyword]})
+(def ->close-list
+  (transiton {:state -list
+              :guard #(= \) %)
+              :nodes [-break
+                      -space
+                      -word
+                      -text
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->open-vector {:state -vector
-                         :guard #(= \[ %)
-                         :nodes [-break
-                                 -space
-                                 -word
-                                 -text
-                                 -list
-                                 -vector
-                                 -map
-                                 -number
-                                 -char
-                                 -string
-                                 -comment
-                                 -keyword]})
+(def ->open-vector
+  (transiton {:state -vector
+              :guard #(= \[ %)
+              :nodes [-break
+                      -space
+                      -word
+                      -text
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->close-vector {:state -vector
-                          :guard #(= \] %)
-                          :nodes [-break
-                                  -space
-                                  -word
-                                  -text
-                                  -list
-                                  -vector
-                                  -map
-                                  -number
-                                  -char
-                                  -string
-                                  -comment
-                                  -keyword]})
+(def ->close-vector
+  (transiton {:state -vector
+              :guard #(= \] %)
+              :nodes [-break
+                      -space
+                      -word
+                      -text
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->open-map {:state -map
-                      :guard #(= \{ %)
-                      :nodes [-break
-                              -space
-                              -word
-                              -text
-                              -list
-                              -vector
-                              -map
-                              -number
-                              -char
-                              -string
-                              -comment
-                              -keyword]})
+(def ->open-map
+  (transiton {:state -map
+              :guard #(= \{ %)
+              :nodes [-break
+                      -space
+                      -word
+                      -text
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->close-map {:state -map
-                       :guard #(= \} %)
-                       :nodes [-break
-                               -space
-                               -word
-                               -text
-                               -list
-                               -vector
-                               -map
-                               -number
-                               -char
-                               -string
-                               -comment
-                               -keyword]})
-;; FIXME: alphabetic? is not sufficient for neither functions nor text, as things like * - are valid
-(deftrans ->function {:state -function
-                      :guard alphabetic?
-                      :nodes [-break
-                              -space
-                              -list
-                              -vector
-                              -map
-                              -comment
-                              -char
-                              -number
-                              -string]})
+(def ->close-map
+  (transiton {:state -map
+              :guard #(= \} %)
+              :nodes [-break
+                      -space
+                      -word
+                      -text
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->text {:state -text
-                  :guard alphabetic?
-                  :nodes [-break
-                          -space
-                          -list
-                          -vector
-                          -map
-                          -char
-                          -string
-                          -comment]})
+(def ->function
+  (transiton {:state -function
+              :guard alphabetic?
+              :nodes [-break
+                      -space
+                      -list
+                      -vector
+                      -map
+                      -comment
+                      -char
+                      -number
+                      -string]}))
 
-(deftrans ->open-string {:state -string
-                         :guard #(= \" %)
-                         :nodes [-string*]})
+(def ->text
+  (transiton {:state -text
+              :guard alphabetic?
+              :nodes [-break
+                      -space
+                      -list
+                      -vector
+                      -map
+                      -char
+                      -string
+                      -comment]}))
 
-(deftrans ->close-string {:state -string*
-                          :guard #(= \" %)
-                          :nodes [-break
-                                  -space
-                                  -word
-                                  -text
-                                  -list
-                                  -vector
-                                  -map
-                                  -number
-                                  -char
-                                  -string
-                                  -comment
-                                  -keyword]})
+(def ->open-string
+  (transiton {:state -string
+              :guard #(= \" %)
+              :nodes [-string*]}))
 
-(deftrans ->comment {:state -comment
-                     :guard #(= \; %)
-                     :nodes [-break]})
+(def ->close-string
+  (transiton {:state -string*
+              :guard #(= \" %)
+              :nodes [-break
+                      -space
+                      -word
+                      -text
+                      -list
+                      -vector
+                      -map
+                      -number
+                      -char
+                      -string
+                      -comment
+                      -keyword]}))
 
-(deftrans ->char {:state -char
-                  :guard #(= \\ %)
-                  :nodes [-break
-                          -space]})
+(def ->comment
+  (transiton {:state -comment
+              :guard #(= \; %)
+              :nodes [-break]}))
 
-(deftrans ->number {:state -number
-                    :guard #(contains? numbers %)
-                    :nodes [-break
-                            -space
-                            -list
-                            -vector
-                            -map
-                            -string
-                            -comment]})
+(def ->char
+  (transiton {:state -char
+              :guard #(= \\ %)
+              :nodes [-break
+                      -space]}))
 
-(deftrans ->keyword {:state -keyword
-                     :guard #(= \: %)
-                     :nodes [-list
-                             -vector
-                             -map
-                             -string
-                             -char
-                             -comment
-                             -break
-                             -space]})
+(def ->number
+  (transiton {:state -number
+              :guard #(contains? numbers %)
+              :nodes [-break
+                      -space
+                      -list
+                      -vector
+                      -map
+                      -string
+                      -comment]}))
 
-(deftrans ->word
-          {:state -word
-           :guard #(some (fn [[l & _]] (= l %)) words)
-           :nodes [-break
-                   -space
-                   -list
-                   -vector
-                   -map
-                   -string
-                   -char
-                   -comment]
-           :valid? #(some (fn [w] (= % w)) words)})
+(def ->keyword
+  (transiton {:state -keyword
+              :guard #(= \: %)
+              :nodes [-list
+                      -vector
+                      -map
+                      -string
+                      -char
+                      -comment
+                      -break
+                      -space]}))
+
+(def ->word
+  (transiton {:state  -word
+              :guard  #(some (fn [[l & _]] (= l %)) words)
+              :nodes  [-break
+                       -space
+                       -list
+                       -vector
+                       -map
+                       -string
+                       -char
+                       -comment]
+              :valid? #(some (fn [w] (= % w)) words)}))
 
 (def transitions
   {-list     [->open-list ->close-list]
@@ -276,10 +292,10 @@
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
 (defn process [stream f]
-  (loop [rem stream
+  (loop [rem       stream
          transiton ->break
-         store empty-vec
-         ems empty-vec]
+         store     empty-vec
+         ems       empty-vec]
     (m/match [store rem]
              [[] []] ems
              [_ []] (->> (emit transiton store f)
@@ -288,7 +304,7 @@
              [_ [a & tail]]
              (let [t (transition transiton a)]
                (if (changed? transiton t)
-                  (->> (emit transiton store f)
-                       (conj ems)
-                       (recur tail t [a]) )
+                 (->> (emit transiton store f)
+                      (conj ems)
+                      (recur tail t [a]))
                  (recur tail t (conj store a) ems))))))
