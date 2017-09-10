@@ -201,7 +201,9 @@
     (if (not= new-fov fov)
       (-> ctx
           (assoc-in [:persisted-hud :fov] new-fov)
+          (assoc-in [:persisted-hud :lor] new-fov)
           (assoc-in [:complete-hud :fov] new-fov)
+          (assoc-in [:complete-hud :lor] new-fov)
           (calibrate)
           (re-render))
       ctx)))
