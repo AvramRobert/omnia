@@ -116,8 +116,8 @@
   and checks its transitions. Disallowed transitions are specified
   in `disallowed` as key-value pairs. The key represents the
   disallowed state, whist the value represents the actual state
-  the transiton should transition to, should it encounter a character
-  that would, in the standard case, lead to the disallowed state."
+  the transiton should transition to if it encounters a character
+  that would otherwise lead to the disallowed state."
   (doseq [state states
           c (chars-for state)
           :let [nxt (h/transition transiton c)]]
@@ -359,4 +359,5 @@
   (transition! h/->function {h/-string* h/-string
                              h/-word h/-function
                              h/-text h/-function
-                             h/-keyword h/-function}))
+                             h/-number h/-function
+                             h/-keyword h/-function}))1

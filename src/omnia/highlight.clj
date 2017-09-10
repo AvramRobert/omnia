@@ -4,6 +4,8 @@
 
 (defrecord Transiton [state guard nodes valid?])
 
+(declare transitions)
+
 (def ^:const -list :list)
 (def ^:const -vector :vector)
 (def ^:const -map :map)
@@ -21,6 +23,8 @@
 (def ^:const -select :selection)
 (def ^:const -back :background)
 
+(def ^:const not-nodes :not-nodes)
+
 (def ^:const empty-vec [])
 
 (def ^:const numbers #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
@@ -29,23 +33,30 @@
                      [\t \r \u \e]
                      [\f \a \l \s \e]})
 
-(defn- alphabetic? [c] (Character/isAlphabetic (int c)))
+(defn- invert [nodes]
+  (let [ts (delay (->> nodes
+                       (mapcat transitions)
+                       (mapv :guard)))]
+    #(reduce
+       (fn [bool p] (and bool (not (p %)))) true @ts)))
 
 (defn transiton [{:keys [state
                          guard
                          nodes
                          valid?]
-                  :or   {valid? (comp not empty?)}}]
-  (Transiton. state guard nodes valid?))
-
+                  :or   {valid? (comp not empty?)
+                         nodes  []}
+                  :as   transiton}]
+  (assert (not (nil? state)) "A transiton must always have a state")
+  (assert (not (nil? guard)) "A transiton must always have a guard")
+  (let [nguard (if (= not-nodes guard) (invert nodes) guard)]
+    (Transiton. state nguard nodes valid?)))
 
 (def ->break
   (transiton {:state -break
               :guard #(= \newline %)
               :nodes [-space
                       -word
-                      -text
-                      -function
                       -list
                       -vector
                       -map
@@ -53,15 +64,14 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->space
   (transiton {:state -space
               :guard #(= \space %)
               :nodes [-break
                       -word
-                      -text
-                      -function
                       -list
                       -vector
                       -map
@@ -69,14 +79,14 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->open-list
   (transiton {:state -list
               :guard #(= \( %)
               :nodes [-break
                       -space
-                      -function
                       -list
                       -vector
                       -map
@@ -84,7 +94,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -function]}))
 
 (def ->close-list
   (transiton {:state -list
@@ -92,7 +103,6 @@
               :nodes [-break
                       -space
                       -word
-                      -text
                       -list
                       -vector
                       -map
@@ -100,7 +110,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->open-vector
   (transiton {:state -vector
@@ -108,7 +119,6 @@
               :nodes [-break
                       -space
                       -word
-                      -text
                       -list
                       -vector
                       -map
@@ -116,7 +126,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->close-vector
   (transiton {:state -vector
@@ -124,7 +135,6 @@
               :nodes [-break
                       -space
                       -word
-                      -text
                       -list
                       -vector
                       -map
@@ -132,7 +142,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->open-map
   (transiton {:state -map
@@ -140,7 +151,6 @@
               :nodes [-break
                       -space
                       -word
-                      -text
                       -list
                       -vector
                       -map
@@ -148,7 +158,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->close-map
   (transiton {:state -map
@@ -156,7 +167,6 @@
               :nodes [-break
                       -space
                       -word
-                      -text
                       -list
                       -vector
                       -map
@@ -164,32 +174,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
-
-(def ->function
-  (transiton {:state -function
-              :guard alphabetic?
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -comment
-                      -char
-                      -number
-                      -string]}))
-
-(def ->text
-  (transiton {:state -text
-              :guard alphabetic?
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -char
-                      -string
-                      -comment]}))
+                      -keyword
+                      -text]}))
 
 (def ->open-string
   (transiton {:state -string
@@ -202,7 +188,6 @@
               :nodes [-break
                       -space
                       -word
-                      -text
                       -list
                       -vector
                       -map
@@ -210,7 +195,8 @@
                       -char
                       -string
                       -comment
-                      -keyword]}))
+                      -keyword
+                      -text]}))
 
 (def ->comment
   (transiton {:state -comment
@@ -258,6 +244,30 @@
                        -char
                        -comment]
               :valid? #(some (fn [w] (= % w)) words)}))
+
+(def ->function
+  (transiton {:state -function
+              :guard not-nodes
+              :nodes [-break
+                      -space
+                      -list
+                      -vector
+                      -map
+                      -comment
+                      -char
+                      -string]}))
+
+(def ->text
+  (transiton {:state -text
+              :guard not-nodes
+              :nodes [-break
+                      -space
+                      -list
+                      -vector
+                      -map
+                      -char
+                      -string
+                      -comment]}))
 
 (def transitions
   {-list     [->open-list ->close-list]
