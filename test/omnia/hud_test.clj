@@ -157,26 +157,27 @@
       (process backspace)
       (can-be #(= (ov %) 0))))
 
+
 (defn correct-under-hud-enlargement [ctx]
   (-> (move-top-fov ctx)
-      (process up 2)
-      (can-be #(-> % (enlarge-by 1) (process down) (ov) (= 1))
-              #(-> % (enlarge-by 2) (process down) (ov) (= 0)))))
+
+      (can-be #(-> % (process up 2) (enlarge-by 1) (process down) (ov) (= 1))
+              #(-> % (process up 2) (enlarge-by 2) (process down) (ov) (= 0))
+              #(-> % (process select-all) (process backspace) (enlarge-by 2) (process down) (ov) (= 0)))))
 
 (defn correct-under-hud-shrinking [ctx]
   (-> (move-top-fov ctx)
-      (process up 2)
-      (can-be #(-> % (shrink-by 1) (process down) (ov) (= 3))
-              #(-> % (shrink-by 2) (process down) (ov) (= 4))
-              #(-> % (shrink-by 3) (process down) (ov) (= 5)))))
+      (can-be #(-> % (process up 2) (shrink-by 1) (process down) (ov) (= 3))
+              #(-> % (process up 2) (shrink-by 2) (process down) (ov) (= 4))
+              #(-> % (process up 2) (shrink-by 3) (process down) (ov) (= 5))
+              #(-> % (process select-all) (process backspace) (shrink-by 3) (process down) (ov) (= 0)))))
 
 (defn correct-under-hud-size-variance [ctx]
   (-> (move-top-fov ctx)
-      (process up 2)
-      (can-be #(-> % (enlarge-by 2) (shrink-by 2) (ov) (= (ov %)))
-              #(-> % (enlarge-by 2) (shrink-by 1) (process down) (ov) (= 1))
-              #(-> % (shrink-by 2) (enlarge-by 1) (process down) (ov) (= 3))
-              #(-> % (shrink-by 4) (enlarge-by 2) (process down) (ov) (= 4)))))
+      (can-be #(-> % (process up 2) (enlarge-by 2) (shrink-by 2) (ov) (= 2))
+              #(-> % (process up 2) (enlarge-by 2) (shrink-by 1) (process down) (ov) (= 1))
+              #(-> % (process up 2) (shrink-by 2) (enlarge-by 1) (process down) (ov) (= 3))
+              #(-> % (process up 2) (shrink-by 4) (enlarge-by 2) (process down) (ov) (= 4)))))
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)

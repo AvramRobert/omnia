@@ -222,10 +222,10 @@ Legend:
         characters a `function` transiton may accept. Currently,
         non-alphabetic unicode characters are not highlighted.
 
-45. Enlarging the terminal doesn't trigger a complete re-render.
-       Apparently, after an enlargement, somehow the context gets polluted
-       and not all visible lines get rendered anymore. Even after inserting
-       new characters. Only clearing solves the problem.
+ > 45. Enlarging the terminal doesn't trigger a complete re-render.
+          Apparently, after an enlargement, somehow the context gets polluted
+          and not all visible lines get rendered anymore. Even after inserting
+          new characters. Only clearing solves the problem.
 
  > 46. Repeatedly asking for suggestions leads to a socket race condition.
        A repl call always opens a new nrepl connection and closes it after it returns.

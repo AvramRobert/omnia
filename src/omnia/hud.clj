@@ -181,7 +181,8 @@
         larger?     (> h ph)
         unpaged?    (and (<= h fov)
                          (<= ph fov))
-        resized?    (not= pfov fov)
+        resized?    (and (not= pfov fov)
+                         (not= 0 ov))
 
         nov         (cond
                       resized? (++ ov (- pfov fov))          ;; we've changed the terminal size
@@ -196,16 +197,17 @@
         (assoc-in [:complete-hud :ov] nov))))
 
 (defn resize [ctx]
-  (let [fov     (get-in ctx [:persisted-hud :fov])
-        new-fov (-> ctx (:terminal) (t/size))]
+  (let [{persisted :persisted-hud
+         terminal  :terminal} ctx
+        fov (:fov persisted)
+        new-fov (t/size terminal)]
     (if (not= new-fov fov)
-      (-> ctx
-          (assoc-in [:persisted-hud :fov] new-fov)
-          (assoc-in [:persisted-hud :lor] new-fov)
-          (assoc-in [:complete-hud :fov] new-fov)
-          (assoc-in [:complete-hud :lor] new-fov)
-          (calibrate)
-          (re-render))
+      (->> (assoc persisted :fov new-fov :lor new-fov)
+           (persist ctx)
+           (rebase)
+           (calibrate)
+           (remember)
+           (re-render))
       ctx)))
 
 (defn clear [ctx]
