@@ -76,8 +76,8 @@
        (apply i/join-many)))
 
 (defn- connect [host port timeout]
-  (fn [msg transform]
-    (with-open [conn (nrepl/connect :host host :port port)]
+  (let [conn (nrepl/connect :host host :port port)]
+    (fn [msg transform]
       (-> (nrepl/client conn timeout)
           (nrepl/message msg)
           (transform)))))

@@ -227,13 +227,13 @@ Legend:
     and not all visible lines get rendered anymore. Even after inserting
     new characters. Only clearing solves the problem.
 
-46. Repeatedly asking for suggestions leads to a socket race condition.
-    A repl call always opens a new nrepl connection and closes it after it returns.
-    Trying to connect too often too fast can lead to the repl trying to
-    get information through an already open connection that however
-    is to be closed, leading to a socket exception. (This I assume is the problem)
-    Whilst the repl is running, keep an open connection to the nrepl server, instead
-    of opening and closing.
+ > 46. Repeatedly asking for suggestions leads to a socket race condition.
+       A repl call always opens a new nrepl connection and closes it after it returns.
+       Trying to connect too often too fast can lead to the repl trying to
+       get information through an already open connection that however
+       is to be closed, leading to a socket exception. (This I assume is the problem)
+       Whilst the repl is running, keep an open connection to the nrepl server, instead
+       of opening and closing.
 
 Prospects:
 
