@@ -157,6 +157,27 @@
       (process backspace)
       (can-be #(= (ov %) 0))))
 
+(defn correct-under-hud-enlargement [ctx]
+  (-> (move-top-fov ctx)
+      (process up 2)
+      (can-be #(-> % (enlarge-by 1) (process down) (ov) (= 1))
+              #(-> % (enlarge-by 2) (process down) (ov) (= 0)))))
+
+(defn correct-under-hud-shrinking [ctx]
+  (-> (move-top-fov ctx)
+      (process up 2)
+      (can-be #(-> % (shrink-by 1) (process down) (ov) (= 3))
+              #(-> % (shrink-by 2) (process down) (ov) (= 4))
+              #(-> % (shrink-by 3) (process down) (ov) (= 5)))))
+
+(defn correct-under-hud-size-variance [ctx]
+  (-> (move-top-fov ctx)
+      (process up 2)
+      (can-be #(-> % (enlarge-by 2) (shrink-by 2) (ov) (= (ov %)))
+              #(-> % (enlarge-by 2) (shrink-by 1) (process down) (ov) (= 1))
+              #(-> % (shrink-by 2) (enlarge-by 1) (process down) (ov) (= 3))
+              #(-> % (shrink-by 4) (enlarge-by 2) (process down) (ov) (= 4)))))
+
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)
   (exceed-upper-bound-non-incrementally ctx)
@@ -175,7 +196,10 @@
   (correct-under-multi-selected-deletion ctx)
   (correct-under-multi-copied-insertion ctx)
   (correct-under-change-variance ctx)
-  (correct-under-rebounded-deletion ctx))
+  (correct-under-rebounded-deletion ctx)
+  (correct-under-hud-enlargement ctx)
+  (correct-under-hud-shrinking ctx)
+  (correct-under-hud-size-variance ctx))
 
 (defspec calibrating-test
          100

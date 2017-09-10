@@ -152,6 +152,12 @@
         selection (first (:highlights ctx))]
     (rd/project-selection selection fov)))
 
+(defn shrink-by [ctx n]
+  (update ctx :terminal (fn [term] (assoc term :size (constantly (-- (t/size term) n))))))
+
+(defn enlarge-by [ctx n]
+  (update ctx :terminal (fn [term] (assoc term :size (constantly (+ (t/size term) n))))))
+
 (defn make-total [ctx]
   (let [h (get-in ctx [:complete-hud :height])]
     (-> ctx

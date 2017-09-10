@@ -164,41 +164,47 @@
 (defn terminate [ctx]
   [:terminate ctx])
 
-(defn resize [ctx]
-  (let [fov  (get-in ctx [:persisted-hud :fov])
-        size (-> ctx (:terminal) (t/size))]
-    (if (not= size fov)
-      (-> ctx
-          (assoc-in [:persisted-hud :fov] size)
-          (assoc-in [:complete-hud :fov] size))
-      ctx)))
-
 (defn calibrate [ctx]
   (let [{{fov   :fov
           ov    :ov
           h     :height
           [_ y] :cursor} :complete-hud
          complete        :complete-hud
-         {ph :height}    :previous-hud} ctx
-        upper-y (top-y complete)                            ;; the top viewable y
-        lower-y (bottom-y complete)                         ;; the lower viewable y
+         {ph   :height
+          pfov :fov}     :previous-hud} ctx
+        upper-y     (top-y complete)                         ;; the top viewable y
+        lower-y     (bottom-y complete)                      ;; the lower viewable y
         over-upper? (< y upper-y)
         over-lower? (> y lower-y)
-        at-lower? (= y lower-y)
-        smaller? (< h ph)
-        larger? (> h ph)
-        unpaged? (and (<= h fov)
-                      (<= ph fov))
-        nov (cond
-              unpaged? ov                                   ;; we've not exceeded the fov
-              (and larger? at-lower?) ov                    ;; we've gotten bigger but we're still at the bottom
-              (or larger? smaller?) (++ ov (- h ph))        ;; we've changed in size
-              over-upper? (++ ov (- upper-y y))             ;; we've exceeded the upper bound
-              over-lower? (-- ov (- y lower-y))             ;; we've exceeded the lower bound
-              :else ov)]
+        at-lower?   (= y lower-y)
+        smaller?    (< h ph)
+        larger?     (> h ph)
+        unpaged?    (and (<= h fov)
+                         (<= ph fov))
+        resized?    (not= pfov fov)
+
+        nov         (cond
+                      resized? (++ ov (- pfov fov))          ;; we've changed the terminal size
+                      unpaged? ov                            ;; we've not exceeded the fov
+                      (and larger? at-lower?) ov             ;; we've gotten bigger but we're still at the bottom
+                      (or larger? smaller?) (++ ov (- h ph)) ;; we've changed in size
+                      over-upper? (++ ov (- upper-y y))      ;; we've exceeded the upper bound
+                      over-lower? (-- ov (- y lower-y))      ;; we've exceeded the lower bound
+                      :else ov)]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
         (assoc-in [:complete-hud :ov] nov))))
+
+(defn resize [ctx]
+  (let [fov     (get-in ctx [:persisted-hud :fov])
+        new-fov (-> ctx (:terminal) (t/size))]
+    (if (not= new-fov fov)
+      (-> ctx
+          (assoc-in [:persisted-hud :fov] new-fov)
+          (assoc-in [:complete-hud :fov] new-fov)
+          (calibrate)
+          (re-render))
+      ctx)))
 
 (defn clear [ctx]
   (let [fov       (get-in ctx [:persisted-hud :fov])
@@ -349,17 +355,17 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :match (-> ctx (gc) (resize) (scroll-stop) (deselect) (match) (re-render) (continue))
-    :suggest (-> ctx (gc) (resize) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (continue))
-    :scroll-up (-> ctx (gc) (resize) (scroll-up) (deselect) (highlight) (re-render) (continue))
-    :scroll-down (-> ctx (gc) (resize) (scroll-down) (deselect) (highlight) (re-render) (continue))
-    :prev-eval (-> ctx (gc) (resize) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (continue))
-    :next-eval (-> ctx (gc) (resize) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (continue))
-    :reformat (-> ctx (resize) (complete) (reformat) (highlight) (scroll-stop) (diff-render) (continue))
-    :clear (-> ctx (gc) (resize) (clear) (complete) (deselect) (highlight) (re-render) (continue))
-    :eval (-> ctx (gc) (resize) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (continue))
-    :exit (-> ctx (gc) (resize) (complete) (scroll-stop) (deselect) (highlight) (re-render) (exit) (terminate))
-    (-> ctx (gc) (resize) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (continue))))
+    :match (-> ctx (gc) (scroll-stop) (deselect) (match) (re-render) (resize) (continue))
+    :suggest (-> ctx (gc) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (resize) (continue))
+    :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
+    :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (resize) (continue))
+    :reformat (-> ctx (complete) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (clear) (complete) (deselect) (highlight) (re-render) (resize) (continue))
+    :eval (-> ctx (gc) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (resize) (continue))
+    :exit (-> ctx (gc) (complete) (scroll-stop) (deselect) (highlight) (re-render) (resize) (exit) (terminate))
+    (-> ctx (gc) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
   (letfn [(char-key? [stroke] (char? (:key stroke)))]
