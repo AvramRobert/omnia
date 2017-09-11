@@ -235,10 +235,10 @@ Legend:
        Whilst the repl is running, keep an open connection to the nrepl server, instead
        of opening and closing.
 
-47. Matched parens highlighting doesn't project properly.
-    `project-selection` doesn't cover both spectra of visibility (up and down).
-    It only covers up. If I'm down, I project the upper part.
-    If I'm however up, it doesn't project the lower part.
+ > 47. Matched parens highlighting doesn't project properly.
+       `project-selection` doesn't cover both spectra of visibility (up and down).
+       It only covers up. If I'm down, I project the upper part.
+       If I'm however up, it doesn't project the lower part.
 
 Prospects:
 

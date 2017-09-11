@@ -148,9 +148,14 @@
   (rd/project-cursor (:complete-hud ctx)))
 
 (defn project-selection [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
+  (let [complete (:complete-hud ctx)
         selection (first (:highlights ctx))]
-    (rd/project-selection selection fov)))
+    (rd/project-selection complete selection)))
+
+(defn no-projection [ctx]
+  (let [complete (:complete-hud ctx)]
+    {:start [0 (rd/bottom-y complete)]
+     :end   [0 (rd/bottom-y complete)]}))
 
 (defn shrink-by [ctx n]
   (update ctx :terminal (fn [term] (assoc term :size (constantly (-- (t/size term) n))))))
@@ -175,6 +180,11 @@
 
 (defn history [ctx]
   (get-in ctx [:repl :history]))
+
+(defn move-start-fov [ctx]
+  (->> (update ctx :seeker (comp i/start-x i/start-y))
+       (h/rebase)
+       (h/remember)))
 
 (defn move-end-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/end))

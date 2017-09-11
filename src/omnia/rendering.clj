@@ -51,13 +51,31 @@
         y (project-y hud hy)]
     [x y]))
 
-(defn project-selection [selection fov]
-  (let [{[xs ys] :start
+(defn project-selection [hud selection]
+  (let [{fov :fov
+         h   :height} hud
+        top (top-y hud)
+        bottom (bottom-y hud)
+        {[xs ys] :start
          [xe ye] :end} selection
-        start-y (- ye fov)
-        start   (if (> start-y ys) [0 (inc start-y)] [xs ys])]
-    {:start start
-     :end   [xe ye]}))
+        unpaged? (< h fov)
+        clipped-top? (< ys top)
+        clipped-bottom? (> ye bottom)
+        visible-top? (<= top ys bottom)
+        visible-bottom? (<= top ye bottom)
+        end-bottom (-> hud (i/reset-y bottom) (i/end-x) (:cursor))]
+    (cond
+      unpaged? selection
+      (and visible-top?
+           visible-bottom?) selection
+      (and visible-top?
+           clipped-bottom?) {:start [xs ys]
+                             :end   end-bottom}
+      (and visible-bottom?
+           clipped-top?) {:start [0 top]
+                          :end   [xe ye]}
+      :else {:start [0 bottom]
+             :end   [0 bottom]})))
 
 (defn project-hud [hud]
   (let [{lor     :lor
@@ -111,7 +129,7 @@
          cs       :colourscheme} ctx
         fov (:fov complete)]
     (run!
-      #(let [projection (project-selection % fov)
+      #(let [projection (project-selection complete %)
              {[xs ys] :start
               [xe ye] :end} projection]
          (-> (region complete projection)

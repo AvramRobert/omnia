@@ -58,16 +58,19 @@
                (update :chars #(conj % (:char item))))) {:cursors [] :chars []})))
 
 (defn discretise [ctx]
+  "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
+   each being the ones the `terminal` prints to the screen."
   (-> (hud-traversal ctx)
       (aggregate)))
 
 (defn discretise-h [{:keys [complete-hud highlights] :as ctx}]
-  (let [fov (:fov complete-hud)
-        {start :start
-         end   :end} (-> (first highlights)
+  "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
+   each being the ones the `terminal` highlights on the screen."
+  (let [{start :start
+         end   :end} (-> complete-hud
+                         (r/project-selection (first highlights))
                          (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
-                         (update :end (fn [[x y]] [x (r/project-y complete-hud y)]))
-                         (r/project-selection fov))]
+                         (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
     (-> (hud-traversal ctx)
         (assoc :cursor start
                :selection end)
@@ -217,7 +220,6 @@
                   (no-render ctx)))
 
 ;; IV. Selection highlighting
-
 (defn total-selection-render-right [ctx]
   (let [processed (-> (move-end-fov ctx)
                       (process select-right 3))
@@ -357,26 +359,65 @@
                  (contains? {:start [x (- y 5)]
                              :end   [x y]})))))
 
-(defn paged-selection-projection [ctx]
-  (let [start (move-top-fov ctx)
-        [_ y-start] (cursor start)
-        end-y (+ y-start (-> start (fov) (dec)))            ;; starts from 0
-        [end-x _] (-> (move-end-fov ctx) (:complete-hud) (i/end-x) (:cursor))]
-    (can-be start
-            #(-> % (process select-all) (project-selection) (= {:start [0 y-start] :end [end-x end-y]}))
-            #(-> (process % up 2)
+(defn paged-selection-extension [ctx]
+  (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (i/start-x) (:cursor))
+        end-bottom (-> (move-end-fov ctx) (:complete-hud) (i/end-x) (:cursor))
+        start-top  (-> (move-start-fov ctx) (:complete-hud) (:cursor))
+        end-top (-> (move-start-fov ctx) (move-bottom-fov) (:complete-hud) (i/end-x) (:cursor))]
+    (can-be ctx
+            #(-> (move-top-fov %)
+                 (process select-all)
+                 (project-selection)
+                 (= {:start start-bottom
+                     :end   end-bottom}))
+            #(-> (move-top-fov %)
+                 (process up 2)
                  (process select-down 100)
                  (process select-right 10)
                  (project-selection)
-                 (= {:start [0 y-start]
-                     :end   [end-x end-y]})))))
+                 (= {:start start-bottom
+                     :end   end-bottom}))
+            #(-> (move-end-fov %)
+                 (process select-up 100)
+                 (project-selection)
+                 (= {:start start-top
+                     :end   end-top})))))
+
+(defn paged-selection-lower-clip [ctx]
+  (let [complete (:complete-hud ctx)
+        fov      (:fov complete)]
+    (-> (move-top-fov ctx)
+        (process up 2)
+        (process select-right)
+        (update :highlights vec)
+        (update-in [:highlights 0]
+                   #(let [{[xs ys] :start
+                           [xe ye] :end} %]
+                      {:start [xs (+ ys fov)]
+                       :end   [xe (+ ye fov)]}))
+        (can-be #(-> % (project-selection) (= (no-projection %)))))))
+
+(defn paged-selection-upper-clip [ctx]
+  (let [complete (:complete-hud ctx)
+        fov      (:fov complete)]
+    (-> (move-end-fov ctx)
+        (process select-right)
+        (update :highlights vec)
+        (update-in [:highlights 0]
+                   #(let [{[xs ys] :start
+                           [xe ye] :end} %]
+                      {:start [xs (- ys fov)]
+                       :end   [xe (- ye fov)]}))
+        (can-be #(-> % (project-selection) (= (no-projection %)))))))
 
 ; selection is currently reset when scrolling
 ;(defn scrolled-selection-projection [ctx] true)
 
 (defn selection-projection [ctx]
   (total-selection-projection ctx)
-  (paged-selection-projection ctx))
+  (paged-selection-extension ctx)
+  (paged-selection-lower-clip ctx)
+  (paged-selection-upper-clip ctx))
 
 (defspec selection-projection-test
          100
