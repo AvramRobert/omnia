@@ -31,8 +31,8 @@ Legend:
       This leads to me using diff-rendering when moving around.
       Ideally I would want to avoid any operation all-together.
 
-8. Syntax highlighting doesn't highlight:
-        - special words, like `nil` or `true`
+ > 8. Syntax highlighting doesn't highlight:
+           - special words, like `nil` or `true`
 
 9. Dependency retrieval doesn't show any progress whatsoever.
 
@@ -234,6 +234,11 @@ Legend:
        is to be closed, leading to a socket exception. (This I assume is the problem)
        Whilst the repl is running, keep an open connection to the nrepl server, instead
        of opening and closing.
+
+47. Matched parens highlighting doesn't project properly.
+    `project-selection` doesn't cover both spectra of visibility (up and down).
+    It only covers up. If I'm down, I project the upper part.
+    If I'm however up, it doesn't project the lower part.
 
 Prospects:
 

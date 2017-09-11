@@ -359,16 +359,16 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :match (-> ctx (gc) (scroll-stop) (deselect) (match) (re-render) (resize) (continue))
-    :suggest (-> ctx (gc) (rebase) (suggest) (scroll-stop) (deselect) (highlight) (re-render) (resize) (continue))
+    :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (suggest) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (complete) (roll-back) (highlight) (scroll-stop) (re-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (complete) (roll-forward) (highlight) (scroll-stop) (re-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (complete) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (complete) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :reformat (-> ctx (complete) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :clear (-> ctx (gc) (clear) (complete) (deselect) (highlight) (re-render) (resize) (continue))
-    :eval (-> ctx (gc) (complete) (evaluate) (highlight) (scroll-stop) (re-render) (resize) (continue))
-    :exit (-> ctx (gc) (complete) (scroll-stop) (deselect) (highlight) (re-render) (resize) (exit) (terminate))
+    :eval (-> ctx (gc) (complete) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :exit (-> ctx (gc) (complete) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     (-> ctx (gc) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
