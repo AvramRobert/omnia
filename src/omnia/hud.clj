@@ -104,7 +104,8 @@
         (i/expand-word)
         (i/delete)
         (i/slicer #(concat sgst %))
-        (i/move-x #(+ % (count sgst))))))
+        (i/move-x #(+ % (count sgst)))
+        (i/deselect))))
 
 (defn rebase
   ([ctx]
@@ -127,6 +128,9 @@
        (or (:clipboard seeker))
        (assoc seeker :clipboard)
        (assoc ctx :seeker)))
+
+(defn unsuggest [ctx]
+  (assoc ctx :suggestion [i/empty-vec 0]))
 
 ;; === Rendering ===
 
@@ -215,7 +219,8 @@
         start-hud (-> ctx (:terminal) (t/size) (init-hud))]
     (-> (remember ctx)
         (persist start-hud)
-        (rebase (:seeker ctx)))))
+        (rebase (:seeker ctx))
+        (unsuggest))))
 
 (defn exit [ctx]
   (-> (preserve ctx goodbye)
@@ -339,7 +344,7 @@
   (let [[sgst _] (:suggestion ctx)]
     (-> ctx
         (update :seeker #(auto-complete % sgst))
-        (assoc :suggestion [i/empty-vec 0]))))
+        (unsuggest))))
 
 ;; === Input ===
 
@@ -366,9 +371,9 @@
     :prev-eval (-> ctx (gc) (complete) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :next-eval (-> ctx (gc) (complete) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :reformat (-> ctx (complete) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (clear) (complete) (deselect) (highlight) (re-render) (resize) (continue))
+    :clear (-> ctx (gc) (clear) (deselect) (highlight) (re-render) (resize) (continue))
     :eval (-> ctx (gc) (complete) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :exit (-> ctx (gc) (complete) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
+    :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     (-> ctx (gc) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
