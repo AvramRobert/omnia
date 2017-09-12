@@ -1,6 +1,8 @@
 (ns omnia.resolution
-  (require [cemerick.pomegranate :as p]
-           [cemerick.pomegranate.aether :refer [maven-central]]))
+  (require
+    [halfling.result :as r]
+    [cemerick.pomegranate :as p]
+    [cemerick.pomegranate.aether :refer [maven-central]]))
 
 
 (def default (merge maven-central
@@ -13,12 +15,17 @@
         (concat secondary)
         (set))))
 
+(defn- retrieval [repos releases]
+  (-> (r/attempt
+        (-> (p/add-dependencies :coordinates releases
+                                :repositories (merge default repos))
+            (prettify)))
+      (r/fold
+        identity
+        #(symbol (str "An error occurred during retrieval\nMessage: " (:message %))))))
+
 (defn retrieve [& releases]
-  (-> (p/add-dependencies :coordinates releases
-                          :repositories default)
-      (prettify)))
+  (retrieval default releases))
 
 (defn retrieve-from [repos & releases]
-  (-> (p/add-dependencies :coordinates releases
-                          :repositories (merge default repos))
-      (prettify)))
+  (retrieval repos releases))
