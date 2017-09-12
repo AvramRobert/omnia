@@ -1,7 +1,7 @@
 (ns omnia.hud
   (require [halfling.result :as res]
            [halfling.task :as tsk]
-           [omnia.render :refer [render top-y bottom-y]]
+           [omnia.render :refer [render top-y bottom-y project-hud project-cursor]]
            [omnia.repl :as r]
            [omnia.input :as i]
            [omnia.config :refer [with-features keymap]]
@@ -20,7 +20,7 @@
                     persisted-hud
                     complete-hud
                     seeker
-                    suggestion
+                    suggestions
                     highlights
                     garbage])
 
@@ -29,7 +29,6 @@
 
 (def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
-(def no-suggestion [i/empty-vec 0])
 
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
@@ -86,7 +85,7 @@
       hud
       hud
       i/empty-seeker
-      no-suggestion
+      i/empty-seeker
       empty-set
       empty-set)))
 
@@ -97,15 +96,34 @@
   (let [padding (repeat n \space)]
     (i/rebase hud (fn [lines] (mapv #(vec (concat padding %)) lines)))))
 
-(defn auto-complete [seeker sgst]
-  (if (empty? sgst)
-    seeker
-    (-> seeker
-        (i/expand-word)
-        (i/delete)
-        (i/slicer #(concat sgst %))
-        (i/move-x #(+ % (count sgst)))
-        (i/deselect))))
+(defn correct-ov
+  ([hud] (correct-ov hud hud))
+  ([hud previous-hud]
+   (let [{fov :fov
+          ov :ov
+          h :height
+          [_ y] :cursor} hud
+         {pfov :fov
+          ph :height} previous-hud
+         upper-y (top-y hud)                  ;; the top viewable y
+         lower-y (bottom-y hud)               ;; the lower viewable y
+         over-upper? (< y upper-y)
+         over-lower? (> y lower-y)
+         at-lower? (= y lower-y)
+         smaller? (< h ph)
+         larger? (> h ph)
+         unpaged? (and (<= h fov)
+                       (<= ph fov))
+         resized? (and (not= pfov fov)
+                       (not= 0 ov))]
+     (cond
+       resized? (++ ov (- pfov fov))          ;; we've changed the terminal size
+       unpaged? ov                            ;; we've not exceeded the fov
+       (and larger? at-lower?) ov             ;; we've gotten bigger but we're still at the bottom
+       (or larger? smaller?) (++ ov (- h ph)) ;; we've changed in size
+       over-upper? (++ ov (- upper-y y))      ;; we've exceeded the upper bound
+       over-lower? (-- ov (- y lower-y))      ;; we've exceeded the lower bound
+       :else ov))))
 
 (defn rebase
   ([ctx]
@@ -129,8 +147,33 @@
        (assoc seeker :clipboard)
        (assoc ctx :seeker)))
 
-(defn unsuggest [ctx]
-  (assoc ctx :suggestion [i/empty-vec 0]))
+(defn re-suggest [ctx suggestions]
+  (assoc ctx :suggestions suggestions))
+
+(defn un-suggest [ctx]
+  (assoc ctx :suggestions i/empty-seeker))
+
+(defn riffle [ctx]
+  (let [{{[_ y]  :cursor
+          height :height} :suggestions} ctx
+        y' (mod* (inc y) height)]
+    (-> ctx
+        (update :suggestions #(i/reset-y % y'))
+        (update :suggestions #(assoc % :ov (correct-ov %))))))
+
+(defn auto-complete [ctx]
+  (let [{seeker     :seeker
+         suggestions :suggestions} ctx
+        sgst (-> suggestions (i/move-y dec) (i/line))]
+    (seek ctx
+          (if (empty? (:lines suggestions))
+            seeker
+            (-> seeker
+                (i/expand-word)
+                (i/delete)
+                (i/slicer #(concat sgst %))
+                (i/move-x #(+ % (count sgst)))
+                (i/deselect))))))
 
 ;; === Rendering ===
 
@@ -169,33 +212,8 @@
   [:terminate ctx])
 
 (defn calibrate [ctx]
-  (let [{{fov   :fov
-          ov    :ov
-          h     :height
-          [_ y] :cursor} :complete-hud
-         complete        :complete-hud
-         {ph   :height
-          pfov :fov}     :previous-hud} ctx
-        upper-y     (top-y complete)                         ;; the top viewable y
-        lower-y     (bottom-y complete)                      ;; the lower viewable y
-        over-upper? (< y upper-y)
-        over-lower? (> y lower-y)
-        at-lower?   (= y lower-y)
-        smaller?    (< h ph)
-        larger?     (> h ph)
-        unpaged?    (and (<= h fov)
-                         (<= ph fov))
-        resized?    (and (not= pfov fov)
-                         (not= 0 ov))
-
-        nov         (cond
-                      resized? (++ ov (- pfov fov))          ;; we've changed the terminal size
-                      unpaged? ov                            ;; we've not exceeded the fov
-                      (and larger? at-lower?) ov             ;; we've gotten bigger but we're still at the bottom
-                      (or larger? smaller?) (++ ov (- h ph)) ;; we've changed in size
-                      over-upper? (++ ov (- upper-y y))      ;; we've exceeded the upper bound
-                      over-lower? (-- ov (- y lower-y))      ;; we've exceeded the lower bound
-                      :else ov)]
+  (let [nov (correct-ov (:complete-hud ctx)
+                        (:previous-hud ctx))]
     (-> ctx
         (assoc-in [:persisted-hud :ov] nov)
         (assoc-in [:complete-hud :ov] nov))))
@@ -220,7 +238,7 @@
     (-> (remember ctx)
         (persist start-hud)
         (rebase (:seeker ctx))
-        (unsuggest))))
+        (un-suggest))))
 
 (defn exit [ctx]
   (-> (preserve ctx goodbye)
@@ -293,58 +311,54 @@
         (seek i/empty-seeker)
         (assoc :repl evaluation))))
 
-(defn- paginate [suggestions sgst-idx]
-  (let [per-page     10
-        nxt-sgst-idx (inc sgst-idx)
-        hs           (i/height suggestions)
-        dots         (cond
-                       (<= hs per-page) i/empty-seeker
-                       (< (inc sgst-idx) hs) continuation
-                       :else i/empty-seeker)]
-    (-> suggestions
-        (i/rebase
-          #(cond->> %
-                    (> nxt-sgst-idx per-page) (drop (- nxt-sgst-idx per-page))
-                    :always (take per-page)))
-        (adjoin dots)
-        (indent 1)
-        (i/move-y #(if (>= % per-page) (dec per-page) %)))))
+(defn- paginate [ctx]
+  (letfn [(project [hud]
+            (-> (i/move hud (constantly (project-cursor hud)))
+                (i/move-y dec)
+                (project-hud)))]
+    (as-> (:suggestions ctx) page
+          (project page)
+          (if (not= 0 (:ov page))
+            (adjoin page continuation)
+            page)
+          (indent page 1))))
 
-(defn suggestion-window [ctx suggestions]
-  (let [{seeker       :seeker
-         [_ sgst-idx] :suggestion} ctx
-        completed (auto-complete seeker (i/line suggestions))
-        paginated (paginate suggestions sgst-idx)
+(defn suggestion-window [ctx]
+  (let [completed (:seeker (auto-complete ctx))
+        paginated (paginate ctx)
         ph        (i/height paginated)
         top       (i/peer completed (fn [l [x & _]] (conj l x)))
         bottom    (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
-    (-> i/empty-seeker
-        (i/join top)
-        (i/join delimiter)
-        (i/join paginated)
-        (i/end-x)
-        (adjoin delimiter)
-        (adjoin bottom)
-        (assoc :ov (-- (i/height bottom) ph)))))
+    (rebase ctx
+            (-> i/empty-seeker
+                (i/join top)
+                (i/join delimiter)
+                (i/join paginated)
+                (i/end-x)
+                (adjoin delimiter)
+                (adjoin bottom)
+                (assoc :ov (-- (i/height bottom) ph))))))
 
 (defn suggest [ctx]
-  (let [{seeker       :seeker
-         repl         :repl
-         [_ sgst-idx] :suggestion} ctx
-        suggestions (-> (r/suggest repl seeker)
-                        (i/reset-y sgst-idx)
-                        (i/end-x))
-        suggestion  (i/line suggestions)
-        nidx        (-> sgst-idx (inc) (mod* (i/height suggestions)))]
+  (let [{seeker      :seeker
+         repl        :repl
+         suggestions :suggestions} ctx
+        correct #(assoc % :ov (correct-ov %))
+        suggestions (if (empty? (:lines suggestions))
+                      (->> (r/suggest repl seeker)
+                           (hud 10)
+                           (i/start)
+                           (i/end-x)
+                           (correct))
+                      suggestions)]
     (-> (remember ctx)
-        (rebase (suggestion-window ctx suggestions))
-        (assoc :suggestion [suggestion nidx]))))
+        (re-suggest suggestions)
+        (riffle)
+        (suggestion-window))))
 
 (defn complete [ctx]
-  (let [[sgst _] (:suggestion ctx)]
-    (-> ctx
-        (update :seeker #(auto-complete % sgst))
-        (unsuggest))))
+  (-> (auto-complete ctx)
+      (un-suggest)))
 
 ;; === Input ===
 

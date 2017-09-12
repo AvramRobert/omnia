@@ -240,7 +240,7 @@ Legend:
        It only covers up. If I'm down, I project the upper part.
        If I'm however up, it doesn't project the lower part.
 
-48. Cache suggestion results from repl to avoid calls.
+ > 48. Cache suggestion results from repl to avoid calls.
 
 49. Apparently, if I try to get suggestions for some namespace that doesn't exist,
     ritz returns the functions defined in the `user` namespace of the repl.
