@@ -1,11 +1,11 @@
-(ns omnia.rendering-test
+(ns omnia.render-test
   (:require [clojure.test :refer [deftest is]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.more :refer [map-vals reduce-idx]]
-            [omnia.rendering :as r]
+            [omnia.render :as r]
             [omnia.terminal :as t]
             [omnia.input :as i]))
 

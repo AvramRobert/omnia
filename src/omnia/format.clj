@@ -1,4 +1,4 @@
-(ns omnia.formatting
+(ns omnia.format
   (require
     [halfling.result :as r]
     [omnia.input :as i]

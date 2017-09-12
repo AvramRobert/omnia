@@ -4,7 +4,7 @@
            [clojure.set :refer [map-invert]]
            [halfling.task :refer [task]]
            [omnia.highlight :as h]
-           [omnia.rendering :as r]))
+           [omnia.render :as r]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)

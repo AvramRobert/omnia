@@ -1,12 +1,12 @@
 (ns omnia.hud
   (require [halfling.result :as res]
            [halfling.task :as tsk]
-           [omnia.rendering :refer [render top-y bottom-y]]
+           [omnia.render :refer [render top-y bottom-y]]
            [omnia.repl :as r]
            [omnia.input :as i]
            [omnia.config :refer [with-features keymap]]
            [clojure.core.match :as m]
-           [omnia.formatting :as f]
+           [omnia.format :as f]
            [omnia.terminal :as t]
            [omnia.more :refer [-- ++ inc< dec< mod*]])
   (:import (halfling.result Result)))

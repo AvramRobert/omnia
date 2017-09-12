@@ -9,7 +9,7 @@
     [halfling.task :refer [task]]
     [omnia.input :as i]
     [clojure.core.match :as m]
-    [omnia.formatting :as f]
+    [omnia.format :as f]
     [clojure.edn :as edn]))
 
 (defrecord REPL [eval-f complete-f stop-f history hsize ns timeline result])

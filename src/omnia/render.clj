@@ -1,4 +1,4 @@
-(ns omnia.rendering
+(ns omnia.render
   (require [omnia.terminal :as t]
            [omnia.input :as i]
            [omnia.highlight :as h]

@@ -7,7 +7,7 @@
            [omnia.hud :as h]
            [omnia.repl :as r]
            [omnia.terminal :as t]
-           [omnia.rendering :as rd]))
+           [omnia.render :as rd]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 

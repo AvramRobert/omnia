@@ -240,6 +240,11 @@ Legend:
        It only covers up. If I'm down, I project the upper part.
        If I'm however up, it doesn't project the lower part.
 
+48. Cache suggestion results from repl to avoid calls.
+
+49. Apparently, if I try to get suggestions for some namespace that doesn't exist,
+    ritz returns the functions defined in the `user` namespace of the repl.
+
 Prospects:
 
 - Parenthesis highlighting // done
@@ -250,13 +255,13 @@ Prospects:
 - Look-ahead syntax highlighter // done
 - Highlighter tests // done
 - Rendering tests // done
+- Slurping
 - Undo and redo
+- Documentation
 - Extensive validation, sane defaults and/or reporting for user config
 - Parametricity and arity lookup
-- I-search
-- Refactor and reuse
-- Move to unrepl and unravel?
-- Documentation
 - ClojureDoc support
-- More efficient seeker
+- I-search
+- Move to unrepl and unravel?
+- New seeker based on tree
 - Command mode (with input filtering)
