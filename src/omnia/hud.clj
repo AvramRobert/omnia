@@ -125,6 +125,13 @@
        over-lower? (-- ov (- y lower-y))      ;; we've exceeded the lower bound
        :else ov))))
 
+(defn riffle [suggestions]
+  (let [{[_ y]  :cursor
+         height :height} suggestions
+        y' (mod* (inc y) height)
+        correct #(assoc % :ov (correct-ov %))]
+    (-> suggestions (i/reset-y y') (correct))))
+
 (defn rebase
   ([ctx]
    (rebase ctx (:seeker ctx)))
@@ -153,18 +160,10 @@
 (defn un-suggest [ctx]
   (assoc ctx :suggestions i/empty-seeker))
 
-(defn riffle [ctx]
-  (let [{{[_ y]  :cursor
-          height :height} :suggestions} ctx
-        y' (mod* (inc y) height)]
-    (-> ctx
-        (update :suggestions #(i/reset-y % y'))
-        (update :suggestions #(assoc % :ov (correct-ov %))))))
-
 (defn auto-complete [ctx]
   (let [{seeker     :seeker
          suggestions :suggestions} ctx
-        sgst (-> suggestions (i/move-y dec) (i/line))]
+        sgst (i/line suggestions)]
     (seek ctx
           (if (empty? (:lines suggestions))
             seeker
@@ -314,7 +313,6 @@
 (defn- paginate [ctx]
   (letfn [(project [hud]
             (-> (i/move hud (constantly (project-cursor hud)))
-                (i/move-y dec)
                 (project-hud)))]
     (as-> (:suggestions ctx) page
           (project page)
@@ -350,10 +348,9 @@
                            (i/start)
                            (i/end-x)
                            (correct))
-                      suggestions)]
+                      (riffle suggestions))]
     (-> (remember ctx)
         (re-suggest suggestions)
-        (riffle)
         (suggestion-window))))
 
 (defn complete [ctx]
