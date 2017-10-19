@@ -1,7 +1,7 @@
 # omnia
 
 A Clojure REPL for prototyping, experimenting and trying things
-out quickly. <br />
+out. <br />
 
 Omnia gives you almost all the power of a fully-fledged IDE, without
 the actual IDE. 
@@ -16,12 +16,112 @@ the actual IDE.
 
 * Run
 
-Additionally, if you want to be able to run it from anywhere:
-* Either add it as an alias to your shell `rc` file (ex: `~/.bashrc`, `~/.zshrc`): <br />
-`alias omnia="</path/to/executable/directory>/omnia"`
+## Configuration
 
-* Or create a symlink pointing to the executable: <br />
-`ln -rs <path/to/executable/directory>/omnia /usr/bin/omnia`
+Each Omnia release comes with a configuration file called `omnia.edn`, wherein
+one can configure things like keybindings, the colourscheme and toggling of features. 
+
+### Colourscheme
+
+Currently supported colours: 
+ * :black
+ * :white
+ * :red 
+ * :blue
+ * :yellow
+ * :cyan 
+ * :magenta
+ * :green
+ * :default (transparent)
+
+### Keybindings
+
+**NOTE**: The syntax for configuring keybindings may change in the future.
+
+Each operation omnia supports is bound to a unique key or combination of keys. 
+Every keybind is defined as a map similar to the following: <br />
+
+```clojure
+{ :key   <key> 
+  :ctrl  <boolean> 
+  :alt   <boolean> 
+  :shift <boolean> }
+```
+
+The :key field represents the actual key being pressed. For simple character keys, 
+the value of that field should just be the normal Clojure character version of that key. <br />
+For example, if I want for something to happen when I press "c": <br />
+
+```clojure
+{ :key   \c 
+  :ctrl  false 
+  :alt   false 
+  :shift false }
+```
+
+For more esoteric keys, like "enter", "space", "tab" etc, the keyword version of the name of that specific 
+key is required. <br />
+For example, if I want for something to happen when I press "enter": <br />
+
+```clojure
+{:key   :enter 
+ :ctrl  false 
+ :alt   false 
+ :shift false}
+```
+
+Any key combination with "ctrl", "alt" and/or "shift" is done by setting the value of "ctrl", "alt" and/or "shift"
+to "true" in that map. <br />
+For example, if I want for something to happen when I press "alt" and "e": <br /> 
+
+```clojure
+{:key   \e 
+ :ctrl  false 
+ :alt   true 
+ :shift false }
+```
+
+Lastly, you need only specify "ctrl", "alt" and "shift" when you want to turn them *on*.
+By default, they are always set to "false". That means, that <br />
+
+```clojure
+{:key  :enter 
+ :ctrl  false 
+ :shift false 
+ :alt   false}
+```
+is equivalent to
+```clojure
+{:key :enter}
+```
+
+#### Supported keys:
+**NOTE**: Please keep in mind that all the character keys, "enter", "space", "backspace", "delete"
+and the arrow keys are used for actual input. I would advise not reserving them for other operations. <br />
+Combinations of key + ctrl/alt/shift are however open. 
+ 
+ * All character keys
+ * The arrows: :left, :right, :up, :down
+ * :enter
+ * :space
+ * :backspace
+ * :tab
+ * :page-up, :page-down
+ * :escape
+ * :home
+ * :end
+ * :insert
+ * :delete
+ * :f1 through :f19
+
+**NOTE**: Some key combinations do not currently work (issue with the terminal library omnia uses)
+ * ctrl + enter
+ * ctrl + up
+ * ctrl + down
+ * ctrl + backspace
+
+Should you find additional ones, please feel free to report them so I can add them to the list.
+
 
 ## Features
 
