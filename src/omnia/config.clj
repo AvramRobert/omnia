@@ -32,7 +32,7 @@
    :jump-select-right {:key :right :shift true :ctrl true}
    :backspace         {:key :backspace}
    :delete            {:key :delete}
-   :enter             {:key :enter}})
+   :newline           {:key :enter}})
 
 (def hud-keymap
   {:match       {:key \p :ctrl true}
@@ -41,25 +41,25 @@
    :scroll-down {:key :page-down}
    :prev-eval   {:key :up :alt true}
    :next-eval   {:key :down :alt true}
-   :reformat    {:key \l :ctrl true :alt true}
+   :format      {:key \l :ctrl true :alt true}
    :clear       {:key \r :ctrl true}
    :eval        {:key \e :alt true}
    :exit        {:key \d :ctrl true}})
 
 (def syntax-cs
-  {h/-list :white
-   h/-vector :white
-   h/-map :white
-   h/-number :blue
-   h/-char :green
-   h/-string :green
-   h/-keyword :cyan
-   h/-comment :magenta
-   h/-word :yellow
+  {h/-list     :white
+   h/-vector   :white
+   h/-map      :white
+   h/-number   :blue
+   h/-char     :green
+   h/-string   :green
+   h/-keyword  :cyan
+   h/-comment  :magenta
+   h/-word     :yellow
    h/-function :yellow
-   h/-text :white
-   h/-select :blue
-   h/-back :default})
+   h/-text     :white
+   h/-select   :blue
+   h/-back     :default})
 
 (def control-cs
   {h/-break :default

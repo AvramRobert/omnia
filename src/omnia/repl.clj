@@ -44,7 +44,7 @@
 (defn write-history [path repl]
   (task (->> (:history repl)
              (mapv i/stringify)
-             (take-last 100)
+             (take-last 1000)
              (vec)
              (spit path))))
 

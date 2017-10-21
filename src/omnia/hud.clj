@@ -382,18 +382,19 @@
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
     :prev-eval (-> ctx (gc) (complete) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :next-eval (-> ctx (gc) (complete) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :reformat (-> ctx (complete) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :format (-> ctx (complete) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :clear (-> ctx (gc) (clear) (deselect) (highlight) (re-render) (resize) (continue))
     :eval (-> ctx (gc) (complete) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     (-> ctx (gc) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
-  (letfn [(char-key? [stroke] (char? (:key stroke)))]
-    (m/match [(get keymap stroke)]
-             [nil :guard (constantly (char-key? stroke))] (i/->Event :char (:key stroke))
-             [nil] (i/->Event :none (:key stroke))
-             [action] (i/->Event action (:key stroke)))))
+  (let [key    (:key stroke)
+        action (get keymap stroke)]
+    (m/match [action (char? key)]
+             [nil true] (i/->Event :char key)
+             [nil false] (i/->Event :none key)
+             [_ _] (i/->Event action key))))
 
 (defn iread [ctx]
   (tsk/task (t/keystroke! (:terminal ctx))))

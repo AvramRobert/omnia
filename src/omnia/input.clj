@@ -8,9 +8,9 @@
 (defrecord Seeker [lines cursor height expansion selection clipboard]
   Object
   (toString [this]
-    (str {:lines lines
-          :height height
-          :cursor cursor
+    (str {:lines     lines
+          :height    height
+          :cursor    cursor
           :expansion expansion
           :selection selection
           :clipboard clipboard})))
@@ -406,13 +406,13 @@
   (letfn [(expr? [s] (parens (center s)))
           (balanced [s] [:balanced s])
           (unbalanced [s] [:unbalanced s])]
-    (loop [stack istack
-           prev nil
+    (loop [stack   istack
+           prev    nil
            current seeker]
-      (let [value (center current)
+      (let [value  (center current)
             pushed (top stack)]
         (cond
-          (used? stack)  (if (expr? seeker) (balanced current) (unbalanced current))
+          (used? stack) (if (expr? seeker) (balanced current) (unbalanced current))
           (= prev current) (unbalanced current)
           (open-pairs value) (recur (ipush stack value) current (advance current))
           (closed-pairs value) (if (apair? value pushed)
@@ -421,10 +421,10 @@
           :else (recur stack current (advance current)))))))
 
 (defn nearest [seeker]
-  (loop [stack (list)
-         prev nil
+  (loop [stack   (list)
+         prev    nil
          current (regress seeker)]
-    (let [value (center current)
+    (let [value  (center current)
           pushed (first stack)]
       (cond
         (= prev current) current
@@ -503,6 +503,6 @@
     :jump-select-right (-> seeker (select) (jump-right))
     :backspace (-> seeker (delete) (deselect))
     :delete (-> seeker (munch) (deselect))
-    :enter (-> seeker (break) (deselect))
+    :newline (-> seeker (break) (deselect))
     :char (-> seeker (insert (:key event)) (deselect))
     seeker))

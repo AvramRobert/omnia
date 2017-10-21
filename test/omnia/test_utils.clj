@@ -106,7 +106,7 @@
 (def copy (event :copy \c))
 (def paste (event :paste \v))
 (def backspace (event :backspace :backspace))
-(def enter (event :enter :enter))
+(def enter (event :newline :enter))
 (def scroll-up (event :scroll-up :page-up))
 (def scroll-down (event :scroll-down :page-down))
 (defn char-key [k] (event :char k))
