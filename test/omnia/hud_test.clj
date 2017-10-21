@@ -309,7 +309,7 @@
 ;; IV. Clearing
 
 (defn clear-remember-persist [ctx]
-  (let [expected-persisted (h/init-hud (get-in ctx [:complete-hud :fov]))
+  (let [expected-persisted (h/init-hud ctx)
         expected-complete (i/join expected-persisted (:seeker ctx))]
     (-> ctx
         (process clear)

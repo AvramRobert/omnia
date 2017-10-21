@@ -37,6 +37,7 @@
 (def greeting (i/from-string (format "Welcome to Omnia! (BETA v%s)" (omnia-version))))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
+(defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 
 ;; === Utils ===
 
@@ -61,20 +62,23 @@
         (assoc :fov fov)
         (assoc :ov 0))))
 
-(defn init-hud [fov]
-  (hud fov
-       greeting
-       clj-version
-       java-version
-       empty-line
-       caret))
+(defn init-hud [{:keys [terminal repl]}]
+  (let [fov       (t/size terminal)
+        repl-info (nrepl-info (:host repl) (:port repl))]
+    (hud fov
+         greeting
+         repl-info
+         clj-version
+         java-version
+         empty-line
+         caret)))
 
-(defn context [{:keys [terminal repl keymap colourscheme]}]
+(defn context [{:keys [terminal repl keymap colourscheme] :as config}]
   (assert (not (nil? terminal)) "Please provide a proper terminal (look in omnia.terminal)")
   (assert (not (nil? repl)) "Please provide a proper repl (look in omnia.repl)")
   (assert (not (nil? keymap)) "Please provide a proper keymap (look in omnia.config)")
   (assert (not (nil? colourscheme)) "Please provide a proper colourscheme (look in omnia.config)")
-  (let [hud (init-hud (t/size terminal))]
+  (let [hud (init-hud config)]
     (Context.
       terminal
       repl
@@ -99,36 +103,36 @@
 (defn correct-ov
   ([hud] (correct-ov hud hud))
   ([hud previous-hud]
-   (let [{fov :fov
-          ov :ov
-          h :height
+   (let [{fov   :fov
+          ov    :ov
+          h     :height
           [_ y] :cursor} hud
          {pfov :fov
-          ph :height} previous-hud
-         upper-y (top-y hud)                  ;; the top viewable y
-         lower-y (bottom-y hud)               ;; the lower viewable y
+          ph   :height} previous-hud
+         upper-y     (top-y hud)                            ;; the top viewable y
+         lower-y     (bottom-y hud)                         ;; the lower viewable y
          over-upper? (< y upper-y)
          over-lower? (> y lower-y)
-         at-lower? (= y lower-y)
-         smaller? (< h ph)
-         larger? (> h ph)
-         unpaged? (and (<= h fov)
-                       (<= ph fov))
-         resized? (and (not= pfov fov)
-                       (not= 0 ov))]
+         at-lower?   (= y lower-y)
+         smaller?    (< h ph)
+         larger?     (> h ph)
+         unpaged?    (and (<= h fov)
+                          (<= ph fov))
+         resized?    (and (not= pfov fov)
+                          (not= 0 ov))]
      (cond
-       resized? (++ ov (- pfov fov))          ;; we've changed the terminal size
-       unpaged? ov                            ;; we've not exceeded the fov
-       (and larger? at-lower?) ov             ;; we've gotten bigger but we're still at the bottom
-       (or larger? smaller?) (++ ov (- h ph)) ;; we've changed in size
-       over-upper? (++ ov (- upper-y y))      ;; we've exceeded the upper bound
-       over-lower? (-- ov (- y lower-y))      ;; we've exceeded the lower bound
+       resized? (++ ov (- pfov fov))                        ;; we've changed the terminal size
+       unpaged? ov                                          ;; we've not exceeded the fov
+       (and larger? at-lower?) ov                           ;; we've gotten bigger but we're still at the bottom
+       (or larger? smaller?) (++ ov (- h ph))               ;; we've changed in size
+       over-upper? (++ ov (- upper-y y))                    ;; we've exceeded the upper bound
+       over-lower? (-- ov (- y lower-y))                    ;; we've exceeded the lower bound
        :else ov))))
 
 (defn riffle [suggestions]
   (let [{[_ y]  :cursor
          height :height} suggestions
-        y' (mod* (inc y) height)
+        y'      (mod* (inc y) height)
         correct #(assoc % :ov (correct-ov %))]
     (-> suggestions (i/reset-y y') (correct))))
 
@@ -161,7 +165,7 @@
   (assoc ctx :suggestions i/empty-seeker))
 
 (defn auto-complete [ctx]
-  (let [{seeker     :seeker
+  (let [{seeker      :seeker
          suggestions :suggestions} ctx
         sgst (i/line suggestions)]
     (seek ctx
@@ -220,7 +224,7 @@
 (defn resize [ctx]
   (let [{persisted :persisted-hud
          terminal  :terminal} ctx
-        fov (:fov persisted)
+        fov     (:fov persisted)
         new-fov (t/size terminal)]
     (if (not= new-fov fov)
       (->> (assoc persisted :fov new-fov :lor new-fov)
@@ -233,7 +237,7 @@
 
 (defn clear [ctx]
   (let [fov       (get-in ctx [:persisted-hud :fov])
-        start-hud (-> ctx (:terminal) (t/size) (init-hud))]
+        start-hud (init-hud ctx)]
     (-> (remember ctx)
         (persist start-hud)
         (rebase (:seeker ctx))
@@ -281,9 +285,6 @@
   (-> ctx
       (update :complete-hud noscroll)
       (update :persisted-hud noscroll)))
-
-#_(defn jump [hud line]
-    (assoc hud :lor (-> hud (i/height) (- line))))
 
 ;; === REPL ===
 
@@ -341,7 +342,7 @@
   (let [{seeker      :seeker
          repl        :repl
          suggestions :suggestions} ctx
-        correct #(assoc % :ov (correct-ov %))
+        correct     #(assoc % :ov (correct-ov %))
         suggestions (if (empty? (:lines suggestions))
                       (->> (r/suggest repl seeker)
                            (hud 10)

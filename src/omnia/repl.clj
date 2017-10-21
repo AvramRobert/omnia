@@ -12,7 +12,15 @@
     [omnia.format :as f]
     [clojure.edn :as edn]))
 
-(defrecord REPL [eval-f complete-f stop-f history hsize ns timeline result])
+(defrecord REPL [ns
+                 host
+                 port
+                 eval-f
+                 complete-f
+                 stop-f
+                 history
+                 timeline
+                 result])
 
 (def ritz-middleware
   [#'ritz.nrepl.middleware.javadoc/wrap-javadoc
@@ -23,6 +31,7 @@
       (str)
       (i/from-string)))
 
+(def localhost "127.0.0.1")
 (def gibberish "~/~")
 (def empty-history [i/empty-seeker])
 
@@ -97,6 +106,8 @@
                  (purge))
      :ns     ns}))
 
+(defn- hsize [repl] (count (:history repl)))
+
 (defn- cache-result [repl result]
   (update repl :result (fn [_] result)))
 
@@ -105,18 +116,16 @@
     (if (or (empty? lines)
             (-> lines first empty?))
       repl
-      (-> repl
-          (update :history #(conj % seeker))
-          (update :hsize inc)))))
+      (update repl :history #(conj % seeker)))))
 
 (defn- reset-timeline [repl]
-  (update repl :timeline (fn [_] (:hsize repl))))
+  (update repl :timeline (fn [_] (hsize repl))))
 
 (defn travel-back [repl]
   (update repl :timeline #(dec< % 0)))
 
 (defn travel-forward [repl]
-  (update repl :timeline #(inc< % (:hsize repl))))
+  (update repl :timeline #(inc< % (hsize repl))))
 
 (defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
@@ -137,29 +146,29 @@
 
 (defn stop! [repl] ((:stop-f repl)))
 
-(defn- repl-with [eval-f complete-f stop-f history ns]
-  (let [hsize (count history)]
-    (REPL. eval-f complete-f stop-f history hsize ns hsize i/empty-seeker)))
+(defn- repl-with [ns host port eval-f complete-f stop-f history]
+  (REPL. ns host port eval-f complete-f stop-f history (hsize history) i/empty-seeker))
+
+(defn- rand-port [] (rand-int 65535))
 
 (defn repl [{:as   params
-             :keys [kind port host timeout history ns]
+             :keys [kind ns port host timeout history]
              :or   {kind    :local
-                    timeout 5000                            ;; fixme: kill infinte processes and return warning
-                    port    11111
-                    host    "localhost"
+                    timeout 10000                            ;; fixme: kill infinite processes and return warning
+                    port    (rand-port)
+                    host    localhost
                     history empty-history
                     ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (case kind
-    :identity (repl-with identity identity (fn [] nil) history ns)
-    :remote (repl-with (connect host port timeout) identity (fn [] nil) history ns)
+    :identity (repl-with ns "" "" identity identity (constantly nil) history)
+    :remote (repl-with ns host port (connect host port timeout) identity (constantly nil) history)
     :local (let [handler (apply s/default-handler ritz-middleware)
                  server  (s/start-server :port port
                                          :handler handler)
-                 send-f  (connect "localhost" port timeout)
+                 send-f  (connect localhost port timeout)
                  eval-f  #(send-f (eval-msg %) seekerise)
                  comp-f  #(send-f (complete-msg % ns) suggestion)
                  stop-f  #(s/stop-server server)]
              (eval-f predef)
-             (repl-with eval-f comp-f stop-f history ns))))
-
+             (repl-with ns host port eval-f comp-f stop-f history))))
