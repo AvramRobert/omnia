@@ -166,12 +166,12 @@ Please just bind those actions to other keys.
 |Cut  | ALT + X | Cuts the current selection | :cut |
 |Paste | ALT + P | Pastes the cut/copied selection | :paste |
 |Select all | CTRL + A | Selects the whole input | :select-all |
-|Scroll up  | PAGE-UP | Scrolls up on screen | :scroll-up |
-|Scroll down | PAGE-DOWN | Scrolls down on screen | :scroll-down |
+|Scroll up  | PAGE-UP | Scrolls up the view | :scroll-up |
+|Scroll down | PAGE-DOWN | Scrolls down the view | :scroll-down |
 |Previous evaluation | ALT + UP | Goes to the previous evaluation in the history | :prev-eval |
-|Next evaluation | ALT + DOWN | Goes to the following evaluation in the historz | :next-eval |
-|Exit | CTRL + D | Exists the REPL | :exit |
-|Force quit | CTRL + C | Force terminates the REPL| - |
+|Next evaluation | ALT + DOWN | Goes to the following evaluation in the history | :next-eval |
+|Exit | CTRL + D | Exits the REPL | :exit |
+|Force quit | CTRL + C | Forcibly terminates the REPL | - |
 
 ### Configuring the keymap
 

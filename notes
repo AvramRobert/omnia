@@ -248,6 +248,8 @@ Legend:
 50. Should parens matching always highlight the parens of the current expression, regardless of
     my cursor is next to a parens?
 
+51. Forgot highlighting for negative numbers
+
 Prospects:
 
 - Parenthesis highlighting // done
