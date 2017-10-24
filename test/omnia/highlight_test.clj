@@ -36,6 +36,7 @@
 (defn is-state [transiton state]
   (is (= state (:state transiton))))
 
+(def gen-sign-token (gen-tokens \+ \-))
 (def gen-list-token (gen-tokens \( \)))
 (def gen-vector-token (gen-tokens \[ \]))
 (def gen-map-token (gen-tokens \{ \}))
@@ -48,8 +49,8 @@
 (def gen-number-token (apply gen-tokens h/numbers))
 (def gen-word-token (apply gen-tokens h/words))
 
-(defn- gen-with-token [gen-chars gen-token]
-  (->> [gen-chars gen-token]
+(defn- gen-with-token [& gens]
+  (->> (vec gens)
        (gen/one-of)
        (gen/vector)))
 
@@ -78,17 +79,17 @@
          (partition-by grpd?)
          (filter (fn [elms] (some grpd? elms))))))
 
-(defn pred-gens [generated {:keys [detect? reset? with-detect? with-reset?]
+(defn pred-gens [generated {:keys [detect? reset? include-detected? include-reset?]
                             :or {reset? (fn [_] false)
-                                 with-detect? false
-                                 with-reset? false}}]
+                                 include-detected? false
+                                 include-reset? false}}]
   "Uses the predicates `detect?` and `reset?` to extract either series or
   individual tokens from the `generated` vector of characters.
   `detect?` is a predicate applied on the current char stating when an extraction
             should be started.
   `reset?` is a predicate applied on the current char stating when an ongoing
            extraction should be stopped.
-  Both `with-detect?` and `with-reset?` denote if the characters
+  Both `include-detected?` and `include-reset?` denote if the characters
   `detect?` and `reset?` initially identified should be added to the extracted tokens.
   Returns a collection with vectors of the `tokens` it found.
   Is equivalent to aggregate state detection relative to some other characters."
@@ -106,10 +107,10 @@
               viable (first pre)
               reset (first post)]
           (recur (cond->> pro
-                          (and with-detect? viable) (prepend viable)
-                          (and with-reset? reset) (append reset)
+                          (and include-detected? viable) (prepend viable)
+                          (and include-reset? reset) (append reset)
                           :always (conj items))
-                 (if with-reset? (rest post) post)))))))
+                 (if include-reset? (rest post) post)))))))
 
 (defn transition! [transiton disallowed]
   "Given a `transiton`, it forces it through all the available states
@@ -168,7 +169,7 @@
          (for-all [tokens (gen-alpha-num-with-token gen-comment-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\;])
-                                         :with-detect? true})
+                                         :include-detected? true})
                         detections (-> (h/process tokens vector)
                                        (detections h/-comment))]
                     (is (= gens detections)))))
@@ -188,7 +189,7 @@
          (for-all [tokens (gen-alpha-with-token gen-char-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\\])
-                                         :with-detect? true})
+                                         :include-detected? true})
                         detections (-> (h/process tokens vector)
                                        (detections h/-char))]
                     (is (= gens detections)))))
@@ -199,7 +200,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\:])
                                          :reset? (in? [\space])
-                                         :with-detect? true})
+                                         :include-detected? true})
                         detections (-> (h/process tokens vector)
                                        (detections h/-keyword))]
                     (is (= gens detections)))))
@@ -210,10 +211,23 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? h/numbers)
                                          :reset? (in? [\space])
-                                         :with-detect? true})
+                                         :include-detected? true})
                         detections (-> (h/process tokens vector)
                                        (detections h/-number))]
                     (is (= gens detections)))))
+
+(defspec detect-signed-numbers
+         100
+         (for-all [tokens (gen-with-token gen-space-token gen-number-token gen-sign-token)]
+                  (let [valid-number? #(-> (comp not (in? [\+ \-]))
+                                           (filter %)
+                                           (s/join)
+                                           (BigInteger.))
+                        processed (-> (h/process tokens vector)
+                                      (detections h/-number))]
+                    (if (seq processed)
+                      (is (every? valid-number? processed))
+                      (is true)))))
 
 (defspec detect-strings
          100
@@ -221,8 +235,8 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\"])
                                          :reset? (in? [\"])
-                                         :with-detect? true
-                                         :with-reset? true})
+                                         :include-detected? true
+                                         :include-reset? true})
                         processed (-> (h/process tokens vector)
                                       (detections h/-string h/-string*)
                                       (->> (reduce concat)))]
@@ -234,7 +248,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? #(Character/isAlphabetic (int %))
                                          :reset? (in? [\space])
-                                         :with-detect? true})
+                                         :include-detected? true})
                         detections (-> (h/process tokens vector)
                                        (detections h/-text)
                                        (->> (filter (comp not empty?))))] ;; the interpreter always emits an empty text with the first transition
@@ -300,6 +314,14 @@
                            h/-keyword h/-number
                            h/-char h/-number
                            h/-string* h/-string}))
+
+(deftest transition-from-signed-numbers
+  (transition! h/->signed-number {h/-function h/-number
+                                  h/-text h/-number
+                                  h/-word h/-number
+                                  h/-keyword h/-number
+                                  h/-char h/-number
+                                  h/-string* h/-string}))
 
 (deftest transition-from-strings
   (transition! h/->open-string {h/-list h/-string

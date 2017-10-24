@@ -4,7 +4,7 @@
 
 (defrecord Transiton [state guard nodes valid?])
 
-(declare transitions)
+(declare transition transitions changed?)
 
 (def ^:const -list :list)
 (def ^:const -vector :vector)
@@ -23,7 +23,7 @@
 (def ^:const -select :selection)
 (def ^:const -back :background)
 
-(def ^:const not-nodes :not-nodes)
+(def ^:const diff-nodes :diff-nodes)
 
 (def ^:const empty-vec [])
 
@@ -40,6 +40,13 @@
     #(reduce
        (fn [bool p] (and bool (not (p %)))) true @ts)))
 
+(defn- applies? [transiton]
+  (let [guard (:guard transiton)
+        immuted? #(->> (transition transiton %) (changed? transiton) (not))]
+    (fn [chars]
+      (and (guard (first chars))
+           (every? immuted? chars)))))
+
 (defn transiton [{:keys [state
                          guard
                          nodes
@@ -49,7 +56,7 @@
                   :as   transiton}]
   (assert (not (nil? state)) "A transiton must always have a state")
   (assert (not (nil? guard)) "A transiton must always have a guard")
-  (let [nguard (if (= not-nodes guard) (invert nodes) guard)]
+  (let [nguard (if (= diff-nodes guard) (invert nodes) guard)]
     (Transiton. state nguard nodes valid?)))
 
 (def ->break
@@ -220,6 +227,18 @@
                       -string
                       -comment]}))
 
+(def ->signed-number
+  (transiton {:state -number
+              :guard #(or (= \+ %) (= \- %))
+              :nodes [-break
+                      -space
+                      -list
+                      -vector
+                      -map
+                      -string
+                      -comment]
+              :valid? (comp (applies? ->number) rest)}))
+
 (def ->keyword
   (transiton {:state -keyword
               :guard #(= \: %)
@@ -247,7 +266,7 @@
 
 (def ->function
   (transiton {:state -function
-              :guard not-nodes
+              :guard diff-nodes
               :nodes [-break
                       -space
                       -list
@@ -259,7 +278,7 @@
 
 (def ->text
   (transiton {:state -text
-              :guard not-nodes
+              :guard diff-nodes
               :nodes [-break
                       -space
                       -list
@@ -279,7 +298,7 @@
    -string*  [->close-string]
    -comment  [->comment]
    -word     [->word]
-   -number   [->number]
+   -number   [->number ->signed-number]
    -char     [->char]
    -keyword  [->keyword]
    -break    [->break]

@@ -180,7 +180,7 @@ Legend:
           Problem: Because this thing starts with a 0, if all the pairs following it
           are complete, then it succeeds with a 0, even though the inital one hadn't been closed.
 
-35. Refactor expansion and make more reusable.
+35. Rewrite expansion to something more performant.
 
 36. Currently, expansion stops if an unmatched parens is seen.
     This means, that should a rogue parens happen to find
@@ -248,8 +248,6 @@ Legend:
 50. Should parens matching always highlight the parens of the current expression, regardless of
     my cursor is next to a parens?
 
-51. Forgot highlighting for negative numbers
-
 Prospects:
 
 - Parenthesis highlighting // done
@@ -266,7 +264,9 @@ Prospects:
 - Extensive validation, sane defaults and/or reporting for user config
 - Parametricity and arity lookup
 - ClojureDoc support
+- Parametrised highlighting
+- Automatic parens matching by computing match only when exiting current expression
+- Exchangeable middlewares
 - I-search
 - Move to unrepl and unravel?
 - New seeker based on tree
-- Command mode (with input filtering)
