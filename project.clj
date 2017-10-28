@@ -15,4 +15,5 @@
 
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}
+             :dev {:dependencies [[criterium "0.4.4"]]}})
