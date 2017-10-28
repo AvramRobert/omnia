@@ -20,82 +20,90 @@ Omnia is a REPL with almost all the power of a fully-fledged IDE, without being 
 
 ## Features
 
-#### S-Exprs editing
- * Only manipulate and edit s-expressions similarly to paredit
+#### Expression editing
+ * Manipulate s-exprs similar to paredit
 
-#### Multi-line and multi-page input
+ ![sexprs](images/sexprs.gif)
+
+#### Multi-line input
  * Input, edit and structure code in multiple lines
- * There is no bottom, so you can exceed the view whilst being able to navigate back and forth.
 
-#### Configurable syntax highlighting
- * The following constructs are highlighted and can be individually configured:
-    * simple text
-    * function calls
-    * numbers
-    * characters
-    * strings
-    * lists/vectors/maps
-    * keywords
-    * comments
-    * selections
-    * special words (nil, true, false)
+ ![multi-line](images/multi-line.gif)
+ 
+#### Multi-page input
+ * There is no bottom, so you can exceed the view whilst being able to navigate back and forth
 
-For configuration please look at the *Configuration* section.
-
-#### Configurable keybindings
- * The keybindings for all actions omnia supports can be configured
-
-Please look at the *Configuration* section for more information.
+ ![multi-page](images/multi-page.gif)
 
 #### Editor-like input suggestions
- * Receive input suggestions in a truncated list
- * Select from the given list the desired suggestion
+ * Receive input suggestions and select from a truncated list
+
+ ![input-suggestions](images/suggestions.gif)
 
 #### Editor-like selection system
  * Select code forward, backward up and down
  * Selected code can be cut, copied, deleted or overwritten
 
+ ![selection](images/selection.gif)
+
 #### Expanding selection
  * Select code by means of expansion
  * Expand incrementally from nothing to words, to inner expressions, to outer expressions
 
+ ![selection-expansion](images/expansion.gif)
+ 
 #### Copy/Cut/Paste
  * Copy/cut selections of input
  * Paste copied or cut code wherever in the input
+
+ ![copy-cut-paste](images/copy-cut-paste.gif)
 
 #### Code formatting
  * Format the current input code *by need*
  * Automatic formatting not yet supported
 
+ ![formatting](images/formatting.gif)
+
 #### Parens matching
  * Match parenthesis *by need* when the cursor is next to one
  * Automatic parens matching not yet supported
+
+ ![paren-matching](images/matching.gif)
 
 #### Scrolling
  * Scroll up and down the view arbitrarily
  * No mouse support for scrolling as of yet
 
+ ![scrolling](images/scrolling.gif)
+
 #### Persistent REPL history
  * Evaluations from previous REPL sessions are stored on disk
  * Histories have a limit of 1000 evaluations
+
+ ![repl-history](images/persistent.gif)
 
 #### Dependency resolution
  * Bind external libraries at runtime and use them in the REPL
  * Use the `retrieve` function and pass the desired dependency
  * `retreive` currently only supports `clojars` and `mavencentral`
- * Example:
- ```clojure
- (retrieve '[cheshire "5.8.0"])
 
- (require '[chesire.core :as c])
-
- (c/generate-string {:a 1})
- ```
+ ![dependency-resolution](images/retrieval.gif)
+ 
  * Other repositories are supported through `retrieve-from` by explicitly specifying them:
  ```clojure
  (retrieve-from {"sonatype" "https://oss.sonatype.org/content/repositories/releases/"}
                 '[joda-time/joda-time "2.9.9"])
  ```
+ 
+#### Configurable syntax highlighting
+ * For configuration please look at the *Configuration* section.
+
+   ![syntax-highlighting](images/highlighting.gif)
+
+#### Configurable keybindings
+ * The keybindings for all actions omnia supports can be configured
+
+Please look at the *Configuration* section for more information.
 
 #### Graceful failures
  * Should omnia crash for reasons unknown, the REPL will shut down with an appropriate
@@ -158,7 +166,7 @@ Please just bind those actions to other keys.
 |Format| CTRL + ALT + L | Formats input | :format |
 |Match | CTRL + P | Highlights the parens matching the current one | :match |
 |Suggest | TAB            | Displays a list of possible inputs. Inputs can be selected by repeatedly pressing the key | :suggest |
-|Jump | CTRL + LEFT/RIGHT | Jumps over words and spaces | :jump |
+|Jump | CTRL + LEFT/RIGHT | Jumps over words and spaces | :jump-left, :jump-right |
 |Select | SHIFT + LEFT/RIGHT/UP/DOWN | Selects input in the direction specified by the arrow | :select-up, :select-down, :select-left, :select-right |
 |Expand select| CTRL + W | Selects by gradually expanding from words to expressions | :expand |
 |Jump select | CTRL + SHIFT + LEFT/RIGHT | Selects the words and spaces it jumps over | :jump-select-left, jump-select-right |

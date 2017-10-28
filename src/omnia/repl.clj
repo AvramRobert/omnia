@@ -147,7 +147,7 @@
 (defn stop! [repl] ((:stop-f repl)))
 
 (defn- repl-with [ns host port eval-f complete-f stop-f history]
-  (REPL. ns host port eval-f complete-f stop-f history (hsize history) i/empty-seeker))
+  (REPL. ns host port eval-f complete-f stop-f history (count history) i/empty-seeker))
 
 (defn- rand-port [] (rand-int 65535))
 

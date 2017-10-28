@@ -2,7 +2,7 @@
   (require [clojure.core.match :as m]
            [clojure.string :as s]))
 
-(defrecord Transiton [state guard nodes valid?])
+(defrecord Transiton [state fallback guard nodes valid?])
 
 (declare transition transitions changed?)
 
@@ -24,6 +24,8 @@
 (def ^:const -back :background)
 
 (def ^:const diff-nodes :diff-nodes)
+
+(def ^:const inferred :inferred)
 
 (def ^:const empty-vec [])
 
@@ -48,19 +50,22 @@
            (every? immuted? chars)))))
 
 (defn transiton [{:keys [state
+                         fallback
                          guard
                          nodes
                          valid?]
                   :or   {valid? (comp not empty?)
+                         fallback inferred
                          nodes  []}
                   :as   transiton}]
   (assert (not (nil? state)) "A transiton must always have a state")
   (assert (not (nil? guard)) "A transiton must always have a guard")
   (let [nguard (if (= diff-nodes guard) (invert nodes) guard)]
-    (Transiton. state nguard nodes valid?)))
+    (Transiton. state fallback nguard nodes valid?)))
 
 (def ->break
   (transiton {:state -break
+              :fallback -text
               :guard #(= \newline %)
               :nodes [-space
                       -word
@@ -76,6 +81,7 @@
 
 (def ->space
   (transiton {:state -space
+              :fallback -text
               :guard #(= \space %)
               :nodes [-break
                       -word
@@ -91,6 +97,7 @@
 
 (def ->open-list
   (transiton {:state -list
+              :fallback -function
               :guard #(= \( %)
               :nodes [-break
                       -space
@@ -106,6 +113,7 @@
 
 (def ->close-list
   (transiton {:state -list
+              :fallback -text
               :guard #(= \) %)
               :nodes [-break
                       -space
@@ -266,6 +274,7 @@
 
 (def ->function
   (transiton {:state -function
+              :fallback -function
               :guard diff-nodes
               :nodes [-break
                       -space
@@ -278,6 +287,7 @@
 
 (def ->text
   (transiton {:state -text
+              :fallback -text
               :guard diff-nodes
               :nodes [-break
                       -space
@@ -314,26 +324,30 @@
 (defn changed? [this that]
   (not= (:state this) (:state that)))
 
-(defn emit [transiton pushed f]
+(defn emit [transiton pushed fallback f]
   (if ((:valid? transiton) pushed)
     (f pushed (:state transiton))
-    (f pushed (:state ->text))))
+    (f pushed fallback)))
+
+(defn fall [transiton fallback]
+  (let [nfallback (:fallback transiton)]
+    (if (= inferred nfallback)
+      fallback
+      nfallback)))
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
 (defn process [stream f]
   (loop [rem       stream
          transiton ->break
+         fallback  -text
          store     empty-vec
          ems       empty-vec]
     (m/match [store rem]
-             [[] []] ems
-             [_ []] (->> (emit transiton store f)
-                         (conj ems)
-                         (recur rem transiton empty-vec))
+             [_  []] (->> (emit transiton store fallback f)
+                          (conj ems))
              [_ [a & tail]]
-             (let [t (transition transiton a)]
+             (let [t (transition transiton a)
+                   nf (fall t fallback)]
                (if (changed? transiton t)
-                 (->> (emit transiton store f)
-                      (conj ems)
-                      (recur tail t [a]))
-                 (recur tail t (conj store a) ems))))))
+                 (recur tail t nf [a] (conj ems (emit transiton store fallback f)))
+                 (recur tail t nf (conj store a) ems))))))
