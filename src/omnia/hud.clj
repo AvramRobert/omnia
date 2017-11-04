@@ -1,6 +1,5 @@
 (ns omnia.hud
-  (require [halfling.result :as res]
-           [halfling.task :as tsk]
+  (require [halfling.task :as tsk]
            [omnia.render :refer [render top-y bottom-y project-hud project-cursor]]
            [omnia.repl :as r]
            [omnia.input :as i]
@@ -8,8 +7,7 @@
            [clojure.core.match :as m]
            [omnia.format :as f]
            [omnia.terminal :as t]
-           [omnia.more :refer [-- ++ inc< dec< mod*]])
-  (:import (halfling.result Result)))
+           [omnia.more :refer [-- ++ inc< dec< mod*]]))
 
 (defrecord Context [terminal
                     repl
@@ -406,18 +404,15 @@
   (tsk/task (Thread/sleep msecs)))
 
 (defn read-eval-print [config]
-  (loop [result (-> config (with-features) (context) (continue) (res/success))]
-    (if (res/success? result)
-      (let [[stage ctx] (res/get! result)]
-        (case stage
-          :continue (-> (tsk/task (render ctx))
-                        (tsk/then (fn [_] (iread ctx)))
-                        (tsk/then (fn [s] (ieval ctx s)))
-                        (tsk/run)
-                        (recur))
-          :terminate (-> (tsk/task (render ctx))
-                         (tsk/then (fn [_] (sleep 1200)))
-                         (tsk/then (fn [_] ctx))
-                         (tsk/run)
-                         (tsk/from-result))))
-      (tsk/from-result result))))
+  (loop [task (-> config (with-features) (context) (continue) (tsk/success))]
+    (m/match [@task]
+             [[:continue ctx]] (-> (tsk/task (render ctx))
+                                   (tsk/then-do (iread ctx))
+                                   (tsk/then #(ieval ctx %))
+                                   (tsk/run)
+                                   (recur))
+             [[:terminate ctx]] (-> (tsk/task (render ctx))
+                                    (tsk/then-do (sleep 1200))
+                                    (tsk/then-do ctx)
+                                    (tsk/run))
+             :else task)))

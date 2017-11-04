@@ -248,8 +248,7 @@ Legend:
 50. Should parens matching always highlight the parens of the current expression, regardless of
     my cursor is next to a parens?
 
-Prospects:
-
+Incoming:
 - Parenthesis highlighting // done
 - Input configuration // done
 - REPL sessions // done
@@ -258,14 +257,20 @@ Prospects:
 - Look-ahead syntax highlighter // done
 - Highlighter tests // done
 - Rendering tests // done
-- Slurping
 - Undo and redo
-- Documentation
-- Extensive validation, sane defaults and/or reporting for user config
+- Slurping/barfing
 - Parametricity and arity lookup
 - ClojureDoc support
+- Extensive validation, sane defaults and/or reporting for user config
+- Improved and more extensive config options
+- Copying/cutting from external sources
+- Automatic parens matching
+- Automatic code formatting
 - Parametrised highlighting
-- Automatic parens matching by computing match only when exiting current expression
+- Documentation
+
+
+Prospects:
 - Exchangeable middlewares
 - I-search
 - Move to unrepl and unravel?

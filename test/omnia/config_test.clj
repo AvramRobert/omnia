@@ -6,7 +6,7 @@
             [omnia.test-utils :refer [one can-be]]
             [omnia.highlight :as h]
             [omnia.config :as c]
-            [halfling.result :as r]))
+            [halfling.task :as t]))
 
 (def gen-entry (-> (dissoc c/default-config c/keymap c/colourscheme) (gen/elements)))
 (def gen-keybind (gen/elements c/default-keymap))
@@ -18,8 +18,9 @@
                   (let [[k _] (one (gen-keybind-unlike ik))]
                     (-> (assoc-in c/default-config [c/keymap k] v)
                         (c/validate)
-                        (r/attempt)
-                        (r/failed?)
+                        (t/task)
+                        (t/run)
+                        (t/broken?)
                         (is)))))
 
 (defspec patch-missing-keys
@@ -66,5 +67,3 @@
                    (is (contains? k :ctrl))
                    (is (contains? k :shift))
                    (is (contains? k :alt)))))))
-
-

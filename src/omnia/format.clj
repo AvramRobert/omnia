@@ -1,6 +1,5 @@
 (ns omnia.format
   (require
-    [halfling.result :as r]
     [omnia.input :as i]
     [omnia.more :refer [--]]
     [fipp.engine :as e]
@@ -9,7 +8,8 @@
     [fipp.visit :refer [visit]]
     [clojure.core.match :as m]
     [clojure.string :as s]
-    [instaparse.core :as p]))
+    [instaparse.core :as p]
+    [halfling.task :as t]))
 
 (comment
   "Rules:
@@ -113,9 +113,9 @@
        (apply str)))
 
 (defn- fmt [x f]
-  (-> (r/attempt (f x))
-      (r/recover (constantly x))
-      (r/get!)))
+  @(-> (t/task (f x))
+       (t/recover (constantly x))
+       (t/run)))
 
 (defn string-format [expr]
   (fmt expr #(if (edn? %)

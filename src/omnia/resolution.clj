@@ -1,6 +1,6 @@
 (ns omnia.resolution
   (require
-    [halfling.result :as r]
+    [halfling.task :as t]
     [cemerick.pomegranate :as p]
     [cemerick.pomegranate.aether :refer [maven-central]]))
 
@@ -13,13 +13,12 @@
     (set (concat primary secondary))))
 
 (defn- retrieval [repos releases]
-  (-> (r/attempt
-        (-> (p/add-dependencies :coordinates releases
-                                :repositories repos)
-            (make-output)))
-      (r/fold
-        identity
-        #(symbol (str "An error occurred during retrieval\nMessage: " (:message %))))))
+  @(-> (t/task
+         (-> (p/add-dependencies :coordinates releases
+                                 :repositories repos)
+             (make-output)))
+       (t/recover #(symbol (str "An error occurred during retrieval\nMessage: " (:message %))))
+       (t/run)))
 
 (defn retrieve [& releases]
   (retrieval default releases))
