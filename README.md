@@ -9,6 +9,8 @@ Omnia is a REPL with almost all the power of a fully fledged editor, without bei
 
 ##### Only MacOS and Linux are currently directly supported and tested
 
+### General
+
 * Download the latest archived release: <br />
 [Releases](https://github.com/AvramRobert/omnia/releases)
 
@@ -17,6 +19,12 @@ Omnia is a REPL with almost all the power of a fully fledged editor, without bei
 * Make the `omnia` file inside executable
 
 * Run
+
+### Arch Linux
+
+Download it from the AUR:
+
+    yaourt -S omnia
 
 
 ## Features
