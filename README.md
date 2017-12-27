@@ -9,6 +9,8 @@ Omnia is a REPL with almost all the power of a fully fledged editor, without bei
 
 ##### Only MacOS and Linux are currently directly supported and tested
 
+##### JDK 9 not yet supported. For the time being, please use JDK8
+
 ### General
 
 * Download the latest archived release: <br />
