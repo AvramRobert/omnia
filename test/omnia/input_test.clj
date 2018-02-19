@@ -246,7 +246,7 @@
       (i/move-y inc)
       (i/start-x)
       (can-be #(= (i/line %) line)
-              #(= (i/center %) (first line)))))
+              #(= (i/right %) (first line)))))
 
 (defn moving [seeker]
   (bound-movement seeker)
@@ -262,7 +262,7 @@
 ;; V. Retrieving
 
 (defn get-previous-char [seeker text]
-  (let [[line1 line2] text]
+  (let [[line1 _] text]
     (-> seeker
         (i/peer (fn [a b] (concat a text b)))
         (i/start-x)
@@ -273,22 +273,13 @@
 (defn get-current-char [seeker]
   (let [expected (-> (:lines seeker) (first) (first))]
     (-> (i/start seeker)
-        (i/center)
+        (i/right)
         (= expected)
         (is))))
 
-(defn get-next-char [seeker line1 line2]
-  (let [some-text [[\a \b] [\c \d]]]
-    (-> (i/end seeker)
-        (i/peer (fn [a b] (concat a [line1 line2] b)))
-        (i/start-x)
-        (can-be #(-> (i/end-x %) (i/right) (= (first line2)))
-                #(= (i/right %) (second line1))))))
-
 (defn retrieving [seeker]
   (get-previous-char seeker (many gen-line 2))
-  (get-current-char seeker)
-  (get-next-char seeker (one gen-line) (one gen-line)))
+  (get-current-char seeker))
 
 (defspec retrieving-test
          100
@@ -425,8 +416,8 @@
     (-> seeker
         (i/peer (fn [a b] (concat some-text a b)))
         (i/start)
-        (can-be #(-> % (i/munch) (i/center) (= \b))
-                #(-> % (i/munch) (i/munch) (i/center) (nil?))
+        (can-be #(-> % (i/munch) (i/right) (= \b))
+                #(-> % (i/munch) (i/munch) (i/right) (nil?))
                 #(-> % (i/munch) (i/munch) (i/munch) (<=> seeker))))))
 
 (defn delete-pairs [seeker]
@@ -534,7 +525,7 @@
 (defn jump-until-spaces [seeker line1 line2]
   (-> seeker
       (i/peer (fn [a b] (concat a [(concat line1 [\space] line2)] b)))
-      (can-be #(-> % (i/start-x) (i/jump-right) (i/center) (= \space))
+      (can-be #(-> % (i/start-x) (i/jump-right) (i/right) (= \space))
               #(-> % (i/end-x) (i/jump-left) (i/left) (= \space)))))
 
 (defn jump-until-expr-ends [seeker line]
@@ -542,13 +533,13 @@
             (-> (i/peer s #(concat %1 [(conj line c)] %2))
                 (i/start-x)))]
     (can-be seeker
-            #(-> (f % \() (i/jump-right) (i/center) (= \())
-            #(-> (f % \[) (i/jump-right) (i/center) (= \[))
-            #(-> (f % \{) (i/jump-right) (i/center) (= \{))
-            #(-> (f % \") (i/jump-right) (i/center) (= \"))
-            #(-> (f % \)) (i/jump-right) (i/center) (= \)))
-            #(-> (f % \]) (i/jump-right) (i/center) (= \]))
-            #(-> (f % \}) (i/jump-right) (i/center) (= \})))))
+            #(-> (f % \() (i/jump-right) (i/right) (= \())
+            #(-> (f % \[) (i/jump-right) (i/right) (= \[))
+            #(-> (f % \{) (i/jump-right) (i/right) (= \{))
+            #(-> (f % \") (i/jump-right) (i/right) (= \"))
+            #(-> (f % \)) (i/jump-right) (i/right) (= \)))
+            #(-> (f % \]) (i/jump-right) (i/right) (= \]))
+            #(-> (f % \}) (i/jump-right) (i/right) (= \})))))
 
 (defn jump-between-lines [seeker]
   (let [some-text [[\a \b]]]
@@ -562,11 +553,11 @@
     (-> seeker
         (i/peer (fn [a b] (concat a [(concat line1 spaces line2)] b)))
         (i/start-x)
-        (can-be #(-> (i/center %) (= (first line1)))
-                #(-> (i/jump-right %) (i/jump-right) (i/center) (= (first line2)))
-                #(-> (i/end-x %) (i/jump-left) (i/center) (= (first line2)))
+        (can-be #(-> (i/right %) (= (first line1)))
+                #(-> (i/jump-right %) (i/jump-right) (i/right) (= (first line2)))
+                #(-> (i/end-x %) (i/jump-left) (i/right) (= (first line2)))
                 #(-> (i/end-x %) (i/jump-left) (i/jump-left) (i/left) (= (last line1)))
-                #(-> (i/end-x %) (i/jump-left) (i/jump-left) (i/jump-left) (i/center) (= (first line1)))))))
+                #(-> (i/end-x %) (i/jump-left) (i/jump-left) (i/jump-left) (i/right) (= (first line1)))))))
 
 (defn jumping [seeker]
   (jump-over-words seeker (one gen-text))
@@ -694,7 +685,7 @@
     nil
     [[\( \)] [\[ \]] [\{ \}]]))
 
-(defn expand-over-exprs [seeker line]
+(defn expand-over-one-expr [seeker line]
   (reduce
     (fn [_ [l r]]
       (let [some-line (concat [l] line [r])]
@@ -729,14 +720,18 @@
       nil
       parens)))
 
+;; FIXME: Make sure expansion covers complete multi-line inputs
+(defn expand-over-all-expr [seeker] true)
+
 (defn expanding [seeker]
   (expand-to-words seeker (one gen-line) (one gen-line))
   (expand-from-words-to-expr seeker)
-  (expand-over-exprs seeker (one gen-line))
+  (expand-over-one-expr seeker (one gen-line))
   (expand-from-inner-to-outer-expr seeker
                                    (one gen-line)
                                    (one gen-line)
-                                   (one gen-line)))
+                                   (one gen-line))
+  (expand-over-all-expr seeker))
 
 (defspec expanding-test
          100
@@ -881,7 +876,7 @@
 
 (defn- chars-at [seeker {:keys [start end]}]
   (letfn [(f [there] (-> (i/move seeker (constantly there))
-                         (i/center)))]
+                         (i/right)))]
     [(f start)
      (f end)]))
 

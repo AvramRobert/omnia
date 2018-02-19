@@ -68,8 +68,11 @@
 (defn ext-cs [cs]
   {h/-string* (cs h/-string :green)})
 
+(defn- make-cs [cs]
+  (merge cs (ext-cs cs)))
+
 (def default-keymap (merge editor-keymap hud-keymap))
-(def default-cs (merge syntax-cs control-cs (ext-cs syntax-cs)))
+(def default-cs (make-cs (merge syntax-cs control-cs)))
 
 (def default-config
   {highlighting true
@@ -114,7 +117,7 @@
 ;; Let missing unspecified keys be turned off by default
 (defn patch [config]
   (-> config
-      (update colourscheme (partial patch-with default-cs))
+      (update colourscheme #(->> % (patch-with default-cs) (make-cs)))
       (update keymap (partial patch-with default-keymap))
       (update highlighting some?)
       (update suggestions some?)
@@ -122,8 +125,7 @@
 
 (defn read-config [path]
   (task
-    (-> path
-        (gulp-or-else default-config)
+    (-> (gulp-or-else path default-config)
         (patch)
         (validate))))
 

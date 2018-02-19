@@ -196,11 +196,7 @@
   ([seeker]
    (right seeker identity))
   ([seeker f]
-   (-> seeker (advance) (sym-at) f)))
-
-(defn center
-  ([seeker] (center seeker identity))
-  ([seeker f] (-> seeker (sym-at) (f))))
+   (-> seeker (sym-at) (f))))
 
 (defn selection? [seeker]
   (-> seeker :selection nil? not))
@@ -279,7 +275,7 @@
         (do-until simple-delete #(-> % :cursor (= start))))))
 
 (defn pair? [seeker]
-  (m/match [(left seeker) (center seeker)]
+  (m/match [(left seeker) (right seeker)]
            [\( \)] true
            [\[ \]] true
            [\{ \}] true
@@ -304,7 +300,7 @@
           (selection? seeker) delete))
 
 (defn insert [seeker input]
-  (m/match [input (center (overwrite seeker))]
+  (m/match [input (right (overwrite seeker))]
            [\) \)] (move-x seeker inc)
            [\] \]] (move-x seeker inc)
            [\} \}] (move-x seeker inc)
@@ -335,7 +331,7 @@
   (jump seeker regress left))
 
 (defn jump-right [seeker]
-  (jump seeker advance center))
+  (jump seeker advance right))
 
 (defn munch [seeker]
   (let [x (advance seeker)]
@@ -398,49 +394,78 @@
 (defn top [{:keys [stack]}]
   (first stack))
 
-(defn- apair? [this that]
-  (or (= (open-pairs this) that)
-      (= (closed-pairs this) that)))
+(defn- a-pair? [this that]
+  (or (= (open-pairs this :none) that)
+      (= (closed-pairs this :none) that)))
 
 (defn balance [seeker]
-  (letfn [(expr? [s] (parens (center s)))
+  (letfn [(expr? [s] (parens (right s)))
           (balanced [s] [:balanced s])
           (unbalanced [s] [:unbalanced s])]
     (loop [stack   istack
            prev    nil
            current seeker]
-      (let [value  (center current)
+      (let [value  (right current)
             pushed (top stack)]
         (cond
           (used? stack) (if (expr? seeker) (balanced current) (unbalanced current))
           (= prev current) (unbalanced current)
           (open-pairs value) (recur (ipush stack value) current (advance current))
-          (closed-pairs value) (if (apair? value pushed)
+          (closed-pairs value) (if (a-pair? value pushed)
                                  (recur (ipop stack) current (advance current))
                                  (unbalanced current))
           :else (recur stack current (advance current)))))))
+
+(defn match-parens [seeker]
+  "Note: This assumes that the right hand side of the seeker starts with an open parens"
+  (let [open (right seeker)
+        ending (end seeker)]
+    (loop [seen 1
+           current (advance seeker)]
+      (cond
+        (and (a-pair? open (right current)) (= seen 1)) [:balanced (advance current)]
+        (= (:cursor ending) (:cursor current)) [:unbalanced current]
+        (open-pairs (right current)) (recur (inc seen) (advance current))
+        (closed-pairs (right current)) (recur (dec seen) (advance current))
+        :else (recur seen (advance current))))))
+
+(defn near-expand [seeker]
+  (let [beginning (start seeker)]
+    (loop [seen ()
+           current seeker]
+      (cond
+        (and (empty? seen) (open-pairs (left current))) (-> current (regress) (select) (match-parens) (second))
+        (a-pair? (left current) (first seen)) (recur (rest seen) (regress current))
+        (= (:cursor beginning) (:cursor current)) (-> current (select) (end) (assoc :expansion :expr))
+        (closed-pairs (left current)) (recur (conj seen (left current)) (regress current))
+        :else (recur seen (regress current))))))
+
+(defn expand2 [seeker]
+  (m/match [(:expansion seeker) (left seeker) (right seeker)]
+           [:word \( \)] (near-expand seeker)))
 
 (defn nearest [seeker]
   (loop [stack   (list)
          prev    nil
          current (regress seeker)]
-    (let [value  (center current)
+    (let [value  (right current)
           pushed (first stack)]
       (cond
         (= prev current) current
         (and (open-pairs value) (empty? stack)) current
-        (and (open-pairs value) (apair? value pushed)) (recur (rest stack) current (regress current))
+        (and (open-pairs value) (a-pair? value pushed)) (recur (rest stack) current (regress current))
         (closed-pairs value) (recur (conj stack value) current (regress current))
         :else (recur stack current (regress current))))))
 
 
 (defn expand-expr [seeker]
-  (if (open-pairs (center seeker))
+  (if (open-pairs (right seeker))
     (-> (deselect seeker) (select) (balance) (second) (assoc :expansion :expr))
     (-> (deselect seeker) (nearest) (expand-expr))))
+;; it finds the nearest open-parens and then expands again. So it finds the first one, which is a complete expression, and just selects that one
 
 (defn expand-word [seeker]
-  (m/match [(left seeker) (center seeker)]
+  (m/match [(left seeker) (right seeker)]
            [\( \)] (expand-expr seeker)
            [\[ \]] (expand-expr seeker)
            [\{ \}] (expand-expr seeker)
@@ -465,8 +490,8 @@
   (letfn [(f [[balance s]] (when (= :balanced balance)
                              (selection (regress s))))]
     (cond
-      (open-pairs (center seeker)) (-> (deselect seeker) (select) (balance) (f))
-      (closed-pairs (center seeker)) (-> (deselect seeker) (nearest) (select) (balance) (f))
+      (open-pairs (right seeker)) (-> (deselect seeker) (select) (balance) (f))
+      (closed-pairs (right seeker)) (-> (deselect seeker) (nearest) (select) (balance) (f))
       :else nil)))
 
 (defn stringify [seeker]

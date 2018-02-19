@@ -8,7 +8,6 @@
     [clojure.string :refer [split trim-newline]]
     [halfling.task :refer [task]]
     [omnia.input :as i]
-    [clojure.core.match :as m]
     [omnia.format :as f]
     [clojure.edn :as edn]))
 
@@ -96,15 +95,13 @@
    :code (i/stringify seeker)})
 
 (defn- complete-msg [seeker ns]
-  (letfn [(purge [word] (if (empty? word) gibberish word))]
-    {:op     :complete
-     :symbol (-> seeker
-                 (i/expand-word)
-                 (i/extract)
-                 (i/stringify)
-                 (trim-newline)
-                 (purge))
-     :ns     ns}))
+  {:op     :complete
+   :symbol (-> seeker
+               (i/expand-word)
+               (i/extract)
+               (i/stringify)
+               (trim-newline))
+   :ns     ns})
 
 (defn- hsize [repl] (count (:history repl)))
 
@@ -151,6 +148,7 @@
 
 (defn- rand-port [] (rand-int 65535))
 
+;; TODO: Multimethod this. Don't make it be an object. Create individual functions that return several types of repls
 (defn repl [{:as   params
              :keys [kind ns port host timeout history]
              :or   {kind    :local

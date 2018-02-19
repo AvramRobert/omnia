@@ -126,12 +126,10 @@
 (defn highlight! [ctx regions]
   (let [{terminal :terminal
          complete :complete-hud
-         cs       :colourscheme} ctx
-        fov (:fov complete)]
+         cs       :colourscheme} ctx]
     (run!
       #(let [projection (project-selection complete %)
-             {[xs ys] :start
-              [xe ye] :end} projection]
+             {[xs ys] :start} projection]
          (-> (region complete projection)
              (print-hud! terminal cs [xs ys]))) regions)))
 
