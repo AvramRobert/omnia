@@ -245,8 +245,8 @@ Legend:
 49. Apparently, if I try to get suggestions for some namespace that doesn't exist,
     ritz returns the functions defined in the `user` namespace of the repl.
 
-50. Should parens matching always highlight the parens of the current expression, regardless of
-    my cursor is next to a parens?
+ > 50. Should parens matching always highlight the parens of the current expression, regardless of
+       my cursor is next to a parens?
 
 Prospects:
 

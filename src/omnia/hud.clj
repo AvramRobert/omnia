@@ -172,7 +172,7 @@
           (if (empty? (:lines suggestions))
             seeker
             (-> seeker
-                (i/expand-word)
+                (i/expand)
                 (i/delete)
                 (i/slicer #(concat sgst %))
                 (i/move-x #(+ % (count sgst)))

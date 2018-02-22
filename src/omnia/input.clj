@@ -51,7 +51,7 @@
 (defn line
   ([seeker]
    (line seeker (:cursor seeker)))
-  ([seeker [x y]]
+  ([seeker [_ y]]
    (-> seeker :lines (nth y []))))
 
 (defn sym-at
@@ -186,17 +186,12 @@
 (defn regress [seeker] (regress-with seeker identity))
 (defn advance [seeker] (advance-with seeker identity))
 
-(defn left
-  ([seeker]
-   (left seeker identity))
-  ([seeker f]
-   (-> seeker (regress) (sym-at) f)))
+(defn left [seeker]
+  (when (not= [0 0] (:cursor seeker))
+    (-> seeker (regress) (sym-at))))
 
-(defn right
-  ([seeker]
-   (right seeker identity))
-  ([seeker f]
-   (-> seeker (sym-at) (f))))
+(defn right [seeker]
+  (sym-at seeker))
 
 (defn selection? [seeker]
   (-> seeker :selection nil? not))
@@ -207,8 +202,14 @@
   ([seeker f g]
    (update seeker :selection #(if (empty? %) (g %) (f %)))))
 
+;; FIXME: Select should always set the current cursor as the selection. Regardless of scenario
+;; I think the reason I made it keep its original selection was because of segmented selections through jumping
 (defn select [seeker]
   (reselect seeker identity (constantly (:cursor seeker))))
+
+(defn select' [seeker]
+  (let [f (constantly (:cursor seeker))]
+    (reselect seeker f f)))
 
 (defn deselect [seeker]
   (-> seeker
@@ -379,120 +380,60 @@
              :else seeker)))
 
 (defn select-all [seeker]
-  (-> seeker (deselect) (start) (select) (end)))
-
-(defrecord IStack [stack touched?])
-(def istack (IStack. (list) false))
-(defn used? [{:keys [stack touched?]}]
-  (and (empty? stack) touched?))
-(defn touch [istack]
-  (update istack :touched? #(if % % true)))
-(defn ipush [istack v]
-  (-> (update istack :stack conj v) (touch)))
-(defn ipop [istack]
-  (update istack :stack rest))
-(defn top [{:keys [stack]}]
-  (first stack))
+  (-> seeker (start) (select') (end)))
 
 (defn- a-pair? [this that]
   (or (= (open-pairs this :none) that)
       (= (closed-pairs this :none) that)))
 
-(defn balance [seeker]
-  (letfn [(expr? [s] (parens (right s)))
-          (balanced [s] [:balanced s])
-          (unbalanced [s] [:unbalanced s])]
-    (loop [stack   istack
-           prev    nil
-           current seeker]
-      (let [value  (right current)
-            pushed (top stack)]
-        (cond
-          (used? stack) (if (expr? seeker) (balanced current) (unbalanced current))
-          (= prev current) (unbalanced current)
-          (open-pairs value) (recur (ipush stack value) current (advance current))
-          (closed-pairs value) (if (a-pair? value pushed)
-                                 (recur (ipop stack) current (advance current))
-                                 (unbalanced current))
-          :else (recur stack current (advance current)))))))
-
-(defn match-parens [seeker]
-  "Note: This assumes that the right hand side of the seeker starts with an open parens"
+(defn parens-expand [seeker]
+  "Note: This assumes that the right-hand side of the seeker starts with an open parens"
   (let [open (right seeker)
         ending (end seeker)]
     (loop [seen 1
            current (advance seeker)]
       (cond
-        (and (a-pair? open (right current)) (= seen 1)) [:balanced (advance current)]
-        (= (:cursor ending) (:cursor current)) [:unbalanced current]
+        (and (a-pair? open (right current)) (= seen 1)) [:matched (advance current)]
+        (= (:cursor ending) (:cursor current)) [:unmatched current]
         (open-pairs (right current)) (recur (inc seen) (advance current))
         (closed-pairs (right current)) (recur (dec seen) (advance current))
         :else (recur seen (advance current))))))
 
+;; FIXME: Should I make expansions only return the expanded seeker and if it could be matched
+;; FIXME: with the initial one? Or should they always returned a selected region?
 (defn near-expand [seeker]
+  "Note: This assumes that it always needs to first expand to the left to find a parens"
   (let [beginning (start seeker)]
     (loop [seen ()
            current seeker]
       (cond
-        (and (empty? seen) (open-pairs (left current))) (-> current (regress) (select) (match-parens) (second))
+        (and (empty? seen) (open-pairs (left current))) (-> current (regress) (select') (parens-expand))
         (a-pair? (left current) (first seen)) (recur (rest seen) (regress current))
-        (= (:cursor beginning) (:cursor current)) (-> current (select) (end) (assoc :expansion :expr))
+        (= (:cursor beginning) (:cursor current)) [:unmatched (-> current (select') (end))]
         (closed-pairs (left current)) (recur (conj seen (left current)) (regress current))
         :else (recur seen (regress current))))))
 
-(defn expand2 [seeker]
-  (m/match [(:expansion seeker) (left seeker) (right seeker)]
-           [:word \( \)] (near-expand seeker)))
-
-(defn nearest [seeker]
-  (loop [stack   (list)
-         prev    nil
-         current (regress seeker)]
-    (let [value  (right current)
-          pushed (first stack)]
-      (cond
-        (= prev current) current
-        (and (open-pairs value) (empty? stack)) current
-        (and (open-pairs value) (a-pair? value pushed)) (recur (rest stack) current (regress current))
-        (closed-pairs value) (recur (conj stack value) current (regress current))
-        :else (recur stack current (regress current))))))
-
-
-(defn expand-expr [seeker]
-  (if (open-pairs (right seeker))
-    (-> (deselect seeker) (select) (balance) (second) (assoc :expansion :expr))
-    (-> (deselect seeker) (nearest) (expand-expr))))
-;; it finds the nearest open-parens and then expands again. So it finds the first one, which is a complete expression, and just selects that one
-
-(defn expand-word [seeker]
-  (m/match [(left seeker) (right seeker)]
-           [\( \)] (expand-expr seeker)
-           [\[ \]] (expand-expr seeker)
-           [\{ \}] (expand-expr seeker)
-           [\space \space] (expand-expr seeker)
-           [\space (:or \) \] \})] (expand-expr seeker)
-           [(:or \( \[ \{) \space] (expand-expr seeker)
-           [_ (:or \( \[ \{)] (expand-expr seeker)
-           [(:or \) \] \}) _] (-> seeker (regress) (expand-expr))
-           [(:or \( \[ \{) _] (-> seeker (select) (jump-right))
-           [(:or \space \") _] (-> seeker (select) (jump-right))
-           [nil _] (-> seeker (select) (jump-right))
-           [_ nil] (-> seeker (select) (jump-left))
-           :else (-> seeker (jump-left) (select) (jump-right))))
-
 (defn expand [seeker]
-  (case (:expansion seeker)
-    :word (-> seeker (expand-word) (assoc :expansion :expr))
-    :expr (expand-expr seeker)
-    seeker))
+  (-> (m/match [(:expansion seeker) (left seeker) (right seeker)]
+               [:word \( \)] (-> (near-expand seeker) (second))
+               [:word \[ \]] (-> (near-expand seeker) (second))
+               [:word \{ \}] (-> (near-expand seeker) (second))
+               [:word \space \space] (-> (near-expand seeker) (second))
+               [:word \space (:or \) \] \})] (-> (near-expand seeker) (second))
+               [:word (:or \) \] \}) _] (-> seeker (regress) (near-expand) (second))
+               [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (select') (parens-expand) (second))
+               [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select') (jump-right))
+               [:word _ _] (-> seeker (jump-left) (select') (jump-right))
+               :else (-> (near-expand seeker) (second)))
+      (assoc :expansion :expr)))
 
 (defn find-pair [seeker]
-  (letfn [(f [[balance s]] (when (= :balanced balance)
-                             (selection (regress s))))]
+  (letfn [(choose [[m s]]
+            (when (= :matched m) (-> s (regress) (selection))))]
     (cond
-      (open-pairs (right seeker)) (-> (deselect seeker) (select) (balance) (f))
-      (closed-pairs (right seeker)) (-> (deselect seeker) (nearest) (select) (balance) (f))
-      :else nil)))
+      (open-pairs (right seeker)) (-> seeker (select') (parens-expand) (choose))
+      (closed-pairs (left seeker)) (-> seeker (regress) (select') (near-expand) (choose))
+      :else (-> seeker (near-expand) (choose)))))
 
 (defn stringify [seeker]
   (->> (repeat "\n")
@@ -509,8 +450,8 @@
 
 (defn process [seeker event]
   (case (:action event)
-    :expand (-> seeker expand)
-    :select-all (-> seeker select-all)
+    :expand (-> seeker (expand))
+    :select-all (-> seeker (select-all))
     :paste (-> seeker (paste) (deselect))
     :copy (-> seeker (copy) (deselect))
     :cut (-> seeker (cut) (deselect))

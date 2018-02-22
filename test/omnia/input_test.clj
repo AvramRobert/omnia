@@ -720,8 +720,16 @@
       nil
       parens)))
 
-;; FIXME: Make sure expansion covers complete multi-line inputs
-(defn expand-over-all-expr [seeker] true)
+(defn expand-over-all-expr [seeker line]
+  (reduce
+    (fn [_ [l r]]
+      (let [expr (concat [l] line [r])
+            expected (-> seeker
+                         (i/slice (fn [a b] (concat [l] a b [r])))
+                         (i/end)
+                         (i/peer (fn [a b] (concat a b [expr]))))]
+        (is (<=> expected (-> expected (i/expand) (i/expand) (i/extract))))))
+    [[\( \)] [\[ \]] [\{ \}]]))
 
 (defn expanding [seeker]
   (expand-to-words seeker (one gen-line) (one gen-line))
@@ -731,7 +739,7 @@
                                    (one gen-line)
                                    (one gen-line)
                                    (one gen-line))
-  (expand-over-all-expr seeker))
+  (expand-over-all-expr seeker (one gen-line)))
 
 (defspec expanding-test
          100
@@ -890,8 +898,7 @@
                     #(->> (i/end-x %) (i/regress) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
 
 (defn pair-inner-parens [seeker line]
-  (let [parens [[\( \)] [\[ \]] [\{ \}]]
-        offset #(+ % 1 (count line))]
+  (let [parens [[\( \)] [\[ \]] [\{ \}]]]
     (reduce
       (fn [_ [ol or]]
         (reduce
@@ -927,47 +934,49 @@
 
 (defbench pairing-bench pairing)
 
-;; XX. Balancing
+;; XX. Parens matching
 
-(clojure.test/deftest balancing
+(clojure.test/deftest matching-test
   (let [s1 (i/seeker [[\[ \[ \[ \4 \5 \] \]]])
         s2 (i/seeker [[\[ \( \a \{ \} \b \) \]]])
-        s3 (i/seeker [[\[ \( \} \) \]]])
+        s3 (i/seeker [[\[ \( \} \{ \) \]]])
         s4 (i/seeker [[\a \b \4 \( \)]])]
     ;; s1
-    (is (= :unbalanced (-> (i/balance s1) (first))))
-    (is (= :balanced (-> (i/advance s1) (i/balance) (first))))
-    (is (= :balanced (-> (i/advance s1) (i/advance) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/advance s1) (i/advance) (i/advance) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end s1) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/start s1) (i/nearest) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/advance s1) (i/nearest) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end-x s1) (i/nearest) (i/balance) (first))))
-    (is (= :balanced (-> (i/advance s1) (i/advance) (i/nearest) (i/balance) (first))))
-    (is (= :balanced (-> (i/end-x s1) (i/regress) (i/nearest) (i/balance) (first))))
+    (is (= :unmatched  (-> (i/parens-expand s1) (first))))
+    (is (= :matched    (-> (i/advance s1) (i/parens-expand) (first))))
+    (is (= :matched    (-> (i/advance s1) (i/advance) (i/parens-expand) (first))))
+    (is (= :unmatched  (-> (i/advance s1) (i/advance) (i/advance) (i/parens-expand) (first))))
+    (is (= :unmatched  (-> (i/end s1) (i/parens-expand) (first))))
+    (is (= :unmatched  (-> (i/start s1) (i/near-expand) (first))))
+    (is (= :unmatched  (-> (i/advance s1) (i/near-expand) (first))))
+    (is (= :unmatched  (-> (i/end-x s1) (i/near-expand) (first))))
+    (is (= :matched    (-> (i/advance s1) (i/advance) (i/near-expand) (first))))
+    (is (= :matched    (-> (i/end-x s1) (i/regress) (i/near-expand) (first))))
+
     ;;;; s2
-    (is (= :balanced (-> (i/balance s2) (first))))
-    (is (= :balanced (-> (i/advance s2) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/advance s2) (i/advance) (i/balance) (first))))
-    (is (= :balanced (-> (i/advance s2) (i/advance) (i/advance) (i/balance) (first))))
-    (is (= :balanced (-> (i/end-x s2) (i/regress) (i/nearest) (i/balance) (first))))
-    (is (= :balanced (-> (i/end-x s2) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))
-    ;;;; s3
-    (is (= :unbalanced (-> (i/balance s3) (first))))
-    (is (= :unbalanced (-> (i/advance s3) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/advance s3) (i/advance) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/advance s3) (i/advance) (i/advance) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end-x s3) (i/regress) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end-x s3) (i/regress) (i/regress) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end-x s3) (i/regress) (i/regress) (i/regress) (i/balance) (first))))
-    ;;; s4
-    (is (= :unbalanced (-> (i/balance s4) (first))))
-    (is (= :unbalanced (-> (i/advance s4) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/advance s4) (i/advance) (i/balance) (first))))
-    (is (= :balanced (-> (i/advance s4) (i/advance) (i/advance) (i/balance) (first))))
-    (is (= :balanced (-> (i/end-x s4) (i/regress) (i/nearest) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end-x s4) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))
-    (is (= :unbalanced (-> (i/end-x s4) (i/regress) (i/regress) (i/regress) (i/nearest) (i/balance) (first))))))
+    (is (= :matched (-> (i/parens-expand s2) (first))))
+    (is (= :matched (-> (i/advance s2) (i/parens-expand) (first))))
+    (is (= :matched (-> (i/advance s2) (i/advance) (i/near-expand) (first))))
+    (is (= :matched (-> (i/advance s2) (i/advance) (i/advance) (i/near-expand) (first))))
+    (is (= :matched (-> (i/end-x s2) (i/regress) (i/near-expand) (first))))
+    (is (= :matched (-> (i/end-x s2) (i/regress) (i/regress) (i/near-expand) (first))))
+    ;;;;; s3
+    (is (= :matched   (-> (i/parens-expand s3) (first))))
+    (is (= :matched   (-> (i/advance s3) (i/parens-expand) (first))))
+    (is (= :matched   (-> (i/advance s3) (i/advance) (i/parens-expand) (first))))
+    (is (= :matched   (-> (i/advance s3) (i/advance) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/advance s3) (i/advance) (i/advance) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/regress) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/regress) (i/regress) (i/parens-expand) (first))))
+    ;;;; s4
+    (is (= :unmatched (-> (i/parens-expand s4) (first))))
+    (is (= :unmatched (-> (i/advance s4) (i/parens-expand) (first))))
+    (is (= :unmatched (-> (i/advance s4) (i/advance) (i/parens-expand) (first))))
+    (is (= :matched (-> (i/advance s4) (i/advance) (i/advance) (i/parens-expand) (first))))
+    (is (= :matched (-> (i/end-x s4) (i/regress) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s4) (i/regress) (i/regress) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s4) (i/regress) (i/regress) (i/regress) (i/near-expand) (first))))))
 
 ;; XX1. Extracting
 

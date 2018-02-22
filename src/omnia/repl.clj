@@ -97,7 +97,7 @@
 (defn- complete-msg [seeker ns]
   {:op     :complete
    :symbol (-> seeker
-               (i/expand-word)
+               (i/expand)
                (i/extract)
                (i/stringify)
                (trim-newline))
