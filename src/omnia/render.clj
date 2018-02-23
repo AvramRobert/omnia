@@ -1,8 +1,8 @@
 (ns omnia.render
-  (require [omnia.terminal :as t]
-           [omnia.input :as i]
-           [omnia.highlight :as h]
-           [omnia.more :refer [map-vals reduce-idx zip-all --]]))
+  (:require [omnia.terminal :as t]
+            [omnia.input :as i]
+            [omnia.highlight :as h]
+            [omnia.more :refer [map-vals reduce-idx zip-all --]]))
 
 (declare total! diff! nothing!)
 

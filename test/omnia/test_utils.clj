@@ -1,18 +1,18 @@
 (ns omnia.test-utils
-  (require [clojure.test.check.generators :as gen]
-           [clojure.test :refer [is]]
-           [omnia.more :refer [--]]
-           [omnia.config :refer [default-keymap default-cs]]
-           [omnia.input :as i]
-           [omnia.hud :as h]
-           [omnia.repl :as r]
-           [omnia.terminal :as t]
-           [omnia.render :as rd]))
+  (:require [clojure.test.check.generators :as gen]
+            [clojure.test :refer [is]]
+            [omnia.more :refer [--]]
+            [omnia.config :refer [default-keymap default-cs]]
+            [omnia.input :as i]
+            [omnia.hud :as h]
+            [omnia.repl :as r]
+            [omnia.terminal :as t]
+            [omnia.render :as rd]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
 (defn many
-  ([generator] (many (rand-int 100)))
+  ([generator] (many generator (rand-int 100)))
   ([generator n] (vec (repeatedly n #(one generator)))))
 
 (defmacro <=> [this-seeker that-seeker]

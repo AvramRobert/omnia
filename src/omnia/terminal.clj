@@ -1,6 +1,6 @@
 (ns omnia.terminal
-  (require [lanterna.terminal :as t]
-           [lanterna.input :as i]))
+  (:require [lanterna.terminal :as t]
+            [lanterna.input :as i]))
 
 (defrecord Terminal
   [background!

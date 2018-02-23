@@ -1,6 +1,5 @@
 (ns omnia.highlight
-  (require [clojure.core.match :as m]
-           [clojure.string :as s]))
+  (:require [clojure.core.match :as m]))
 
 (defrecord Transiton [state fallback guard nodes valid?])
 

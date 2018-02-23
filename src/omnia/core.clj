@@ -1,11 +1,11 @@
 (ns omnia.core
   (:gen-class)
-  (require [omnia.terminal :as t]
-           [omnia.repl :as r]
-           [omnia.hud :as h]
-           [omnia.config :as c]
-           [clojure.string :as s]
-           [halfling.task :as tsk])
+  (:require [omnia.terminal :as t]
+            [omnia.repl :as r]
+            [omnia.hud :as h]
+            [omnia.config :as c]
+            [clojure.string :as s]
+            [halfling.task :as tsk])
   (:import (java.util Calendar)))
 
 (defn config-path [dir] (format "%s/omnia.edn" dir))

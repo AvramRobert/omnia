@@ -1,11 +1,11 @@
 (ns omnia.hud-test
-  (require [clojure.test :refer [is]]
-           [clojure.test.check.clojure-test :refer [defspec]]
-           [clojure.test.check.properties :refer [for-all]]
-           [clojure.test.check.generators :as gen]
-           [omnia.test-utils :refer :all]
-           [omnia.hud :as h]
-           [omnia.input :as i]))
+  (:require [clojure.test :refer [is]]
+            [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.properties :refer [for-all]]
+            [clojure.test.check.generators :as gen]
+            [omnia.test-utils :refer :all]
+            [omnia.hud :as h]
+            [omnia.input :as i]))
 
 ;; I. Calibrating
 

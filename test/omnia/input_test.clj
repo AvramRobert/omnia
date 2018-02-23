@@ -1,11 +1,11 @@
 (ns omnia.input-test
-  (require [omnia.input :as i]
-           [omnia.more :refer [time-return]]
-           [clojure.test :refer [is]]
-           [clojure.test.check.clojure-test :refer [defspec]]
-           [clojure.test.check.properties :refer [for-all]]
-           [clojure.test.check.generators :as gen]
-           [omnia.test-utils :refer :all]))
+  (:require [omnia.input :as i]
+            [omnia.more :refer [time-return]]
+            [clojure.test :refer [is]]
+            [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.properties :refer [for-all]]
+            [clojure.test.check.generators :as gen]
+            [omnia.test-utils :refer :all]))
 
 (def ^:dynamic *benchmarks* [])
 

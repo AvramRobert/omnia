@@ -1,8 +1,8 @@
 (ns omnia.input
-  (require [clojure.core.match :as m]
-           [clojure.string :as s]
-           [clojure.set :refer [union map-invert]]
-           [omnia.more :refer [do-until]]))
+  (:require [clojure.core.match :as m]
+            [clojure.string :as s]
+            [clojure.set :refer [union map-invert]]
+            [omnia.more :refer [do-until]]))
 
 (defrecord Event [action key])
 (defrecord Seeker [lines cursor height expansion selection clipboard]

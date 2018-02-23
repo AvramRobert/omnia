@@ -1,10 +1,10 @@
 (ns omnia.config
-  (require [omnia.more :refer [map-vals gulp-or-else]]
-           [clojure.string :refer [join]]
-           [clojure.set :refer [map-invert]]
-           [halfling.task :refer [task]]
-           [omnia.highlight :as h]
-           [omnia.render :as r]))
+  (:require [omnia.more :refer [map-vals gulp-or-else]]
+            [clojure.string :refer [join]]
+            [clojure.set :refer [map-invert]]
+            [halfling.task :refer [task]]
+            [omnia.highlight :as h]
+            [omnia.render :as r]))
 
 (def ^:const highlighting :syntax-highlighting)
 (def ^:const scrolling :scrolling)

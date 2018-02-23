@@ -1,11 +1,11 @@
 (ns omnia.repl
-  (require
+  (:require
     ritz.nrepl.middleware.javadoc
     ritz.nrepl.middleware.simple-complete
     [clojure.tools.nrepl.server :as s]
     [clojure.tools.nrepl :as nrepl]
     [omnia.more :refer [dec< inc< gulp-or-else]]
-    [clojure.string :refer [split trim-newline]]
+    [clojure.string :refer [split trim-newline join]]
     [halfling.task :refer [task]]
     [omnia.input :as i]
     [omnia.format :as f]
@@ -26,12 +26,12 @@
    #'ritz.nrepl.middleware.simple-complete/wrap-simple-complete])
 
 (def predef
-  (-> '(require '[omnia.resolution :refer [retrieve retrieve-from]])
-      (str)
-      (i/from-string)))
+  (->> ['(require '[omnia.resolution :refer [retrieve retrieve-from]])]
+       (mapv str)
+       (join "\n")
+       (i/from-string)))
 
 (def localhost "127.0.0.1")
-(def gibberish "~/~")
 (def empty-history [i/empty-seeker])
 
 (defn read-history [path]

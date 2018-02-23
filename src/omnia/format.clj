@@ -1,14 +1,13 @@
 (ns omnia.format
-  (require
-    [omnia.input :as i]
-    [omnia.more :refer [--]]
-    [fipp.engine :as e]
-    [clojure.edn :as clj-edn]
-    [fipp.edn :as edn]
-    [fipp.visit :refer [visit]]
-    [clojure.string :as s]
-    [instaparse.core :as p]
-    [halfling.task :as t]))
+  (:require [omnia.input :as i]
+            [omnia.more :refer [--]]
+            [fipp.engine :as e]
+            [clojure.edn :as clj-edn]
+            [fipp.edn :as edn]
+            [fipp.visit :refer [visit]]
+            [clojure.string :as s]
+            [instaparse.core :as p]
+            [halfling.task :as t]))
 
 (comment
   "Rules:

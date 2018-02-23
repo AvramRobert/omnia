@@ -1,13 +1,13 @@
 (ns omnia.hud
-  (require [halfling.task :as tsk]
-           [omnia.render :refer [render top-y bottom-y project-hud project-cursor]]
-           [omnia.repl :as r]
-           [omnia.input :as i]
-           [omnia.config :refer [with-features keymap]]
-           [clojure.core.match :as m]
-           [omnia.format :as f]
-           [omnia.terminal :as t]
-           [omnia.more :refer [-- ++ inc< dec< mod*]]))
+  (:require [halfling.task :as tsk]
+            [omnia.render :refer [render top-y bottom-y project-hud project-cursor]]
+            [omnia.repl :as r]
+            [omnia.input :as i]
+            [omnia.config :refer [with-features keymap]]
+            [clojure.core.match :as m]
+            [omnia.format :as f]
+            [omnia.terminal :as t]
+            [omnia.more :refer [-- ++ inc< dec< mod*]]))
 
 (defrecord Context [terminal
                     repl

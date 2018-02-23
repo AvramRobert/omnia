@@ -1,8 +1,7 @@
 (ns omnia.resolution
-  (require
-    [halfling.task :as t]
-    [cemerick.pomegranate :as p]
-    [cemerick.pomegranate.aether :refer [maven-central]]))
+  (:require [halfling.task :as t]
+            [cemerick.pomegranate :as p]
+            [cemerick.pomegranate.aether :refer [maven-central]]))
 
 (def default (merge maven-central
                     {"clojars" "https://clojars.org/repo/"}))

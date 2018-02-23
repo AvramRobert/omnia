@@ -251,7 +251,25 @@ Legend:
  > 51. Make a selection continuation combinator and let the normal select always override
        any existing selection.
 
-Incoming:
+----------------- MIGRATION VERSIONS -------------------
+
+clojure 1.8.0 -> 1.9.0:
+    -> some things need to be upgraded:
+        * clojure-lanterna: Clojure 1.7.0 -> Clojure 1.8.0
+    -> requires/imports/uses need keyword call:
+        * omnia
+        * halfling
+
+pomegranate 0.3.1 -> 1.0.0:
+    -> requires new dependencies:
+        * [org.tcrawley/dynapath "1.0.0"]
+        * [org.slf4j/slf4j-simple "1.7.22"]
+    -> retrieval only works in stand-alone jar:
+        * adding to classpath works in dev, but dependency disappears after a while (rather strange)
+
+
+
+Prospects:
 - Parenthesis highlighting // done
 - Input configuration // done
 - REPL sessions // done
@@ -271,10 +289,3 @@ Incoming:
 - Automatic code formatting
 - Parametrised highlighting
 - Documentation
-
-
-Prospects:
-- Exchangeable middlewares
-- I-search
-- Move to unrepl and unravel?
-- New seeker based on tree
