@@ -2,11 +2,16 @@
 
 A Clojure REPL for prototyping, experimenting and trying things out. <br />
 
-Omnia is a REPL with almost all the power of a fully-fledged IDE, without being an IDE.
+Omnia is a REPL with almost all the power of a fully fledged editor, without being an editor.
 
 ## Installation
+*Note: Omnia is currently in the BETA phase, so it may have some hiccups*
 
-##### Only MacOS and Linux are currently directly supported
+##### Only MacOS and Linux are currently directly supported and tested
+
+##### JDK 9 not yet supported. For the time being, please use JDK8
+
+### General
 
 * Download the latest archived release: <br />
 [Releases](https://github.com/AvramRobert/omnia/releases)
@@ -16,6 +21,12 @@ Omnia is a REPL with almost all the power of a fully-fledged IDE, without being 
 * Make the `omnia` file inside executable
 
 * Run
+
+### Arch Linux
+
+Download it from the AUR:
+
+    yaourt -S omnia
 
 
 ## Features
@@ -55,6 +66,9 @@ Omnia is a REPL with almost all the power of a fully-fledged IDE, without being 
 #### Copy/Cut/Paste
  * Copy/cut selections of input
  * Paste copied or cut code wherever in the input
+
+**Note:** Only supported from within the REPL. Copying/cutting from external sources
+and then pasting inside the REPL is not *currently* directly supported.
 
  ![copy-cut-paste](images/copy-cut-paste.gif)
 
@@ -98,7 +112,7 @@ Omnia is a REPL with almost all the power of a fully-fledged IDE, without being 
 #### Configurable syntax highlighting
  * For configuration please look at the *Configuration* section.
 
-   ![syntax-highlighting](images/highlighting.gif)
+ ![syntax-highlighting](images/highlighting.gif)
 
 #### Configurable keybindings
  * The keybindings for all actions omnia supports can be configured
@@ -269,8 +283,9 @@ Due to some issues with the terminal library omnia uses, some key combinations d
  * CTRL + DOWN
  * CTRL + BACKSPACE
 
-Should you find additional ones, please feel free to report them so I can add them to the list.
-Solutions for this issue are currently investigated.
+There are also some issues with the *command* key on MacOS.
+Should you discover additional issues, please feel free to report them so I can add them to the list.
+Solutions for this issue are currently being investigated.
 
 ### Bugs
 
@@ -279,7 +294,7 @@ Bug reports can be submitted as issues here on github.
 **Note**: The REPL has a built-in failure-handling system and spits 
 out a stack-trace dump when it crashes. 
 Should it, for some reason, crash for you, then in the same directory
-where the `omnia` executalbe is, you shall find a file named
+where the `omnia` executable is, you shall find a file named
 `.omnia.error` containing the said stack-trace dump. <br />
 Should you decide to report the crash, I would very much appreciate if you would, 
 together with a short description of the actions performed before the crash, also
@@ -287,6 +302,31 @@ attach the contents of that file to your issue.
 
 ### Feature requests
 Feature requests can be submitted as issues with the label `feature`. <br />
-I would, however, like for every feature request to have a short description of its use case. <br />
+I would however like for every feature request to have a short description of its use case.
 Their implementation priority will be determined in terms of their complexity and
-said use case. 
+said use case.
+
+Pull requests are also very welcome!
+
+### Things to look forward to
+Omnia is under constant development, enhancement and improvement.
+Incoming features in (not necessarily) chronological order:
+
+ * Undo/redo support
+ * Slurping / barfing expressions
+ * Arity lookup
+ * Clojure documentation lookup
+ * Validation improvements for user config
+ * Config improvements
+ * Copying/cutting/pasting from external sources
+ * Automatic parens matching
+ * Automatic code formatting
+ * More code documentation
+ * Performance improvements
+ * ..
+
+## License
+
+Copyright © 2017 Robert Marius Avram
+
+Distributed under the Apache-2.0 License.

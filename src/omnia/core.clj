@@ -5,8 +5,7 @@
            [omnia.hud :as h]
            [omnia.config :as c]
            [clojure.string :as s]
-           [halfling.task :as tsk]
-           [halfling.result :as res])
+           [halfling.task :as tsk])
   (:import (java.util Calendar)))
 
 (defn config-path [dir] (format "%s/omnia.edn" dir))
@@ -14,11 +13,10 @@
 (def ^:const error-path ".omnia.error")
 (def ^:const repl-ns 'user)
 
-(defn error [{:keys [message cause trace]}]
+(defn error [{:keys [message trace]}]
   (format
-    "Time: %s\nCause: %s\njava.lang.Exception: %s\n%s"
+    "Time: %s\nMessage: %s\n%s"
     (-> (Calendar/getInstance) (.getTime) (str))
-    (or cause "Unknown cause")
     (or message "Unknown message")
     (->> trace
          (mapv #(str "   " (.toString %)))
@@ -30,7 +28,7 @@
      "-----"
      "I don't have the heart to tell you.. but something went wrong internally"
      (format "Take a look at ~/%s for a complete trace of the error" error-path)
-     (format "Message: %s" (:message result))
+     (format "Message - %s" (:message result))
      "-----"
      ""]
     (s/join "\n")))
@@ -38,32 +36,32 @@
 (defn log! [result]
   (tsk/task (spit error-path (error result))))
 
-(defn read-args [args]
+(defn read-args! [args]
   (letfn [(read [re]
             (some-> (some #(when (s/starts-with? % re) %) args)
                     (s/split (re-pattern re))
                     (second)))]
     (tsk/task
-      {:dir (-> (read "path=") (or "."))})))
+      {:dir (or (read "path=") ".")})))
 
-(defn hooks [{:keys [repl]} {:keys [dir]}]
+(defn hooks! [{:keys [repl]} {:keys [dir]}]
   (-> (tsk/task (r/write-history (history-path dir) repl))
       (tsk/recover (fn [_] ()))))
 
-(defn shutdown [{:keys [terminal repl]}]
+(defn shutdown! [{:keys [terminal repl]}]
   (tsk/task
     (t/stop! terminal)
     (r/stop! repl)))
 
-(defn start [{:keys [dir]}]
+(defn start! [{:keys [dir]}]
   (tsk/do-tasks
-    [config (c/read-config (config-path dir))
-     history (r/read-history (history-path dir))
+    [config   (c/read-config (config-path dir))
+     history  (r/read-history (history-path dir))
      terminal (t/terminal :text)
-     repl (r/repl {:kind    :local
-                   :history history
-                   :ns      repl-ns})
-     _ (t/start! terminal)]
+     repl     (r/repl {:kind    :local
+                       :history history
+                       :ns      repl-ns})
+     _        (t/start! terminal)]
     (h/read-eval-print
       (assoc config :terminal terminal :repl repl))))
 
@@ -83,9 +81,10 @@
 
 (defn -main [& args]
   (-> (tsk/do-tasks
-        [argmap (read-args args)
-         ctx (start argmap)
-         _ (hooks ctx argmap)
-         _ (shutdown ctx)])
-      (tsk/run)
-      (res/fold succeed! fail!)))
+        [argmap (read-args! args)
+         ctx    (start! argmap)
+         _      (hooks! ctx argmap)
+         _      (shutdown! ctx)])
+      (tsk/recover fail!)
+      (tsk/then succeed!)
+      (tsk/run)))
