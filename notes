@@ -248,6 +248,9 @@ Legend:
  > 50. Should parens matching always highlight the parens of the current expression, regardless of
        my cursor is next to a parens?
 
+ > 51. Make a selection continuation combinator and let the normal select always override
+       any existing selection.
+
 Prospects:
 
 - Parenthesis highlighting // done

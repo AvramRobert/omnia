@@ -202,14 +202,12 @@
   ([seeker f g]
    (update seeker :selection #(if (empty? %) (g %) (f %)))))
 
-;; FIXME: Select should always set the current cursor as the selection. Regardless of scenario
-;; I think the reason I made it keep its original selection was because of segmented selections through jumping
-(defn select [seeker]
+(defn soft-select [seeker]
   (reselect seeker identity (constantly (:cursor seeker))))
 
-(defn select' [seeker]
+(defn select [seeker]
   (let [f (constantly (:cursor seeker))]
-    (reselect seeker f f)))
+    (-> seeker (assoc :expansion :word) (reselect f f))))
 
 (defn deselect [seeker]
   (-> seeker
@@ -218,7 +216,7 @@
 
 (defn selection [seeker]
   (let [cursor (:cursor seeker)
-        init   (-> seeker (select) :selection)
+        init   (-> seeker (soft-select) :selection)
         [start end] (sort-by (juxt second first) [init cursor])]
     {:start start
      :end   end}))
@@ -380,7 +378,7 @@
              :else seeker)))
 
 (defn select-all [seeker]
-  (-> seeker (start) (select') (end)))
+  (-> seeker (start) (select) (end)))
 
 (defn- a-pair? [this that]
   (or (= (open-pairs this :none) that)
@@ -391,7 +389,7 @@
   (let [open (right seeker)
         ending (end seeker)]
     (loop [seen 1
-           current (advance seeker)]
+           current (-> seeker (select) (advance))]
       (cond
         (and (a-pair? open (right current)) (= seen 1)) [:matched (advance current)]
         (= (:cursor ending) (:cursor current)) [:unmatched current]
@@ -399,17 +397,15 @@
         (closed-pairs (right current)) (recur (dec seen) (advance current))
         :else (recur seen (advance current))))))
 
-;; FIXME: Should I make expansions only return the expanded seeker and if it could be matched
-;; FIXME: with the initial one? Or should they always returned a selected region?
 (defn near-expand [seeker]
   "Note: This assumes that it always needs to first expand to the left to find a parens"
   (let [beginning (start seeker)]
     (loop [seen ()
            current seeker]
       (cond
-        (and (empty? seen) (open-pairs (left current))) (-> current (regress) (select') (parens-expand))
+        (and (empty? seen) (open-pairs (left current))) (-> current (regress) (parens-expand))
         (a-pair? (left current) (first seen)) (recur (rest seen) (regress current))
-        (= (:cursor beginning) (:cursor current)) [:unmatched (-> current (select') (end))]
+        (= (:cursor beginning) (:cursor current)) [:unmatched (-> current (select) (end))]
         (closed-pairs (left current)) (recur (conj seen (left current)) (regress current))
         :else (recur seen (regress current))))))
 
@@ -421,9 +417,9 @@
                [:word \space \space] (-> (near-expand seeker) (second))
                [:word \space (:or \) \] \})] (-> (near-expand seeker) (second))
                [:word (:or \) \] \}) _] (-> seeker (regress) (near-expand) (second))
-               [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (select') (parens-expand) (second))
-               [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select') (jump-right))
-               [:word _ _] (-> seeker (jump-left) (select') (jump-right))
+               [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (parens-expand) (second))
+               [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select) (jump-right))
+               [:word _ _] (-> seeker (jump-left) (select) (jump-right))
                :else (-> (near-expand seeker) (second)))
       (assoc :expansion :expr)))
 
@@ -431,8 +427,8 @@
   (letfn [(choose [[m s]]
             (when (= :matched m) (-> s (regress) (selection))))]
     (cond
-      (open-pairs (right seeker)) (-> seeker (select') (parens-expand) (choose))
-      (closed-pairs (left seeker)) (-> seeker (regress) (select') (near-expand) (choose))
+      (open-pairs (right seeker)) (-> seeker (select) (parens-expand) (choose))
+      (closed-pairs (left seeker)) (-> seeker (regress) (select) (near-expand) (choose))
       :else (-> seeker (near-expand) (choose)))))
 
 (defn stringify [seeker]
@@ -461,12 +457,12 @@
     :right (-> seeker (advance) (deselect))
     :jump-left (-> seeker (jump-left) (deselect))
     :jump-right (-> seeker (jump-right) (deselect))
-    :select-up (-> seeker (select) (climb))
-    :select-down (-> seeker (select) (fall))
-    :select-left (-> seeker (select) (regress))
-    :select-right (-> seeker (select) (advance))
-    :jump-select-left (-> seeker (select) (jump-left))
-    :jump-select-right (-> seeker (select) (jump-right))
+    :select-up (-> seeker (soft-select) (climb))
+    :select-down (-> seeker (soft-select) (fall))
+    :select-left (-> seeker (soft-select) (regress))
+    :select-right (-> seeker (soft-select) (advance))
+    :jump-select-left (-> seeker (soft-select) (jump-left))
+    :jump-select-right (-> seeker (soft-select) (jump-right))
     :backspace (-> seeker (delete) (deselect))
     :delete (-> seeker (munch) (deselect))
     :newline (-> seeker (break) (deselect))

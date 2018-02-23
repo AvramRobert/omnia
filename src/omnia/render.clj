@@ -92,7 +92,7 @@
 (defn- region [hud selection]
   (let [{[xs ys] :start
          [xe ye] :end} selection]
-    (-> (i/deselect hud)
+    (-> hud
         (i/reset-y ys)
         (i/reset-x xs)
         (i/select)
