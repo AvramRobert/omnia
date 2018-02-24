@@ -267,7 +267,10 @@ pomegranate 0.3.1 -> 1.0.0:
     -> retrieval only works in stand-alone jar:
         * adding to classpath works in dev, but dependency disappears after a while (rather strange)
 
-
+IDEA: 
+ -> Auto indentation! Solution for formatting
+ -> Each expression/line has an associated indentation. Should you go to the next line, you reuse the indentation if it's part of the same expression
+    or indent further if it's a nested expression
 
 Prospects:
 - Parenthesis highlighting // done
