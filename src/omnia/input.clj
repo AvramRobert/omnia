@@ -125,6 +125,9 @@
 (defn move [seeker f]
   (update seeker :cursor f))
 
+(defn reset-to [seeker cursor]
+  (move seeker (constantly cursor)))
+
 (defn move-x [seeker f]
   (move seeker
         (fn [[x y]]

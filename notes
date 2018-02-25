@@ -242,14 +242,16 @@ Legend:
 
  > 48. Cache suggestion results from repl to avoid calls.
 
-49. Apparently, if I try to get suggestions for some namespace that doesn't exist,
-    ritz returns the functions defined in the `user` namespace of the repl.
+ > 49. Apparently, if I try to get suggestions for some namespace that doesn't exist,
+       ritz returns the functions defined in the `user` namespace of the repl.
 
  > 50. Should parens matching always highlight the parens of the current expression, regardless of
        my cursor is next to a parens?
 
  > 51. Make a selection continuation combinator and let the normal select always override
        any existing selection.
+
+52. Copied values are still not preserved when travelling the repl timeline
 
 ----------------- MIGRATION VERSIONS -------------------
 

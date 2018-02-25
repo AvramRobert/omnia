@@ -404,8 +404,8 @@
                         (i/join-many h/delimiter)
                         (->> (i/join h/delimiter)))]
     (-> (move-end-fov ctx)
-                   (process suggest)
-                   (:complete-hud)
+        (process suggest)
+        (:complete-hud)
         (i/rebase #(take-last 13 %))
         (<=> suggestions))))
 

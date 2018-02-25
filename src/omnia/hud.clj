@@ -127,13 +127,6 @@
        over-lower? (-- ov (- y lower-y))                    ;; we've exceeded the lower bound
        :else ov))))
 
-(defn riffle [suggestions]
-  (let [{[_ y]  :cursor
-         height :height} suggestions
-        y'      (mod* (inc y) height)
-        correct #(assoc % :ov (correct-ov %))]
-    (-> suggestions (i/reset-y y') (correct))))
-
 (defn rebase
   ([ctx]
    (rebase ctx (:seeker ctx)))
@@ -156,6 +149,46 @@
        (assoc seeker :clipboard)
        (assoc ctx :seeker)))
 
+(defn paginate [hud]
+  (letfn [(project [hud]
+            (->> (project-cursor hud)
+                 (constantly)
+                 (i/move hud)
+                 (project-hud)))]
+    (as-> hud page
+          (project page)
+          (if (not= 0 (:ov page))
+            (adjoin page continuation)
+            page)
+          (indent page 1))))
+
+(defn pop-up [ctx hud]
+  (let [paginated (paginate hud)
+        ph        (i/height hud)
+        top       (-> (:seeker ctx) (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> (:seeker ctx) (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (rebase ctx (-> i/empty-seeker
+                    (i/join top)
+                    (i/join delimiter)
+                    (i/join paginated)
+                    (i/end-x)
+                    (adjoin delimiter)
+                    (adjoin bottom)
+                    (assoc :ov (-- (i/height bottom) ph))))))
+
+(defn window [seeker size]
+  (letfn [(correct [hud]
+            (assoc hud :ov (correct-ov hud)))]
+    (->> seeker (hud size) (i/start) (i/end-x) (correct))))
+
+(defn riffle [hud]
+  (let [{[_ y]  :cursor
+         height :height} hud
+        y'      (mod* (inc y) height)
+        correct #(assoc % :ov (correct-ov %))]
+    (-> hud (i/reset-y y') (correct))))
+
+;; FIXME: rename this
 (defn re-suggest [ctx suggestions]
   (assoc ctx :suggestions suggestions))
 
@@ -173,8 +206,7 @@
                 (i/expand)
                 (i/delete)
                 (i/slicer #(concat sgst %))
-                (i/move-x #(+ % (count sgst)))
-                (i/deselect))))))
+                (i/move-x #(+ % (count sgst))))))))
 
 ;; === Rendering ===
 
@@ -308,52 +340,36 @@
         (seek i/empty-seeker)
         (assoc :repl evaluation))))
 
-(defn- paginate [ctx]
-  (letfn [(project [hud]
-            (-> (i/move hud (constantly (project-cursor hud)))
-                (project-hud)))]
-    (as-> (:suggestions ctx) page
-          (project page)
-          (if (not= 0 (:ov page))
-            (adjoin page continuation)
-            page)
-          (indent page 1))))
-
-(defn suggestion-window [ctx]
-  (let [completed (:seeker (auto-complete ctx))
-        paginated (paginate ctx)
-        ph        (i/height paginated)
-        top       (i/peer completed (fn [l [x & _]] (conj l x)))
-        bottom    (i/peer completed (fn [_ [_ & r]] (drop (+ ph 2) r)))]
-    (rebase ctx
-            (-> i/empty-seeker
-                (i/join top)
-                (i/join delimiter)
-                (i/join paginated)
-                (i/end-x)
-                (adjoin delimiter)
-                (adjoin bottom)
-                (assoc :ov (-- (i/height bottom) ph))))))
-
 (defn suggest [ctx]
   (let [{seeker      :seeker
          repl        :repl
          suggestions :suggestions} ctx
-        correct     #(assoc % :ov (correct-ov %))
         suggestions (if (empty? (:lines suggestions))
-                      (->> (r/complete! repl seeker)
-                           (hud 10)
-                           (i/start)
-                           (i/end-x)
-                           (correct))
+                      (-> (r/complete! repl seeker) (window 10))
                       (riffle suggestions))]
     (-> (remember ctx)
         (re-suggest suggestions)
-        (suggestion-window))))
+        (auto-complete)
+        (pop-up suggestions))))
 
 (defn complete [ctx]
   (-> (auto-complete ctx)
       (un-suggest)))
+
+(defn inform [ctx]
+  (let [{repl   :repl
+         seeker :seeker} ctx
+        cursor   (get-in ctx [:complete-hud :cursor])
+        make-lines (fn [{:keys [ns name args]}]
+                     (mapv #(i/from-string (str ns "/" name " " %)) args))
+        info-lines (some->> (r/info! repl seeker)
+                            (make-lines)
+                            (apply i/join-many))]
+    (-> (remember ctx)
+        (pop-up (-> info-lines
+                    (or i/empty-seeker)
+                    (window 10)))
+        (update :complete-hud #(i/reset-to % cursor)))))
 
 ;; === Input ===
 
@@ -373,6 +389,7 @@
 
 (defn process [ctx event]
   (case (:action event)
+    :inform (-> ctx (gc) (complete) (scroll-stop) (deselect) (inform) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
     :suggest (-> ctx (gc) (suggest) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))

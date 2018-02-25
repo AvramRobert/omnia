@@ -13,7 +13,8 @@
 (def ^:const colourscheme :colourscheme)
 
 (def editor-keymap
-  {:expand            {:key \w :ctrl true}
+  {:inform            {:key \i :alt true}
+   :expand            {:key \w :ctrl true}
    :paste             {:key \v :alt true}
    :copy              {:key \c :alt true}
    :cut               {:key \x :alt true}

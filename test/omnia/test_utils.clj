@@ -133,9 +133,6 @@
    (->> (range 0 n)
         (reduce (fn [nctx _] (second (h/process nctx event))) ctx))))
 
-(defn receive [ctx payload]
-  (assoc-in ctx [:repl :send!] (constantly payload)))
-
 (defn fov [ctx]
   (get-in ctx [:complete-hud :fov]))
 

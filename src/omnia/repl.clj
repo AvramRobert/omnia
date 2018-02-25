@@ -1,7 +1,7 @@
 (ns omnia.repl
   (:require [clojure.tools.nrepl.server :as s]
             [clojure.tools.nrepl :as nrepl]
-            [clojure.tools.nrepl.middleware :as m]
+            [clojure.core.match :as m]
             [omnia.more :refer [dec< inc< gulp-or-else]]
             [clojure.string :refer [split trim-newline join]]
             [halfling.task :refer [task]]
@@ -80,6 +80,15 @@
                (trim-newline))
    :ns     ns})
 
+(defn- info-msg [seeker ns]
+  {:op      :info
+   :symbol  (-> seeker
+                (i/expand)
+                (i/extract)
+                (i/stringify)
+                (trim-newline))
+   :ns      ns})
+
 (defn- hsize [repl] (count (:history repl)))
 
 (defn- cache-result [repl result]
@@ -123,6 +132,18 @@
         (cache-result result)
         (reset-timeline))))
 
+(defn info! [{:keys [ns send!]} seeker]
+  (let [{arg-list    :arglists-str
+         ns          :ns
+         doc         :doc
+         name        :name
+         [_ no-info] :status} (-> (info-msg seeker ns) (send!) (first))]
+    (when-not no-info
+      {:name name
+       :args (split (or arg-list "") #"\n")
+       :ns ns
+       :doc doc})))
+
 (defn add-predef! [repl]
   (evaluate! repl predef))
 
@@ -150,3 +171,12 @@
               :history history
               :timeline (count history)
               :result i/empty-seeker}))
+
+
+(defn -main [& args]
+  (let [config {:host "localhost"
+                :port 8080}
+        server (start-server! config)
+        repl   (repl config)
+        _      (clojure.pprint/pprint (info! repl (i/from-string "print-dup")))
+        _      (stop-server! server)]))
