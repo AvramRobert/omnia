@@ -1,29 +1,23 @@
 (ns omnia.repl
-  (:require
-    ritz.nrepl.middleware.javadoc
-    ritz.nrepl.middleware.simple-complete
-    [clojure.tools.nrepl.server :as s]
-    [clojure.tools.nrepl :as nrepl]
-    [omnia.more :refer [dec< inc< gulp-or-else]]
-    [clojure.string :refer [split trim-newline join]]
-    [halfling.task :refer [task]]
-    [omnia.input :as i]
-    [omnia.format :as f]
-    [clojure.edn :as edn]))
+  (:require [clojure.tools.nrepl.server :as s]
+            [clojure.tools.nrepl :as nrepl]
+            [clojure.tools.nrepl.middleware :as m]
+            [omnia.more :refer [dec< inc< gulp-or-else]]
+            [clojure.string :refer [split trim-newline join]]
+            [halfling.task :refer [task]]
+            [omnia.input :as i]
+            [omnia.format :as f]
+            [cider.nrepl :refer [cider-nrepl-handler]]))
+
+;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
 (defrecord REPL [ns
                  host
                  port
-                 eval-f
-                 complete-f
-                 stop-f
+                 send!
                  history
                  timeline
                  result])
-
-(def ritz-middleware
-  [#'ritz.nrepl.middleware.javadoc/wrap-javadoc
-   #'ritz.nrepl.middleware.simple-complete/wrap-simple-complete])
 
 (def predef
   (->> ['(require '[omnia.resolution :refer [retrieve retrieve-from]])]
@@ -31,7 +25,6 @@
        (join "\n")
        (i/from-string)))
 
-(def localhost "127.0.0.1")
 (def empty-history [i/empty-seeker])
 
 (defn read-history [path]
@@ -68,27 +61,11 @@
     (ex? response) i/empty-seeker
     :else (-> response (:value) (str) (f/string-format) (i/from-string))))
 
-(defn- suggestion [responses]
-  (->> responses
-       (first)
-       (:value)
-       (str)
-       (edn/read-string)
-       (first)
-       (mapv i/from-string)
-       (apply i/join-many)))
-
-(defn- seekerise [responses]
-  (->> responses
-       (map response->seeker)
-       (apply i/join-many)))
-
 (defn- connect [host port timeout]
   (let [conn (nrepl/connect :host host :port port)]
-    (fn [msg transform]
+    (fn [msg]
       (-> (nrepl/client conn timeout)
-          (nrepl/message msg)
-          (transform)))))
+          (nrepl/message msg)))))
 
 (defn- eval-msg [seeker]
   {:op   :eval
@@ -127,46 +104,49 @@
 (defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
 
-(defn result [repl]
-  (:result repl))
+(defn result [repl] (:result repl))
 
-(defn evaluate [repl seeker]
-  (let [f (:eval-f repl)]
-    (-> repl
-        (remember seeker)
-        (cache-result (f seeker))
+(defn complete! [{:keys [ns send!]} seeker]
+  (->> (complete-msg seeker ns)
+       (send!)
+       (first)
+       (:completions)
+       (mapv (comp i/from-string :candidate))
+       (apply i/join-many)))
+
+(defn evaluate! [{:keys [send!] :as repl} seeker]
+  (let [result (->> (eval-msg seeker)
+                    (send!)
+                    (mapv response->seeker)
+                    (apply i/join-many))]
+    (-> (remember repl seeker)
+        (cache-result result)
         (reset-timeline))))
 
-(defn suggest [repl seeker]
-  (let [f (:complete-f repl)]
-    (f seeker)))
+(defn add-predef! [repl]
+  (evaluate! repl predef))
 
-(defn stop! [repl] ((:stop-f repl)))
+(defn start-server! [{:keys [host port]}]
+  (s/start-server :host host
+                  :port port
+                  :handler cider-nrepl-handler))
 
-(defn- repl-with [ns host port eval-f complete-f stop-f history]
-  (REPL. ns host port eval-f complete-f stop-f history (count history) i/empty-seeker))
+(defn stop-server! [server]
+  (s/stop-server server))
 
-(defn- rand-port [] (rand-int 65535))
-
-;; TODO: Multimethod this. Don't make it be an object. Create individual functions that return several types of repls
+;; TODO: the repl may stream responses and would basically signal an end to the messages with a final message containing the value ["done"]
 (defn repl [{:as   params
-             :keys [kind ns port host timeout history]
-             :or   {kind    :local
-                    timeout 10000                            ;; fixme: kill infinite processes and return warning
-                    port    (rand-port)
-                    host    localhost
+             :keys [ns port host send! timeout history]
+             :or   {timeout 10000                            ;; fixme: kill infinite processes and return warning
                     history empty-history
                     ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
-  (case kind
-    :identity (repl-with ns "" "" identity identity (constantly nil) history)
-    :remote (repl-with ns host port (connect host port timeout) identity (constantly nil) history)
-    :local (let [handler (apply s/default-handler ritz-middleware)
-                 server  (s/start-server :port port
-                                         :handler handler)
-                 send-f  (connect localhost port timeout)
-                 eval-f  #(send-f (eval-msg %) seekerise)
-                 comp-f  #(send-f (complete-msg % ns) suggestion)
-                 stop-f  #(s/stop-server server)]
-             (eval-f predef)
-             (repl-with ns host port eval-f comp-f stop-f history))))
+  (assert (and (not (nil? port))
+               (not (nil? host))) "`repl` must receive a host and a port")
+  (map->REPL {:ns ns
+              :host host
+              :port port
+              :send! (or send! (connect host port timeout))
+              :history history
+              :timeline (count history)
+              :result i/empty-seeker}))

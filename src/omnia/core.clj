@@ -11,9 +11,12 @@
 (defn config-path [dir] (format "%s/omnia.edn" dir))
 (defn history-path [dir] (format "%s/.omnia.history" dir))
 (def ^:const error-path ".omnia.error")
-(def ^:const repl-ns 'user)
 
-(defn error [{:keys [message trace]}]
+(def ^:const repl-ns 'user)
+(def ^:const repl-host "127.0.0.1")
+(defn repl-port [] (rand-int 65535))
+
+(defn error-msg [{:keys [message trace]}]
   (format
     "Time: %s\nMessage: %s\n%s"
     (-> (Calendar/getInstance) (.getTime) (str))
@@ -22,7 +25,7 @@
          (mapv #(str "   " (.toString %)))
          (s/join "\n"))))
 
-(defn failure [result]
+(defn failure-msg [result]
   (->>
     [""
      "-----"
@@ -34,7 +37,7 @@
     (s/join "\n")))
 
 (defn log! [result]
-  (tsk/task (spit error-path (error result))))
+  (tsk/task (spit error-path (error-msg result))))
 
 (defn read-args! [args]
   (letfn [(read [re]
@@ -48,43 +51,39 @@
   (-> (tsk/task (r/write-history (history-path dir) repl))
       (tsk/recover (fn [_] ()))))
 
-(defn shutdown! [{:keys [terminal repl]}]
-  (tsk/task
-    (t/stop! terminal)
-    (r/stop! repl)))
-
-(defn start! [{:keys [dir]}]
-  (tsk/do-tasks
-    [config   (c/read-config (config-path dir))
-     history  (r/read-history (history-path dir))
-     terminal (t/terminal :text)
-     repl     (r/repl {:kind    :local
-                       :history history
-                       :ns      repl-ns})
-     _        (t/start! terminal)]
-    (h/read-eval-print
-      (assoc config :terminal terminal :repl repl))))
-
-(defn succeed! [xs]
+(defn succeed! [_]
   (System/exit 1))
 
 (defn fail! [result]
-  (->
-    (tsk/do-tasks
-      [msg (failure result)
-       _   (log! result)
-       _   (println msg)
-       _   (Thread/sleep 3000)]
-      (System/exit -1))
-    (tsk/recover (fn [_] (System/exit -1)))
-    (tsk/run)))
+  (-> (tsk/do-tasks
+        [msg (failure-msg result)
+         _   (log! result)
+         _   (println msg)
+         _   (Thread/sleep 3000)]
+        (System/exit -1))
+      (tsk/recover (fn [_] (System/exit -1)))
+      (tsk/run)))
 
 (defn -main [& args]
   (-> (tsk/do-tasks
-        [argmap (read-args! args)
-         ctx    (start! argmap)
-         _      (hooks! ctx argmap)
-         _      (shutdown! ctx)])
+        [argmap       (read-args! args)
+         config       (-> (:dir argmap) (config-path) (c/read-config))
+         history      (-> (:dir argmap) (history-path) (r/read-history))
+         terminal     (t/terminal :text)
+         repl-config  {:history history
+                       :host    repl-host
+                       :port    (repl-port)
+                       :ns      repl-ns}
+         server       (r/start-server! repl-config)
+         repl         (r/repl repl-config)
+         _            (r/add-predef! repl)
+         _            (t/start! terminal)
+         ctx          (-> (assoc config :terminal terminal
+                                        :repl repl)
+                          (h/read-eval-print))
+         _            (hooks! ctx argmap)
+         _            (t/stop! terminal)
+         _            (r/stop-server! server)])
       (tsk/recover fail!)
       (tsk/then succeed!)
       (tsk/run)))

@@ -47,6 +47,15 @@
        (gen/fmap i/seeker)
        (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
 
+(defn gen-suggestions [size]
+  (->> (gen/vector gen/string-alphanumeric size)
+       (gen/fmap
+         (fn [xs]
+           (list {:completions
+                  (map (fn [s] {:candidate s
+                                :ns ""
+                                :type ""}) xs)})))))
+
 (defn test-terminal [{:keys [background!
                              foreground!
                              clear!
@@ -70,20 +79,20 @@
        :start!      (or start! unit)
        :keystroke!  (or keystroke! unit)})))
 
-(defn gen-context [{:keys [size fov seeker suggestions history]
+(defn gen-context [{:keys [size fov seeker receive history]
                     :or {size 0
                          fov 10
                          seeker i/empty-seeker
-                         suggestions i/empty-seeker
                          history []}}]
   (->> (gen-seeker-of size)
        (gen/fmap
          (fn [hud-seeker]
            (let [hud (h/hud fov hud-seeker)]
              (-> (h/context {:terminal (test-terminal {:size fov})
-                             :repl (-> (r/repl {:kind :identity
-                                                :history history})
-                                       (assoc :complete-f (constantly suggestions)))
+                             :repl (-> (r/repl {:host    ""
+                                                :port    0
+                                                :history history
+                                                :send!   (constantly receive)}))
                              :keymap default-keymap
                              :colourscheme default-cs})
                  (h/seek seeker)
@@ -123,6 +132,9 @@
   ([ctx event n]
    (->> (range 0 n)
         (reduce (fn [nctx _] (second (h/process nctx event))) ctx))))
+
+(defn receive [ctx payload]
+  (assoc-in ctx [:repl :send!] (constantly payload)))
 
 (defn fov [ctx]
   (get-in ctx [:complete-hud :fov]))
@@ -176,7 +188,14 @@
   (get-in ctx [:complete-hud :cursor]))
 
 (defn suggestions [ctx]
-  ((get-in ctx [:repl :complete-f])))
+  (->> ((get-in ctx [:repl :send!]))
+       (first)
+       (:completions)
+       (mapv (comp i/from-string :candidate))
+       (apply i/join-many)))
+
+(defn evaluation [seeker]
+  {:value (i/stringify seeker)})
 
 (defn history [ctx]
   (get-in ctx [:repl :history]))

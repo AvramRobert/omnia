@@ -234,8 +234,7 @@
       ctx)))
 
 (defn clear [ctx]
-  (let [fov       (get-in ctx [:persisted-hud :fov])
-        start-hud (init-hud ctx)]
+  (let [start-hud (init-hud ctx)]
     (-> (remember ctx)
         (persist start-hud)
         (rebase (:seeker ctx))
@@ -301,7 +300,7 @@
   (roll ctx r/travel-forward))
 
 (defn evaluate [ctx]
-  (let [evaluation (r/evaluate (:repl ctx) (:seeker ctx))
+  (let [evaluation (r/evaluate! (:repl ctx) (:seeker ctx))
         result     (r/result evaluation)]
     (-> (remember ctx)
         (preserve result caret i/empty-seeker)
@@ -342,7 +341,7 @@
          suggestions :suggestions} ctx
         correct     #(assoc % :ov (correct-ov %))
         suggestions (if (empty? (:lines suggestions))
-                      (->> (r/suggest repl seeker)
+                      (->> (r/complete! repl seeker)
                            (hud 10)
                            (i/start)
                            (i/end-x)

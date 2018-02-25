@@ -5,7 +5,8 @@
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
-            [omnia.input :as i]))
+            [omnia.input :as i]
+            [clojure.string :as s]))
 
 ;; I. Calibrating
 
@@ -330,8 +331,7 @@
 ;; V. Evaluating
 
 (defn remember-preserve-persist [ctx]
-  (let [expected-hud (-> (:complete-hud ctx)
-                         (i/join-many (:seeker ctx) h/caret i/empty-seeker))]
+  (let [expected-hud (i/join-many (:complete-hud ctx) h/empty-line h/caret)]
     (-> ctx
         (process evaluate)
         (can-be #(<=> (:seeker %) i/empty-seeker)
@@ -344,10 +344,12 @@
 
 (defspec evaluating-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))})]
-                  (evaluating tctx)))
+         (let [seeker (one (gen-seeker-of 10))]
+           (for-all [tctx (gen-context {:size 20
+                                        :fov 7
+                                        :seeker seeker
+                                        :receive (evaluation seeker)})]
+                    (evaluating tctx))))
 
 ;; VI. Rolling back
 
@@ -402,8 +404,8 @@
                         (i/join-many h/delimiter)
                         (->> (i/join h/delimiter)))]
     (-> (move-end-fov ctx)
-        (process suggest)
-        (:complete-hud)
+                   (process suggest)
+                   (:complete-hud)
         (i/rebase #(take-last 13 %))
         (<=> suggestions))))
 
@@ -451,7 +453,7 @@
          100
          (for-all [tctx (gen-context {:size 20
                                       :fov 15
-                                      :suggestions (one (gen-seeker-of 12))
+                                      :receive (one (gen-suggestions 12))
                                       :seeker (one (gen-seeker-of 17))})]
                   (suggesting tctx)))
 

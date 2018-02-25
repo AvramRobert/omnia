@@ -10,7 +10,7 @@
                  [org.clojure/tools.nrepl "0.2.13"]
                  [halfling "1.1.0"]
                  [instaparse "1.4.8"]
-                 [ritz/ritz-nrepl-middleware "0.7.0"]
+                 [cider/cider-nrepl "0.15.1"]
                  [com.cemerick/pomegranate "1.0.0"]
                  [org.tcrawley/dynapath "1.0.0"]
                  [org.slf4j/slf4j-simple "1.7.22"]]
