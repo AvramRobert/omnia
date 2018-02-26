@@ -231,7 +231,7 @@
         (rebase #(concat % (:lines that-seeker)))
         (assoc :selection (:selection that-seeker))
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
-        (move (fn [_] [x (+ y ths)])))))
+        (reset-to [x (+ y ths)]))))
 
 (defn join-many [& seekers]
   (reduce join empty-seeker seekers))
@@ -273,7 +273,7 @@
   (let [{start :start
          end   :end} (selection seeker)]
     (-> seeker
-        (move (fn [_] end))
+        (reset-to end)
         (do-until simple-delete #(-> % :cursor (= start))))))
 
 (defn pair? [seeker]

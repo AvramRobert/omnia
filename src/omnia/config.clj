@@ -13,27 +13,28 @@
 (def ^:const colourscheme :colourscheme)
 
 (def editor-keymap
-  {:inform            {:key \i :alt true}
-   :expand            {:key \w :ctrl true}
-   :paste             {:key \v :alt true}
-   :copy              {:key \c :alt true}
-   :cut               {:key \x :alt true}
-   :select-all        {:key \a :ctrl true}
-   :up                {:key :up}
-   :down              {:key :down}
-   :left              {:key :left}
-   :right             {:key :right}
-   :jump-left         {:key :left :ctrl true}
-   :jump-right        {:key :right :ctrl true}
-   :select-up         {:key :up :shift true}
-   :select-down       {:key :down :shift true}
-   :select-left       {:key :left :shift true}
-   :select-right      {:key :right :shift true}
-   :jump-select-left  {:key :left :shift true :ctrl true}
+  {:docs {:key \i :alt true}
+   :signature {:key \p :alt true}
+   :expand {:key \w :ctrl true}
+   :paste {:key \v :alt true}
+   :copy {:key \c :alt true}
+   :cut {:key \x :alt true}
+   :select-all {:key \a :ctrl true}
+   :up {:key :up}
+   :down {:key :down}
+   :left {:key :left}
+   :right {:key :right}
+   :jump-left {:key :left :ctrl true}
+   :jump-right {:key :right :ctrl true}
+   :select-up {:key :up :shift true}
+   :select-down {:key :down :shift true}
+   :select-left {:key :left :shift true}
+   :select-right {:key :right :shift true}
+   :jump-select-left {:key :left :shift true :ctrl true}
    :jump-select-right {:key :right :shift true :ctrl true}
-   :backspace         {:key :backspace}
-   :delete            {:key :delete}
-   :newline           {:key :enter}})
+   :backspace {:key :backspace}
+   :delete {:key :delete}
+   :newline {:key :enter}})
 
 (def hud-keymap
   {:match       {:key \p :ctrl true}

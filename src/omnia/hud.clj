@@ -356,10 +356,9 @@
   (-> (auto-complete ctx)
       (un-suggest)))
 
-(defn inform [ctx]
+(defn sign [ctx]
   (let [{repl   :repl
          seeker :seeker} ctx
-        cursor   (get-in ctx [:complete-hud :cursor])
         make-lines (fn [{:keys [ns name args]}]
                      (mapv #(i/from-string (str ns "/" name " " %)) args))
         info-lines (some->> (r/info! repl seeker)
@@ -368,8 +367,18 @@
     (-> (remember ctx)
         (pop-up (-> info-lines
                     (or i/empty-seeker)
-                    (window 10)))
-        (update :complete-hud #(i/reset-to % cursor)))))
+                    (window 10))))))
+
+(defn document [ctx]
+  (let [{repl   :repl
+         seeker :seeker} ctx
+        doc-lines (some-> (r/info! repl seeker)
+                          (:doc)
+                          (i/from-string))]
+    (-> (remember ctx)
+        (pop-up (-> doc-lines
+                    (or i/empty-seeker)
+                    (window 15))))))
 
 ;; === Input ===
 
@@ -389,7 +398,8 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :inform (-> ctx (gc) (complete) (scroll-stop) (deselect) (inform) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (complete) (scroll-stop) (deselect) (document) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (complete) (scroll-stop) (deselect) (sign) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
     :suggest (-> ctx (gc) (suggest) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
