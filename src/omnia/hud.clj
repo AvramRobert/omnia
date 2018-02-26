@@ -32,7 +32,7 @@
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
 (def delimiter (i/from-string "------"))
 (def continuation (i/from-string "..."))
-(def greeting (i/from-string (format "Welcome to Omnia! (BETA v%s)" (omnia-version))))
+(def greeting (i/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
 (defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))

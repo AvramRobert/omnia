@@ -5,12 +5,6 @@ A Clojure REPL for prototyping, experimenting and trying things out. <br />
 Omnia is a REPL with almost all the power of a fully fledged editor, without being an editor.
 
 ## Installation
-*Note: Omnia is currently in the BETA phase, so it may have some hiccups*
-
-##### Only MacOS and Linux are currently directly supported and tested
-
-##### JDK 9 not yet supported. For the time being, please use JDK8
-
 ### General
 
 * Download the latest archived release: <br />
