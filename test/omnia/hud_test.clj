@@ -551,6 +551,58 @@
                                       :seeker (one (gen-seeker-of 10))})]
                   (parens-matching tctx)))
 
+
+;; XI. Signatures
+
+(defn signature-with-calibration [ctx]
+  (is true))
+
+(defn empty-signature-window [ctx]
+  (is true))
+
+(defn signature-window [ctx]
+  (is true))
+
+(defn signatures [ctx]
+  (signature-window ctx)
+  (empty-signature-window ctx)
+  (signature-with-calibration ctx))
+
+;; FIXME: Don't forget to also test when the repl returns 'no-info'
+(defspec signature-test
+         100
+         (for-all [tctx (gen-context {:size 20
+                                      :fov 7
+                                      :seeker (one (gen-seeker-of 10))
+                                      :receive (one (gen-info 3))})]
+                  (signatures tctx)))
+
+
+;; XII. Docs
+
+(defn docs-with-calibration [ctx]
+  (is true))
+
+(defn empty-docs-window [ctx]
+  (is true))
+
+(defn docs-window [ctx]
+  (is true))
+
+(defn docs [ctx]
+  (docs-window ctx)
+  (empty-docs-window ctx)
+  (docs-with-calibration ctx))
+
+;; FIXME: Don't forget to also test when the repl returns 'no-info'
+(defspec docs-test
+         100
+         (for-all [tctx (gen-context {:size 20
+                                      :fov 7
+                                      :seeker (one (gen-seeker-of 10))
+                                      :receive (one (gen-info 3))})]
+                  (signatures tctx)))
+
 ;; ---- STATIC DATA ----
 
 (def static-seeker (i/end

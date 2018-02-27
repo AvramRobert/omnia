@@ -162,16 +162,27 @@
             page)
           (indent page 1))))
 
-(defn pop-up [ctx hud]
-  (let [paginated (paginate hud)
+(defn pop-up-riffle [ctx hud]
+  (let [seeker    (:seeker ctx)
+        paginated (paginate hud)
         ph        (i/height hud)
-        top       (-> (:seeker ctx) (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> (:seeker ctx) (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (rebase ctx (-> i/empty-seeker
-                    (i/join top)
-                    (i/join delimiter)
-                    (i/join paginated)
+        top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (rebase ctx (-> (i/join-many top delimiter paginated)
                     (i/end-x)
+                    (adjoin delimiter)
+                    (adjoin bottom)
+                    (assoc :ov (-- (i/height bottom) ph))))))
+
+(defn pop-up-static [ctx hud]
+  (let [seeker    (:seeker ctx)
+        paginated (paginate hud)
+        ph        (i/height hud)
+        top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (rebase ctx (-> top
+                    (adjoin delimiter)
+                    (adjoin paginated)
                     (adjoin delimiter)
                     (adjoin bottom)
                     (assoc :ov (-- (i/height bottom) ph))))))
@@ -188,7 +199,6 @@
         correct #(assoc % :ov (correct-ov %))]
     (-> hud (i/reset-y y') (correct))))
 
-;; FIXME: rename this
 (defn re-suggest [ctx suggestions]
   (assoc ctx :suggestions suggestions))
 
@@ -350,11 +360,7 @@
     (-> (remember ctx)
         (re-suggest suggestions)
         (auto-complete)
-        (pop-up suggestions))))
-
-(defn complete [ctx]
-  (-> (auto-complete ctx)
-      (un-suggest)))
+        (pop-up-riffle suggestions))))
 
 (defn sign [ctx]
   (let [{repl   :repl
@@ -365,9 +371,9 @@
                             (make-lines)
                             (apply i/join-many))]
     (-> (remember ctx)
-        (pop-up (-> info-lines
-                    (or i/empty-seeker)
-                    (window 10))))))
+        (pop-up-static (-> info-lines
+                           (or i/empty-seeker)
+                           (window 10))))))
 
 (defn document [ctx]
   (let [{repl   :repl
@@ -376,9 +382,9 @@
                           (:doc)
                           (i/from-string))]
     (-> (remember ctx)
-        (pop-up (-> doc-lines
-                    (or i/empty-seeker)
-                    (window 15))))))
+        (pop-up-static (-> doc-lines
+                           (or i/empty-seeker)
+                           (window 15))))))
 
 ;; === Input ===
 
@@ -398,19 +404,19 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :docs (-> ctx (gc) (complete) (scroll-stop) (deselect) (document) (diff-render) (resize) (continue))
-    :signature (-> ctx (gc) (complete) (scroll-stop) (deselect) (sign) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (sign) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
     :suggest (-> ctx (gc) (suggest) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (complete) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (complete) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :format (-> ctx (complete) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (un-suggest) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (un-suggest) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :format (-> ctx (un-suggest) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :clear (-> ctx (gc) (clear) (deselect) (highlight) (re-render) (resize) (continue))
-    :eval (-> ctx (gc) (complete) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :eval (-> ctx (gc) (un-suggest) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
-    (-> ctx (gc) (complete) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
+    (-> ctx (gc) (un-suggest) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
   (let [key    (:key stroke)

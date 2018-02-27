@@ -253,7 +253,10 @@ Legend:
 
 52. Copied values are still not preserved when travelling the repl timeline
 
-53. The cursor for pop-up windows without a riffle should not move.
+ > 53. The cursor for pop-up windows without a riffle should not move.
+
+54. Define a generalised pop-up content container in the hud and remove suggestions.
+    This should be used by the pop-up functions as a means of keeping track of data over recursions.
 
 ----------------- MIGRATION VERSIONS -------------------
 

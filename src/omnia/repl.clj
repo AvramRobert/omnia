@@ -172,11 +172,10 @@
               :timeline (count history)
               :result i/empty-seeker}))
 
-
-(defn -main [& args]
+#_(defn -main [& args]
   (let [config {:host "localhost"
                 :port 8080}
         server (start-server! config)
         repl   (repl config)
-        _      (clojure.pprint/pprint (info! repl (i/from-string "print-dup")))
+        _      (clojure.pprint/pprint (info! repl (i/from-string "pr")))
         _      (stop-server! server)]))

@@ -7,7 +7,8 @@
             [omnia.hud :as h]
             [omnia.repl :as r]
             [omnia.terminal :as t]
-            [omnia.render :as rd]))
+            [omnia.render :as rd]
+            [clojure.string :as s]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
@@ -55,6 +56,17 @@
                   (map (fn [s] {:candidate s
                                 :ns ""
                                 :type ""}) xs)})))))
+
+(defn gen-info [size]
+  (->> (gen/tuple gen/string-alphanumeric
+                  gen/string-alphanumeric
+                  gen/string-alphanumeric
+                  (gen/vector gen/string-alphanumeric size))
+       (gen/fmap (fn [[ns name docs args]]
+                   (list {:ns ns
+                          :name name
+                          :doc docs
+                          :arglists-str (s/join "\n" args)})))))
 
 (defn test-terminal [{:keys [background!
                              foreground!
