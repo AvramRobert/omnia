@@ -19,6 +19,7 @@
                     complete-hud
                     seeker
                     suggestions
+                    docs
                     highlights
                     garbage])
 
@@ -77,19 +78,20 @@
   (assert (not (nil? keymap)) "Please provide a proper keymap (look in omnia.config)")
   (assert (not (nil? colourscheme)) "Please provide a proper colourscheme (look in omnia.config)")
   (let [hud (init-hud config)]
-    (Context.
-      terminal
-      repl
-      keymap
-      colourscheme
-      :total
-      hud
-      hud
-      hud
-      i/empty-seeker
-      i/empty-seeker
-      empty-set
-      empty-set)))
+    (map->Context
+      {:terminal      terminal
+       :repl          repl
+       :keymap        keymap
+       :colourscheme  colourscheme
+       :render        :total
+       :previous-hud  hud
+       :persisted-hud hud
+       :complete-hud  hud
+       :seeker        i/empty-seeker
+       :suggestions   i/empty-seeker
+       :docs          i/empty-seeker
+       :highlights    empty-set
+       :garbage       empty-set})))
 
 (defn adjoin [ths tht]
   (i/rebase ths #(concat % (:lines tht))))
@@ -199,11 +201,17 @@
         correct #(assoc % :ov (correct-ov %))]
     (-> hud (i/reset-y y') (correct))))
 
-(defn re-suggest [ctx suggestions]
+(defn track-suggest [ctx suggestions]
   (assoc ctx :suggestions suggestions))
+
+(defn track-docs [ctx docs]
+  (assoc ctx :docs docs))
 
 (defn un-suggest [ctx]
   (assoc ctx :suggestions i/empty-seeker))
+
+(defn un-docs [ctx]
+  (assoc ctx :docs i/empty-seeker))
 
 (defn auto-complete [ctx]
   (let [{seeker      :seeker
@@ -358,7 +366,7 @@
                       (-> (r/complete! repl seeker) (window 10))
                       (riffle suggestions))]
     (-> (remember ctx)
-        (re-suggest suggestions)
+        (track-suggest suggestions)
         (auto-complete)
         (pop-up-riffle suggestions))))
 
@@ -377,17 +385,21 @@
 
 (defn document [ctx]
   (let [{repl   :repl
-         seeker :seeker} ctx
-        doc-lines (some-> (r/info! repl seeker)
-                          (:doc)
-                          (i/from-string))]
+         seeker :seeker
+         docs   :docs} ctx
+        empty-docs {:doc ""}
+        doc-lines (if (empty? (:lines docs))
+                    (-> (r/info! repl seeker)
+                        (or empty-docs)
+                        (:doc)
+                        (i/from-string)
+                        (window 15))
+                    (riffle docs))]
     (-> (remember ctx)
-        (pop-up-static (-> doc-lines
-                           (or i/empty-seeker)
-                           (window 15))))))
+        (track-docs doc-lines)
+        (pop-up-riffle doc-lines))))
 
 ;; === Input ===
-
 (defn capture [ctx event]
   (let [seeker (-> ctx (:seeker) (i/process event))]
     (-> (remember ctx)
@@ -405,18 +417,18 @@
 (defn process [ctx event]
   (case (:action event)
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (diff-render) (resize) (continue))
-    :signature (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (sign) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    :suggest (-> ctx (gc) (suggest) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (un-docs) (scroll-stop) (suggest) (deselect) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (un-suggest) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (un-suggest) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :format (-> ctx (un-suggest) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :format (-> ctx (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :clear (-> ctx (gc) (clear) (deselect) (highlight) (re-render) (resize) (continue))
-    :eval (-> ctx (gc) (un-suggest) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :eval (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
-    (-> ctx (gc) (un-suggest) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
+    (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
   (let [key    (:key stroke)

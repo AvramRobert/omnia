@@ -137,6 +137,8 @@
 (def next-eval (event :next-eval :down))
 (def parens-match (event :match \p))
 (def suggest (event :suggest :tab))
+(def sign (event :signature \p))
+(def docs (event :docs \d))
 
 (defn process
   ([ctx event]
@@ -197,11 +199,17 @@
   (get-in ctx [:complete-hud :cursor]))
 
 (defn suggestions [ctx]
-  (->> ((get-in ctx [:repl :send!]))
-       (first)
-       (:completions)
-       (mapv (comp i/from-string :candidate))
-       (apply i/join-many)))
+  (-> (:repl ctx) (r/complete! i/empty-seeker)))
+
+(defn signatures [ctx]
+  (letfn [(sign [{:keys [ns name args]}]
+            (->> args
+                 (mapv #(str ns "/" name " " %))
+                 (s/join "\n")
+                 (i/from-string)))]
+    (-> (:repl ctx)
+        (r/info! i/empty-seeker)
+        (sign))))
 
 (defn evaluation [seeker]
   {:value (i/stringify seeker)})

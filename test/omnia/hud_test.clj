@@ -396,32 +396,6 @@
 
 ;; VIII. Suggesting
 
-(defn suggestion-page [ctx]
-  (let [suggestions (-> (suggestions ctx)
-                        (i/rebase #(take 10 %))
-                        (i/join h/continuation)
-                        (i/rebase #(mapv (partial cons \space) %))
-                        (i/join-many h/delimiter)
-                        (->> (i/join h/delimiter)))]
-    (-> (move-end-fov ctx)
-        (process suggest)
-        (:complete-hud)
-        (i/rebase #(take-last 13 %))
-        (<=> suggestions))))
-
-(defn suggestion-riffle [ctx]
-  (let [suggestions (suggestions ctx)
-        suggestion-at (fn [th] (-> (i/reset-y suggestions th)
-                                   (i/start-x)
-                                   (i/slicer #(cons \space %))
-                                   (i/line)))]
-    (-> (move-end-fov ctx)
-        (can-be #(-> % (process suggest) (:complete-hud) (i/line) (= (suggestion-at 0))) ;; starts from 0
-                #(-> % (process suggest 4) (:complete-hud) (i/line) (= (suggestion-at 3)))
-                #(-> % (process suggest 11) (:complete-hud) (i/line) (= (suggestion-at 10)))
-                #(-> % (process suggest 13) (:complete-hud) (i/line) (= (suggestion-at 0)))
-                #(-> % (process suggest 14) (:complete-hud) (i/line) (= (suggestion-at 1)))))))
-
 (defn suggestion-override [ctx]
   (let [suggestions (suggestions ctx)
         suggestion-at (fn [th] (-> (i/reset-y suggestions th) (i/line)))
@@ -434,20 +408,8 @@
             #(-> % (process suggest 13) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 0)))
             #(-> % (process suggest 14) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 1))))))
 
-(defn suggestion-with-calibration [ctx]
-  (-> (move-top-fov ctx)
-      (process up 2)
-      (can-be #(-> % (process suggest) (ov) (= 2))
-              #(-> % (process down 3) (process suggest) (ov) (= 2))
-              #(-> (move-bottom-fov %) (process suggest) (ov) (= 2))
-              #(-> (move-bottom-fov %) (process down) (process suggest) (ov) (= 1)))))
-
-;; FIXME: Add some test and handler for when the suggestion window > fov?
 (defn suggesting [ctx]
-  (suggestion-page ctx)
-  (suggestion-riffle ctx)
-  (suggestion-override ctx)
-  (suggestion-with-calibration ctx))
+  (suggestion-override ctx))
 
 (defspec suggesting-test
          100
@@ -551,57 +513,101 @@
                                       :seeker (one (gen-seeker-of 10))})]
                   (parens-matching tctx)))
 
+;; XI. Pop-ups
 
-;; XI. Signatures
+(defn pop-up-with-calibration [ctx content]
+  (let [window  (->> content (i/height) (h/window content))
+        context (-> ctx (move-top-fov) (process up 2))]
+    (is (= 2 (-> context (h/pop-up-static window) (ov))))
+    (is (= 2 (-> context (process down 2) (h/pop-up-static window) (ov))))
+    (is (= 2 (-> context (move-bottom-fov) (h/pop-up-static window) (ov))))
+    (is (= 1 (-> context (move-bottom-fov) (process down) (h/pop-up-static window) (ov))))))
 
-(defn signature-with-calibration [ctx]
-  (is true))
+(defn empty-pop-up-window [ctx]
+  (let [window (h/window i/empty-seeker 10)
+        expected (i/join-many h/delimiter i/empty-seeker h/delimiter)
+        actual (-> ctx
+                   (move-end-fov)
+                   (h/pop-up-static window)
+                   (:complete-hud)
+                   (i/rebase #(take-last 2 %)))]
+    (<=> expected actual)))
 
-(defn empty-signature-window [ctx]
-  (is true))
+(defn pop-up-window [ctx content]
+  (let [size (i/height content)
+        expected (i/join-many h/delimiter (h/indent content 1) h/delimiter)
+        actual (-> ctx
+                   (move-end-fov)
+                   (h/pop-up-static (h/window content size))
+                   (:complete-hud)
+                   (i/rebase #(take-last (+ size 2) %)))]
+    (<=> expected actual)))
 
-(defn signature-window [ctx]
-  (is true))
+(defn pop-up-statically [ctx content]
+  (let [window (h/window content (i/height content))
+        expected-cursor (-> ctx :complete-hud :cursor)]
+    (is (= expected-cursor
+           (-> ctx
+               (h/pop-up-static window)
+               (:complete-hud)
+               (:cursor))))
+    (is (= expected-cursor
+           (->> window
+                (h/riffle)
+                (h/pop-up-static ctx)
+                (:complete-hud)
+                (:cursor))))))
 
-(defn signatures [ctx]
-  (signature-window ctx)
-  (empty-signature-window ctx)
-  (signature-with-calibration ctx))
+(defn pop-up-riffled [ctx content]
+  (let [window (h/window content (- (i/height content) 2))
+        [x _] (-> content (i/start) (i/end-x) (:cursor))
+        [_ y] (-> ctx :complete-hud :cursor)
+        line #(-> window (i/reset-y %) (h/indent 1) (i/line))]
+    (is (= [(+ x 1) (+ y 2)]          ;; + x 1 because indentation
+           (-> ctx
+               (h/pop-up-riffle window)
+               (:complete-hud)
+               (:cursor))))
+    (is (= (line 1)
+           (->> window
+                (h/riffle)
+                (h/pop-up-riffle ctx)
+                (:complete-hud)
+                (i/line))))
+    (is (= (line 4)
+           (->> window
+                (h/riffle)
+                (h/riffle)
+                (h/riffle)
+                (h/riffle)
+                (h/pop-up-riffle ctx)
+                (:complete-hud)
+                (i/line))))
+    (is (= (line 0)
+           (->> window
+                (h/riffle)
+                (h/riffle)
+                (h/riffle)
+                (h/riffle)
+                (h/riffle)
+                (h/pop-up-riffle ctx)
+                (:complete-hud)
+                (i/line))))))
 
-;; FIXME: Don't forget to also test when the repl returns 'no-info'
-(defspec signature-test
+
+(defn pop-ups [ctx]
+  (empty-pop-up-window ctx)
+  (pop-up-window ctx (one (gen-seeker-of 5)))
+  (pop-up-with-calibration ctx (one (gen-seeker-of 5)))
+  (pop-up-statically ctx (one (gen-seeker-of 5)))
+  (pop-up-riffled ctx (one (gen-seeker-of 5))))
+
+(defspec pop-up-test
          100
          (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))
-                                      :receive (one (gen-info 3))})]
-                  (signatures tctx)))
-
-
-;; XII. Docs
-
-(defn docs-with-calibration [ctx]
-  (is true))
-
-(defn empty-docs-window [ctx]
-  (is true))
-
-(defn docs-window [ctx]
-  (is true))
-
-(defn docs [ctx]
-  (docs-window ctx)
-  (empty-docs-window ctx)
-  (docs-with-calibration ctx))
-
-;; FIXME: Don't forget to also test when the repl returns 'no-info'
-(defspec docs-test
-         100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))
-                                      :receive (one (gen-info 3))})]
-                  (signatures tctx)))
+                                      :fov 15
+                                      :seeker (one (gen-seeker-of 17))})]
+                  (pop-ups tctx)))
 
 ;; ---- STATIC DATA ----
 
