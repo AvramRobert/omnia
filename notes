@@ -251,7 +251,7 @@ Legend:
  > 51. Make a selection continuation combinator and let the normal select always override
        any existing selection.
 
-52. Copied values are still not preserved when travelling the repl timeline
+ > 52. Copied values are still not preserved when travelling the repl timeline
 
  > 53. The cursor for pop-up windows without a riffle should not move.
 

@@ -336,8 +336,11 @@
 ;; === REPL ===
 
 (defn roll [ctx f]
-  (let [then-repl   (-> ctx :repl f)
-        then-seeker (i/end (r/then then-repl))]
+  (let [clipboard (get-in ctx [:seeker :clipboard])
+        then-repl   (-> ctx :repl f)
+        then-seeker (-> (r/then then-repl)
+                        (i/end)
+                        (assoc :clipboard clipboard))]
     (-> (remember ctx)
         (rebase then-seeker)
         (seek then-seeker)

@@ -5,8 +5,7 @@
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
-            [omnia.input :as i]
-            [clojure.string :as s]))
+            [omnia.input :as i]))
 
 ;; I. Calibrating
 
@@ -360,7 +359,21 @@
         (can-be #(<=> (:previous-hud %) (:complete-hud ctx))
                 #(<=> (:seeker %) (first hist))))))
 
+(defn roll-keep-clipboard [ctx]
+  (-> ctx
+      (process select-all)
+      (process copy)
+      (process prev-eval)
+      (process prev-eval)
+      (process select-all)
+      (process backspace)
+      (process paste)
+      (:complete-hud)
+      (<=> (:complete-hud ctx))
+      (is)))
+
 (defn rolling-back [ctx]
+  (roll-keep-clipboard ctx)
   (roll-rebase-remember-back ctx))
 
 (defspec rolling-back-test
