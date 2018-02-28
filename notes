@@ -255,6 +255,9 @@ Legend:
 
  > 53. The cursor for pop-up windows without a riffle should not move.
 
+ > 54. There seems to be a problem (null pointer exception) in some cases with the `document` function
+       Docs aren't always there, so the repl returns nil for them, but concrete things for other fields.
+
 ----------------- MIGRATION VERSIONS -------------------
 
 clojure 1.8.0 -> 1.9.0:
@@ -287,12 +290,12 @@ Prospects:
 - Rendering tests // done
 - Undo and redo
 - Slurping/barfing
-- Parametricity and arity lookup
-- ClojureDoc support
+- Parametricity and arity lookup // done
+- ClojureDoc support // done
 - Extensive validation, sane defaults and/or reporting for user config
 - Improved and more extensive config options
 - Copying/cutting from external sources
-- Automatic parens matching
+- Automatic parens matching // done
 - Automatic code formatting
 - Parametrised highlighting
 - Documentation

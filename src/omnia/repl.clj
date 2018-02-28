@@ -140,9 +140,9 @@
          [_ no-info] :status} (-> (info-msg seeker ns) (send!) (first))]
     (when-not no-info
       {:name name
-       :args (split (or arg-list "") #"\n")
+       :args (-> arg-list (or "") (split #"\n"))
        :ns ns
-       :doc doc})))
+       :doc (or doc "")})))
 
 (defn add-predef! [repl]
   (evaluate! repl predef))
@@ -176,6 +176,6 @@
   (let [config {:host "localhost"
                 :port 8080}
         server (start-server! config)
-        repl   (repl config)
-        _      (clojure.pprint/pprint (info! repl (i/from-string "pr")))
-        _      (stop-server! server)]))
+        repl (repl config)
+        _ (clojure.pprint/pprint (info! repl (i/from-string "print-ctor")))
+        _ (stop-server! server)]))

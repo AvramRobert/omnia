@@ -254,6 +254,13 @@
             #(conj % {:start [xs ys] :end [(inc xs) ys]} {:start [xe ye] :end [(inc xe) ye]}))
     ctx))
 
+(defn auto-match [ctx]
+  (let [complete-hud (:complete-hud ctx)]
+    (cond
+      (i/open-pairs (i/right complete-hud)) (match ctx)
+      (i/closed-pairs (i/left complete-hud)) (match ctx)
+      :else ctx)))
+
 ;; === Control ===
 
 (defn continue [ctx]
@@ -420,19 +427,19 @@
 
 (defn process [ctx event]
   (case (:action event)
-    :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (diff-render) (resize) (continue))
-    :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    :suggest (-> ctx (gc) (un-docs) (scroll-stop) (suggest) (deselect) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (un-docs) (scroll-stop) (suggest) (deselect) (auto-match) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :format (-> ctx (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (clear) (deselect) (highlight) (re-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :format (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (re-render) (resize) (continue))
     :eval (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
-    (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (diff-render) (resize) (continue))))
+    (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
 (defn match-stroke [{:keys [keymap]} stroke]
   (let [key    (:key stroke)
