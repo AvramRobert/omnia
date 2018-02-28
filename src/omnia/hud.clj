@@ -400,6 +400,7 @@
         (pop-up-riffle doc-lines))))
 
 ;; === Input ===
+
 (defn capture [ctx event]
   (let [seeker (-> ctx (:seeker) (i/process event))]
     (-> (remember ctx)

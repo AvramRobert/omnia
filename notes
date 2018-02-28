@@ -255,9 +255,6 @@ Legend:
 
  > 53. The cursor for pop-up windows without a riffle should not move.
 
-54. Define a generalised pop-up content container in the hud and remove suggestions.
-    This should be used by the pop-up functions as a means of keeping track of data over recursions.
-
 ----------------- MIGRATION VERSIONS -------------------
 
 clojure 1.8.0 -> 1.9.0:
