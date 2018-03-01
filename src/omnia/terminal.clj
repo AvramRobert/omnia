@@ -48,7 +48,7 @@
        :clear!      (fn [] (t/clear terminal))
        :size        (fn [] (-> terminal (.getTerminalSize) (.getRows)))
        :move!       (fn [x y] (t/move-cursor terminal x y))
-       :put!        (fn [ch x y] (t/put-character terminal ch x y))
+       :put!        (fn [ch x y] (t/put-character terminal ch x y false))
        :stop!       (fn [] (t/stop terminal))
        :start!      (fn [] (t/start terminal))
        :keystroke!  (fn [] (i/get-keystroke-blocking terminal))})))
