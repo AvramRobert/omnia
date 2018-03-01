@@ -6,19 +6,32 @@
 
 (declare total! diff! nothing!)
 
+;; === Highlighting scheme ==
+
+(def primary 1)
+(def secondary 0)
+
+(defn simple-scheme [cs]
+  {:priority primary
+   :cs cs
+   :style nil})
+
 ;; === Various colourschemes ===
 
 (defn no-cs [cs]
-  (let [text-colour (cs h/-text :white)]
-    (map-vals (constantly text-colour) cs)))
+  (-> (cs h/-text :white)
+      (constantly)
+      (map-vals cs)))
 
 (defn clean-cs [cs]
-  (assoc cs h/-select :default h/-back :default))
+  (assoc cs h/-select :default
+            h/-back   :default))
 
 (defn select-cs [cs]
   (-> (no-cs cs)
-      (assoc h/-back (cs h/-select)
-             h/-select (cs h/-select))))
+      (assoc h/-back   (cs h/-select))
+      (assoc h/-select (cs h/-select))))
+
 
 ;; === Projections ===
 
@@ -104,48 +117,52 @@
 (defn- display! [emission terminal x y]
   (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
 
-(defn print-line! [line terminal cs [x y]]
-  (let [ix (atom x)]
+(defn print-line! [line terminal scheme [x y]]
+  (let [ix (atom x)
+        {cs :cs style :style} scheme]
     (t/background! terminal (cs h/-back))
+    (when style (t/style! terminal style))
     (h/process line
                (fn [emission type]
                  (t/foreground! terminal (cs type))
                  (display! emission terminal @ix y)
                  (swap! ix #(+ % (count emission)))))
-    (t/background! terminal :default)))
+    (t/background! terminal :default)
+    (when style (t/un-style! terminal style))))
 
 (defn print-hud!
-  ([hud terminal cs]
-   (print-hud! hud terminal cs [0 0]))
-  ([hud terminal cs [x y]]
+  ([hud terminal scheme]
+   (print-hud! hud terminal scheme [0 0]))
+  ([hud terminal scheme [x y]]
    (reduce-idx
      (fn [cy cx line]
-       (print-line! line terminal cs [cx (project-y hud cy)])
+       (print-line! line terminal scheme [cx (project-y hud cy)])
        0) y x (:lines hud))))
 
 (defn highlight! [ctx regions]
   (let [{terminal :terminal
          complete :complete-hud
          cs       :colourscheme} ctx]
-    (run!
-      #(let [projection (project-selection complete %)
-             {[xs ys] :start} projection]
-         (-> (region complete projection)
-             (print-hud! terminal cs [xs ys]))) regions)))
+    (->> regions
+         (sort-by #(-> (:priority %) (or primary)))
+         (run!
+           #(let [scheme (:scheme % (-> (select-cs cs) (simple-scheme)))
+                  projection (project-selection complete %)
+                  {[xs ys] :start} projection]
+              (-> (region complete projection)
+                  (print-hud! terminal scheme [xs ys])))))))
 
-(defn clean! [ctx]
+(defn clean! [{:keys [colourscheme] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (update selection :start (fn [[_ y]] [0 y])))]
+            (update selection :start (fn [[_ y]] [0 y]))
+            (assoc  selection :scheme (-> colourscheme (clean-cs) (simple-scheme))))]
     (as-> ctx context
-          (update context :colourscheme clean-cs)
           (update context :garbage #(mapv reset %))
           (highlight! context (:garbage context)))))
 
 (defn selections! [ctx]
-  (-> ctx
-      (update :colourscheme select-cs)
-      (highlight! (:highlights ctx))))
+  (highlight! ctx (:highlights ctx)))
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]
@@ -175,19 +192,21 @@
 (defn total! [ctx]
   (let [{terminal :terminal
          complete :complete-hud
-         cs       :colourscheme} ctx]
+         cs       :colourscheme} ctx
+        scheme (simple-scheme cs)]
     (t/clear! terminal)
-    (print-hud! (project-hud complete) terminal cs)))
+    (print-hud! (project-hud complete) terminal scheme)))
 
-(defn diff! [{:keys [colourscheme] :as ctx}]
-  (when-unpaged
-    ctx
-    (fn [terminal current former]
-      (->> (zip-all (:lines current) (:lines former))
-           (map-indexed (fn [idx paired] (conj paired idx)))
-           (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-           (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-           (run! (fn [[line y]] (print-line! line terminal colourscheme [0 y])))))))
+(defn diff! [ctx]
+  (let [scheme (-> ctx (:colourscheme) (simple-scheme))]
+    (when-unpaged
+      ctx
+      (fn [terminal current former]
+        (->> (zip-all (:lines current) (:lines former))
+             (map-indexed (fn [idx paired] (conj paired idx)))
+             (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
+             (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
+             (run! (fn [[line y]] (print-line! line terminal scheme [0 y]))))))))
 
 (defn nothing! [ctx]
   (when-unpaged ctx (fn [_ _ _] ())))

@@ -5,7 +5,8 @@
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
-            [omnia.input :as i]))
+            [omnia.input :as i]
+            [omnia.render :as r]))
 
 ;; I. Calibrating
 
@@ -491,17 +492,22 @@
 ;; X. Parenthesis matching
 
 (defn highlight-matched [ctx]
-  (let [[x y] (get-in ctx [:complete-hud :cursor])]
-    (-> ctx
-        (process (char-key \())
-        (process (char-key \a) 4)
-        (process left 5)
-        (process parens-match)
-        (:highlights)
-        (can-be #(contains? % {:start [x y]
-                               :end   [(inc x) y]})
-                #(contains? % {:start [(+ x 5) y]
-                               :end   [(+ x 6) y]})))))
+  (let [[x y] (get-in ctx [:complete-hud :cursor])
+        scheme (fn [region] (assoc region :scheme {:cs (-> ctx (:colourscheme) (r/clean-cs))
+                                                   :priority r/secondary
+                                                   :style    :underline}))
+        actual-highlights (-> ctx
+                              (process (char-key \())
+                              (process (char-key \a) 4)
+                              (process left 5)
+                              (process parens-match)
+                              (:highlights))]
+    (is (true? (contains? actual-highlights
+                          (scheme {:start [x y]
+                                   :end   [(inc x) y]}))))
+    (is (true? (contains? actual-highlights
+                          (scheme {:start [(+ x 5) y]
+                                   :end   [(+ x 6) y]}))))))
 
 (defn dont-highlight-unmatched [ctx]
   (-> ctx

@@ -278,7 +278,6 @@
 
 (defn line-start-clean-up-render [ctx]
   (let [processed        (-> (move-end-fov ctx)
-                             (process right)
                              (process select-right 100)
                              (process up))
         last-n           (-> (:complete-hud ctx) (:lines) (last) (count))

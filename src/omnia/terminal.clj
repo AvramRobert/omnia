@@ -19,6 +19,12 @@
 (defn foreground! [terminal colour]
   ((:foreground! terminal) colour))
 
+(defn style! [terminal style]
+  ((:style! terminal) style))
+
+(defn un-style! [terminal style]
+  ((:un-style! terminal) style))
+
 (defn clear! [terminal]
   ((:clear! terminal)))
 
@@ -43,12 +49,14 @@
 (defn terminal [kind]
   (let [terminal (t/get-terminal kind)]
     (map->Terminal
-      {:background! (fn [colour] (t/set-bg-color terminal colour))
-       :foreground! (fn [colour] (t/set-fg-color terminal colour))
-       :clear!      (fn [] (t/clear terminal))
-       :size        (fn [] (-> terminal (.getTerminalSize) (.getRows)))
-       :move!       (fn [x y] (t/move-cursor terminal x y))
-       :put!        (fn [ch x y] (t/put-character terminal ch x y false))
-       :stop!       (fn [] (t/stop terminal))
-       :start!      (fn [] (t/start terminal))
-       :keystroke!  (fn [] (i/get-keystroke-blocking terminal))})))
+      {:background!   (fn [colour] (t/set-bg-color terminal colour))
+       :foreground!   (fn [colour] (t/set-fg-color terminal colour))
+       :style!        (fn [style]   (t/set-style terminal style))
+       :un-style!     (fn [style]   (t/remove-style terminal style))
+       :clear!        (fn [] (t/clear terminal))
+       :size          (fn [] (-> terminal (.getTerminalSize) (.getRows)))
+       :move!         (fn [x y] (t/move-cursor terminal x y))
+       :put!          (fn [ch x y] (t/put-character terminal ch x y false))
+       :stop!         (fn [] (t/stop terminal))
+       :start!        (fn [] (t/start terminal))
+       :keystroke!    (fn [] (i/get-keystroke-blocking terminal))})))

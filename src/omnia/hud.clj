@@ -1,6 +1,12 @@
 (ns omnia.hud
   (:require [halfling.task :as tsk]
-            [omnia.render :refer [render top-y bottom-y project-hud project-cursor]]
+            [omnia.render :refer [render
+                                  top-y
+                                  bottom-y
+                                  project-hud
+                                  project-cursor
+                                  clean-cs
+                                  secondary]]
             [omnia.repl :as r]
             [omnia.input :as i]
             [omnia.config :refer [with-features keymap]]
@@ -250,8 +256,17 @@
 (defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
-    (update ctx :highlights
-            #(conj % {:start [xs ys] :end [(inc xs) ys]} {:start [xe ye] :end [(inc xe) ye]}))
+    (let [scheme {:priority secondary
+                  :cs       (-> ctx (:colourscheme) (clean-cs))
+                  :style    :underline}]
+      (update ctx :highlights
+              #(conj %
+                     {:start [xs ys]
+                      :end [(inc xs) ys]
+                      :scheme scheme}
+                     {:start [xe ye]
+                      :end [(inc xe) ye]
+                      :scheme scheme})))
     ctx))
 
 (defn auto-match [ctx]
