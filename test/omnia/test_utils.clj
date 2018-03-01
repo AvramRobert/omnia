@@ -70,6 +70,8 @@
 
 (defn test-terminal [{:keys [background!
                              foreground!
+                             style!
+                             un-style!
                              clear!
                              size
                              move!
@@ -83,6 +85,8 @@
     (t/map->Terminal
       {:background! (or background! unit)
        :foreground! (or foreground! unit)
+       :style!      (or style! unit)
+       :un-style!   (or un-style! unit)
        :clear!      (or clear! unit)
        :size        (or (constantly size) (constantly 10))
        :move!       (or move! unit)
@@ -124,6 +128,7 @@
 (def select-up (event :select-up :up))
 (def select-right (event :select-right :right))
 (def select-left (event :select-left :left))
+(def expand (event :expand \w))
 (def copy (event :copy \c))
 (def paste (event :paste \v))
 (def backspace (event :backspace :backspace))

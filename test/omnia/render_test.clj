@@ -14,6 +14,8 @@
         cursors (atom [])
         bgs     (atom [])
         fgs     (atom [])
+        stls    (atom [])
+        unstls  (atom [])
         clears  (atom 0)
         acc     (fn [atm val] (swap! atm #(conj % val)))
         cnt     (fn [atm] (swap! atm inc))
@@ -21,6 +23,8 @@
     (assoc ctx
       :terminal (test-terminal {:background! (fn [colour] (acc bgs colour))
                                 :foreground! (fn [colour] (acc fgs colour))
+                                :style!      (fn [style]  (acc stls style))
+                                :un-style!   (fn [style]  (acc unstls style))
                                 :clear!      (fn [] (cnt clears))
                                 :put!        (fn [ch x y]
                                                (acc chars ch)
@@ -30,6 +34,8 @@
               :cursors cursors
               :bgs     bgs
               :fgs     fgs
+              :stls    stls
+              :unstls  unstls
               :clears  clears})))
 
 (defn inspect [ctx p]
@@ -40,7 +46,7 @@
   (f ctx)
   ctx)
 
-(defn hud-traversal [ctx]
+(defn index [ctx]
   (-> (project-hud ctx)
       (i/rebase #(map-indexed
                    (fn [y line]
@@ -60,22 +66,25 @@
 (defn discretise [ctx]
   "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
    each being the ones the `terminal` prints to the screen."
-  (-> (hud-traversal ctx)
+  (-> (index ctx)
       (aggregate)))
 
 (defn discretise-h [{:keys [complete-hud highlights] :as ctx}]
   "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
    each being the ones the `terminal` highlights on the screen."
-  (let [{start :start
-         end   :end} (-> complete-hud
-                         (r/project-selection (first highlights))
-                         (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
-                         (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
-    (-> (hud-traversal ctx)
-        (assoc :cursor start
-               :selection end)
-        (i/extract)
-        (aggregate))))
+  (->> highlights
+       (sort-by #(-> % (:scheme) (:priority) (or r/primary)))
+       (mapv #(let [{start :start
+                     end   :end} (-> complete-hud
+                                   (r/project-selection %)
+                                   (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
+                                   (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
+                (-> (index ctx)
+                    (assoc :cursor start
+                           :selection end)
+                    (i/extract)
+                    (aggregate))))
+       (apply (partial merge-with concat))))
 
 ;; I. Total rendering
 
@@ -118,9 +127,11 @@
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs]}]
+          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= expected-cursors cursors))
             (is (= expected-chars chars)))))))
 
@@ -135,9 +146,11 @@
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs]}]
+          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= expected-cursors cursors))
             (is (= expected-chars chars)))))))
 
@@ -147,11 +160,13 @@
       (stateful)
       (execute r/diff!)
       (inspect
-        (fn [{:keys [chars cursors fgs bgs]}]
+        (fn [{:keys [chars cursors fgs bgs stls unstls]}]
           (is (empty? chars))
           (is (empty? cursors))
           (is (empty? fgs))
-          (is (empty? bgs))))))
+          (is (empty? bgs))
+          (is (empty? stls))
+          (is (empty? unstls))))))
 
 (defn diff-reset-to-total-render [ctx]
   (let [processed (-> (move-top-fov ctx)
@@ -161,9 +176,11 @@
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
-          (fn [{:keys [chars cursors clears fgs bgs]}]
+          (fn [{:keys [chars cursors clears fgs bgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= 1 clears))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
@@ -187,11 +204,13 @@
   (-> (stateful ctx)
       (execute r/nothing!)
       (inspect
-        (fn [{:keys [chars cursors fgs bgs]}]
+        (fn [{:keys [chars cursors fgs bgs stls unstls]}]
           (is (empty? bgs))
           (is (empty? fgs))
           (is (empty? chars))
-          (is (empty? cursors))))))
+          (is (empty? cursors))
+          (is (empty? stls))
+          (is (empty? unstls))))))
 
 (defn no-reset-to-total-render [ctx]
   (let [processed (-> (move-top-fov ctx)
@@ -201,9 +220,11 @@
     (-> (stateful processed)
         (execute r/nothing!)
         (inspect
-          (fn [{:keys [chars cursors clears fgs bgs]}]
+          (fn [{:keys [chars cursors clears fgs bgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= 1 clears))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
@@ -226,11 +247,13 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute #(r/highlight! % (:highlights %)))
+        (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs]}]
+          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
@@ -241,11 +264,13 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute #(r/highlight! % (:highlights %)))
+        (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs]}]
+          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
@@ -254,18 +279,57 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute #(r/highlight! % (:highlights %)))
+        (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs]}]
+          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (empty? unstls))
+            (is (= expected-chars chars))
+            (is (= expected-cursors cursors)))))))
+
+(defn projected-stylelised-render [ctx]
+  (let [processed (-> ctx (process (char-key \()) (process left))
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise-h processed)]
+    (-> (stateful processed)
+        (execute r/selections!)
+        (inspect
+          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+            (is (not (empty? bgs)))
+            (is (not (empty? fgs)))
+            (is (not (empty? stls)))
+            (is (not (empty? unstls)))
+            (is (= expected-chars chars))
+            (is (= expected-cursors cursors)))))))
+
+(defn projected-prioritised-render [ctx]
+  (let [processed (-> ctx
+                      (process (char-key \())
+                      (process (char-key \a))
+                      (process left)
+                      (process left)
+                      (process expand))
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise-h processed)]
+    (-> (stateful processed)
+        (execute r/selections!)
+        (inspect
+          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+            (is (not (empty? bgs)))
+            (is (not (empty? fgs)))
+            (is (not (empty? stls)))
+            (is (not (empty? unstls)))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
 (defn selection-render [ctx]
   (total-selection-render-right ctx)
   (total-selection-render-left ctx)
-  (projected-selection-render ctx))
+  (projected-selection-render ctx)
+  (projected-stylelised-render ctx)
+  (projected-prioritised-render ctx))
 
 (defspec selection-render-test
          100

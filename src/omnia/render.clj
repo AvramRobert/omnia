@@ -143,14 +143,12 @@
   (let [{terminal :terminal
          complete :complete-hud
          cs       :colourscheme} ctx]
-    (->> regions
-         (sort-by #(-> (:priority %) (or primary)))
-         (run!
-           #(let [scheme (:scheme % (-> (select-cs cs) (simple-scheme)))
-                  projection (project-selection complete %)
-                  {[xs ys] :start} projection]
-              (-> (region complete projection)
-                  (print-hud! terminal scheme [xs ys])))))))
+    (run!
+      #(let [scheme (:scheme % (-> (select-cs cs) (simple-scheme)))
+             projection (project-selection complete %)
+             {[xs ys] :start} projection]
+         (-> (region complete projection)
+             (print-hud! terminal scheme [xs ys]))) regions)))
 
 (defn clean! [{:keys [colourscheme] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
@@ -162,7 +160,9 @@
           (highlight! context (:garbage context)))))
 
 (defn selections! [ctx]
-  (highlight! ctx (:highlights ctx)))
+  (->> (:highlights ctx)
+       (sort-by #(-> (:scheme %) (:priority) (or primary)))
+       (highlight! ctx)))
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]
