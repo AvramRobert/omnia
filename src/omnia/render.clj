@@ -155,8 +155,9 @@
 (defn clean! [{:keys [colourscheme] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (update selection :start (fn [[_ y]] [0 y]))
-            (assoc  selection :scheme (-> colourscheme (clean-cs) (simple-scheme))))]
+            (-> selection
+                (update :start (fn [[_ y]] [0 y]))
+                (assoc  :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
     (as-> ctx context
           (update context :garbage #(mapv reset %))
           (highlight! context (:garbage context)))))

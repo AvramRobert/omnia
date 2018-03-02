@@ -4,7 +4,7 @@
   :license {:name "Apache-2.0 License"
             :url  "https://www.apache.org/licenses/LICENSE-2.0"}
   :dependencies [[org.clojure/clojure "1.8.0"]
-                 [clojure-lanterna "0.11.0"]
+                 [com.googlecode.lanterna/lanterna "3.0.0"]
                  [org.clojure/core.match "0.3.0-alpha5"]
                  [fipp "0.6.12"]
                  [org.clojure/tools.nrepl "0.2.13"]

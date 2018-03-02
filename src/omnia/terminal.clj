@@ -1,57 +1,8 @@
 (ns omnia.terminal
-  (:require [lanterna.terminal :as t]
-            [lanterna.input :as i])
   (:import (com.googlecode.lanterna TextColor$ANSI SGR)
-           (com.googlecode.lanterna.terminal Terminal)
-           (com.googlecode.lanterna.input KeyType)))
-
-(defrecord Term
-  [background!
-   foreground!
-   clear!
-   size
-   move!
-   put!
-   stop!
-   start!
-   keystroke!])
-
-(defn background! [terminal colour]
-  ((:background! terminal) colour))
-
-(defn foreground! [terminal colour]
-  ((:foreground! terminal) colour))
-
-(defn style! [terminal style]
-  ((:style! terminal) style))
-
-(defn un-style! [terminal style]
-  ((:un-style! terminal) style))
-
-(defn visible! [terminal bool]
-  ((:visible! terminal) bool))
-
-(defn clear! [terminal]
-  ((:clear! terminal)))
-
-(defn move! [terminal x y]
-  ((:move! terminal) x y))
-
-(defn put! [terminal ch x y]
-  ((:put! terminal) ch x y))
-
-(defn stop! [terminal]
-  ((:stop! terminal)))
-
-(defn start! [terminal]
-  ((:start! terminal)))
-
-(defn keystroke! [terminal]
-  ((:keystroke! terminal)))
-
-(defn size [terminal]
-  ((:size terminal)))
-
+           (com.googlecode.lanterna.terminal Terminal DefaultTerminalFactory)
+           (com.googlecode.lanterna.input KeyType)
+           (java.nio.charset Charset)))
 
 ; === Lanterna Terminal ===
 
@@ -116,37 +67,76 @@
    KeyType/MouseEvent     :mouse-event
    KeyType/EOF            :eof})
 
-(defn terminal [kind]
-  (let [terminal ^Terminal (t/get-terminal kind)]
-    (map->Term
-      {:background!   (fn [colour]
-                        (->> :default (colours colour) (.setBackgroundColor terminal)))
-       :foreground!   (fn [colour]
-                        (->> :white (colours colour) (.setForegroundColor terminal)))
-       :style!        (fn [style]
-                        (some->> (styles style) (.enableSGR terminal)))
-       :un-style!     (fn [style]
-                        (some->> (styles style) (.disableSGR terminal)))
-       :clear!        (fn []
-                        (doto terminal (.clearScreen) (.setCursorPosition 0 0) (.flush)))
-       :size          (fn []
-                        (-> terminal (.getTerminalSize) (.getRows)))
-       :move!         (fn [x y]
-                        (.setCursorPosition terminal x y))
-       :put!          (fn [ch x y]
-                        (doto terminal
-                          (.setCursorPosition x y)
-                          (.putCharacter ch)))
-       :visible!      (fn [bool]
-                        (.setCursorVisible terminal bool))
-       :stop!         (fn []
-                        (.exitPrivateMode terminal))
-       :start!        (fn []
-                        (.enterPrivateMode terminal))
-       :keystroke!    (fn []
-                        (let [pressed (.readInput terminal)
-                              event   (-> pressed (.getKeyType) (key-events))]
-                          {:key   (if (= :character event) (.getCharacter pressed) event)
-                           :ctrl  (.isCtrlDown pressed)
-                           :alt   (.isAltDown  pressed)
-                           :shift (.isShiftDown pressed)}))})))
+(defn background! [terminal colour]
+  ((:background! terminal) colour))
+
+(defn foreground! [terminal colour]
+  ((:foreground! terminal) colour))
+
+(defn style! [terminal style]
+  ((:style! terminal) style))
+
+(defn un-style! [terminal style]
+  ((:un-style! terminal) style))
+
+(defn visible! [terminal bool]
+  ((:visible! terminal) bool))
+
+(defn clear! [terminal]
+  ((:clear! terminal)))
+
+(defn move! [terminal x y]
+  ((:move! terminal) x y))
+
+(defn put! [terminal ch x y]
+  ((:put! terminal) ch x y))
+
+(defn stop! [terminal]
+  ((:stop! terminal)))
+
+(defn start! [terminal]
+  ((:start! terminal)))
+
+(defn keystroke! [terminal]
+  ((:keystroke! terminal)))
+
+(defn size [terminal]
+  ((:size terminal)))
+
+(defn terminal []
+  (let [charset (Charset/forName "UTF-8")
+        factory (doto
+                  (DefaultTerminalFactory. System/out System/in charset)
+                  (.setForceTextTerminal true))
+        terminal ^Terminal (.createTerminal factory)]
+    {:background!   (fn [colour]
+                      (->> :default (colours colour) (.setBackgroundColor terminal)))
+     :foreground!   (fn [colour]
+                      (->> :white (colours colour) (.setForegroundColor terminal)))
+     :style!        (fn [style]
+                      (some->> (styles style) (.enableSGR terminal)))
+     :un-style!     (fn [style]
+                      (some->> (styles style) (.disableSGR terminal)))
+     :clear!        (fn []
+                      (doto terminal (.clearScreen) (.setCursorPosition 0 0) (.flush)))
+     :size          (fn []
+                      (-> terminal (.getTerminalSize) (.getRows)))
+     :move!         (fn [x y]
+                      (.setCursorPosition terminal x y))
+     :put!          (fn [ch x y]
+                      (doto terminal
+                        (.setCursorPosition x y)
+                        (.putCharacter ch)))
+     :visible!      (fn [bool]
+                      (.setCursorVisible terminal bool))
+     :stop!         (fn []
+                      (.exitPrivateMode terminal))
+     :start!        (fn []
+                      (.enterPrivateMode terminal))
+     :keystroke!    (fn []
+                      (let [pressed (.readInput terminal)
+                            event   (-> pressed (.getKeyType) (key-events))]
+                        {:key   (if (= :character event) (.getCharacter pressed) event)
+                         :ctrl  (.isCtrlDown pressed)
+                         :alt   (.isAltDown  pressed)
+                         :shift (.isShiftDown pressed)}))}))

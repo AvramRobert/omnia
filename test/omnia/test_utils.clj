@@ -83,19 +83,18 @@
                       :as fns}]
   (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
   (let [unit (constantly nil)]
-    (t/map->Term
-      {:background! (or background! unit)
-       :foreground! (or foreground! unit)
-       :style!      (or style! unit)
-       :un-style!   (or un-style! unit)
-       :visible!    (or visible! unit)
-       :clear!      (or clear! unit)
-       :size        (or (constantly size) (constantly 10))
-       :move!       (or move! unit)
-       :put!        (or put! unit)
-       :stop!       (or stop! unit)
-       :start!      (or start! unit)
-       :keystroke!  (or keystroke! unit)})))
+    {:background! (or background! unit)
+     :foreground! (or foreground! unit)
+     :style!      (or style! unit)
+     :un-style!   (or un-style! unit)
+     :visible!    (or visible! unit)
+     :clear!      (or clear! unit)
+     :size        (or size (constantly 10))
+     :move!       (or move! unit)
+     :put!        (or put! unit)
+     :stop!       (or stop! unit)
+     :start!      (or start! unit)
+     :keystroke!  (or keystroke! unit)}))
 
 (defn gen-context [{:keys [size fov seeker receive history]
                     :or {size 0
@@ -106,7 +105,7 @@
        (gen/fmap
          (fn [hud-seeker]
            (let [hud (h/hud fov hud-seeker)]
-             (-> (h/context {:terminal (test-terminal {:size fov})
+             (-> (h/context {:terminal (test-terminal {:size (constantly fov)})
                              :repl (-> (r/repl {:host    ""
                                                 :port    0
                                                 :history history
@@ -196,7 +195,7 @@
 (defn make-total [ctx]
   (let [h (get-in ctx [:complete-hud :height])]
     (-> ctx
-        (assoc :terminal (test-terminal {:size h}))
+        (assoc :terminal (test-terminal {:size (fn [] h)}))
         (assoc-in [:persisted-hud :fov] h)
         (assoc-in [:persisted-hud :lor] h)
         (h/rebase)

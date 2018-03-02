@@ -69,7 +69,7 @@
         [argmap       (read-args! args)
          config       (-> (:dir argmap) (config-path) (c/read-config))
          history      (-> (:dir argmap) (history-path) (r/read-history))
-         terminal     (t/terminal :text)
+         terminal     (t/terminal)
          repl-config  {:history history
                        :host    repl-host
                        :port    (repl-port)

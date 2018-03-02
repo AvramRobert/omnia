@@ -29,7 +29,7 @@
                                 :put!        (fn [ch x y]
                                                (acc chars ch)
                                                (acc cursors [x y]))
-                                :size        size})
+                                :size        (fn [] size)})
       :state {:chars   chars
               :cursors cursors
               :bgs     bgs
