@@ -180,14 +180,14 @@ Legend:
           Problem: Because this thing starts with a 0, if all the pairs following it
           are complete, then it succeeds with a 0, even though the inital one hadn't been closed.
 
-35. Rewrite expansion to something more performant.
+ > 35. Rewrite expansion to something more performant.
 
-36. Currently, expansion stops if an unmatched parens is seen.
-    This means, that should a rogue parens happen to find
-    itself somewhere in the seeker, and a selection expansion is made,
-    then the selection expands up to that parens.
-    Should I leave it like this (might indirectly help the user realise he
-    made a mistake), or should i let the expansion go until the end?
+ > 36. Currently, expansion stops if an unmatched parens is seen.
+       This means, that should a rogue parens happen to find
+       itself somewhere in the seeker, and a selection expansion is made,
+       then the selection expands up to that parens.
+       Should I leave it like this (might indirectly help the user realise he
+       made a mistake), or should i let the expansion go until the end?
 
  > 37. Seekers don't share clipboards in hud.
 
