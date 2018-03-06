@@ -1024,3 +1024,69 @@
                   (extracting seeker)))
 
 (defbench extracting-bench extracting)
+
+;; XXI. Undoing / Redoing
+
+(defn balance-undo-redo [seeker]
+  (let [historical (-> seeker
+                       (i/remember)
+                       (i/insert \a)
+                       (i/remember)
+                       (i/insert \b))]
+    (can-be historical
+            #(-> % (:rhistory) (count) (= 0))
+            #(-> % (:history) (count) (= 2))
+            #(-> % (i/undo) (i/undo) (:rhistory) (count) (= 2))
+            #(-> % (i/undo) (i/undo) (:history) (empty?))
+            #(-> % (i/undo) (:history) (count) (= 1))
+            #(-> % (i/undo) (:rhistory) (count) (= 1)))))
+
+(defn limit-undoing [seeker]
+  (let [history (many gen-seeker 50)]
+    (-> seeker
+        (assoc :history history)
+        (i/remember)
+        (i/insert \a)
+        (can-be #(-> (i/remember %) (i/insert \b) (i/undo) (<=> %))
+                #(-> (i/remember %) (i/insert \b) (i/undo) (:history) (count) (= 49))))))
+
+(defn redo-undone [seeker]
+  (-> seeker
+      (i/remember)
+      (i/insert \a)
+      (can-be #(-> % (i/undo) (i/redo) (<=> %)))))
+
+(defn undo-remembered [seeker]
+  (-> seeker
+      (i/remember)
+      (i/insert \a)
+      (i/undo)
+      (<=> seeker)))
+
+
+(defn keep-clipboard-between-undos-redos [seeker]
+  (-> seeker
+      (i/select-all)
+      (i/cut)
+      (i/remember)
+      (i/insert \a)
+      (i/remember)
+      (i/insert \b)
+      (i/undo)
+      (i/undo)
+      (i/paste)
+      (<=> seeker)))
+
+(defn undo-redo [seeker]
+  (undo-remembered seeker)
+  (redo-undone seeker)
+  (limit-undoing seeker)
+  (balance-undo-redo seeker)
+  (keep-clipboard-between-undos-redos seeker))
+
+(defspec undoing-redoing-test
+         100
+         (for-all [seeker gen-seeker]
+                  (undo-redo seeker)))
+
+(defbench undoing-redoing-bench undo-redo)

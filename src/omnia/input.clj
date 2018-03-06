@@ -5,7 +5,14 @@
             [omnia.more :refer [do-until]]))
 
 (defrecord Event [action key])
-(defrecord Seeker [lines cursor height expansion selection clipboard]
+(defrecord Seeker [lines
+                   cursor
+                   height                                   ;; Can't I remove the height?
+                   expansion
+                   selection
+                   clipboard
+                   history
+                   rhistory]
   Object
   (toString [this]
     (str {:lines     lines
@@ -13,10 +20,21 @@
           :cursor    cursor
           :expansion expansion
           :selection selection
-          :clipboard clipboard})))
+          :clipboard clipboard
+          :history   history
+          :rhistory  rhistory})))
 
 (def empty-vec [])
-(def empty-seeker (Seeker. empty-vec [0 0] 0 :word nil nil))
+(def empty-list '())
+(def empty-seeker
+  (map->Seeker {:lines     empty-vec
+                :cursor    [0 0]
+                :height    0
+                :expansion :word
+                :selection nil
+                :clipboard nil
+                :history   empty-list
+                :rhistory  empty-list}))
 
 (def open-pairs {\( \) \[ \] \{ \}})
 (def closed-pairs (map-invert open-pairs))
@@ -450,6 +468,38 @@
       (closed-pairs (left seeker)) (-> seeker (regress) (select) (near-expand) (choose))
       :else (-> seeker (near-expand) (choose)))))
 
+(defn forget [seeker]
+  (assoc seeker :history empty-list
+                :rhistory empty-list))
+
+(defn remember
+  ([seeker]
+   (remember seeker seeker))
+  ([seeker that]
+   (let [history (:history seeker)]
+     (->> history
+          (cons (forget that))
+          (take 50)
+          (assoc seeker :history)))))
+
+(defn undo [{:keys [history rhistory clipboard] :as seeker}]
+  (if (empty? history)
+    seeker
+    (-> history
+        (first)
+        (assoc :clipboard clipboard)
+        (assoc :history (rest history))
+        (assoc :rhistory (-> seeker (forget) (cons rhistory))))))
+
+(defn redo [{:keys [history rhistory clipboard] :as seeker}]
+  (if (empty? rhistory)
+    seeker
+    (-> rhistory
+        (first)
+        (assoc :clipboard clipboard)
+        (assoc :rhistory (rest rhistory))
+        (assoc :history (-> seeker (forget) (cons history))))))
+
 (defn stringify [seeker]
   (->> (repeat "\n")
        (take (height seeker))
@@ -467,9 +517,9 @@
   (case (:action event)
     :expand (-> seeker (expand))
     :select-all (-> seeker (select-all))
-    :paste (-> seeker (paste) (deselect))
+    :paste (-> seeker (remember) (paste)  (deselect))
     :copy (-> seeker (copy) (deselect))
-    :cut (-> seeker (cut) (deselect))
+    :cut (-> seeker (remember) (cut) (deselect))
     :up (-> seeker (climb) (deselect))
     :down (-> seeker (fall) (deselect))
     :left (-> seeker (regress) (deselect))
@@ -482,8 +532,10 @@
     :select-right (-> seeker (soft-select) (advance))
     :jump-select-left (-> seeker (soft-select) (jump-left))
     :jump-select-right (-> seeker (soft-select) (jump-right))
-    :backspace (-> seeker (delete) (deselect))
-    :delete (-> seeker (munch) (deselect))
-    :newline (-> seeker (break) (deselect))
-    :char (-> seeker (insert (:key event)) (deselect))
+    :backspace (-> seeker (remember) (delete) (deselect))
+    :delete (-> seeker (remember) (munch) (deselect))
+    :newline (-> seeker (remember) (break) (deselect))
+    :undo  (-> seeker (undo) (deselect))
+    :redo  (-> seeker (redo) (deselect))
+    :char (-> seeker (remember) (insert (:key event)) (deselect))
     seeker))
