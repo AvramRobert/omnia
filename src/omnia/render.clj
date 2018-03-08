@@ -4,7 +4,7 @@
             [omnia.highlight :as h]
             [omnia.more :refer [map-vals reduce-idx --]]))
 
-(declare total! diff! nothing!)
+(declare diff! nothing!)
 
 ;; === Highlighting scheme ==
 
@@ -89,6 +89,16 @@
                           :end   [xe ye]}
       :else {:start [0 bottom]
              :end   [0 bottom]})))
+
+;; Make `lor` behave like `ov` instead of them being opposite?
+
+
+;; What is the relationship between `ov` and `lor`?
+;; for `ov`, bottom = 0
+;; for `lor`, bottom = 0, top = fov
+;; when i scroll, `lor` increments, tells me how much I have to take from the bottom
+;; when i move about, `ov` increments, tells me how much I have to drop from the bottom
+
 
 (defn project-hud [hud]
   (let [{lor     :lor
@@ -182,15 +192,26 @@
          (concat current-line)
          (vec))))
 
-(defmacro when-unpaged [ctx f]
-  `(let [{terminal# :terminal
-          complete# :complete-hud
-          previous# :previous-hud} ~ctx
-         current# (project-hud complete#)
-         former#  (project-hud previous#)]
-     (if (not= (:ov current#) (:ov former#))
-       (total! ~ctx)
-       (~f terminal# current# former#))))
+(defn diff! [ctx]
+  (let [terminal (:terminal ctx)
+        now      (-> ctx (:complete-hud) (project-hud) (:lines))
+        then     (-> ctx (:previous-hud) (project-hud) (:lines))
+        limit    (max (count now) (count then))
+        scheme   (-> ctx (:colourscheme) (simple-scheme))]
+    (loop [y 0]
+      (when (< y limit)
+        (let [a (nth now y nil)
+              b (nth then y nil)]
+          (when (not= a b)
+            (-> (pad-erase a b)
+                (print-line! terminal scheme [0 y])))
+          (recur (inc y)))))))
+
+(defn nothing! [ctx]
+  (let [{complete :complete-hud
+         previous :previous-hud} ctx]
+    (when (not= (:ov complete) (:ov previous))
+      (diff! ctx))))
 
 (defn total! [ctx]
   (let [{terminal :terminal
@@ -199,26 +220,6 @@
         scheme (simple-scheme cs)]
     (t/clear! terminal)
     (print-hud! (project-hud complete) terminal scheme)))
-
-(defn diff! [ctx]
-  (when-unpaged ctx
-     (fn [terminal current former]
-       (let [now (:lines current)
-             then (:lines former)
-             limit (max (count now) (count then))
-             scheme (-> ctx (:colourscheme) (simple-scheme))]
-         (loop [y 0]
-           (when (< y limit)
-             (let [a (nth now y nil)
-                   b (nth then y nil)]
-               (when (not= a b)
-                 (-> (pad-erase a b)
-                     (print-line! terminal scheme [0 y])))
-               (recur (inc y)))))))))
-
-
-(defn nothing! [ctx]
-  (when-unpaged ctx (fn [_ _ _] ())))
 
 (defn render [ctx]
   (case (:render ctx)

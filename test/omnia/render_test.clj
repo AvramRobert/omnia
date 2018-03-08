@@ -168,28 +168,10 @@
           (is (empty? stls))
           (is (empty? unstls))))))
 
-(defn diff-reset-to-total-render [ctx]
-  (let [processed (-> (move-top-fov ctx)
-                      (process up))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise processed)]
-    (-> (stateful processed)
-        (execute r/diff!)
-        (inspect
-          (fn [{:keys [chars cursors clears fgs bgs stls unstls]}]
-            (is (not (empty? bgs)))
-            (is (not (empty? fgs)))
-            (is (empty? stls))
-            (is (empty? unstls))
-            (is (= 1 clears))
-            (is (= expected-chars chars))
-            (is (= expected-cursors cursors)))))))
-
 (defn diff-render [ctx]
   (projected-diff-render ctx (one gen/char-alpha))
   (padded-diff-render ctx)
-  (no-change-diff-render ctx)
-  (diff-reset-to-total-render ctx))
+  (no-change-diff-render ctx))
 
 (defspec diff-render-test
          100
@@ -212,26 +194,23 @@
           (is (empty? stls))
           (is (empty? unstls))))))
 
-(defn no-reset-to-total-render [ctx]
+(defn nothing-to-diff-render [ctx]
   (let [processed (-> (move-top-fov ctx)
-                      (process up))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise processed)]
+                      (process up))]
     (-> (stateful processed)
         (execute r/nothing!)
         (inspect
-          (fn [{:keys [chars cursors clears fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
             (is (empty? unstls))
-            (is (= 1 clears))
-            (is (= expected-chars chars))
-            (is (= expected-cursors cursors)))))))
+            (is (not (empty? chars)))
+            (is (not (empty? cursors))))))))
 
 (defn no-render [ctx]
   (projected-no-render ctx)
-  (no-reset-to-total-render ctx))
+  (nothing-to-diff-render ctx))
 
 (defspec no-render-test
          100

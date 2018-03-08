@@ -78,19 +78,23 @@
          empty-line
          caret)))
 
+(defn empty-hud [{:keys [terminal]}]
+  (hud (t/size terminal)))
+
 (defn context [{:keys [terminal repl keymap colourscheme] :as config}]
   (assert (not (nil? terminal)) "Please provide a proper terminal (look in omnia.terminal)")
   (assert (not (nil? repl)) "Please provide a proper repl (look in omnia.repl)")
   (assert (not (nil? keymap)) "Please provide a proper keymap (look in omnia.config)")
   (assert (not (nil? colourscheme)) "Please provide a proper colourscheme (look in omnia.config)")
-  (let [hud (init-hud config)]
+  (let [ehud (empty-hud config)
+        hud  (init-hud config)]
     (map->Context
       {:terminal      terminal
        :repl          repl
        :keymap        keymap
        :colourscheme  colourscheme
-       :render        :total
-       :previous-hud  hud
+       :render        :diff
+       :previous-hud  ehud
        :persisted-hud hud
        :complete-hud  hud
        :seeker        i/empty-seeker
@@ -249,6 +253,8 @@
             #(if (i/selection? complete)
                (conj % (i/selection complete)) %))))
 
+;; FIXME: make gc a little more clever and let it truncate only subregions that aren't already highlighted
+;; Can this be done efficiently?
 (defn gc [ctx]
   (assoc ctx :highlights empty-set
              :garbage (:highlights ctx)))
@@ -292,17 +298,16 @@
         (assoc-in [:complete-hud :ov] nov))))
 
 (defn resize [ctx]
-  (let [{persisted :persisted-hud
-         terminal  :terminal} ctx
-        fov     (:fov persisted)
-        new-fov (t/size terminal)]
+  (let [new-fov  (-> ctx (:terminal) (t/size))
+        fov      (-> ctx (:persisted-hud) (:fov))]
     (if (not= new-fov fov)
-      (->> (assoc persisted :fov new-fov :lor new-fov)
-           (persist ctx)
-           (rebase)
-           (calibrate)
-           (remember)
-           (re-render))
+      (-> (remember ctx)
+          (assoc-in [:persisted-hud :lor] new-fov)
+          (assoc-in [:persisted-hud :fov] new-fov)
+          (assoc-in [:complete-hud :lor] new-fov)
+          (assoc-in [:complete-hud :fov] new-fov)
+          (calibrate)
+          (re-render))
       ctx)))
 
 (defn clear [ctx]
@@ -345,10 +350,12 @@
       (assoc :scroll? false)))
 
 (defn scroll-up [ctx]
-  (update ctx :complete-hud #(scroll % upwards)))
+  (-> (remember ctx)
+      (update :complete-hud #(scroll % upwards))))
 
 (defn scroll-down [ctx]
-  (update ctx :complete-hud #(scroll % downwards)))
+  (-> (remember ctx)
+      (update :complete-hud #(scroll % downwards))))
 
 (defn scroll-stop [ctx]
   (-> ctx
@@ -446,12 +453,12 @@
     :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
     :suggest (-> ctx (gc) (un-docs) (scroll-stop) (suggest) (deselect) (auto-match) (diff-render) (resize) (continue))
-    :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (re-render) (resize) (continue))
-    :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (re-render) (resize) (continue))
+    :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
+    :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
     :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :format (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (re-render) (resize) (continue))
+    :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (diff-render) (resize) (continue))
     :eval (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
