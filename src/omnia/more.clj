@@ -19,20 +19,13 @@
   (let [r (apply + values)]
     (if (neg? r) 0 r)))
 
-(defn zip-all [coll-a coll-b]
-  (m/match [coll-a coll-b]
-           [[a & t] []] (cons [a nil] (lazy-seq (zip-all t [])))
-           [[] [a & t]] (cons [nil a] (lazy-seq (zip-all [] t)))
-           [[a & t1] [b & t2]] (cons [a b] (lazy-seq (zip-all t1 t2)))
-           :else nil))
-
 (defn reduce-idx
   ([f seed coll]
    (reduce-idx f 0 seed coll))
   ([f from seed coll]
-   (if (empty? coll)
-     seed
-     (recur f (inc from) (f from seed (first coll)) (rest coll)))))
+   (-> (fn [[idx b] a] [(inc idx) (f idx b a)])
+       (reduce [from seed] coll)
+       (nth 1))))
 
 (defn do-until [elm f p]
   (if (p elm) elm (recur (f elm) f p)))

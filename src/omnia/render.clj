@@ -2,7 +2,7 @@
   (:require [omnia.terminal :as t]
             [omnia.input :as i]
             [omnia.highlight :as h]
-            [omnia.more :refer [map-vals reduce-idx zip-all --]]))
+            [omnia.more :refer [map-vals reduce-idx --]]))
 
 (declare total! diff! nothing!)
 
@@ -182,15 +182,15 @@
          (concat current-line)
          (vec))))
 
-(defn- when-unpaged [ctx f]
-  (let [{terminal :terminal
-         complete :complete-hud
-         previous :previous-hud} ctx
-        current (project-hud complete)
-        former  (project-hud previous)]
-    (if (not= (:ov current) (:ov former))
-      (total! ctx)
-      (f terminal current former))))
+(defmacro when-unpaged [ctx f]
+  `(let [{terminal# :terminal
+          complete# :complete-hud
+          previous# :previous-hud} ~ctx
+         current# (project-hud complete#)
+         former#  (project-hud previous#)]
+     (if (not= (:ov current#) (:ov former#))
+       (total! ~ctx)
+       (~f terminal# current# former#))))
 
 (defn total! [ctx]
   (let [{terminal :terminal
@@ -201,15 +201,21 @@
     (print-hud! (project-hud complete) terminal scheme)))
 
 (defn diff! [ctx]
-  (let [scheme (-> ctx (:colourscheme) (simple-scheme))]
-    (when-unpaged
-      ctx
-      (fn [terminal current former]
-        (->> (zip-all (:lines current) (:lines former))
-             (map-indexed (fn [idx paired] (conj paired idx)))
-             (drop-while (fn [[current-line former-line _]] (= current-line former-line)))
-             (map (fn [[current-line former-line y]] [(pad-erase current-line former-line) y]))
-             (run! (fn [[line y]] (print-line! line terminal scheme [0 y]))))))))
+  (when-unpaged ctx
+     (fn [terminal current former]
+       (let [now (:lines current)
+             then (:lines former)
+             limit (max (count now) (count then))
+             scheme (-> ctx (:colourscheme) (simple-scheme))]
+         (loop [y 0]
+           (when (< y limit)
+             (let [a (nth now y nil)
+                   b (nth then y nil)]
+               (when (not= a b)
+                 (-> (pad-erase a b)
+                     (print-line! terminal scheme [0 y])))
+               (recur (inc y)))))))))
+
 
 (defn nothing! [ctx]
   (when-unpaged ctx (fn [_ _ _] ())))
