@@ -2,9 +2,10 @@
   (:require [omnia.terminal :as t]
             [omnia.input :as i]
             [omnia.highlight :as h]
-            [omnia.more :refer [map-vals reduce-idx --]]))
+            [omnia.more :refer [map-vals reduce-idx --]]
+            [clojure.core.match :as m]))
 
-(declare diff! nothing!)
+(declare total! diff! nothing!)
 
 ;; === Highlighting scheme ==
 
@@ -173,45 +174,72 @@
 
 ;; === Rendering strategies ===
 
+;; I think I know what the problem is...
+;; If I only use diffs, after I delete, the projection isn't valid anymore,
+;; which means that there are going to be trailing highlights
+;; However.. when I diff-render something, anything that retriggers a render MUST
+;; clean the screen. Why didn't diffing clean it?
+;; Because I skip it!
+;; Because the lines are all unchanged
+;; And this only happens when `ov` changes
+;; Can't I however move this logic to highlights?
+;; If the ov changes, do the projection and then rehighlight
+
+
+;; Write an explicit test for this case!
+
 ;; FIXME: Merge padding with printing
 (defn- pad-erase [current-line former-line]
   (cond
-    (empty? former-line) current-line
+    (and (empty? former-line)
+         (empty? current-line)) []
+    (empty? former-line)  current-line
     (empty? current-line) (-> (count former-line) (repeat \space) (vec))
     :else (let [hc (count current-line)
                 hf (count former-line)
                 largest (max hc hf)]
             (->> (range 0 (- largest hc))
-                 (reduce (fn [c _] (conj c \space)) (or nil current-line))))))
+                 (reduce (fn [c _] (conj c \space)) current-line)))))
 
 (defn diff! [ctx]
-  (let [terminal (:terminal ctx)
-        now      (-> ctx (:complete-hud) (project-hud) (:lines))
-        then     (-> ctx (:previous-hud) (project-hud) (:lines))
-        limit    (max (count now) (count then))
-        scheme   (-> ctx (:colourscheme) (simple-scheme))]
-    (loop [y 0]
-      (when (< y limit)
-        (let [a (nth now y nil)
-              b (nth then y nil)]
-          (when (not= a b)
-            (-> (pad-erase a b)
-                (print-line! terminal scheme [0 y])))
-          (recur (inc y)))))))
+  (let [{terminal     :terminal
+         complete     :complete-hud
+         previous     :previous-hud
+         colourscheme :colourscheme} ctx
+        now      (-> complete (project-hud) (:lines))
+        then     (-> previous (project-hud) (:lines))
+        scheme   (simple-scheme colourscheme)
+        limit    (max (count now) (count then))]
+    (if (not= (:ov complete) (:ov previous))
+      (total! ctx)
+      (loop [y 0]
+        (when (< y limit)
+          (let [a (nth now y nil)
+                b (nth then y nil)]
+            (when (not= a b)
+              (-> (pad-erase a b)
+                  (print-line! terminal scheme [0 y])))
+            (recur (inc y))))))))
 
 (defn nothing! [ctx]
   (let [{complete :complete-hud
          previous :previous-hud} ctx]
     (when (not= (:ov complete) (:ov previous))
-      (diff! ctx))))
+      (total! ctx))))
 
 (defn total! [ctx]
-  (let [{terminal :terminal
-         complete :complete-hud
-         cs       :colourscheme} ctx
-        scheme (simple-scheme cs)]
-    (t/clear! terminal)
-    (print-hud! (project-hud complete) terminal scheme)))
+  (let [terminal (:terminal ctx)
+        now      (-> ctx (:complete-hud) (project-hud) (:lines))
+        then     (-> ctx (:previous-hud) (project-hud) (:lines))
+        scheme   (-> ctx (:colourscheme) (simple-scheme))
+        limit    (max (count now) (count then))]
+    (loop [y 0]
+      (when (< y limit)
+        (let [a (nth now y nil)
+              b (nth then y nil)]
+          (-> (pad-erase a b)
+              (print-line! terminal scheme [0 y]))
+          (recur (inc y)))))))
 
 (defn render [ctx]
   (case (:render ctx)

@@ -96,10 +96,9 @@
     (-> (stateful processed)
         (execute r/total!)
         (inspect
-          (fn [{:keys [chars cursors clears fgs bgs]}]
+          (fn [{:keys [chars cursors _ fgs bgs]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
-            (is (= 1 clears))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
