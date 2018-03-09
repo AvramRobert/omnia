@@ -14,7 +14,7 @@
                  [com.cemerick/pomegranate "1.0.0"]
                  [org.tcrawley/dynapath "1.0.0"]
                  [org.slf4j/slf4j-simple "1.7.22"]]
-
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
-  :profiles {:uberjar {:aot :all}})
+  :profiles {:uberjar {:aot :all}
+             :dev {:dependencies [[criterium "0.4.4"]]}})

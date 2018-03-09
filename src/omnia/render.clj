@@ -90,16 +90,6 @@
       :else {:start [0 bottom]
              :end   [0 bottom]})))
 
-;; Make `lor` behave like `ov` instead of them being opposite?
-
-
-;; What is the relationship between `ov` and `lor`?
-;; for `ov`, bottom = 0
-;; for `lor`, bottom = 0, top = fov
-;; when i scroll, `lor` increments, tells me how much I have to take from the bottom
-;; when i move about, `ov` increments, tells me how much I have to drop from the bottom
-
-
 (defn project-hud [hud]
   (let [{lor     :lor
          fov     :fov
@@ -183,14 +173,16 @@
 
 ;; === Rendering strategies ===
 
+;; FIXME: Merge padding with printing
 (defn- pad-erase [current-line former-line]
-  (let [hc      (count current-line)
-        hf      (count former-line)
-        largest (max hc hf)]
-    (->> (repeat \space)
-         (take (- largest hc))
-         (concat current-line)
-         (vec))))
+  (cond
+    (empty? former-line) current-line
+    (empty? current-line) (-> (count former-line) (repeat \space) (vec))
+    :else (let [hc (count current-line)
+                hf (count former-line)
+                largest (max hc hf)]
+            (->> (range 0 (- largest hc))
+                 (reduce (fn [c _] (conj c \space)) (or nil current-line))))))
 
 (defn diff! [ctx]
   (let [terminal (:terminal ctx)
