@@ -47,7 +47,7 @@
   ctx)
 
 (defn index [ctx]
-  (-> (project-hud ctx)
+  (-> (project-complete ctx)
       (i/rebase #(map-indexed
                    (fn [y line]
                      (map-indexed
@@ -73,7 +73,7 @@
   "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
    each being the ones the `terminal` highlights on the screen."
   (->> highlights
-       (sort-by #(-> % (:scheme) (:priority) (or r/primary)))
+       (sort-by :priority)
        (mapv #(let [{start :start
                      end   :end} (-> complete-hud
                                    (r/project-selection %)
@@ -86,33 +86,7 @@
                     (aggregate))))
        (apply (partial merge-with concat))))
 
-;; I. Total rendering
-
-(defn projected-total-render [ctx]
-  (let [processed (-> (move-top-fov ctx)
-                      (process up 2))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise processed)]
-    (-> (stateful processed)
-        (execute r/total!)
-        (inspect
-          (fn [{:keys [chars cursors _ fgs bgs]}]
-            (is (not (empty? bgs)))
-            (is (not (empty? fgs)))
-            (is (= expected-chars chars))
-            (is (= expected-cursors cursors)))))))
-
-(defn total-render [ctx]
-  (projected-total-render ctx))
-
-(defspec total-render-test
-         100
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
-                  (total-render ctx)))
-
-;; II. Diffed rendering
+;; I. Diffed rendering
 
 (defn padded-diff-render [ctx]
   (let [selected         (-> (move-end-fov ctx)
@@ -179,7 +153,7 @@
                                      :seeker (one (gen-seeker-of 29))})]
                   (diff-render ctx)))
 
-;; III. No rendering
+;; II. No rendering
 
 (defn projected-no-render [ctx]
   (-> (stateful ctx)
@@ -218,7 +192,7 @@
                                      :seeker (one (gen-seeker-of 29))})]
                   (no-render ctx)))
 
-;; IV. Selection highlighting
+;; III. Selection highlighting
 (defn total-selection-render-right [ctx]
   (let [processed (-> (move-end-fov ctx)
                       (process select-right 3))
@@ -316,7 +290,7 @@
                                      :seeker (one (gen-seeker-of 29))})]
                   (selection-render ctx)))
 
-;; V. Clean-up highlighting
+;; IV. Clean-up highlighting
 
 (defn line-start-clean-up-render [ctx]
   (let [processed        (-> (move-end-fov ctx)
@@ -347,7 +321,7 @@
                                      :seeker (one (gen-seeker-of 29))})]
                   (clean-up-render ctx)))
 
-;; VI. Hud projection
+;; V. Hud projection
 
 (defn move-with [ctx {:keys [scroll ov]
                       :or   {scroll 0
@@ -360,22 +334,22 @@
   (let [total (make-total ctx)]
     (-> total
         (process scroll-up 10)
-        (project-hud)
+        (project-complete)
         (<=> (:complete-hud total)))))
 
 (defn scrolled-hud-projection [ctx]
   (can-be ctx
-          #(-> % (process scroll-up 1) (project-hud) (<=> (move-with % {:scroll 1})))
-          #(-> % (process scroll-up 4) (project-hud) (<=> (move-with % {:scroll 4})))
-          #(-> % (process scroll-up 4) (process scroll-down) (project-hud) (<=> (move-with % {:scroll 3})))))
+          #(-> % (process scroll-up 1) (project-complete) (<=> (move-with % {:scroll 1})))
+          #(-> % (process scroll-up 4) (project-complete) (<=> (move-with % {:scroll 4})))
+          #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=> (move-with % {:scroll 3})))))
 
 (defn paged-hud-projection [ctx]
   (-> (move-top-fov ctx)
       (process up 2)
       (can-be
-        #(-> % (process scroll-up 1) (project-hud) (<=> (move-with % {:scroll 1 :ov 2})))
-        #(-> % (process scroll-up 4) (project-hud) (<=> (move-with % {:scroll 4 :ov 2})))
-        #(-> % (process scroll-up 4) (process scroll-down) (project-hud) (<=> (move-with % {:scroll 3 :ov 2}))))))
+        #(-> % (process scroll-up 1) (project-complete) (<=> (move-with % {:scroll 1 :ov 2})))
+        #(-> % (process scroll-up 4) (project-complete) (<=> (move-with % {:scroll 4 :ov 2})))
+        #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=> (move-with % {:scroll 3 :ov 2}))))))
 
 (defn hud-projection [ctx]
   (total-hud-projection ctx)
@@ -389,16 +363,16 @@
                                      :seeker (one (gen-seeker-of 10))})]
                   (hud-projection ctx)))
 
-;; VII. Selection projection
+;; VI. Selection projection
 
 (defn total-selection-projection [ctx]
   (let [total (move-end-fov (make-total ctx))
         [x y] (cursor total)]
     (can-be total
-            #(-> (process % select-up 5)
-                 (:highlights)
-                 (contains? {:start [x (- y 5)]
-                             :end   [x y]})))))
+            #(->> (process % select-up 5)
+                  (:highlights)
+                  (highlights? {:start [x (- y 5)]
+                                :end   [x y]})))))
 
 (defn paged-selection-extension [ctx]
   (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (i/start-x) (:cursor))
@@ -467,7 +441,7 @@
                                      :seeker (one (gen-seeker-of 10))})]
                   (selection-projection ctx)))
 
-;; VIII. Cursor projection
+;; VII. Cursor projection
 
 (defn total-cursor-projection [ctx]
   (let [total (move-end-fov (make-total ctx))
@@ -503,7 +477,7 @@
                                      :seeker (one (gen-seeker-of 10))})]
                   (cursor-projection ctx)))
 
-;; IX. Y Projection
+;; VIII. Y Projection
 
 (defn- bounded? [ctx y]
   (<= 0 y (fov ctx)))

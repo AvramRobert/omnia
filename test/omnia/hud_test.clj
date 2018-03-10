@@ -443,13 +443,13 @@
     (can-be top
             #(-> (process % select-down 4)
                  (:highlights)
-                 (contains? {:start [xt yt]
-                             :end   [xt (+ yt 4)]}))
+                 (highlights? {:start [xt yt]
+                               :end   [xt (+ yt 4)]}))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (:highlights)
-                 (contains? {:start [xb (- yb 4)]
-                             :end   [xb yb]})))))
+                 (highlights? {:start [xb (- yb 4)]
+                               :end   [xb yb]})))))
 
 (defn garbage-collect-highlights [ctx]
   (let [top (-> (from-start ctx) (move-top-fov))
@@ -460,14 +460,14 @@
             #(-> (process % select-down 4)
                  (process enter)
                  (:garbage)
-                 (contains? {:start [xt yt]
-                             :end   [xt (+ yt 4)]}))
+                 (highlights? {:start [xt yt]
+                               :end   [xt (+ yt 4)]}))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (process enter)
                  (:garbage)
-                 (contains? {:start [xb (- yb 4)]
-                             :end   [xb yb]}))
+                 (highlights? {:start [xb (- yb 4)]
+                               :end   [xb yb]}))
             #(-> (process % select-down 4)
                  (process enter)
                  (:highlights)
@@ -493,9 +493,13 @@
 
 (defn highlight-matched [ctx]
   (let [[x y] (get-in ctx [:complete-hud :cursor])
-        scheme (fn [region] (assoc region :scheme {:cs (-> ctx (:colourscheme) (r/clean-cs))
-                                                   :priority r/secondary
-                                                   :style    :underline}))
+        scheme (fn [type region]
+                 {:priority r/secondary
+                  :type     type
+                  :start    (:start region)
+                  :end      (:end   region)
+                  :scheme   {:cs    (-> ctx (:colourscheme) (r/clean-cs))
+                             :style :underline}})
         actual-highlights (-> ctx
                               (process (char-key \())
                               (process (char-key \a) 4)
@@ -503,11 +507,15 @@
                               (process parens-match)
                               (:highlights))]
     (is (true? (contains? actual-highlights
-                          (scheme {:start [x y]
-                                   :end   [(inc x) y]}))))
+                          (scheme
+                            :open-paren
+                            {:start [x y]
+                             :end   [(inc x) y]}))))
     (is (true? (contains? actual-highlights
-                          (scheme {:start [(+ x 5) y]
-                                   :end   [(+ x 6) y]}))))))
+                          (scheme
+                            :closed-paren
+                            {:start [(+ x 5) y]
+                             :end   [(+ x 6) y]}))))))
 
 (defn dont-highlight-unmatched [ctx]
   (-> ctx

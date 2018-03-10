@@ -170,7 +170,7 @@
         [_ y] (:cursor complete)]
     (rd/project-y complete y)))
 
-(defn project-hud [ctx]
+(defn project-complete [ctx]
   (rd/project-hud (:complete-hud ctx)))
 
 (defn project-cursor [ctx]
@@ -222,6 +222,13 @@
 
 (defn history [ctx]
   (get-in ctx [:repl :history]))
+
+(defn highlights? [hs region]
+  (let [{expected-start :start
+         expected-end   :end} region]
+    (some (fn [{:keys [start end]}]
+            (and (= expected-start start)
+                 (= expected-end end))) hs)))
 
 (defn move-start-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/start-y))

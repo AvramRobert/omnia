@@ -258,6 +258,17 @@ Legend:
  > 54. There seems to be a problem (null pointer exception) in some cases with the `document` function
        Docs aren't always there, so the repl returns nil for them, but concrete things for other fields.
 
+55. Why does this highlight happen:
+    `(` let a 1
+            b 2]'|'
+        (+ a b) `)`
+
+    And this doesn't
+     ( let [a 1
+              b 2
+         (+ a b))'|'
+
+
 ----------------- MIGRATION VERSIONS -------------------
 
 clojure 1.8.0 -> 1.9.0:

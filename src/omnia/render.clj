@@ -13,9 +13,7 @@
 (def secondary 0)
 
 (defn simple-scheme [cs]
-  {:priority primary
-   :cs cs
-   :style nil})
+  {:cs cs :style nil})
 
 ;; === Various colourschemes ===
 
@@ -115,6 +113,33 @@
         (i/extract)
         (assoc :height (:height hud)))))                    ;; for accurate projection
 
+(defn common-region [ra rb]
+  (let [{[xs ys] :start
+         [xe ye] :end} ra
+        {[xss yss] :start
+         [xee yee] :end} rb]
+    (when (not (or (> yss ye) (> ys yee)))
+      {:start (if (> ys yss) [xs ys] [xss yss])
+       :end   (if (< ye yee) [xe ye] [xee yee])})))
+
+(defn diff-region [r c]
+  (let [{[xs ys] :start
+         [xe ye] :end} r
+        {[xss yss] :start
+         [xee yee] :end} c]
+    (if (< ys yss)
+      {:start [xs ys]
+       :end   [xss yss]}
+      {:start [xee yee]
+       :end   [xe ye]})))
+
+(defn occlude [new old]
+  (letfn [(minimise [[t ha]]
+            (->> (old t ha)
+                 (common-region ha)
+                 (diff-region ha)))]
+    (->> new (mapv minimise) (into {}))))
+
 (defn- display! [emission terminal x y]
   (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
 
@@ -144,19 +169,19 @@
 
 (defn highlight! [ctx regions]
   (let [{terminal :terminal
-         complete :complete-hud
-         cs       :colourscheme} ctx]
+         complete :complete-hud} ctx]
     (run!
-      #(let [scheme (:scheme % (-> (select-cs cs) (simple-scheme)))
+      #(let [scheme     (:scheme %)
              projection (project-selection complete %)
              {[xs ys] :start} projection]
          (-> (region complete projection)
              (print-hud! terminal scheme [xs ys]))) regions)))
 
-(defn clean! [{:keys [colourscheme] :as ctx}]
+(defn clean! [{:keys [colourscheme highlights] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
             (-> selection
+                ;(occlude highlights)                        ;; expects typed
                 (update :start (fn [[_ y]] [0 y]))
                 (assoc  :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
     (as-> ctx context
@@ -165,7 +190,7 @@
 
 (defn selections! [ctx]
   (->> (:highlights ctx)
-       (sort-by #(-> (:scheme %) (:priority) (or primary)))
+       (sort-by :priority)
        (highlight! ctx)))
 
 (defn position! [{:keys [terminal complete-hud]}]
@@ -173,20 +198,6 @@
     (t/move! terminal x y)))
 
 ;; === Rendering strategies ===
-
-;; I think I know what the problem is...
-;; If I only use diffs, after I delete, the projection isn't valid anymore,
-;; which means that there are going to be trailing highlights
-;; However.. when I diff-render something, anything that retriggers a render MUST
-;; clean the screen. Why didn't diffing clean it?
-;; Because I skip it!
-;; Because the lines are all unchanged
-;; And this only happens when `ov` changes
-;; Can't I however move this logic to highlights?
-;; If the ov changes, do the projection and then rehighlight
-
-
-;; Write an explicit test for this case!
 
 ;; FIXME: Merge padding with printing
 (defn- pad-erase [current-line former-line]

@@ -5,7 +5,10 @@
                                   bottom-y
                                   project-hud
                                   project-cursor
+                                  select-cs
                                   clean-cs
+                                  simple-scheme
+                                  primary
                                   secondary]]
             [omnia.repl :as r]
             [omnia.input :as i]
@@ -248,13 +251,20 @@
   (assoc ctx :render :nothing))
 
 (defn highlight [ctx]
-  (let [complete (:complete-hud ctx)]
+  (let [{complete :complete-hud
+         cs       :colourscheme} ctx
+        scheme (fn [region]
+                 {:priority primary
+                  :type     :selection
+                  :start    (:start region)
+                  :end      (:end region)
+                  :scheme   {:cs (select-cs cs)
+                             :style nil}})]
     (update ctx :highlights
             #(if (i/selection? complete)
-               (conj % (i/selection complete)) %))))
+               (->> complete (i/selection) (scheme) (conj %))
+               %))))
 
-;; FIXME: make gc a little more clever and let it truncate only subregions that aren't already highlighted
-;; Can this be done efficiently?
 (defn gc [ctx]
   (assoc ctx :highlights empty-set
              :garbage (:highlights ctx)))
@@ -262,17 +272,20 @@
 (defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
-    (let [scheme {:priority secondary
-                  :cs       (-> ctx (:colourscheme) (clean-cs))
-                  :style    :underline}]
+    (let [scheme (fn [type {:keys [start end]}]
+                   {:priority secondary
+                    :type     type
+                    :start    start
+                    :end      end
+                    :scheme   {:cs (-> ctx (:colourscheme) (clean-cs))
+                               :style :underline}})]
       (update ctx :highlights
-              #(conj %
-                     {:start [xs ys]
-                      :end [(inc xs) ys]
-                      :scheme scheme}
-                     {:start [xe ye]
-                      :end [(inc xe) ye]
-                      :scheme scheme})))
+              #(conj % (scheme :open-paren
+                               {:start [xs ys]
+                                :end   [(inc xs) ys]})
+                       (scheme :closed-paren
+                               {:start [xe ye]
+                                :end   [(inc xe) ye]}))))
     ctx))
 
 (defn auto-match [ctx]
@@ -447,6 +460,7 @@
 
 ;; === Events ===
 
+;; Idea
 (defn process [ctx event]
   (case (:action event)
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
