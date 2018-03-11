@@ -113,31 +113,68 @@
         (i/extract)
         (assoc :height (:height hud)))))                    ;; for accurate projection
 
-(defn common-region [ra rb]
-  (let [{[xs ys] :start
-         [xe ye] :end} ra
-        {[xss yss] :start
-         [xee yee] :end} rb]
-    (when (not (or (> yss ye) (> ys yee)))
-      {:start (if (> ys yss) [xs ys] [xss yss])
-       :end   (if (< ye yee) [xe ye] [xee yee])})))
 
-(defn diff-region [r c]
-  (let [{[xs ys] :start
-         [xe ye] :end} r
-        {[xss yss] :start
-         [xee yee] :end} c]
-    (if (< ys yss)
-      {:start [xs ys]
-       :end   [xss yss]}
-      {:start [xee yee]
-       :end   [xe ye]})))
+(comment
+  "There are two cases two consider for diffing:
+    - Highlights are generally interested in additive changes.
+    - Cleaning is generally interested in subtractive changes.
+
+   => This means that I basically need two set of rules:
+    -> One how to diff additively
+    -> One how to diff subtractively
+
+    However, by implementing just one set of rules, I can simulate the other
+    by simply switching the function arguments"
+
+  "Subtractive check: -- I think they are both duals. I can use the same approach but just invert the arguments. But I digress
+     ->> Premise: The thing that i will render is smaller
+
+     0. If they start and end at the same line:
+        => if xe-new < xe-former -> [xe-new, ye-new] => [xe-new, ye-new]
+        => if xs-new > xs-former -> {xs-former, ys-former] => [xs-new, ys-new]
+
+     1. If they start at the same line:
+        => if ye-new < ye-former -> [xe-new, ye-new] => [xe-former, ye-former]
+
+     2. If the end at the same line:
+        => if ys-new > ys-former -> [xs-former, ys-former] => [xs-new, ys-new]
+
+     3. If they are the same:
+        => keep them
+
+     Otherwise interpret as is.")
+
+(defn diff-region [current former]
+  (let [{[xs ys]   :start
+         [xe ye]   :end} current
+        {[xs' ys'] :start
+         [xe' ye'] :end} former
+        same-start?    (= ys ys')
+        same-end?      (= ye ye')
+        same-line?     (and same-start?
+                            same-end?)
+        identical?     (and (= [xs ys] [xs' ys'])
+                            (= [xe ye] [xe' ye']))
+        shrink-right?  (and same-line? (< xe xe'))
+        shrink-left?   (and same-line? (> xs xs'))
+        shrink-bottom? (and same-start? (< ye ye'))
+        shrink-top?    (and same-end? (> ys ys'))]
+    (cond
+      identical? {}
+      (or shrink-right?
+          shrink-bottom?) {:start [xe  ye]
+                           :end   [xe' ye']}
+      (or shrink-left?
+          shrink-top?)    {:start [xs' ys']
+                           :end   [xs  ys]}
+      :else current)))
 
 (defn occlude [new old]
-  (letfn [(minimise [[t ha]]
-            (->> (old t ha)
-                 (common-region ha)
-                 (diff-region ha)))]
+  (letfn [(minimise [ha]
+            (or (some->> old
+                         (some #(when (= (:type ha) (:type %)) %))
+                         (diff-region ha))
+                ha))]
     (->> new (mapv minimise) (into {}))))
 
 (defn- display! [emission terminal x y]
