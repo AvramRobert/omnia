@@ -256,8 +256,7 @@
         scheme (fn [region]
                  {:priority primary
                   :type     :selection
-                  :start    (:start region)
-                  :end      (:end region)
+                  :region   region
                   :scheme   {:cs (select-cs cs)
                              :style nil}})]
     (update ctx :highlights
@@ -272,11 +271,10 @@
 (defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
-    (let [scheme (fn [type {:keys [start end]}]
+    (let [scheme (fn [type region]
                    {:priority secondary
                     :type     type
-                    :start    start
-                    :end      end
+                    :region   region
                     :scheme   {:cs (-> ctx (:colourscheme) (clean-cs))
                                :style :underline}})]
       (update ctx :highlights

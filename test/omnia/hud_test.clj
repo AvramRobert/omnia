@@ -496,8 +496,7 @@
         scheme (fn [type region]
                  {:priority r/secondary
                   :type     type
-                  :start    (:start region)
-                  :end      (:end   region)
+                  :region   region
                   :scheme   {:cs    (-> ctx (:colourscheme) (r/clean-cs))
                              :style :underline}})
         actual-highlights (-> ctx

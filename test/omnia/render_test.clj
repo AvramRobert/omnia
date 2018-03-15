@@ -76,7 +76,7 @@
        (sort-by :priority)
        (mapv #(let [{start :start
                      end   :end} (-> complete-hud
-                                   (r/project-selection %)
+                                   (r/project-selection (:region %))
                                    (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
                                    (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
                 (-> (index ctx)
@@ -369,10 +369,10 @@
   (let [total (move-end-fov (make-total ctx))
         [x y] (cursor total)]
     (can-be total
-            #(->> (process % select-up 5)
-                  (:highlights)
-                  (highlights? {:start [x (- y 5)]
-                                :end   [x y]})))))
+            #(-> (process % select-up 5)
+                 (:highlights)
+                 (highlights? {:start [x (- y 5)]
+                               :end   [x y]})))))
 
 (defn paged-selection-extension [ctx]
   (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (i/start-x) (:cursor))
@@ -405,7 +405,7 @@
         (process up 2)
         (process select-right)
         (update :highlights vec)
-        (update-in [:highlights 0]
+        (update-in [:highlights 0 :region]
                    #(let [{[xs ys] :start
                            [xe ye] :end} %]
                       {:start [xs (+ ys fov)]
@@ -418,7 +418,7 @@
     (-> (move-end-fov ctx)
         (process select-right)
         (update :highlights vec)
-        (update-in [:highlights 0]
+        (update-in [:highlights 0 :region]
                    #(let [{[xs ys] :start
                            [xe ye] :end} %]
                       {:start [xs (- ys fov)]
@@ -506,3 +506,70 @@
                                      :fov    10
                                      :seeker (one (gen-seeker-of 20))})]
                   (y-projection ctx)))
+
+
+;; IX. Region diff
+
+(defn- check-diff [{:keys [now then expected]}]
+  (is (= expected (r/subtractive-diff now then)))
+  (is (= expected (r/additive-diff then now)))
+  (is (= {} (r/subtractive-diff then now)))
+  (is (= {} (r/additive-diff now then))))
+
+(defn upper-x-diff []
+  (check-diff {:now  {:start [4 1]
+                        :end   [4 3]}
+                 :then {:start [0 1]
+                        :end   [4 3]}
+                 :expected {:start [0 1]
+                            :end   [4 1]}}))
+
+(defn lower-x-diff []
+  (check-diff {:now {:start [2 1]
+                       :end   [2 4]}
+                 :then {:start [2 1]
+                        :end   [5 4]}
+                 :expected {:start [2 4]
+                            :end   [5 4]}}))
+
+(defn lower-y-diff []
+  (check-diff {:now {:start [2 1]
+                       :end   [4 2]}
+                 :then {:start [2 1]
+                        :end   [6 5]}
+                 :expected {:start [4 2]
+                            :end   [6 5]}}))
+
+
+(defn upper-y-diff []
+  (check-diff {:now  {:start [4 4]
+                        :end   [7 6]}
+                 :then {:start [2 1]
+                        :end   [7 6]}
+                 :expected {:start [2 1]
+                            :end   [4 4]}}))
+
+(defn keep-diff []
+  (check-diff {:now {:start [2 3]
+                     :end   [4 5]}
+               :then {:start [2 3]
+                      :end   [4 5]}
+               :expected {}}))
+
+(defn no-diff []
+  (let [a {:start [2 3]
+           :end   [4 5]}
+        b {:start [4 5]
+           :end   [4 6]}]
+    (is (= a (r/additive-diff a b)))
+    (is (= b (r/additive-diff b a)))
+    (is (= a (r/subtractive-diff a b)))
+    (is (= b (r/subtractive-diff b a)))))
+
+(clojure.test/deftest region-diff
+  (upper-x-diff)
+  (lower-x-diff)
+  (upper-y-diff)
+  (lower-y-diff)
+  (keep-diff)
+  (no-diff))

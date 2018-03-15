@@ -113,69 +113,50 @@
         (i/extract)
         (assoc :height (:height hud)))))                    ;; for accurate projection
 
+;; To avoid syntax highlighting artifacts, diffs on single lines prompt a complete re-render of that line
+(defn additive-diff [hud current formers]
+  (if-let [former (some #(when (= (:type current) (:type %)) %) formers)]
+    (let [{[xs ys]   :start
+           [xe ye]   :end} (:region current)
+          {[xs' ys'] :start
+           [xe' ye'] :end} (:region former)
+          line-length     (fn [y] (-> hud (i/reset-y y) (i/end-x) (:cursor) (first)))
+          same-start?     (= ys ys')
+          same-end?       (= ye ye')
+          enlarge-left?   (< xs xs')
+          enlarge-right?  (> xe xe')
+          shrink-left?    (< xe xe')
+          shrink-right?   (> xs xs')
+          not-same-line?  (not= ys ye)
+          multi-line?     (and same-start? same-end? not-same-line?)
+          identical?      (and (= [xs ys] [xs' ys'])
+                               (= [xe ye] [xe' ye']))
+          shrink-bottom?  (and same-start? (< ye ye'))
+          shrink-top?     (and same-end? (> ys ys'))
+          enlarge-bottom? (and same-start? (> ye ye'))
+          enlarge-top?    (and same-end? (< ys ys'))]
+      (cond
+        (or identical?
+            shrink-bottom?
+            shrink-top?)     nil
 
-(comment
-  "There are two cases two consider for diffing:
-    - Highlights are generally interested in additive changes.
-    - Cleaning is generally interested in subtractive changes.
+        enlarge-bottom? (assoc current :region {:start [xe' ye']
+                                                :end   [xe ye]})
 
-   => This means that I basically need two set of rules:
-    -> One how to diff additively
-    -> One how to diff subtractively
+        enlarge-top?    (assoc current :region {:start [xs  ys]
+                                                :end   [xs' ys']})
 
-    However, by implementing just one set of rules, I can simulate the other
-    by simply switching the function arguments"
+        (and multi-line?
+             (or enlarge-right?
+                 shrink-left?)) (assoc current :region {:start [0 ye]
+                                                        :end   [xe ye]})
+        (and multi-line?
+             (or enlarge-left?
+                 shrink-right?))  (assoc current :region {:start [xs ys]
+                                                          :end   [(line-length ys) ys]})
 
-  "Subtractive check: -- I think they are both duals. I can use the same approach but just invert the arguments. But I digress
-     ->> Premise: The thing that i will render is smaller
-
-     0. If they start and end at the same line:
-        => if xe-new < xe-former -> [xe-new, ye-new] => [xe-new, ye-new]
-        => if xs-new > xs-former -> {xs-former, ys-former] => [xs-new, ys-new]
-
-     1. If they start at the same line:
-        => if ye-new < ye-former -> [xe-new, ye-new] => [xe-former, ye-former]
-
-     2. If the end at the same line:
-        => if ys-new > ys-former -> [xs-former, ys-former] => [xs-new, ys-new]
-
-     3. If they are the same:
-        => keep them
-
-     Otherwise interpret as is.")
-
-(defn diff-region [current former]
-  (let [{[xs ys]   :start
-         [xe ye]   :end} current
-        {[xs' ys'] :start
-         [xe' ye'] :end} former
-        same-start?    (= ys ys')
-        same-end?      (= ye ye')
-        same-line?     (and same-start?
-                            same-end?)
-        identical?     (and (= [xs ys] [xs' ys'])
-                            (= [xe ye] [xe' ye']))
-        shrink-right?  (and same-line? (< xe xe'))
-        shrink-left?   (and same-line? (> xs xs'))
-        shrink-bottom? (and same-start? (< ye ye'))
-        shrink-top?    (and same-end? (> ys ys'))]
-    (cond
-      identical? {}
-      (or shrink-right?
-          shrink-bottom?) {:start [xe  ye]
-                           :end   [xe' ye']}
-      (or shrink-left?
-          shrink-top?)    {:start [xs' ys']
-                           :end   [xs  ys]}
-      :else current)))
-
-(defn occlude [new old]
-  (letfn [(minimise [ha]
-            (or (some->> old
-                         (some #(when (= (:type ha) (:type %)) %))
-                         (diff-region ha))
-                ha))]
-    (->> new (mapv minimise) (into {}))))
+        :else current))
+    current))
 
 (defn- display! [emission terminal x y]
   (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
@@ -204,30 +185,29 @@
        (print-line! line terminal scheme [cx (project-y hud cy)])
        0) y x (:lines hud))))
 
-(defn highlight! [ctx regions]
+(defn highlight! [ctx highlights]
   (let [{terminal :terminal
          complete :complete-hud} ctx]
     (run!
       #(let [scheme     (:scheme %)
-             projection (project-selection complete %)
+             projection (->> (:region %) (project-selection complete))
              {[xs ys] :start} projection]
          (-> (region complete projection)
-             (print-hud! terminal scheme [xs ys]))) regions)))
+             (print-hud! terminal scheme [xs ys]))) highlights)))
 
-(defn clean! [{:keys [colourscheme highlights] :as ctx}]
+(defn clean! [{:keys [complete-hud colourscheme highlights] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (-> selection
-                ;(occlude highlights)                        ;; expects typed
-                (update :start (fn [[_ y]] [0 y]))
-                (assoc  :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
-    (as-> ctx context
-          (update context :garbage #(mapv reset %))
-          (highlight! context (:garbage context)))))
+            (some-> (additive-diff complete-hud selection highlights)
+                    (update-in [:region :start] (fn [[_ y]] [0 y]))
+                    (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
+    (->> (:garbage ctx) (mapv reset) (remove nil?) (highlight! ctx))))
 
-(defn selections! [ctx]
-  (->> (:highlights ctx)
+(defn selections! [{:keys [complete-hud highlights garbage] :as ctx}]
+  (->> highlights
        (sort-by :priority)
+       (mapv #(additive-diff complete-hud % garbage))
+       (remove nil?)
        (highlight! ctx)))
 
 (defn position! [{:keys [terminal complete-hud]}]
