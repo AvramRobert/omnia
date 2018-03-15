@@ -506,3 +506,68 @@
                                      :fov    10
                                      :seeker (one (gen-seeker-of 20))})]
                   (y-projection ctx)))
+
+
+;; IX. Region diff
+
+(defn upper-same-line-diff []
+  (let [a {:start [4 1]
+           :end   [4 3]}
+        b {:start [0 1]
+           :end   [4 3]}
+        expected {:start [0 1]
+                  :end   [4 1]}]
+    (is (= expected (r/diff-region a b)))
+    (is (= expected (r/diff-region b a)))))
+
+(defn lower-same-line-diff []
+  (let [a {:start [2 1]
+           :end   [2 4]}
+        b {:start [2 1]
+           :end   [5 4]}
+        expected {:start [2 4]
+                  :end   [5 4]}]
+    (is (= expected (r/diff-region a b)))
+    (is (= expected (r/diff-region b a)))))
+
+(defn lower-diff []
+  (let [a {:start [2 1]
+           :end   [4 2]}
+        b {:start [2 1]
+           :end   [6 5]}
+        expected {:start [4 2]
+                  :end   [6 5]}]
+    (is (= expected (r/diff-region a b)))
+    (is (= expected (r/diff-region b a)))))
+
+
+(defn upper-diff []
+  (let [a {:start [4 4]
+           :end   [7 6]}
+        b {:start [2 1]
+           :end   [7 6]}
+        expected {:start [2 1]
+                  :end   [4 4]}]
+    (is (= expected (r/diff-region a b)))
+    (is (= expected (r/diff-region b a)))))
+
+(defn no-diff []
+  (let [a {:start [2 3]
+           :end   [4 5]}
+        b {:start [4 5]
+           :end   [4 6]}]
+    (is (= a (r/diff-region a b)))
+    (is (= b (r/diff-region b a)))))
+
+(defn keep-diff []
+  (let [a {:start [2 3]
+           :end   [4 5]}]
+    (is (= {} (r/diff-region a a)))))
+
+(clojure.test/deftest region-diff
+  (upper-same-line-diff)
+  (lower-same-line-diff)
+  (lower-diff)
+  (upper-diff)
+  (no-diff)
+  (keep-diff))
