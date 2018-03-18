@@ -113,48 +113,36 @@
         (i/extract)
         (assoc :height (:height hud)))))                    ;; for accurate projection
 
-;; To avoid syntax highlighting artifacts, diffs on single lines prompt a complete re-render of that line
-(defn additive-diff [hud current formers]
+(defn additive-diff [current formers]
   (if-let [former (some #(when (= (:type current) (:type %)) %) formers)]
     (let [{[xs ys]   :start
            [xe ye]   :end} (:region current)
           {[xs' ys'] :start
            [xe' ye'] :end} (:region former)
-          line-length     (fn [y] (-> hud (i/reset-y y) (i/end-x) (:cursor) (first)))
-          same-start?     (= ys ys')
-          same-end?       (= ye ye')
-          enlarge-left?   (< xs xs')
-          enlarge-right?  (> xe xe')
-          shrink-left?    (< xe xe')
-          shrink-right?   (> xs xs')
-          not-same-line?  (not= ys ye)
-          multi-line?     (and same-start? same-end? not-same-line?)
-          identical?      (and (= [xs ys] [xs' ys'])
-                               (= [xe ye] [xe' ye']))
-          shrink-bottom?  (and same-start? (< ye ye'))
-          shrink-top?     (and same-end? (> ys ys'))
-          enlarge-bottom? (and same-start? (> ye ye'))
-          enlarge-top?    (and same-end? (< ys ys'))]
+          exact-start?   (= [xs ys] [xs' ys'])
+          exact-end?     (= [xe ye] [xe' ye'])
+          similar-start? (= ys ys')
+          similar-end?   (= ye ye')
+          shrunk-left?   (> xs xs')
+          shrunk-right?  (< xe xe')
+          shrunk-top?    (> ys ys')
+          shrunk-bottom? (< ye ye')
+          grown-left?    (< xs xs')
+          grown-right?   (> xe xe')
+          grown-top?     (< ys ys')
+          grown-bottom?  (> ye ye')]
       (cond
-        (or identical?
-            shrink-bottom?
-            shrink-top?)     nil
+        (or (and exact-start? exact-end?)
+            (and exact-start? similar-end? shrunk-right?)
+            (and exact-start? shrunk-bottom?)
+            (and exact-end? similar-start? shrunk-left?)
+            (and exact-end? shrunk-top?)) nil
 
-        enlarge-bottom? (assoc current :region {:start [xe' ye']
-                                                :end   [xe ye]})
+        (or (and exact-start? similar-end? grown-right?)
+            (and exact-start? grown-bottom?)) (assoc current :region {:start [xe' ye'] :end [xe ye]})
 
-        enlarge-top?    (assoc current :region {:start [xs  ys]
-                                                :end   [xs' ys']})
-
-        (and multi-line?
-             (or enlarge-right?
-                 shrink-left?)) (assoc current :region {:start [0 ye]
-                                                        :end   [xe ye]})
-        (and multi-line?
-             (or enlarge-left?
-                 shrink-right?))  (assoc current :region {:start [xs ys]
-                                                          :end   [(line-length ys) ys]})
-
+        (or (and exact-end? similar-start? grown-left?)
+            (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
         :else current))
     current))
 
@@ -195,18 +183,18 @@
          (-> (region complete projection)
              (print-hud! terminal scheme [xs ys]))) highlights)))
 
-(defn clean! [{:keys [complete-hud colourscheme highlights] :as ctx}]
+(defn clean! [{:keys [colourscheme highlights] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (some-> (additive-diff complete-hud selection highlights)
+            (some-> selection #_(additive-diff selection highlights)
                     (update-in [:region :start] (fn [[_ y]] [0 y]))
                     (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
     (->> (:garbage ctx) (mapv reset) (remove nil?) (highlight! ctx))))
 
-(defn selections! [{:keys [complete-hud highlights garbage] :as ctx}]
+(defn selections! [{:keys [highlights garbage] :as ctx}]
   (->> highlights
        (sort-by :priority)
-       (mapv #(additive-diff complete-hud % garbage))
+       #_(mapv #(additive-diff % garbage))
        (remove nil?)
        (highlight! ctx)))
 
@@ -229,6 +217,7 @@
             (->> (range 0 (- largest hc))
                  (reduce (fn [c _] (conj c \space)) current-line)))))
 
+;; FIXME: Replace `loop` with `dotimes`
 (defn diff! [ctx]
   (let [{terminal     :terminal
          complete     :complete-hud
