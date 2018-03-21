@@ -186,15 +186,15 @@
 (defn clean! [{:keys [colourscheme highlights] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (some-> selection #_(additive-diff selection highlights)
-                    (update-in [:region :start] (fn [[_ y]] [0 y]))
+            (some-> (additive-diff selection highlights)
+                    #_(update-in [:region :start] (fn [[_ y]] [0 y]))
                     (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
     (->> (:garbage ctx) (mapv reset) (remove nil?) (highlight! ctx))))
 
 (defn selections! [{:keys [highlights garbage] :as ctx}]
   (->> highlights
        (sort-by :priority)
-       #_(mapv #(additive-diff % garbage))
+       (mapv #(additive-diff % garbage))
        (remove nil?)
        (highlight! ctx)))
 

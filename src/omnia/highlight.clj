@@ -1,6 +1,7 @@
 (ns omnia.highlight
   (:require [clojure.core.match :as m]))
 
+;; FIXME: Rename this
 (defrecord Transiton [state fallback guard nodes valid?])
 
 (declare transition transitions changed?)
@@ -312,14 +313,17 @@
    -break    [->break]
    -space    [->space]})
 
-(defn transition [{:keys [transiton]} c]
+(defn transition [transiton c]
   (loop [[state & states] (:nodes transiton)]
     (if state
       (or (->> state (transitions) (some #(when ((:guard %) c) %)))
           (recur states))
       transiton)))
 
-(defn fallback [new-transiton old-fallback]
+(defn changed? [ntransiton otransiton]
+  (not= (:state ntransiton) (:state otransiton)))
+
+(defn fall-back [new-transiton old-fallback]
   (let [nfallback (:fallback new-transiton)]
     (if (= inferred nfallback) old-fallback nfallback)))
 
@@ -329,23 +333,41 @@
     (f store fallback)))
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
-(defn process! [stream f]
-  (-> (fn [data c]
-        (let [new-t    (transition data c)
-              new-f    (fallback data new-t)
-              changed? (not= (-> data (:transiton) (:state)) (:state new-t))
-              new-s    (if changed? [c] (-> data (:store) (conj c)))]
-          (when changed? (emit! data f))
+(defn consume! [f init stream]
+  (-> (fn [{:keys [store transiton fallback] :as data} c]
+        (let [new-t    (transition transiton c)
+              new-f    (fall-back new-t fallback)
+              changed? (changed? transiton new-t)
+              new-s    (if changed? [c] (conj store c))
+              _        (when changed? (emit! data f))]
           {:store     new-s
            :fallback  new-f
            :transiton new-t}))
-      (reduce
-        {:store empty-vec
-         :transiton ->break
-         :fallback  -text} stream)
+      (reduce init stream)
       (emit! f)))
 
-(defn process-in [stream f]
-  (let [emissions (atom [])]
-    (process! stream (fn [emission state] (swap! emissions #(conj % (f emission state)))))))
+(defn process! [stream f]
+  (consume! f {:store     empty-vec
+               :transiton ->break
+               :fallback  -text} stream))
 
+(defn process-from! [stream t0 f]
+  (consume! f {:store empty-vec
+               :transiton t0
+               :fallback -text} stream))
+
+(defn process-as [stream f]
+  (let [emissions (atom [])]
+    (process! stream
+              (fn [emission state]
+                (swap! emissions #(conj % (f emission state)))))))
+
+(defn state-at [stream x]
+  (loop [[c & chrs] stream
+         transiton ->break
+         cnt -1]
+    (let [new-t    (transition {:transiton transiton} c)
+          changed? (not= (:state transiton) (:state new-t))]
+      (if (and changed? (>= cnt x))
+        transiton
+        (recur chrs new-t (inc cnt))))))
