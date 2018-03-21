@@ -155,11 +155,11 @@
     (t/background! terminal (cs h/-back))
     (when style (t/style! terminal style))
     (t/visible! terminal false)
-    (h/process line
-               (fn [emission type]
-                 (t/foreground! terminal (cs type))
-                 (display! emission terminal @ix y)
-                 (swap! ix #(+ % (count emission)))))
+    (h/process! line
+                (fn [emission type]
+                  (t/foreground! terminal (cs type))
+                  (display! emission terminal @ix y)
+                  (swap! ix #(+ % (count emission)))))
     (t/background! terminal :default)
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))

@@ -55,8 +55,7 @@
                          valid?]
                   :or   {valid? (comp not empty?)
                          fallback inferred
-                         nodes  []}
-                  :as   transiton}]
+                         nodes  []}}]
   (assert (not (nil? state)) "A transiton must always have a state")
   (assert (not (nil? guard)) "A transiton must always have a guard")
   (let [nguard (if (= diff-nodes guard) (invert nodes) guard)]
@@ -313,40 +312,40 @@
    -break    [->break]
    -space    [->space]})
 
-(defn transition [transiton c]
-  (or (some->> (:nodes transiton)
-               (map transitions)
-               (flatten)
-               (some #(when ((:guard %) c) %)))
-      transiton))
+(defn transition [{:keys [transiton]} c]
+  (loop [[state & states] (:nodes transiton)]
+    (if state
+      (or (->> state (transitions) (some #(when ((:guard %) c) %)))
+          (recur states))
+      transiton)))
 
-(defn changed? [this that]
-  (not= (:state this) (:state that)))
+(defn fallback [new-transiton old-fallback]
+  (let [nfallback (:fallback new-transiton)]
+    (if (= inferred nfallback) old-fallback nfallback)))
 
-(defn emit [transiton pushed fallback f]
-  (if ((:valid? transiton) pushed)
-    (f pushed (:state transiton))
-    (f pushed fallback)))
-
-(defn fall [transiton fallback]
-  (let [nfallback (:fallback transiton)]
-    (if (= inferred nfallback)
-      fallback
-      nfallback)))
+(defn emit! [{:keys [transiton store fallback]} f]
+  (if ((:valid? transiton) store)
+    (f store (:state transiton))
+    (f store fallback)))
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
-(defn process [stream f]
-  (loop [rem       stream
-         transiton ->break
-         fallback  -text
-         store     empty-vec
-         ems       empty-vec]
-    (m/match [store rem]
-             [_  []] (->> (emit transiton store fallback f)
-                          (conj ems))
-             [_ [a & tail]]
-             (let [t (transition transiton a)
-                   nf (fall t fallback)]
-               (if (changed? transiton t)
-                 (recur tail t nf [a] (conj ems (emit transiton store fallback f)))
-                 (recur tail t nf (conj store a) ems))))))
+(defn process! [stream f]
+  (-> (fn [data c]
+        (let [new-t    (transition data c)
+              new-f    (fallback data new-t)
+              changed? (not= (-> data (:transiton) (:state)) (:state new-t))
+              new-s    (if changed? [c] (-> data (:store) (conj c)))]
+          (when changed? (emit! data f))
+          {:store     new-s
+           :fallback  new-f
+           :transiton new-t}))
+      (reduce
+        {:store empty-vec
+         :transiton ->break
+         :fallback  -text} stream)
+      (emit! f)))
+
+(defn process-in [stream f]
+  (let [emissions (atom [])]
+    (process! stream (fn [emission state] (swap! emissions #(conj % (f emission state)))))))
+

@@ -128,7 +128,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-list-token)]
                   (let [gens (grouped-gens tokens [\( \)])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-list))]
                     (is (= gens detections)))))
 
@@ -136,7 +136,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-vector-token)]
                   (let [gens (grouped-gens tokens [\[ \]])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-vector))]
                     (is (= gens detections)))))
 
@@ -144,7 +144,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-map-token)]
                   (let [gens (grouped-gens tokens [\{ \}])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-map))]
                     (is (= gens detections)))))
 
@@ -152,7 +152,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-break-token)]
                   (let [gens (grouped-gens tokens [\newline])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-break))]
                     (is (= gens detections)))))
 
@@ -160,7 +160,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-space-token)]
                   (let [gens (grouped-gens tokens [\space])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-space))]
                     (is (= gens detections)))))
 
@@ -170,7 +170,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\;])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-comment))]
                     (is (= gens detections)))))
 
@@ -180,7 +180,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\(])
                                          :reset? (in? [\( \)])})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-function))]
                     (is (= gens detections)))))
 
@@ -190,7 +190,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\\])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-char))]
                     (is (= gens detections)))))
 
@@ -201,7 +201,7 @@
                                         {:detect? (in? [\:])
                                          :reset? (in? [\space])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-keyword))]
                     (is (= gens detections)))))
 
@@ -212,7 +212,7 @@
                                         {:detect? (in? h/numbers)
                                          :reset? (in? [\space])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-number))]
                     (is (= gens detections)))))
 
@@ -223,7 +223,7 @@
                                            (filter %)
                                            (s/join)
                                            (BigInteger.))
-                        processed (-> (h/process tokens vector)
+                        processed (-> (h/process-in tokens vector)
                                       (detections h/-number))]
                     (if (seq processed)
                       (is (every? valid-number? processed))
@@ -237,7 +237,7 @@
                                          :reset? (in? [\"])
                                          :include-detected? true
                                          :include-reset? true})
-                        processed (-> (h/process tokens vector)
+                        processed (-> (h/process-in tokens vector)
                                       (detections h/-string h/-string*)
                                       (->> (reduce concat)))]
                     (is (= (apply concat gens) processed)))))
@@ -249,7 +249,7 @@
                                         {:detect? #(Character/isAlphabetic (int %))
                                          :reset? (in? [\space])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (h/process-in tokens vector)
                                        (detections h/-text)
                                        (->> (filter (comp not empty?))))] ;; the interpreter always emits an empty text with the first transition
                     (is (= gens detections)))))
@@ -264,7 +264,7 @@
            (for-all [tokens (->> (gen-with-token gen-space-token gen-word-token)
                                  (gen/fmap (comp vec flatten)))]
                     (let [gens (words tokens)
-                          detections (-> (h/process tokens vector)
+                          detections (-> (h/process-in tokens vector)
                                          (detections h/-word))]
                       (is (= gens detections))))))
 
