@@ -149,52 +149,58 @@
 (defn- display! [emission terminal x y]
   (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
 
-(defn print-line! [line terminal scheme [x y]]
-  (let [ix (atom x)
+(defn print-line! [{:keys [line
+                           scheme
+                           state
+                           coordinate
+                           terminal]
+                     :or {state h/->break}}]
+  (let [[x y] coordinate
+        ix   (atom x)
         {cs :cs style :style} scheme]
     (t/background! terminal (cs h/-back))
     (when style (t/style! terminal style))
     (t/visible! terminal false)
-    (h/process! line
-                (fn [emission type]
-                  (t/foreground! terminal (cs type))
-                  (display! emission terminal @ix y)
-                  (swap! ix #(+ % (count emission)))))
+    (h/process-from! line state
+       (fn [emission type]
+         (t/foreground! terminal (cs type))
+         (display! emission terminal @ix y)
+         (swap! ix #(+ % (count emission)))))
     (t/background! terminal :default)
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))
 
-(defn print-hud!
-  ([hud terminal scheme]
-   (print-hud! hud terminal scheme [0 0]))
-  ([hud terminal scheme [x y]]
-   (reduce-idx
-     (fn [cy cx line]
-       (print-line! line terminal scheme [cx (project-y hud cy)])
-       0) y x (:lines hud))))
-
 (defn highlight! [ctx highlights]
   (let [{terminal :terminal
          complete :complete-hud} ctx]
-    (run!
-      #(let [scheme     (:scheme %)
-             projection (->> (:region %) (project-selection complete))
-             {[xs ys] :start} projection]
-         (-> (region complete projection)
-             (print-hud! terminal scheme [xs ys]))) highlights)))
+    (doseq [{highlight :region
+             scheme    :scheme} highlights
+            :let [selection (project-selection complete highlight)
+                  [xs ys]   (:start selection)
+                  hud       (region complete selection)
+                  state     (h/state-at (first (:lines hud)) xs)]]
+      (->> (:lines hud)
+           (reduce-idx
+             (fn [y x line]
+               (print-line! {:line     line
+                             :terminal terminal
+                             :scheme   scheme
+                             :state    state
+                             :coordinate [x (project-y hud y)]})
+               0) ys xs)))))
 
 (defn clean! [{:keys [colourscheme highlights] :as ctx}]
   ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
   (letfn [(reset [selection]
-            (some-> (additive-diff selection highlights)
-                    #_(update-in [:region :start] (fn [[_ y]] [0 y]))
+            (some-> selection #_(additive-diff selection highlights)
+                    (update-in [:region :start] (fn [[_ y]] [0 y]))
                     (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
     (->> (:garbage ctx) (mapv reset) (remove nil?) (highlight! ctx))))
 
 (defn selections! [{:keys [highlights garbage] :as ctx}]
   (->> highlights
        (sort-by :priority)
-       (mapv #(additive-diff % garbage))
+       #_(mapv #(additive-diff % garbage))
        (remove nil?)
        (highlight! ctx)))
 
@@ -217,7 +223,6 @@
             (->> (range 0 (- largest hc))
                  (reduce (fn [c _] (conj c \space)) current-line)))))
 
-;; FIXME: Replace `loop` with `dotimes`
 (defn diff! [ctx]
   (let [{terminal     :terminal
          complete     :complete-hud
@@ -229,14 +234,14 @@
         limit    (max (count now) (count then))]
     (if (not= (:ov complete) (:ov previous))
       (total! ctx)
-      (loop [y 0]
-        (when (< y limit)
-          (let [a (nth now y nil)
-                b (nth then y nil)]
-            (when (not= a b)
-              (-> (pad-erase a b)
-                  (print-line! terminal scheme [0 y])))
-            (recur (inc y))))))))
+      (dotimes [y limit]
+        (let [a (nth now y nil)
+              b (nth then y nil)]
+          (when (not= a b)
+            (print-line! {:line      (pad-erase a b)
+                          :terminal   terminal
+                          :scheme     scheme
+                          :coordinate [0 y]})))))))
 
 (defn nothing! [ctx]
   (let [{complete :complete-hud
@@ -250,13 +255,14 @@
         then     (-> ctx (:previous-hud) (project-hud) (:lines))
         scheme   (-> ctx (:colourscheme) (simple-scheme))
         limit    (max (count now) (count then))]
-    (loop [y 0]
-      (when (< y limit)
-        (let [a (nth now y nil)
-              b (nth then y nil)]
-          (-> (pad-erase a b)
-              (print-line! terminal scheme [0 y]))
-          (recur (inc y)))))))
+    (dotimes [y limit]
+      (let [a (nth now y nil)
+            b (nth then y nil)]
+        (print-line!
+          {:line       (pad-erase a b)
+           :terminal   terminal
+           :scheme     scheme
+           :coordinate [0 y]})))))
 
 (defn render [ctx]
   (case (:render ctx)

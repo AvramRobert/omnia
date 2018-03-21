@@ -320,7 +320,7 @@
           (recur states))
       transiton)))
 
-(defn changed? [ntransiton otransiton]
+(defn changed? [otransiton ntransiton]
   (not= (:state ntransiton) (:state otransiton)))
 
 (defn fall-back [new-transiton old-fallback]
@@ -363,11 +363,14 @@
                 (swap! emissions #(conj % (f emission state)))))))
 
 (defn state-at [stream x]
-  (loop [[c & chrs] stream
-         transiton ->break
-         cnt -1]
-    (let [new-t    (transition {:transiton transiton} c)
-          changed? (not= (:state transiton) (:state new-t))]
-      (if (and changed? (>= cnt x))
-        transiton
-        (recur chrs new-t (inc cnt))))))
+  (if (>= (count stream) x)
+    ->text
+    (loop [[c & chrs] stream
+           transiton ->break
+           cnt -1]
+      (let [new-t    (transition transiton c)
+            changed? (changed? new-t transiton)]
+        (cond
+          (and changed? (>= cnt x)) transiton
+          (nil? c) ->text
+          :else (recur chrs new-t (inc cnt)))))))
