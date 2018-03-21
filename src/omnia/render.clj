@@ -66,16 +66,16 @@
 (defn project-selection [hud selection]
   (let [{fov :fov
          h   :height} hud
-        top (top-y hud)
-        bottom (bottom-y hud)
         {[xs ys] :start
          [xe ye] :end} selection
-        unpaged? (< h fov)
-        clipped-top? (< ys top)
+        top             (top-y hud)
+        bottom          (bottom-y hud)
+        unpaged?        (< h fov)
+        clipped-top?    (< ys top)
         clipped-bottom? (> ye bottom)
-        visible-top? (<= top ys bottom)
+        visible-top?    (<= top ys bottom)
         visible-bottom? (<= top ye bottom)
-        end-bottom (-> hud (i/reset-y bottom) (i/end-x) (:cursor))]
+        end-bottom      (-> hud (i/reset-y bottom) (i/end-x) (:cursor))]
     (cond
       unpaged? selection
       (and visible-top?
@@ -110,8 +110,7 @@
         (i/select)
         (i/reset-y ye)
         (i/reset-x xe)
-        (i/extract)
-        (assoc :height (:height hud)))))                    ;; for accurate projection
+        (i/extract))))
 
 (defn additive-diff [current formers]
   (if-let [former (some #(when (= (:type current) (:type %)) %) formers)]
@@ -175,34 +174,48 @@
          complete :complete-hud} ctx]
     (doseq [{highlight :region
              scheme    :scheme} highlights
-            :let [selection (project-selection complete highlight)
-                  [xs ys]   (:start selection)
-                  hud       (region complete selection)
-                  state     (h/state-at (first (:lines hud)) xs)]]
-      (->> (:lines hud)
+            :let [[x y]     (:start highlight)
+                  state     (-> complete (i/line [x y]) (h/state-at x))
+                  selection (project-selection complete highlight)
+                  [xs ys]   (:start selection)]]
+      (->> (region complete selection)
+           (:lines)
            (reduce-idx
              (fn [y x line]
                (print-line! {:line     line
                              :terminal terminal
                              :scheme   scheme
                              :state    state
-                             :coordinate [x (project-y hud y)]})
+                             :coordinate [x (project-y complete y)]})
                0) ys xs)))))
 
-(defn clean! [{:keys [colourscheme highlights] :as ctx}]
-  ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
+(defn clean! [{:keys [colourscheme
+                      garbage
+                      highlights
+                      complete-hud
+                      previous-hud] :as ctx}]
   (letfn [(reset [selection]
-            (some-> selection #_(additive-diff selection highlights)
-                    (update-in [:region :start] (fn [[_ y]] [0 y]))
-                    (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
-    (->> (:garbage ctx) (mapv reset) (remove nil?) (highlight! ctx))))
+            (when (= (:ov complete-hud) (:ov previous-hud))
+              (some-> (additive-diff selection highlights)
+                      (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme))))))]
+    (->> garbage
+         (mapv reset)
+         (remove nil?)
+         (highlight! ctx))))
 
-(defn selections! [{:keys [highlights garbage] :as ctx}]
-  (->> highlights
-       (sort-by :priority)
-       #_(mapv #(additive-diff % garbage))
-       (remove nil?)
-       (highlight! ctx)))
+(defn selections! [{:keys [highlights
+                           garbage
+                           complete-hud
+                           previous-hud] :as ctx}]
+  (letfn [(reset [selection]
+            (if (= (:ov complete-hud) (:ov previous-hud))
+              (additive-diff selection garbage)
+              selection))]
+    (->> highlights
+         (sort-by :priority)
+         (mapv reset)
+         (remove nil?)
+         (highlight! ctx))))
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]
@@ -222,6 +235,21 @@
                 largest (max hc hf)]
             (->> (range 0 (- largest hc))
                  (reduce (fn [c _] (conj c \space)) current-line)))))
+
+(defn total! [ctx]
+  (let [terminal (:terminal ctx)
+        now      (-> ctx (:complete-hud) (project-hud) (:lines))
+        then     (-> ctx (:previous-hud) (project-hud) (:lines))
+        scheme   (-> ctx (:colourscheme) (simple-scheme))
+        limit    (max (count now) (count then))]
+    (dotimes [y limit]
+      (let [a (nth now y nil)
+            b (nth then y nil)]
+        (print-line!
+          {:line       (pad-erase a b)
+           :terminal   terminal
+           :scheme     scheme
+           :coordinate [0 y]})))))
 
 (defn diff! [ctx]
   (let [{terminal     :terminal
@@ -248,21 +276,6 @@
          previous :previous-hud} ctx]
     (when (not= (:ov complete) (:ov previous))
       (total! ctx))))
-
-(defn total! [ctx]
-  (let [terminal (:terminal ctx)
-        now      (-> ctx (:complete-hud) (project-hud) (:lines))
-        then     (-> ctx (:previous-hud) (project-hud) (:lines))
-        scheme   (-> ctx (:colourscheme) (simple-scheme))
-        limit    (max (count now) (count then))]
-    (dotimes [y limit]
-      (let [a (nth now y nil)
-            b (nth then y nil)]
-        (print-line!
-          {:line       (pad-erase a b)
-           :terminal   terminal
-           :scheme     scheme
-           :coordinate [0 y]})))))
 
 (defn render [ctx]
   (case (:render ctx)

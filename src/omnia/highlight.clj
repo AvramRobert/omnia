@@ -327,6 +327,9 @@
   (let [nfallback (:fallback new-transiton)]
     (if (= inferred nfallback) old-fallback nfallback)))
 
+(defn validate [transiton]
+  (assoc transiton :valid? (constantly true)))
+
 (defn emit! [{:keys [transiton store fallback]} f]
   (if ((:valid? transiton) store)
     (f store (:state transiton))
@@ -363,7 +366,7 @@
                 (swap! emissions #(conj % (f emission state)))))))
 
 (defn state-at [stream x]
-  (if (>= (count stream) x)
+  (if (>= x (count stream))
     ->text
     (loop [[c & chrs] stream
            transiton ->break
@@ -371,6 +374,6 @@
       (let [new-t    (transition transiton c)
             changed? (changed? new-t transiton)]
         (cond
-          (and changed? (>= cnt x)) transiton
+          (and changed? (>= cnt x)) (validate transiton)
           (nil? c) ->text
           :else (recur chrs new-t (inc cnt)))))))

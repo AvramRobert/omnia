@@ -275,20 +275,20 @@ Legend:
     Write a test for this. This should also help you in the future more accurately test
     a solution where total re-render would'nt be required.
 
-57. An alternative way of highlighting with complete diffs:
-    Extend the highlighter in such a way, that when highlighting a region,
-    it would be able to determine which highlighting state that region is in
-    and basically seed the highlighting process with that state.
-    Let the highlighter start processing the line at `ys` until it gets
-    to some terminal state containing `xs`. Upon completion, that terminal state
-    is the state to return.
-    If I were to do this, then I can select arbitrary region diffs and do whatever I want
-    to them without any problem.
-    -> Tasks:
-        1. Parametrise hud and line printers:
-            - Allow configurations for highlight state (and possibly more in the future)
-        2. Function for extracting highlight state
-        3. Patch both cleaner and highlighter
+ > 57. An alternative way of highlighting with complete diffs:
+       Extend the highlighter in such a way, that when highlighting a region,
+       it would be able to determine which highlighting state that region is in
+       and basically seed the highlighting process with that state.
+       Let the highlighter start processing the line at `ys` until it gets
+       to some terminal state containing `xs`. Upon completion, that terminal state
+       is the state to return.
+       If I were to do this, then I can select arbitrary region diffs and do whatever I want
+       to them without any problem.
+       -> Slight problem:
+          In multi-page view, when incrementally highlighting towards the top,
+          a change in ov will lead to a clean-up of a subsection of the highlight
+          => Reason: A change in ov prompts a total re-render, but the highlights are still diffed,
+                     which means that the previous highlight get's deleted.
 
 
 ----------------- MIGRATION VERSIONS -------------------
