@@ -258,22 +258,22 @@ Legend:
  > 54. There seems to be a problem (null pointer exception) in some cases with the `document` function
        Docs aren't always there, so the repl returns nil for them, but concrete things for other fields.
 
-55. Why does this highlight happen:
-    `(` let a 1
-            b 2]'|'
-        (+ a b) `)`
+ > 55. Why does this highlight happen:
+       `(` let a 1
+               b 2]'|'
+           (+ a b) `)`
 
-    And this doesn't
-     ( let [a 1
-              b 2
-         (+ a b))'|'
+       And this doesn't
+        ( let [a 1
+                 b 2
+            (+ a b))'|'
 
 56. Write test for multi-paged highlight and then a delete of the highlighted.
     This should by default lead to total re-render of the screen.
     In case of diff, if all the lines are the same, the re-render is not triggered
     and thus there remain highlighting artifacts.
     Write a test for this. This should also help you in the future more accurately test
-    a solution where total re-render would'nt be required.
+    a solution where total re-render wouldn't be required.
 
  > 57. An alternative way of highlighting with complete diffs:
        Extend the highlighter in such a way, that when highlighting a region,
@@ -290,6 +290,7 @@ Legend:
           => Reason: A change in ov prompts a total re-render, but the highlights are still diffed,
                      which means that the previous highlight get's deleted.
 
+58. Index out of bounds for undo
 
 ----------------- MIGRATION VERSIONS -------------------
 

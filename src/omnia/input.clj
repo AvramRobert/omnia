@@ -466,8 +466,8 @@
   (letfn [(choose [[m s]]
             (when (= :matched m) (-> s (regress) (selection))))]
     (cond
-      (open-pairs (right seeker)) (-> seeker (select) (open-expand) (choose))
-      (closed-pairs (left seeker)) (-> seeker (regress) (select) (near-expand) (choose))
+      (open-pairs (right seeker)) (-> seeker (open-expand) (choose))
+      (closed-pairs (left seeker)) (-> seeker (closed-expand) (choose))
       :else (-> seeker (near-expand) (choose)))))
 
 (defn forget [seeker]
