@@ -17,4 +17,5 @@
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[criterium "0.4.4"]]}})
+             :dev {:dependencies [[criterium "0.4.4"]]}}
+  :aliases  {"release" ["run" "-m" "omnia.release/release"]})

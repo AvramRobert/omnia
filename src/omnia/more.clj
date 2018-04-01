@@ -42,6 +42,9 @@
     (-> path (slurp) (edn/read-string))
     else))
 
+(defmacro omnia-version []
+  (System/getProperty "omnia.version"))
+
 (defmacro time-return [& body]
   `(let [s# (System/nanoTime)
         val# ~@body

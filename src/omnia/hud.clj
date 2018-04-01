@@ -15,7 +15,7 @@
             [clojure.core.match :as m]
             [omnia.format :as f]
             [omnia.terminal :as t]
-            [omnia.more :refer [-- ++ inc< dec< mod*]]))
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version]]))
 
 (defrecord Context [terminal
                     repl
@@ -30,9 +30,6 @@
                     docs
                     highlights
                     garbage])
-
-(defmacro omnia-version []
-  (System/getProperty "omnia.version"))
 
 (def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))

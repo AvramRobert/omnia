@@ -3,8 +3,7 @@
             [clojure.string :refer [join]]
             [clojure.set :refer [map-invert]]
             [halfling.task :refer [task]]
-            [omnia.highlight :as h]
-            [omnia.format :as f]))
+            [omnia.highlight :as h]))
 
 (def ^:const keymap :keymap)
 (def ^:const colourscheme :colourscheme)
@@ -123,7 +122,3 @@
         (patch)
         (validate)
         (update keymap (comp map-invert normalise)))))
-
-(defn export-config [path]
-  (let [config (-> default-config (str) (f/format-str))]
-    (task (-> path (str "/omnia.edn") (spit config)))))
