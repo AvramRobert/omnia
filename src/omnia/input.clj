@@ -422,13 +422,15 @@
 (defn closed-expand [seeker]
   "Note: This assumes that the left-hand side of the seeker starts with a closed parens"
   (let [r (left seeker)
-        beginning (start seeker)]
+        beginning (start seeker)
+        switch #(assoc % :cursor    (:cursor seeker)
+                         :selection (:cursor %))]
     (loop [seen 1
            current (-> seeker (select) (regress))]
       (let [l (left current)]
         (cond
-          (zero? seen) [:matched current]
-          (= (:cursor beginning) (:cursor current)) [:unmatched current]
+          (zero? seen) [:matched (switch current)]
+          (= (:cursor beginning) (:cursor current)) [:unmatched (switch current)]
           (a-pair? l r) (recur (dec seen) (regress current))
           (= l r) (recur (inc seen) (regress current))
           :else (recur seen (regress current)))))))
@@ -452,7 +454,7 @@
                [:word \[ \]] (-> seeker (near-expand) (second))
                [:word \{ \}] (-> seeker (near-expand) (second))
                [:word \space \space] (-> seeker (near-expand) (second))
-               [:word \space (:or \) \] \})] (-> seeker (advance) (closed-expand) (second))
+               [:word (:or \" \space) (:or \) \] \})] (-> seeker (advance) (closed-expand) (second))
                [:word (:or \) \] \}) _] (-> seeker (closed-expand) (second))
                [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (open-expand) (second))
                [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select) (jump-right))
