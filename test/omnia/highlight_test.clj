@@ -22,7 +22,7 @@
    h/-comment [\;]
    h/-keyword [\:]})
 
-(def states (keys state-chars))
+(def ids (keys state-chars))
 
 (defn chars-for [state]
   (get state-chars state []))
@@ -33,8 +33,8 @@
   (let [s (set tokens)]
     #(contains? s %)))
 
-(defn is-state [transiton state]
-  (is (= state (:state transiton))))
+(defn is-state [state id]
+  (is (= id (:id state))))
 
 (def gen-sign-token (gen-tokens \+ \-))
 (def gen-list-token (gen-tokens \( \)))
@@ -112,17 +112,16 @@
                           :always (conj items))
                  (if include-reset? (rest post) post)))))))
 
-(defn transition! [transiton disallowed]
-  "Given a `transiton`, it forces it through all the available states
-  and checks its transitions. Disallowed transitions are specified
-  in `disallowed` as key-value pairs. The key represents the
-  disallowed state, whist the value represents the actual state
-  the transiton should transition to if it encounters a character
-  that would otherwise lead to the disallowed state."
-  (doseq [state states
-          c (chars-for state)
-          :let [nxt (h/transition transiton c)]]
-    (is-state nxt (get disallowed state state))))
+(defn transition! [state disallowed]
+  "Given a `state`, it forces it through all the available transitions
+  and checks them. Disallowed transitions are specified
+  in `disallowed` as key-value pairs. The key is the disallowed
+  state-identifier, whist the value is the actual state-identifier
+  the transition needs to have should it encounter
+  a character that would lead to the disallowed state."
+  (doseq [id ids
+          c (chars-for id)]
+    (= (:id (h/transition state c)) (get disallowed id id))))
 
 (defspec detect-lists
          100

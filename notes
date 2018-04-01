@@ -290,7 +290,9 @@ Legend:
           => Reason: A change in ov prompts a total re-render, but the highlights are still diffed,
                      which means that the previous highlight get's deleted.
 
-58. Index out of bounds for undo
+58. Possible problem:
+    After an undo, might the highlight cleaner try to clean something that
+    isn't there anymore, thus leading to IndexOutOfBounds when subvec is called on that region?
 
 ----------------- MIGRATION VERSIONS -------------------
 
@@ -308,7 +310,10 @@ pomegranate 0.3.1 -> 1.0.0:
     -> retrieval only works in stand-alone jar:
         * adding to classpath works in dev, but dependency disappears after a while (rather strange)
 
-IDEA: 
+
+------------------ FEATURE IDEAS ---------------------
+
+IDEA:
  -> Auto indentation! Solution for formatting
  -> Each expression/line has an associated indentation. Should you go to the next line, you reuse the indentation if it's part of the same expression
     or indent further if it's a nested expression
@@ -322,14 +327,13 @@ Prospects:
 - Look-ahead syntax highlighter // done
 - Highlighter tests // done
 - Rendering tests // done
-- Undo and redo
-- Slurping/barfing
+- Undo and redo // done
 - Parametricity and arity lookup // done
 - ClojureDoc support // done
-- Extensive validation, sane defaults and/or reporting for user config
-- Improved and more extensive config options
-- Copying/cutting from external sources
 - Automatic parens matching // done
-- Automatic code formatting
 - Parametrised highlighting // done
+- Slurping/barfing
+- Extensive validation, sane defaults and/or reporting for user config
+- Copying/cutting from external sources
+- Automatic code formatting
 - Documentation

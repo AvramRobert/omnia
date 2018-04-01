@@ -1,8 +1,6 @@
-(ns omnia.highlight
-  (:require [clojure.core.match :as m]))
+(ns omnia.highlight)
 
-;; FIXME: Rename this
-(defrecord Transiton [state fallback guard nodes valid?])
+(defrecord State [id fallback guard nodes valid?])
 
 (declare transition transitions changed?)
 
@@ -42,260 +40,260 @@
     #(reduce
        (fn [bool p] (and bool (not (p %)))) true @ts)))
 
-(defn- applies? [transiton]
-  (let [guard (:guard transiton)
-        immuted? #(->> (transition transiton %) (changed? transiton) (not))]
+(defn- applies? [state]
+  (let [guard (:guard state)
+        immuted? #(->> (transition state %) (changed? state) (not))]
     (fn [chars]
       (and (guard (first chars))
            (every? immuted? chars)))))
 
-(defn transiton [{:keys [state
-                         fallback
-                         guard
-                         nodes
-                         valid?]
-                  :or   {valid? (comp not empty?)
-                         fallback inferred
-                         nodes  []}}]
-  (assert (not (nil? state)) "A transiton must always have a state")
-  (assert (not (nil? guard)) "A transiton must always have a guard")
+(defn state [{:keys [id
+                     fallback
+                     guard
+                     nodes
+                     valid?]
+              :or {valid? (comp not empty?)
+                   fallback inferred
+                   nodes []}}]
+  (assert (not (nil? id)) "A state must always have an identifier")
+  (assert (not (nil? guard)) "A state must always have a guard")
   (let [nguard (if (= diff-nodes guard) (invert nodes) guard)]
-    (Transiton. state fallback nguard nodes valid?)))
+    (State. id fallback nguard nodes valid?)))
 
 (def ->break
-  (transiton {:state -break
-              :fallback -text
-              :guard #(= \newline %)
-              :nodes [-space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -break
+          :fallback -text
+          :guard #(= \newline %)
+          :nodes [-space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->space
-  (transiton {:state -space
-              :fallback -text
-              :guard #(= \space %)
-              :nodes [-break
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -space
+          :fallback -text
+          :guard #(= \space %)
+          :nodes [-break
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->open-list
-  (transiton {:state -list
-              :fallback -function
-              :guard #(= \( %)
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -function]}))
+  (state {:id -list
+          :fallback -function
+          :guard #(= \( %)
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -function]}))
 
 (def ->close-list
-  (transiton {:state -list
-              :fallback -text
-              :guard #(= \) %)
-              :nodes [-break
-                      -space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -list
+          :fallback -text
+          :guard #(= \) %)
+          :nodes [-break
+                  -space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->open-vector
-  (transiton {:state -vector
-              :guard #(= \[ %)
-              :nodes [-break
-                      -space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -vector
+          :guard #(= \[ %)
+          :nodes [-break
+                  -space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->close-vector
-  (transiton {:state -vector
-              :guard #(= \] %)
-              :nodes [-break
-                      -space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -vector
+          :guard #(= \] %)
+          :nodes [-break
+                  -space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->open-map
-  (transiton {:state -map
-              :guard #(= \{ %)
-              :nodes [-break
-                      -space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -map
+          :guard #(= \{ %)
+          :nodes [-break
+                  -space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->close-map
-  (transiton {:state -map
-              :guard #(= \} %)
-              :nodes [-break
-                      -space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -map
+          :guard #(= \} %)
+          :nodes [-break
+                  -space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->open-string
-  (transiton {:state -string
-              :guard #(= \" %)
-              :nodes [-string*]}))
+  (state {:id -string
+          :guard #(= \" %)
+          :nodes [-string*]}))
 
 (def ->close-string
-  (transiton {:state -string*
-              :guard #(= \" %)
-              :nodes [-break
-                      -space
-                      -word
-                      -list
-                      -vector
-                      -map
-                      -number
-                      -char
-                      -string
-                      -comment
-                      -keyword
-                      -text]}))
+  (state {:id -string*
+          :guard #(= \" %)
+          :nodes [-break
+                  -space
+                  -word
+                  -list
+                  -vector
+                  -map
+                  -number
+                  -char
+                  -string
+                  -comment
+                  -keyword
+                  -text]}))
 
 (def ->comment
-  (transiton {:state -comment
-              :guard #(= \; %)
-              :nodes [-break]}))
+  (state {:id -comment
+          :guard #(= \; %)
+          :nodes [-break]}))
 
 (def ->char
-  (transiton {:state -char
-              :guard #(= \\ %)
-              :nodes [-break
-                      -space]}))
+  (state {:id -char
+          :guard #(= \\ %)
+          :nodes [-break
+                  -space]}))
 
 (def ->number
-  (transiton {:state -number
-              :guard #(contains? numbers %)
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -string
-                      -comment]}))
+  (state {:id -number
+          :guard #(contains? numbers %)
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -string
+                  -comment]}))
 
 (def ->signed-number
-  (transiton {:state -number
-              :guard #(or (= \+ %) (= \- %))
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -string
-                      -comment]
-              :valid? (comp (applies? ->number) rest)}))
+  (state {:id -number
+          :guard #(or (= \+ %) (= \- %))
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -string
+                  -comment]
+          :valid? (comp (applies? ->number) rest)}))
 
 (def ->keyword
-  (transiton {:state -keyword
-              :guard #(= \: %)
-              :nodes [-list
-                      -vector
-                      -map
-                      -string
-                      -char
-                      -comment
-                      -break
-                      -space]}))
+  (state {:id -keyword
+          :guard #(= \: %)
+          :nodes [-list
+                  -vector
+                  -map
+                  -string
+                  -char
+                  -comment
+                  -break
+                  -space]}))
 
 (def ->word
-  (transiton {:state  -word
-              :guard  #(some (fn [[l & _]] (= l %)) words)
-              :nodes  [-break
-                       -space
-                       -list
-                       -vector
-                       -map
-                       -string
-                       -char
-                       -comment]
-              :valid? #(some (fn [w] (= % w)) words)}))
+  (state {:id -word
+          :guard #(some (fn [[l & _]] (= l %)) words)
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -string
+                  -char
+                  -comment]
+          :valid? #(some (fn [w] (= % w)) words)}))
 
 (def ->function
-  (transiton {:state -function
-              :fallback -function
-              :guard diff-nodes
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -comment
-                      -char
-                      -string]}))
+  (state {:id -function
+          :fallback -function
+          :guard diff-nodes
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -comment
+                  -char
+                  -string]}))
 
 (def ->text
-  (transiton {:state -text
-              :fallback -text
-              :guard diff-nodes
-              :nodes [-break
-                      -space
-                      -list
-                      -vector
-                      -map
-                      -char
-                      -string
-                      -comment]}))
+  (state {:id -text
+          :fallback -text
+          :guard diff-nodes
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -char
+                  -string
+                  -comment]}))
 
 (def transitions
   {-list     [->open-list ->close-list]
@@ -313,50 +311,50 @@
    -break    [->break]
    -space    [->space]})
 
-(defn transition [transiton c]
-  (loop [[state & states] (:nodes transiton)]
-    (if state
-      (or (->> state (transitions) (some #(when ((:guard %) c) %)))
-          (recur states))
-      transiton)))
+(defn transition [state c]
+  (loop [[node & nodes] (:nodes state)]
+    (if node
+      (or (->> node (transitions) (some #(when ((:guard %) c) %)))
+          (recur nodes))
+      state)))
 
-(defn changed? [otransiton ntransiton]
-  (not= (:state ntransiton) (:state otransiton)))
+(defn changed? [old-state new-state]
+  (not= (:id new-state) (:id old-state)))
 
-(defn fall-back [new-transiton old-fallback]
-  (let [nfallback (:fallback new-transiton)]
-    (if (= inferred nfallback) old-fallback nfallback)))
+(defn fall-back [new-state old-fallback]
+  (let [new-fallback (:fallback new-state)]
+    (if (= inferred new-fallback) old-fallback new-fallback)))
 
-(defn validate [transiton]
-  (assoc transiton :valid? (constantly true)))
+(defn validate [state]
+  (assoc state :valid? (constantly true)))
 
-(defn emit! [{:keys [transiton store fallback]} f]
-  (if ((:valid? transiton) store)
-    (f store (:state transiton))
+(defn emit! [{:keys [state store fallback]} f]
+  (if ((:valid? state) store)
+    (f store (:id state))
     (f store fallback)))
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
 (defn consume! [f init stream]
-  (-> (fn [{:keys [store transiton fallback] :as data} c]
-        (let [new-t    (transition transiton c)
+  (-> (fn [{:keys [store state fallback] :as data} c]
+        (let [new-t    (transition state c)
               new-f    (fall-back new-t fallback)
-              changed? (changed? transiton new-t)
+              changed? (changed? state new-t)
               new-s    (if changed? [c] (conj store c))
               _        (when changed? (emit! data f))]
-          {:store     new-s
-           :fallback  new-f
-           :transiton new-t}))
+          {:store new-s
+           :fallback new-f
+           :state new-t}))
       (reduce init stream)
       (emit! f)))
 
 (defn process! [stream f]
-  (consume! f {:store     empty-vec
-               :transiton ->break
-               :fallback  -text} stream))
-
-(defn process-from! [stream t0 f]
   (consume! f {:store empty-vec
-               :transiton t0
+               :state ->break
+               :fallback -text} stream))
+
+(defn process-from! [stream s0 f]
+  (consume! f {:store empty-vec
+               :state s0
                :fallback -text} stream))
 
 (defn process-as [stream f]
@@ -369,12 +367,12 @@
   (if (>= x (count stream))
     ->text
     (loop [[c & chrs] stream
-           transiton ->break
+           state ->break
            cnt 0]
-      (let [new-t    (transition transiton c)
-            changed? (changed? new-t transiton)
-            done? (nil? c)]
+      (let [new-t    (transition state c)
+            changed? (changed? new-t state)
+            done?    (nil? c)]
         (if (and (>= cnt x)
                  (or changed? done?))
-          (validate transiton)
+          (validate state)
           (recur chrs new-t (inc cnt)))))))
