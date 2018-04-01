@@ -148,23 +148,27 @@
 (defn- display! [emission terminal x y]
   (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
 
-(defn print-line! [{:keys [line
-                           scheme
-                           state
-                           coordinate
-                           terminal]
-                     :or {state h/->break}}]
-  (let [[x y] coordinate
-        ix   (atom x)
-        {cs :cs style :style} scheme]
+(defn print-line! [params]
+  (let [{line     :line
+         padding  :padding
+         state    :state
+         terminal :terminal
+         [x y]    :coordinate
+         {cs      :cs
+          style   :style} :scheme} params
+         ix (atom x)
+         s0 (or state h/->break)]
     (t/background! terminal (cs h/-back))
     (when style (t/style! terminal style))
     (t/visible! terminal false)
-    (h/process-from! line state
+    (h/process-from! line s0
        (fn [emission type]
          (t/foreground! terminal (cs type))
          (display! emission terminal @ix y)
          (swap! ix #(+ % (count emission)))))
+    (when padding
+      (dotimes [offset padding]
+        (t/put! terminal \space (+ @ix offset) y)))
     (t/background! terminal :default)
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))
@@ -223,18 +227,10 @@
 
 ;; === Rendering strategies ===
 
-;; FIXME: Merge padding with printing
-(defn- pad-erase [current-line former-line]
-  (cond
-    (and (empty? former-line)
-         (empty? current-line)) []
-    (empty? former-line)  current-line
-    (empty? current-line) (-> (count former-line) (repeat \space) (vec))
-    :else (let [hc (count current-line)
-                hf (count former-line)
-                largest (max hc hf)]
-            (->> (range 0 (- largest hc))
-                 (reduce (fn [c _] (conj c \space)) current-line)))))
+(defn- pad [current-line former-line]
+  (let [c (count current-line)
+        f (count former-line)]
+    (when (> f c) (- f c))))
 
 (defn total! [ctx]
   (let [terminal (:terminal ctx)
@@ -246,7 +242,8 @@
       (let [a (nth now y nil)
             b (nth then y nil)]
         (print-line!
-          {:line       (pad-erase a b)
+          {:line       a
+           :padding    (pad a b)
            :terminal   terminal
            :scheme     scheme
            :coordinate [0 y]})))))
@@ -266,7 +263,8 @@
         (let [a (nth now y nil)
               b (nth then y nil)]
           (when (not= a b)
-            (print-line! {:line      (pad-erase a b)
+            (print-line! {:line       a
+                          :padding    (pad a b)
                           :terminal   terminal
                           :scheme     scheme
                           :coordinate [0 y]})))))))
