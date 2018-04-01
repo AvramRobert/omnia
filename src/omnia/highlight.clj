@@ -370,10 +370,11 @@
     ->text
     (loop [[c & chrs] stream
            transiton ->break
-           cnt -1]
+           cnt 0]
       (let [new-t    (transition transiton c)
-            changed? (changed? new-t transiton)]
-        (cond
-          (and changed? (>= cnt x)) (validate transiton)
-          (nil? c) ->text
-          :else (recur chrs new-t (inc cnt)))))))
+            changed? (changed? new-t transiton)
+            done? (nil? c)]
+        (if (and (>= cnt x)
+                 (or changed? done?))
+          (validate transiton)
+          (recur chrs new-t (inc cnt)))))))
