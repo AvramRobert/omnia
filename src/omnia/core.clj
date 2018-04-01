@@ -14,7 +14,7 @@
 
 (def ^:const repl-ns 'user)
 (def ^:const repl-host "127.0.0.1")
-(defn repl-port [] (rand-int 65535))
+(defn rand-port [] (rand-int 65535))
 
 (defn error-msg [{:keys [message trace]}]
   (format
@@ -72,7 +72,7 @@
          terminal     (t/terminal)
          repl-config  {:history history
                        :host    repl-host
-                       :port    (repl-port)
+                       :port    (rand-port)
                        :ns      repl-ns}
          server       (r/start-server! repl-config)
          repl         (r/repl repl-config)

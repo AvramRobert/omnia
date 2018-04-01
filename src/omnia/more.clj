@@ -1,6 +1,5 @@
 (ns omnia.more
-  (:require [clojure.core.match :as m]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.edn :as edn]))
 
 (defn inc< [value max]

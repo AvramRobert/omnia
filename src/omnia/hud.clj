@@ -12,7 +12,6 @@
                                   secondary]]
             [omnia.repl :as r]
             [omnia.input :as i]
-            [omnia.config :refer [with-features keymap]]
             [clojure.core.match :as m]
             [omnia.format :as f]
             [omnia.terminal :as t]
@@ -451,14 +450,13 @@
         (seek seeker))))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx (:seeker) (f/lisp-format))]
+  (let [formatted (-> ctx (:seeker) (f/format-seeker))]
     (-> (remember ctx)
         (rebase formatted)
         (seek formatted))))
 
 ;; === Events ===
 
-;; Idea
 (defn process [ctx event]
   (case (:action event)
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
@@ -493,7 +491,7 @@
   (tsk/task (Thread/sleep msecs)))
 
 (defn read-eval-print [config]
-  (loop [task (-> config (with-features) (context) (continue) (tsk/success))]
+  (loop [task (-> config (context) (continue) (tsk/success))]
     (m/match [@task]
              [[:continue ctx]] (-> (tsk/task (render ctx))
                                    (tsk/then-do (iread ctx))

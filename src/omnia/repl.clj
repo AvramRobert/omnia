@@ -1,7 +1,6 @@
 (ns omnia.repl
   (:require [clojure.tools.nrepl.server :as s]
             [clojure.tools.nrepl :as nrepl]
-            [clojure.core.match :as m]
             [omnia.more :refer [dec< inc< gulp-or-else]]
             [clojure.string :refer [split trim-newline join]]
             [halfling.task :refer [task]]
@@ -55,11 +54,11 @@
 
 (defn- response->seeker [response]
   (cond
-    (out? response) (-> response (:out) (f/string-format) (i/from-string))
+    (out? response) (-> response (:out) (f/format-str) (i/from-string))
     (err? response) (-> response (:err) (i/from-string))
     (eff? response) [[\n \i \l]]
     (ex? response) i/empty-seeker
-    :else (-> response (:value) (str) (f/string-format) (i/from-string))))
+    :else (-> response (:value) (str) (f/format-str) (i/from-string))))
 
 (defn- connect [host port timeout]
   (let [conn (nrepl/connect :host host :port port)]
@@ -155,7 +154,7 @@
 (defn stop-server! [server]
   (s/stop-server server))
 
-;; TODO: the repl may stream responses and would basically signal an end to the messages with a final message containing the value ["done"]
+;; TODO: the repl may stream responses and would basically signal an end with a final message containing the value ["done"]
 (defn repl [{:as   params
              :keys [ns port host send! timeout history]
              :or   {timeout 10000                            ;; fixme: kill infinite processes and return warning
@@ -171,11 +170,3 @@
               :history history
               :timeline (count history)
               :result i/empty-seeker}))
-
-#_(defn -main [& args]
-  (let [config {:host "localhost"
-                :port 8080}
-        server (start-server! config)
-        repl (repl config)
-        _ (clojure.pprint/pprint (info! repl (i/from-string "print-ctor")))
-        _ (stop-server! server)]))

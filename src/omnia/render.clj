@@ -2,8 +2,7 @@
   (:require [omnia.terminal :as t]
             [omnia.input :as i]
             [omnia.highlight :as h]
-            [omnia.more :refer [map-vals reduce-idx --]]
-            [clojure.core.match :as m]))
+            [omnia.more :refer [map-vals reduce-idx --]]))
 
 (declare total! diff! nothing!)
 
