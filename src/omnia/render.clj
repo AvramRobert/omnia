@@ -177,18 +177,16 @@
          complete :complete-hud} ctx]
     (doseq [{highlight :region
              scheme    :scheme} highlights
-            :let [[x y]     (:start highlight)
-                  state     (-> complete (i/line [x y]) (h/state-at x))
-                  selection (project-selection complete highlight)
+            :let [selection (project-selection complete highlight)
                   [xs ys]   (:start selection)]]
       (->> (region complete selection)
            (:lines)
            (reduce-idx
              (fn [y x line]
-               (print-line! {:line     line
-                             :terminal terminal
-                             :scheme   scheme
-                             :state    state
+               (print-line! {:line       line
+                             :terminal   terminal
+                             :scheme     scheme
+                             :state      (-> complete (i/line [x y]) (h/state-at x))
                              :coordinate [x (project-y complete y)]})
                0) ys xs)))))
 

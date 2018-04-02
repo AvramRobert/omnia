@@ -325,9 +325,6 @@
   (let [new-fallback (:fallback new-state)]
     (if (= inferred new-fallback) old-fallback new-fallback)))
 
-(defn validate [state]
-  (assoc state :valid? (constantly true)))
-
 (defn emit! [{:keys [state store fallback]} f]
   (if ((:valid? state) store)
     (f store (:id state))
@@ -363,16 +360,21 @@
               (fn [emission state]
                 (swap! emissions #(conj % (f emission state)))))))
 
+;; Problem: If I start from x = 0, then the beginning state will be ->break
+;; If the following things that I select are partial and part of a word (or something similar), then
+;; the highlight detection won't work, because the thing will start with ->break, process n partial characters,
+;; see that these characters are part of a word state, but will invalidate them because they are partial.
+;; I can perhaps do a check and say if i start from x = 0, take the exact next state
 (defn state-at [stream x]
   (if (>= x (count stream))
     ->text
     (loop [[c & chrs] stream
            state ->break
            cnt 0]
-      (let [new-t    (transition state c)
-            changed? (changed? new-t state)
+      (let [state'   (transition state c)
+            changed? (changed? state state')
             done?    (nil? c)]
         (if (and (>= cnt x)
                  (or changed? done?))
-          (validate state)
-          (recur chrs new-t (inc cnt)))))))
+          (assoc state :valid? (constantly true))
+          (recur chrs state' (inc cnt)))))))
