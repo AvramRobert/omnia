@@ -16,16 +16,13 @@
         fgs     (atom [])
         stls    (atom [])
         unstls  (atom [])
-        clears  (atom 0)
         acc     (fn [atm val] (swap! atm #(conj % val)))
-        cnt     (fn [atm] (swap! atm inc))
         size    (t/size (:terminal ctx))]
     (assoc ctx
       :terminal (test-terminal {:background! (fn [colour] (acc bgs colour))
                                 :foreground! (fn [colour] (acc fgs colour))
                                 :style!      (fn [style]  (acc stls style))
                                 :un-style!   (fn [style]  (acc unstls style))
-                                :clear!      (fn [] (cnt clears))
                                 :put!        (fn [ch x y]
                                                (acc chars ch)
                                                (acc cursors [x y]))
@@ -35,8 +32,7 @@
               :bgs     bgs
               :fgs     fgs
               :stls    stls
-              :unstls  unstls
-              :clears  clears})))
+              :unstls  unstls})))
 
 (defn inspect [ctx p]
   (when-let [state (:state ctx)]
@@ -141,6 +137,18 @@
           (is (empty? stls))
           (is (empty? unstls))))))
 
+#_(defn reset-diff-render [ctx]
+  (-> (move-top-fov ctx)
+      (process down 2)
+      (process select-up 4)
+      (process backspace)
+      (stateful)
+      (execute r/diff!)
+      (inspect
+        (fn [{:keys [chars cursors _ _ _ _]}]
+          ;; FIXME: Check reset
+          ))))
+
 (defn diff-render [ctx]
   (projected-diff-render ctx (one gen/char-alpha))
   (padded-diff-render ctx)
@@ -193,6 +201,7 @@
                   (no-render ctx)))
 
 ;; III. Selection highlighting
+
 (defn total-selection-render-right [ctx]
   (let [processed (-> (move-end-fov ctx)
                       (process select-right 3))
@@ -283,7 +292,7 @@
   (projected-stylelised-render ctx)
   (projected-prioritised-render ctx))
 
-(defspec selection-render-test
+#_(defspec selection-render-test
          100
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
@@ -292,27 +301,26 @@
 
 ;; IV. Clean-up highlighting
 
-(defn line-start-clean-up-render [ctx]
-  (let [processed        (-> (move-end-fov ctx)
-                             (process select-right 100)
-                             (process up))
-        last-n           (-> (:complete-hud ctx) (:lines) (last) (count))
-        {chars   :chars
-         cursors :cursors} (discretise processed)
-        expected-chars   (take-last last-n chars)
-        expected-cursors (take-last last-n cursors)]
-    (-> (stateful processed)
+(defn arbitrary-line-clean-up [ctx]
+  (let [selected  (-> (move-top-fov ctx)
+                      (process right)
+                      (process select-right 2))
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise-h selected)]
+    (-> selected
+        (process left)
+        (stateful)
         (execute r/clean!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
+            (is (= (flatten expected-chars) chars))
+            (is (= expected-cursors cursors))
             (is (= :default (first (distinct bgs))))
             (is (not (empty? bgs)))
-            (is (not (empty? fgs)))
-            (is (= expected-chars chars))
-            (is (= expected-cursors cursors)))))))
+            (is (not (empty? fgs))))))))
 
 (defn clean-up-render [ctx]
-  (line-start-clean-up-render ctx))
+  (arbitrary-line-clean-up ctx))
 
 (defspec clean-up-render-test
          100

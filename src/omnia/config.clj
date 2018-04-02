@@ -98,7 +98,7 @@
 
          (report!))))
 
-(defn- normalise [config]
+(defn normalise [config]
   (map-vals
     #(merge {:key   :none
              :ctrl  false

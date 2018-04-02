@@ -296,6 +296,15 @@ Legend:
 
 59. Start optimising the seeker with `vector-ops` and look at implementation details
 
+60. Partial re-highlighting when words involved may wrongfully highlight things as something else:
+    Example:
+     fa
+     xde
+     sx`|`
+     By starting from this point, selecting upwards and going up to the first `f` (without including it),
+     the state detector thinks this is the start of `false` and thus re-renders that highlight
+     yellow.
+
 ----------------- MIGRATION VERSIONS -------------------
 
 clojure 1.8.0 -> 1.9.0:
