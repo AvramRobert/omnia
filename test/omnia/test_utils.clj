@@ -24,7 +24,7 @@
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
 (defn rand-cursor [seeker]
-  (let [y (-> seeker (i/height) (rand-int))
+  (let [y (-> seeker (:height) (rand-int))
         x (-> seeker (i/reset-y y) (i/line) (count) (rand-int))]
     [x y]))
 

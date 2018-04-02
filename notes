@@ -294,6 +294,8 @@ Legend:
     After an undo, might the highlight cleaner try to clean something that
     isn't there anymore, thus leading to IndexOutOfBounds when subvec is called on that region?
 
+59. Start optimising the seeker with `vector-ops` and look at implementation details
+
 ----------------- MIGRATION VERSIONS -------------------
 
 clojure 1.8.0 -> 1.9.0:

@@ -176,19 +176,19 @@
 (defn pop-up-riffle [ctx hud]
   (let [seeker    (:seeker ctx)
         paginated (paginate hud)
-        ph        (i/height hud)
+        ph        (:height hud)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (rebase ctx (-> (i/join-many top delimiter paginated)
                     (i/end-x)
                     (adjoin delimiter)
                     (adjoin bottom)
-                    (assoc :ov (-- (i/height bottom) ph))))))
+                    (assoc :ov (-- (:height bottom) ph))))))
 
 (defn pop-up-static [ctx hud]
   (let [seeker    (:seeker ctx)
         paginated (paginate hud)
-        ph        (i/height hud)
+        ph        (:height hud)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (rebase ctx (-> top
@@ -196,7 +196,7 @@
                     (adjoin paginated)
                     (adjoin delimiter)
                     (adjoin bottom)
-                    (assoc :ov (-- (i/height bottom) ph))))))
+                    (assoc :ov (-- (:height bottom) ph))))))
 
 (defn window [seeker size]
   (letfn [(correct [hud]

@@ -542,7 +542,7 @@
 ;; XI. Pop-ups
 
 (defn pop-up-with-calibration [ctx content]
-  (let [window  (->> content (i/height) (h/window content))
+  (let [window  (->> content (:height) (h/window content))
         context (-> ctx (move-top-fov) (process up 2))]
     (is (= 2 (-> context (h/pop-up-static window) (ov))))
     (is (= 2 (-> context (process down 2) (h/pop-up-static window) (ov))))
@@ -560,7 +560,7 @@
     (<=> expected actual)))
 
 (defn pop-up-window [ctx content]
-  (let [size (i/height content)
+  (let [size (:height content)
         expected (i/join-many h/delimiter (h/indent content 1) h/delimiter)
         actual (-> ctx
                    (move-end-fov)
@@ -570,7 +570,7 @@
     (<=> expected actual)))
 
 (defn pop-up-statically [ctx content]
-  (let [window (h/window content (i/height content))
+  (let [window (h/window content (:height content))
         expected-cursor (-> ctx :complete-hud :cursor)]
     (is (= expected-cursor
            (-> ctx
@@ -585,7 +585,7 @@
                 (:cursor))))))
 
 (defn pop-up-riffled [ctx content]
-  (let [window (h/window content (- (i/height content) 2))
+  (let [window (h/window content (- (:height content) 2))
         [x _] (-> content (i/start) (i/end-x) (:cursor))
         [_ y] (-> ctx :complete-hud :cursor)
         line #(-> window (i/reset-y %) (h/indent 1) (i/line))]
