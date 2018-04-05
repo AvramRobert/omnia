@@ -172,29 +172,28 @@
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))
 
-(defn highlight! [ctx highlights]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx]
-    (doseq [{highlight :region
-             scheme    :scheme} highlights
-            :let [selection (project-selection complete highlight)
-                  [xs ys]   (:start selection)]]
-      (->> (region complete selection)
-           (:lines)
-           (reduce-idx
-             (fn [y x line]
-               (print-line! {:line       line
-                             :terminal   terminal
-                             :scheme     scheme
-                             :state      (-> complete (i/line [x y]) (h/state-at x))
-                             :coordinate [x (project-y complete y)]})
-               0) ys xs)))))
+(defn- highlight! [{:keys [hud terminal]} highlights]
+  (doseq [{highlight :region
+           scheme    :scheme} highlights
+          :let [selection (project-selection hud highlight)
+                [xs ys]   (:start selection)]]
+    (->> (region hud selection)
+         (:lines)
+         (reduce-idx
+           (fn [y x line]
+             (print-line! {:line       line
+                           :terminal   terminal
+                           :scheme     scheme
+                           :state      (-> hud (i/line [x y]) (h/state-at x))
+                           :coordinate [x (project-y hud y)]})
+             0) ys xs))))
 
 (defn clean! [{:keys [colourscheme
                       garbage
                       highlights
                       complete-hud
-                      previous-hud] :as ctx}]
+                      previous-hud
+                      terminal]}]
   (letfn [(reset [selection]
             (when (= (:ov complete-hud) (:ov previous-hud))
               (some-> (additive-diff selection highlights)
@@ -202,12 +201,14 @@
     (->> garbage
          (mapv reset)
          (remove nil?)
-         (highlight! ctx))))
+         (highlight! {:hud previous-hud
+                      :terminal terminal}))))
 
 (defn selections! [{:keys [highlights
                            garbage
                            complete-hud
-                           previous-hud] :as ctx}]
+                           previous-hud
+                           terminal]}]
   (letfn [(reset [selection]
             (if (= (:ov complete-hud) (:ov previous-hud))
               (additive-diff selection garbage)
@@ -216,7 +217,8 @@
          (sort-by :priority)
          (mapv reset)
          (remove nil?)
-         (highlight! ctx))))
+         (highlight! {:hud complete-hud
+                      :terminal terminal}))))
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]

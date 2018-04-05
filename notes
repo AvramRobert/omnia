@@ -290,20 +290,18 @@ Legend:
           => Reason: A change in ov prompts a total re-render, but the highlights are still diffed,
                      which means that the previous highlight get's deleted.
 
-58. Possible problem:
-    After an undo, might the highlight cleaner try to clean something that
-    isn't there anymore, thus leading to IndexOutOfBounds when subvec is called on that region?
+ > 58. Possible problem:
+       After an undo, might the highlight cleaner try to clean something that
+       isn't there anymore, thus leading to IndexOutOfBounds when subvec is called on that region?
 
 59. Start optimising the seeker with `vector-ops` and look at implementation details
 
-60. Partial re-highlighting when words involved may wrongfully highlight things as something else:
-    Example:
-     fa
-     xde
-     sx`|`
-     By starting from this point, selecting upwards and going up to the first `f` (without including it),
-     the state detector thinks this is the start of `false` and thus re-renders that highlight
-     yellow.
+60. Partial re-highlighting doesn't work in in some cases for special words, because
+    the emission of special words happens at the end, whilst the emission for everything
+    else happens immediately.
+    If you were to start selecting next to a special word and only selected a part of it,
+    because you started the selection exactly before the actual word and finished before completely selecting
+    the whole of it, the detector cannot infer that that is a special word.
 
 ----------------- MIGRATION VERSIONS -------------------
 
