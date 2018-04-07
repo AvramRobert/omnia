@@ -23,8 +23,6 @@
 
 (def ^:const diff-nodes :diff-nodes)
 
-(def ^:const inferred :inferred)
-
 (def ^:const empty-vec [])
 
 (def ^:const numbers #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
@@ -53,16 +51,40 @@
                      nodes
                      valid?]
               :or {valid? (comp not empty?)
-                   fallback inferred
                    nodes []}}]
   (assert (not (nil? id)) "A state must always have an identifier")
   (assert (not (nil? guard)) "A state must always have a guard")
   (let [nguard (if (= diff-nodes guard) (invert nodes) guard)]
     (State. id fallback nguard nodes valid?)))
 
+(def ->function
+  (state {:id -function
+          :guard diff-nodes
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -comment
+                  -char
+                  -string]}))
+
+(def ->text
+  (state {:id -text
+          :fallback ->text
+          :guard diff-nodes
+          :nodes [-break
+                  -space
+                  -list
+                  -vector
+                  -map
+                  -char
+                  -string
+                  -comment]}))
+
 (def ->break
   (state {:id -break
-          :fallback -text
+          :fallback ->text
           :guard #(= \newline %)
           :nodes [-space
                   -word
@@ -78,7 +100,7 @@
 
 (def ->space
   (state {:id -space
-          :fallback -text
+          :fallback ->text
           :guard #(= \space %)
           :nodes [-break
                   -word
@@ -94,7 +116,7 @@
 
 (def ->open-list
   (state {:id -list
-          :fallback -function
+          :fallback ->function
           :guard #(= \( %)
           :nodes [-break
                   -space
@@ -110,7 +132,7 @@
 
 (def ->close-list
   (state {:id -list
-          :fallback -text
+          :fallback ->text
           :guard #(= \) %)
           :nodes [-break
                   -space
@@ -269,32 +291,6 @@
                   -comment]
           :valid? #(some (fn [w] (= % w)) words)}))
 
-(def ->function
-  (state {:id -function
-          :fallback -function
-          :guard diff-nodes
-          :nodes [-break
-                  -space
-                  -list
-                  -vector
-                  -map
-                  -comment
-                  -char
-                  -string]}))
-
-(def ->text
-  (state {:id -text
-          :fallback -text
-          :guard diff-nodes
-          :nodes [-break
-                  -space
-                  -list
-                  -vector
-                  -map
-                  -char
-                  -string
-                  -comment]}))
-
 (def transitions
   {-list     [->open-list ->close-list]
    -vector   [->open-vector ->close-vector]
@@ -321,44 +317,42 @@
 (defn changed? [old-state new-state]
   (not= (:id new-state) (:id old-state)))
 
-(defn fall-back [new-state old-fallback]
-  (let [new-fallback (:fallback new-state)]
-    (if (= inferred new-fallback) old-fallback new-fallback)))
+(defn fall-back [new-state old-state]
+  (or (:fallback new-state) old-state))
 
-(defn emit! [{:keys [state store fallback]} f]
+(defn emit [{:keys [state store fallback result]} f]
   (if ((:valid? state) store)
-    (f store (:id state))
-    (f store fallback)))
+    (f result [store state])
+    (f result [store fallback])))
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
-(defn consume! [f init stream]
-  (-> (fn [{:keys [store state fallback] :as data} c]
-        (let [new-t    (transition state c)
-              new-f    (fall-back new-t fallback)
-              changed? (changed? state new-t)
-              new-s    (if changed? [c] (conj store c))
-              _        (when changed? (emit! data f))]
-          {:store new-s
-           :fallback new-f
-           :state new-t}))
-      (reduce init stream)
-      (emit! f)))
+(defn foldl
+  ([f stream] (foldl f {} stream))
+  ([f init stream]
+   (let [init {:store    (or (:store init) empty-vec)
+               :state    (or (:state init) ->break)
+               :fallback (or (:fallback init) ->text)
+               :result   (or (:result init) nil)}]
+     (-> (fn [{:keys [store state fallback result] :as data} c]
+           (let [state'    (transition state c)
+                 fallback' (fall-back state' fallback)
+                 changed?  (changed? state state')
+                 store'    (if changed? [c] (conj store c))
+                 result'   (if changed? (emit data f) result)]
+             {:state    state'
+              :fallback fallback'
+              :store    store'
+              :result   result'}))
+         (reduce init stream)
+         (emit f)))))
 
 (defn process! [stream f]
-  (consume! f {:store empty-vec
-               :state ->break
-               :fallback -text} stream))
+  (letfn [(g [_ [emission state]] (f emission (:id state)))]
+    (foldl g stream)))
 
 (defn process-from! [stream s0 f]
-  (consume! f {:store empty-vec
-               :state s0
-               :fallback -text} stream))
-
-(defn process-as [stream f]
-  (let [emissions (atom [])]
-    (process! stream
-              (fn [emission state]
-                (swap! emissions #(conj % (f emission state)))))))
+  (letfn [(g [_ [emission state]] (f emission (:id state)))]
+    (foldl g {:state s0} stream)))
 
 ;; Problem: If I start from x = 0, then the beginning state will be ->break
 ;; If the following things that I select are partial and part of a word (or something similar), then

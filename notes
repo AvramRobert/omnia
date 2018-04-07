@@ -296,12 +296,14 @@ Legend:
 
 59. Start optimising the seeker with `vector-ops` and look at implementation details
 
-60. Partial re-highlighting doesn't work in in some cases for special words, because
-    the emission of special words happens at the end, whilst the emission for everything
-    else happens immediately.
-    If you were to start selecting next to a special word and only selected a part of it,
-    because you started the selection exactly before the actual word and finished before completely selecting
-    the whole of it, the detector cannot infer that that is a special word.
+60. There's a general fundamental flaw in partial highlighting that is due to late emissions.
+    If I am to select from some arbitrary point in a line and go up to half of a word, then
+    even if I start processing from the beginning of the line, because the highlight stops in the middle
+    of that word, it won't detect it as being a late emission.
+    In order to solve this, I have to make cleaning re-render complete lines, regardless of how
+    large the selection is.
+
+
 
 ----------------- MIGRATION VERSIONS -------------------
 
