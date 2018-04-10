@@ -132,7 +132,7 @@
       (cond
         (or (and exact-start? exact-end?)
             (and exact-start? similar-end? shrunk-right?)
-            (and exact-start? shrunk-bottom?)
+        (and exact-start? shrunk-bottom?)
             (and exact-end? similar-start? shrunk-left?)
             (and exact-end? shrunk-top?)) nil
 
@@ -144,30 +144,58 @@
         :else current))
     current))
 
-(defn- display! [emission terminal x y]
-  (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
-
-(defn print-line! [params]
-  (let [{line     :line
-         padding  :padding
-         state    :state
-         terminal :terminal
-         [x y]    :coordinate
-         {cs      :cs
-          style   :style} :scheme} params
-         ix (atom x)
-         s0 (or state h/->break)]
+(defn print-line! [{line     :line
+                    y        :at
+                    padding  :padding
+                    terminal :terminal
+                    [xs xe]  :sub-region
+                    {cs    :cs
+                     style :style} :scheme}]
+  (letfn [(display-from! [x [emission state]]
+            (t/foreground! terminal (cs (:id state)))
+            (reduce-idx
+              (fn [x' _ input]
+                (t/put! terminal input x' y)) x nil emission))
+          (munch! [x [emission state]]
+            (let [x' (+ x (count emission))]
+              (cond
+                (>= x' xe) (do
+                             (display-from! xs [(->> emission
+                                                     (drop (- xs x))
+                                                     (take (- xe xs))) state])
+                             [x' :gobble])
+                (> x' xs) (do
+                            (display-from! xs [(drop (- xs x) emission) state])
+                            [x' :display])
+                :else [x' :munch])))
+          (display! [x [emission state]]
+            (let [x' (+ x (count emission))
+                  [e r] (if (>= x' xe)
+                          [(take (- xe x) emission) :gobble]
+                          [emission :display])]
+              (display-from! x [e state])
+              [x' r]))
+          (gobble [x [emission _]]
+            [(+ x (count emission)) :gobble])
+          (print-sub! [[x step] output]
+            (case step
+              :munch   (munch! x output)
+              :display (display! x output)
+              :gobble  (gobble x output)))
+          (print! [[x s] [emission state]]
+            (display-from! x [emission state])
+            [(+ x (count emission)) s])
+          (pad! [x]
+            (when padding
+              (dotimes [offset padding]
+                (t/put! terminal \space (+ x offset) y))))]
     (t/background! terminal (cs h/-back))
     (when style (t/style! terminal style))
     (t/visible! terminal false)
-    (h/process-from! line s0
-       (fn [emission type]
-         (t/foreground! terminal (cs type))
-         (display! emission terminal @ix y)
-         (swap! ix #(+ % (count emission)))))
-    (when padding
-      (dotimes [offset padding]
-        (t/put! terminal \space (+ @ix offset) y)))
+    (-> (if (and xs xe) print-sub! print!)
+        (h/foldl [0 :munch] line)
+        (first)
+        (pad!))
     (t/background! terminal :default)
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))
@@ -181,11 +209,11 @@
          (:lines)
          (reduce-idx
            (fn [y x line]
-             (print-line! {:line       line
+             (print-line! {:at        (project-y hud y)
+                           :line      (i/line hud [x y])
                            :terminal   terminal
                            :scheme     scheme
-                           :state      (-> hud (i/line [x y]) (h/state-at x))
-                           :coordinate [x (project-y hud y)]})
+                           :sub-region [x (+ x (count line))]})
              0) ys xs))))
 
 (defn clean! [{:keys [colourscheme
@@ -241,11 +269,11 @@
       (let [a (nth now y nil)
             b (nth then y nil)]
         (print-line!
-          {:line       a
+          {:at         y
+           :line       a
            :padding    (pad a b)
            :terminal   terminal
-           :scheme     scheme
-           :coordinate [0 y]})))))
+           :scheme     scheme})))))
 
 (defn diff! [ctx]
   (let [{terminal     :terminal
@@ -262,11 +290,11 @@
         (let [a (nth now y nil)
               b (nth then y nil)]
           (when (not= a b)
-            (print-line! {:line       a
-                          :padding    (pad a b)
-                          :terminal   terminal
-                          :scheme     scheme
-                          :coordinate [0 y]})))))))
+            (print-line! {:at       y
+                          :line     a
+                          :padding  (pad a b)
+                          :terminal terminal
+                          :scheme   scheme})))))))
 
 (defn nothing! [ctx]
   (let [{complete :complete-hud

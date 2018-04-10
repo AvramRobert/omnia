@@ -302,8 +302,16 @@ Legend:
     of that word, it won't detect it as being a late emission.
     In order to solve this, I have to make cleaning re-render complete lines, regardless of how
     large the selection is.
-
-
+    Possible solution:
+    Make `print-line` always print from the beginning of a line.
+    For any region to be printed by `print-line`, the function will always start from the beginning
+    of the line, it ignores everything until the region-to-be-printed is reached,
+    after that, it prints that region with the appropriate colourscheme (taking complete emissions into
+    consideration, naturally splitting them if need be and colouring only the necessary parts) and
+    continues up until the end of the line. And that's it. No need to recognise the state at
+    arbitrary points.
+    The line printer will basically always guarantee proper highlighting by starting from the
+    beginning, processing normally and only printing something when the desired region is reached.
 
 ----------------- MIGRATION VERSIONS -------------------
 

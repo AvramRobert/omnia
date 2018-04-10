@@ -34,7 +34,7 @@
     #(contains? s %)))
 
 (defn in-vector [stream]
-  (h/foldl (fn [v [e s]] (conj v [e (:id s)])) {:result []} stream))
+  (h/foldl (fn [v [e s]] (conj v [e (:id s)])) [] stream))
 
 (def gen-sign-token (gen-tokens \+ \-))
 (def gen-list-token (gen-tokens \( \)))

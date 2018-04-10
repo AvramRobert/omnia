@@ -71,7 +71,6 @@
 
 (def ->text
   (state {:id -text
-          :fallback ->text
           :guard diff-nodes
           :nodes [-break
                   -space
@@ -326,49 +325,20 @@
     (f result [store fallback])))
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
-(defn foldl
-  ([f stream] (foldl f {} stream))
-  ([f init stream]
-   (let [init {:store    (or (:store init) empty-vec)
-               :state    (or (:state init) ->break)
-               :fallback (or (:fallback init) ->text)
-               :result   (or (:result init) nil)}]
-     (-> (fn [{:keys [store state fallback result] :as data} c]
-           (let [state'    (transition state c)
-                 fallback' (fall-back state' fallback)
-                 changed?  (changed? state state')
-                 store'    (if changed? [c] (conj store c))
-                 result'   (if changed? (emit data f) result)]
-             {:state    state'
-              :fallback fallback'
-              :store    store'
-              :result   result'}))
-         (reduce init stream)
-         (emit f)))))
-
-(defn process! [stream f]
-  (letfn [(g [_ [emission state]] (f emission (:id state)))]
-    (foldl g stream)))
-
-(defn process-from! [stream s0 f]
-  (letfn [(g [_ [emission state]] (f emission (:id state)))]
-    (foldl g {:state s0} stream)))
-
-;; Problem: If I start from x = 0, then the beginning state will be ->break
-;; If the following things that I select are partial and part of a word (or something similar), then
-;; the highlight detection won't work, because the thing will start with ->break, process n partial characters,
-;; see that these characters are part of a word state, but will invalidate them because they are partial.
-;; I can perhaps do a check and say if i start from x = 0, take the exact next state
-(defn state-at [stream x]
-  (if (>= x (count stream))
-    ->text
-    (loop [[c & chrs] stream
-           state ->break
-           cnt 0]
-      (let [state'   (transition state c)
-            changed? (changed? state state')
-            done?    (nil? c)]
-        (if (and (>= cnt x)
-                 (or changed? done?))
-          (assoc state :valid? (constantly true))
-          (recur chrs state' (inc cnt)))))))
+(defn foldl [f b stream]
+  (let [init {:store    empty-vec
+              :state    ->break
+              :fallback ->text
+              :result   b}]
+    (-> (fn [{:keys [store state fallback result] :as data} c]
+          (let [state'    (transition state c)
+                fallback' (fall-back state' fallback)
+                changed?  (changed? state state')
+                store'    (if changed? [c] (conj store c))
+                result'   (if changed? (emit data f) result)]
+            {:state    state'
+             :fallback fallback'
+             :store    store'
+             :result   result'}))
+        (reduce init stream)
+        (emit f))))
