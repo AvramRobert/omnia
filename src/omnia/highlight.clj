@@ -307,11 +307,9 @@
    -space    [->space]})
 
 (defn transition [state c]
-  (loop [[node & nodes] (:nodes state)]
-    (if node
-      (or (->> node (transitions) (some #(when ((:guard %) c) %)))
-          (recur nodes))
-      state)))
+  (letfn [(valid-node [node]
+            (->> node (transitions) (some #(when ((:guard %) c) %))))]
+    (or (some valid-node (:nodes state)) state)))
 
 (defn changed? [old-state new-state]
   (not= (:id new-state) (:id old-state)))

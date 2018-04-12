@@ -132,7 +132,7 @@
       (cond
         (or (and exact-start? exact-end?)
             (and exact-start? similar-end? shrunk-right?)
-        (and exact-start? shrunk-bottom?)
+            (and exact-start? shrunk-bottom?)
             (and exact-end? similar-start? shrunk-left?)
             (and exact-end? shrunk-top?)) nil
 
@@ -151,50 +151,32 @@
                     [xs xe]  :sub-region
                     {cs    :cs
                      style :style} :scheme}]
-  (letfn [(display-from! [x [emission state]]
+  (letfn [(pad! [x]
+            (when padding
+              (dotimes [offset padding]
+                (t/put! terminal \space (+ x offset) y))))
+          (show! [x emission state]
             (t/foreground! terminal (cs (:id state)))
             (reduce-idx
               (fn [x' _ input]
                 (t/put! terminal input x' y)) x nil emission))
-          (munch! [x [emission state]]
+          (print! [x [emission state]]
+            (show! x emission state)
+            (+ x (count emission)))
+          (print-sub! [x [emission state]]
             (let [x' (+ x (count emission))]
               (cond
-                (>= x' xe) (do
-                             (display-from! xs [(->> emission
-                                                     (drop (- xs x))
-                                                     (take (- xe xs))) state])
-                             [x' :gobble])
-                (> x' xs) (do
-                            (display-from! xs [(drop (- xs x) emission) state])
-                            [x' :display])
-                :else [x' :munch])))
-          (display! [x [emission state]]
-            (let [x' (+ x (count emission))
-                  [e r] (if (>= x' xe)
-                          [(take (- xe x) emission) :gobble]
-                          [emission :display])]
-              (display-from! x [e state])
-              [x' r]))
-          (gobble [x [emission _]]
-            [(+ x (count emission)) :gobble])
-          (print-sub! [[x step] output]
-            (case step
-              :munch   (munch! x output)
-              :display (display! x output)
-              :gobble  (gobble x output)))
-          (print! [[x s] [emission state]]
-            (display-from! x [emission state])
-            [(+ x (count emission)) s])
-          (pad! [x]
-            (when padding
-              (dotimes [offset padding]
-                (t/put! terminal \space (+ x offset) y))))]
+                (and (<= x xs) (>= x' xe)) (show! xs (->> emission (drop (- xs x)) (take (- xe xs))) state)
+                (and (<= x xs) (> x' xs))  (show! xs (drop (- xs x) emission) state)
+                (>= x' xe)                 (show! x (take (- xe x) emission) state)
+                (> x' xs)                  (show! x emission state)
+                :else nil)
+              x'))]
     (t/background! terminal (cs h/-back))
     (when style (t/style! terminal style))
     (t/visible! terminal false)
     (-> (if (and xs xe) print-sub! print!)
-        (h/foldl [0 :munch] line)
-        (first)
+        (h/foldl 0 line)
         (pad!))
     (t/background! terminal :default)
     (t/visible! terminal true)
