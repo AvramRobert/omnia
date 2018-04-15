@@ -204,7 +204,7 @@
 
 (defn total-selection-render-right [ctx]
   (let [processed (-> (move-end-fov ctx)
-                      (process select-right 3))
+                      (process select-right))
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
@@ -220,8 +220,8 @@
 
 (defn total-selection-render-left [ctx]
   (let [processed (-> (move-end-fov ctx)
-                      (process right 3)
-                      (process select-left 3))
+                      (process right)
+                      (process select-left))
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
@@ -271,7 +271,8 @@
                       (process (char-key \a))
                       (process left)
                       (process left)
-                      (process expand))
+                      (process expand)
+                      (empty-garbage))
         {expected-chars :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
@@ -292,7 +293,7 @@
   (projected-stylelised-render ctx)
   (projected-prioritised-render ctx))
 
-#_(defspec selection-render-test
+(defspec selection-render-test
          100
          (for-all [ctx (gen-context {:size   5
                                      :fov    27

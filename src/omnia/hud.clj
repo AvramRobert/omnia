@@ -99,7 +99,7 @@
        :seeker        i/empty-seeker
        :suggestions   i/empty-seeker
        :docs          i/empty-seeker
-       :highlights    empty-set
+       :highlights    empty-set                             ;; make these things normal vectors
        :garbage       empty-set})))
 
 (defn adjoin [ths tht]

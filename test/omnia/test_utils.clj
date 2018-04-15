@@ -231,6 +231,9 @@
                  (and (= expected-start start)
                       (= expected-end end)))))))
 
+(defn empty-garbage [ctx]
+  (assoc ctx :garbage h/empty-set))
+
 (defn move-start-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/start-y))
        (h/rebase)
