@@ -115,21 +115,15 @@
        (t/recover (constantly x))
        (t/run)))
 
-(defn string-format [expr]
+(defn format-str [expr]
   (fmt expr #(if (edn? %)
                (fmt-edn %)
                (fmt-lisp %))))
 
-(defn lisp-format [seeker]
+(defn format-seeker [seeker]
   (fmt seeker
        #(let [original (deform %)]
           (->> (i/stringify original)
                (fmt-lisp)
                (i/from-string)
                (normalise original)))))
-
-(defn edn-format [seeker]
-  (fmt seeker
-       #(-> (i/stringify %)
-            (fmt-edn)
-            (i/from-string))))

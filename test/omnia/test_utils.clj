@@ -24,7 +24,7 @@
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
 (defn rand-cursor [seeker]
-  (let [y (-> seeker (i/height) (rand-int))
+  (let [y (-> seeker (:height) (rand-int))
         x (-> seeker (i/reset-y y) (i/line) (count) (rand-int))]
     [x y]))
 
@@ -178,7 +178,7 @@
 
 (defn project-selection [ctx]
   (let [complete (:complete-hud ctx)
-        selection (first (:highlights ctx))]
+        selection (-> (:highlights ctx) (first) (:region))]
     (rd/project-selection complete selection)))
 
 (defn no-projection [ctx]
@@ -226,9 +226,10 @@
 (defn highlights? [hs region]
   (let [{expected-start :start
          expected-end   :end} region]
-    (some (fn [{:keys [start end]}]
-            (and (= expected-start start)
-                 (= expected-end end))) hs)))
+    (->> (mapv :region hs)
+         (some (fn [{:keys [start end]}]
+                 (and (= expected-start start)
+                      (= expected-end end)))))))
 
 (defn move-start-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/start-y))

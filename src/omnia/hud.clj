@@ -12,11 +12,10 @@
                                   secondary]]
             [omnia.repl :as r]
             [omnia.input :as i]
-            [omnia.config :refer [with-features keymap]]
             [clojure.core.match :as m]
             [omnia.format :as f]
             [omnia.terminal :as t]
-            [omnia.more :refer [-- ++ inc< dec< mod*]]))
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version]]))
 
 (defrecord Context [terminal
                     repl
@@ -31,9 +30,6 @@
                     docs
                     highlights
                     garbage])
-
-(defmacro omnia-version []
-  (System/getProperty "omnia.version"))
 
 (def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
@@ -180,19 +176,19 @@
 (defn pop-up-riffle [ctx hud]
   (let [seeker    (:seeker ctx)
         paginated (paginate hud)
-        ph        (i/height hud)
+        ph        (:height hud)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (rebase ctx (-> (i/join-many top delimiter paginated)
                     (i/end-x)
                     (adjoin delimiter)
                     (adjoin bottom)
-                    (assoc :ov (-- (i/height bottom) ph))))))
+                    (assoc :ov (-- (:height bottom) ph))))))
 
 (defn pop-up-static [ctx hud]
   (let [seeker    (:seeker ctx)
         paginated (paginate hud)
-        ph        (i/height hud)
+        ph        (:height hud)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (rebase ctx (-> top
@@ -200,7 +196,7 @@
                     (adjoin paginated)
                     (adjoin delimiter)
                     (adjoin bottom)
-                    (assoc :ov (-- (i/height bottom) ph))))))
+                    (assoc :ov (-- (:height bottom) ph))))))
 
 (defn window [seeker size]
   (letfn [(correct [hud]
@@ -256,8 +252,7 @@
         scheme (fn [region]
                  {:priority primary
                   :type     :selection
-                  :start    (:start region)
-                  :end      (:end region)
+                  :region   region
                   :scheme   {:cs (select-cs cs)
                              :style nil}})]
     (update ctx :highlights
@@ -272,11 +267,10 @@
 (defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
-    (let [scheme (fn [type {:keys [start end]}]
+    (let [scheme (fn [type region]
                    {:priority secondary
                     :type     type
-                    :start    start
-                    :end      end
+                    :region   region
                     :scheme   {:cs (-> ctx (:colourscheme) (clean-cs))
                                :style :underline}})]
       (update ctx :highlights
@@ -453,14 +447,13 @@
         (seek seeker))))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx (:seeker) (f/lisp-format))]
+  (let [formatted (-> ctx (:seeker) (f/format-seeker))]
     (-> (remember ctx)
         (rebase formatted)
         (seek formatted))))
 
 ;; === Events ===
 
-;; Idea
 (defn process [ctx event]
   (case (:action event)
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
@@ -495,7 +488,7 @@
   (tsk/task (Thread/sleep msecs)))
 
 (defn read-eval-print [config]
-  (loop [task (-> config (with-features) (context) (continue) (tsk/success))]
+  (loop [task (-> config (context) (continue) (tsk/success))]
     (m/match [@task]
              [[:continue ctx]] (-> (tsk/task (render ctx))
                                    (tsk/then-do (iread ctx))

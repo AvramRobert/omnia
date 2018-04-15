@@ -3,12 +3,8 @@
             [clojure.string :refer [join]]
             [clojure.set :refer [map-invert]]
             [halfling.task :refer [task]]
-            [omnia.highlight :as h]
-            [omnia.render :as r]))
+            [omnia.highlight :as h]))
 
-(def ^:const highlighting :syntax-highlighting)
-(def ^:const scrolling :scrolling)
-(def ^:const suggestions :suggestions)
 (def ^:const keymap :keymap)
 (def ^:const colourscheme :colourscheme)
 
@@ -79,10 +75,7 @@
 (def default-cs (make-cs (merge syntax-cs control-cs)))
 
 (def default-config
-  {highlighting true
-   scrolling    true
-   suggestions  true
-   keymap       default-keymap
+  {keymap       default-keymap
    colourscheme default-cs})
 
 (defn- failed [msg cause]
@@ -100,12 +93,12 @@
          (mapv
            (fn [actions]
              (format "Actions %s share the same key binding %s"
-                     (clojure.string/join "," (map first actions))
+                     (join "," (map first actions))
                      (-> actions first second))))
 
          (report!))))
 
-(defn- normalise [config]
+(defn normalise [config]
   (map-vals
     #(merge {:key   :none
              :ctrl  false
@@ -118,24 +111,14 @@
       (if (contains? c k) c (assoc c k v)))
     patchee patcher))
 
-;; Let missing unspecified keys be turned off by default
 (defn patch [config]
   (-> config
       (update colourscheme #(->> % (patch-with default-cs) (make-cs)))
-      (update keymap (partial patch-with default-keymap))
-      (update highlighting some?)
-      (update suggestions some?)
-      (update scrolling some?)))
+      (update keymap (partial patch-with default-keymap))))
 
 (defn read-config [path]
   (task
     (-> (gulp-or-else path default-config)
         (patch)
-        (validate))))
-
-(defn with-features [config]
-  (cond-> config
-          (not (get config highlighting)) (update colourscheme r/select-cs)
-          (not (get config scrolling)) (update keymap #(dissoc % :scroll-up :scroll-down))
-          (not (get config suggestions)) (update keymap #(dissoc % :suggest))
-          :always (update keymap (comp map-invert normalise))))
+        (validate)
+        (update keymap (comp map-invert normalise)))))

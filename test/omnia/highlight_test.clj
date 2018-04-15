@@ -22,7 +22,7 @@
    h/-comment [\;]
    h/-keyword [\:]})
 
-(def states (keys state-chars))
+(def ids (keys state-chars))
 
 (defn chars-for [state]
   (get state-chars state []))
@@ -33,8 +33,8 @@
   (let [s (set tokens)]
     #(contains? s %)))
 
-(defn is-state [transiton state]
-  (is (= state (:state transiton))))
+(defn in-vector [stream]
+  (h/foldl (fn [v [e s]] (conj v [e (:id s)])) [] stream))
 
 (def gen-sign-token (gen-tokens \+ \-))
 (def gen-list-token (gen-tokens \( \)))
@@ -112,23 +112,22 @@
                           :always (conj items))
                  (if include-reset? (rest post) post)))))))
 
-(defn transition! [transiton disallowed]
-  "Given a `transiton`, it forces it through all the available states
-  and checks its transitions. Disallowed transitions are specified
-  in `disallowed` as key-value pairs. The key represents the
-  disallowed state, whist the value represents the actual state
-  the transiton should transition to if it encounters a character
-  that would otherwise lead to the disallowed state."
-  (doseq [state states
-          c (chars-for state)
-          :let [nxt (h/transition transiton c)]]
-    (is-state nxt (get disallowed state state))))
+(defn transition! [state disallowed]
+  "Given a `state`, it forces it through all the available transitions
+  and checks them. Disallowed transitions are specified
+  in `disallowed` as key-value pairs. The key is the disallowed
+  state-identifier, whist the value is the actual state-identifier
+  the transition needs to have should it encounter
+  a character that would lead to the disallowed state."
+  (doseq [id ids
+          c (chars-for id)]
+    (= (:id (h/transition state c)) (get disallowed id id))))
 
 (defspec detect-lists
          100
          (for-all [tokens (gen-alpha-num-with-token gen-list-token)]
                   (let [gens (grouped-gens tokens [\( \)])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-list))]
                     (is (= gens detections)))))
 
@@ -136,7 +135,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-vector-token)]
                   (let [gens (grouped-gens tokens [\[ \]])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-vector))]
                     (is (= gens detections)))))
 
@@ -144,7 +143,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-map-token)]
                   (let [gens (grouped-gens tokens [\{ \}])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-map))]
                     (is (= gens detections)))))
 
@@ -152,7 +151,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-break-token)]
                   (let [gens (grouped-gens tokens [\newline])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-break))]
                     (is (= gens detections)))))
 
@@ -160,7 +159,7 @@
          100
          (for-all [tokens (gen-alpha-num-with-token gen-space-token)]
                   (let [gens (grouped-gens tokens [\space])
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-space))]
                     (is (= gens detections)))))
 
@@ -170,7 +169,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\;])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-comment))]
                     (is (= gens detections)))))
 
@@ -180,7 +179,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\(])
                                          :reset? (in? [\( \)])})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-function))]
                     (is (= gens detections)))))
 
@@ -190,7 +189,7 @@
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\\])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-char))]
                     (is (= gens detections)))))
 
@@ -201,7 +200,7 @@
                                         {:detect? (in? [\:])
                                          :reset? (in? [\space])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-keyword))]
                     (is (= gens detections)))))
 
@@ -212,7 +211,7 @@
                                         {:detect? (in? h/numbers)
                                          :reset? (in? [\space])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-number))]
                     (is (= gens detections)))))
 
@@ -223,7 +222,7 @@
                                            (filter %)
                                            (s/join)
                                            (BigInteger.))
-                        processed (-> (h/process tokens vector)
+                        processed (-> (in-vector tokens)
                                       (detections h/-number))]
                     (if (seq processed)
                       (is (every? valid-number? processed))
@@ -237,7 +236,7 @@
                                          :reset? (in? [\"])
                                          :include-detected? true
                                          :include-reset? true})
-                        processed (-> (h/process tokens vector)
+                        processed (-> (in-vector tokens)
                                       (detections h/-string h/-string*)
                                       (->> (reduce concat)))]
                     (is (= (apply concat gens) processed)))))
@@ -249,7 +248,7 @@
                                         {:detect? #(Character/isAlphabetic (int %))
                                          :reset? (in? [\space])
                                          :include-detected? true})
-                        detections (-> (h/process tokens vector)
+                        detections (-> (in-vector tokens)
                                        (detections h/-text)
                                        (->> (filter (comp not empty?))))] ;; the interpreter always emits an empty text with the first transition
                     (is (= gens detections)))))
@@ -264,7 +263,7 @@
            (for-all [tokens (->> (gen-with-token gen-space-token gen-word-token)
                                  (gen/fmap (comp vec flatten)))]
                     (let [gens (words tokens)
-                          detections (-> (h/process tokens vector)
+                          detections (-> (in-vector tokens)
                                          (detections h/-word))]
                       (is (= gens detections))))))
 

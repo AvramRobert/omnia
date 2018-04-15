@@ -16,16 +16,13 @@
         fgs     (atom [])
         stls    (atom [])
         unstls  (atom [])
-        clears  (atom 0)
         acc     (fn [atm val] (swap! atm #(conj % val)))
-        cnt     (fn [atm] (swap! atm inc))
         size    (t/size (:terminal ctx))]
     (assoc ctx
       :terminal (test-terminal {:background! (fn [colour] (acc bgs colour))
                                 :foreground! (fn [colour] (acc fgs colour))
                                 :style!      (fn [style]  (acc stls style))
                                 :un-style!   (fn [style]  (acc unstls style))
-                                :clear!      (fn [] (cnt clears))
                                 :put!        (fn [ch x y]
                                                (acc chars ch)
                                                (acc cursors [x y]))
@@ -35,8 +32,7 @@
               :bgs     bgs
               :fgs     fgs
               :stls    stls
-              :unstls  unstls
-              :clears  clears})))
+              :unstls  unstls})))
 
 (defn inspect [ctx p]
   (when-let [state (:state ctx)]
@@ -76,7 +72,7 @@
        (sort-by :priority)
        (mapv #(let [{start :start
                      end   :end} (-> complete-hud
-                                   (r/project-selection %)
+                                   (r/project-selection (:region %))
                                    (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
                                    (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
                 (-> (index ctx)
@@ -141,6 +137,18 @@
           (is (empty? stls))
           (is (empty? unstls))))))
 
+#_(defn reset-diff-render [ctx]
+  (-> (move-top-fov ctx)
+      (process down 2)
+      (process select-up 4)
+      (process backspace)
+      (stateful)
+      (execute r/diff!)
+      (inspect
+        (fn [{:keys [chars cursors _ _ _ _]}]
+          ;; FIXME: Check reset
+          ))))
+
 (defn diff-render [ctx]
   (projected-diff-render ctx (one gen/char-alpha))
   (padded-diff-render ctx)
@@ -193,6 +201,7 @@
                   (no-render ctx)))
 
 ;; III. Selection highlighting
+
 (defn total-selection-render-right [ctx]
   (let [processed (-> (move-end-fov ctx)
                       (process select-right 3))
@@ -283,7 +292,7 @@
   (projected-stylelised-render ctx)
   (projected-prioritised-render ctx))
 
-(defspec selection-render-test
+#_(defspec selection-render-test
          100
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
@@ -292,27 +301,26 @@
 
 ;; IV. Clean-up highlighting
 
-(defn line-start-clean-up-render [ctx]
-  (let [processed        (-> (move-end-fov ctx)
-                             (process select-right 100)
-                             (process up))
-        last-n           (-> (:complete-hud ctx) (:lines) (last) (count))
-        {chars   :chars
-         cursors :cursors} (discretise processed)
-        expected-chars   (take-last last-n chars)
-        expected-cursors (take-last last-n cursors)]
-    (-> (stateful processed)
+(defn arbitrary-line-clean-up [ctx]
+  (let [selected  (-> (move-top-fov ctx)
+                      (process right)
+                      (process select-right 2))
+        {expected-chars :chars
+         expected-cursors :cursors} (discretise-h selected)]
+    (-> selected
+        (process left)
+        (stateful)
         (execute r/clean!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
+            (is (= (flatten expected-chars) chars))
+            (is (= expected-cursors cursors))
             (is (= :default (first (distinct bgs))))
             (is (not (empty? bgs)))
-            (is (not (empty? fgs)))
-            (is (= expected-chars chars))
-            (is (= expected-cursors cursors)))))))
+            (is (not (empty? fgs))))))))
 
 (defn clean-up-render [ctx]
-  (line-start-clean-up-render ctx))
+  (arbitrary-line-clean-up ctx))
 
 (defspec clean-up-render-test
          100
@@ -369,10 +377,10 @@
   (let [total (move-end-fov (make-total ctx))
         [x y] (cursor total)]
     (can-be total
-            #(->> (process % select-up 5)
-                  (:highlights)
-                  (highlights? {:start [x (- y 5)]
-                                :end   [x y]})))))
+            #(-> (process % select-up 5)
+                 (:highlights)
+                 (highlights? {:start [x (- y 5)]
+                               :end   [x y]})))))
 
 (defn paged-selection-extension [ctx]
   (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (i/start-x) (:cursor))
@@ -405,7 +413,7 @@
         (process up 2)
         (process select-right)
         (update :highlights vec)
-        (update-in [:highlights 0]
+        (update-in [:highlights 0 :region]
                    #(let [{[xs ys] :start
                            [xe ye] :end} %]
                       {:start [xs (+ ys fov)]
@@ -418,7 +426,7 @@
     (-> (move-end-fov ctx)
         (process select-right)
         (update :highlights vec)
-        (update-in [:highlights 0]
+        (update-in [:highlights 0 :region]
                    #(let [{[xs ys] :start
                            [xe ye] :end} %]
                       {:start [xs (- ys fov)]
@@ -510,64 +518,74 @@
 
 ;; IX. Region diff
 
-(defn upper-same-line-diff []
-  (let [a {:start [4 1]
-           :end   [4 3]}
-        b {:start [0 1]
-           :end   [4 3]}
-        expected {:start [0 1]
-                  :end   [4 1]}]
-    (is (= expected (r/diff-region a b)))
-    (is (= expected (r/diff-region b a)))))
+(defn- check-diff [{:keys [now then expected]}]
+  (let [current {:region now}
+        formers [{:region then}]
+        result  (if expected {:region expected} expected)]
+    (is (= result (r/additive-diff current formers)))))
 
-(defn lower-same-line-diff []
-  (let [a {:start [2 1]
-           :end   [2 4]}
-        b {:start [2 1]
-           :end   [5 4]}
-        expected {:start [2 4]
-                  :end   [5 4]}]
-    (is (= expected (r/diff-region a b)))
-    (is (= expected (r/diff-region b a)))))
+(defn upper-x-diff []
+  (let [a {:start [4 1] :end [4 3]}
+        b {:start [0 1] :end [4 3]}
+        r {:start [0 1] :end [4 1]}]
+    (check-diff {:now a :then b :expected nil})
+    (check-diff {:now b :then a :expected r})))
 
-(defn lower-diff []
-  (let [a {:start [2 1]
-           :end   [4 2]}
-        b {:start [2 1]
-           :end   [6 5]}
-        expected {:start [4 2]
-                  :end   [6 5]}]
-    (is (= expected (r/diff-region a b)))
-    (is (= expected (r/diff-region b a)))))
+(defn lower-x-diff []
+  (let [a {:start [2 1] :end [2 4]}
+        b {:start [2 1] :end [5 4]}
+        r {:start [2 4] :end [5 4]}]
+    (check-diff {:now a :then b :expected nil})
+    (check-diff {:now b :then a :expected r})))
+
+(defn upper-y-diff []
+  (let [a {:start [4 4] :end [7 6]}
+        b {:start [2 1] :end [7 6]}
+        r {:start [2 1] :end [4 4]}]
+    (check-diff {:now a :then b :expected nil})
+    (check-diff {:now b :then a :expected r})))
+
+(defn lower-y-diff []
+  (let [a {:start [2 1] :end [4 2]}
+        b {:start [2 1] :end [6 5]}
+        r {:start [4 2] :end [6 5]}]
+    (check-diff {:now a :then b :expected nil})
+    (check-diff {:now b :then a :expected r})))
 
 
-(defn upper-diff []
-  (let [a {:start [4 4]
-           :end   [7 6]}
-        b {:start [2 1]
-           :end   [7 6]}
-        expected {:start [2 1]
-                  :end   [4 4]}]
-    (is (= expected (r/diff-region a b)))
-    (is (= expected (r/diff-region b a)))))
+(defn scissor-upper-y []
+  (let [a  {:start [2 1] :end [4 1]}
+        a' {:start [2 0] :end [4 1]}
+        b  {:start [4 1] :end [2 2]}
+        r  {:start [2 0] :end [2 1]}]
+    (check-diff {:now a :then b :expected a})
+    (check-diff {:now a' :then a :expected r})))
 
-(defn no-diff []
-  (let [a {:start [2 3]
-           :end   [4 5]}
-        b {:start [4 5]
-           :end   [4 6]}]
-    (is (= a (r/diff-region a b)))
-    (is (= b (r/diff-region b a)))))
+(defn scissor-lower-y []
+  (let [a  {:start [2 2] :end [4 2]}
+        a' {:start [2 2] :end [4 3]}
+        b  {:start [4 1] :end [2 2]}
+        r  {:start [4 2] :end [4 3]}]
+    (check-diff {:now a :then b :expected a})
+    (check-diff {:now a' :then a :expected r})))
 
 (defn keep-diff []
-  (let [a {:start [2 3]
-           :end   [4 5]}]
-    (is (= {} (r/diff-region a a)))))
+  (let [a {:start [2 3] :end [4 5]}
+        b {:start [2 3] :end [4 5]}]
+    (check-diff {:now a :then b :expected nil})))
+
+(defn no-diff []
+  (let [a {:start [2 3] :end [4 5]}
+        b {:start [4 5] :end [4 6]}]
+    (check-diff {:now a :then b :expected a})
+    (check-diff {:now b :then a :expected b})))
 
 (clojure.test/deftest region-diff
-  (upper-same-line-diff)
-  (lower-same-line-diff)
-  (lower-diff)
-  (upper-diff)
-  (no-diff)
-  (keep-diff))
+  (upper-x-diff)
+  (lower-x-diff)
+  (upper-y-diff)
+  (lower-y-diff)
+  (scissor-upper-y)
+  (scissor-lower-y)
+  (keep-diff)
+  (no-diff))

@@ -258,23 +258,60 @@ Legend:
  > 54. There seems to be a problem (null pointer exception) in some cases with the `document` function
        Docs aren't always there, so the repl returns nil for them, but concrete things for other fields.
 
-55. Why does this highlight happen:
-    `(` let a 1
-            b 2]'|'
-        (+ a b) `)`
+ > 55. Why does this highlight happen:
+       `(` let a 1
+               b 2]'|'
+           (+ a b) `)`
 
-    And this doesn't
-     ( let [a 1
-              b 2
-         (+ a b))'|'
+       And this doesn't
+        ( let [a 1
+                 b 2
+            (+ a b))'|'
 
 56. Write test for multi-paged highlight and then a delete of the highlighted.
     This should by default lead to total re-render of the screen.
     In case of diff, if all the lines are the same, the re-render is not triggered
     and thus there remain highlighting artifacts.
     Write a test for this. This should also help you in the future more accurately test
-    a solution where total re-render would'nt be required.
+    a solution where total re-render wouldn't be required.
 
+ > 57. An alternative way of highlighting with complete diffs:
+       Extend the highlighter in such a way, that when highlighting a region,
+       it would be able to determine which highlighting state that region is in
+       and basically seed the highlighting process with that state.
+       Let the highlighter start processing the line at `ys` until it gets
+       to some terminal state containing `xs`. Upon completion, that terminal state
+       is the state to return.
+       If I were to do this, then I can select arbitrary region diffs and do whatever I want
+       to them without any problem.
+       -> Slight problem:
+          In multi-page view, when incrementally highlighting towards the top,
+          a change in ov will lead to a clean-up of a subsection of the highlight
+          => Reason: A change in ov prompts a total re-render, but the highlights are still diffed,
+                     which means that the previous highlight get's deleted.
+
+ > 58. Possible problem:
+       After an undo, might the highlight cleaner try to clean something that
+       isn't there anymore, thus leading to IndexOutOfBounds when subvec is called on that region?
+
+59. Start optimising the seeker with `vector-ops` and look at implementation details
+
+ > 60. There's a general fundamental flaw in partial highlighting that is due to late emissions.
+       If I am to select from some arbitrary point in a line and go up to half of a word, then
+       even if I start processing from the beginning of the line, because the highlight stops in the middle
+       of that word, it won't detect it as being a late emission.
+       In order to solve this, I have to make cleaning re-render complete lines, regardless of how
+       large the selection is.
+       Possible solution:
+       Make `print-line` always print from the beginning of a line.
+       For any region to be printed by `print-line`, the function will always start from the beginning
+       of the line, it ignores everything until the region-to-be-printed is reached,
+       after that, it prints that region with the appropriate colourscheme (taking complete emissions into
+       consideration, naturally splitting them if need be and colouring only the necessary parts) and
+       continues up until the end of the line. And that's it. No need to recognise the state at
+       arbitrary points.
+       The line printer will basically always guarantee proper highlighting by starting from the
+       beginning, processing normally and only printing something when the desired region is reached.
 
 ----------------- MIGRATION VERSIONS -------------------
 
@@ -292,7 +329,10 @@ pomegranate 0.3.1 -> 1.0.0:
     -> retrieval only works in stand-alone jar:
         * adding to classpath works in dev, but dependency disappears after a while (rather strange)
 
-IDEA: 
+
+------------------ FEATURE IDEAS ---------------------
+
+IDEA:
  -> Auto indentation! Solution for formatting
  -> Each expression/line has an associated indentation. Should you go to the next line, you reuse the indentation if it's part of the same expression
     or indent further if it's a nested expression
@@ -306,14 +346,13 @@ Prospects:
 - Look-ahead syntax highlighter // done
 - Highlighter tests // done
 - Rendering tests // done
-- Undo and redo
-- Slurping/barfing
+- Undo and redo // done
 - Parametricity and arity lookup // done
 - ClojureDoc support // done
-- Extensive validation, sane defaults and/or reporting for user config
-- Improved and more extensive config options
-- Copying/cutting from external sources
 - Automatic parens matching // done
-- Automatic code formatting
 - Parametrised highlighting // done
+- Slurping/barfing
+- Extensive validation, sane defaults and/or reporting for user config
+- Copying/cutting from external sources
+- Automatic code formatting
 - Documentation

@@ -82,9 +82,6 @@
 (defn visible! [terminal bool]
   ((:visible! terminal) bool))
 
-(defn clear! [terminal]
-  ((:clear! terminal)))
-
 (defn move! [terminal x y]
   ((:move! terminal) x y))
 
@@ -117,8 +114,6 @@
                       (some->> (styles style) (.enableSGR terminal)))
      :un-style!     (fn [style]
                       (some->> (styles style) (.disableSGR terminal)))
-     :clear!        (fn []
-                      (doto terminal (.clearScreen) (.setCursorPosition 0 0) (.flush)))
      :size          (fn []
                       (-> terminal (.getTerminalSize) (.getRows)))
      :move!         (fn [x y]

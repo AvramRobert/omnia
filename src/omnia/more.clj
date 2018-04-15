@@ -1,6 +1,5 @@
 (ns omnia.more
-  (:require [clojure.core.match :as m]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [clojure.edn :as edn]))
 
 (defn inc< [value max]
@@ -42,6 +41,9 @@
   (if (-> path (io/file) (.exists))
     (-> path (slurp) (edn/read-string))
     else))
+
+(defmacro omnia-version []
+  (System/getProperty "omnia.version"))
 
 (defmacro time-return [& body]
   `(let [s# (System/nanoTime)

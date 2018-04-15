@@ -2,8 +2,7 @@
   (:require [omnia.terminal :as t]
             [omnia.input :as i]
             [omnia.highlight :as h]
-            [omnia.more :refer [map-vals reduce-idx --]]
-            [clojure.core.match :as m]))
+            [omnia.more :refer [map-vals reduce-idx --]]))
 
 (declare total! diff! nothing!)
 
@@ -66,16 +65,16 @@
 (defn project-selection [hud selection]
   (let [{fov :fov
          h   :height} hud
-        top (top-y hud)
-        bottom (bottom-y hud)
         {[xs ys] :start
          [xe ye] :end} selection
-        unpaged? (< h fov)
-        clipped-top? (< ys top)
+        top             (top-y hud)
+        bottom          (bottom-y hud)
+        unpaged?        (< h fov)
+        clipped-top?    (< ys top)
         clipped-bottom? (> ye bottom)
-        visible-top? (<= top ys bottom)
+        visible-top?    (<= top ys bottom)
         visible-bottom? (<= top ye bottom)
-        end-bottom (-> hud (i/reset-y bottom) (i/end-x) (:cursor))]
+        end-bottom      (-> hud (i/reset-y bottom) (i/end-x) (:cursor))]
     (cond
       unpaged? selection
       (and visible-top?
@@ -110,104 +109,126 @@
         (i/select)
         (i/reset-y ye)
         (i/reset-x xe)
-        (i/extract)
-        (assoc :height (:height hud)))))                    ;; for accurate projection
+        (i/extract))))
 
-;; In case of garbage -> enlarging should be considered identical
-;;            highlights -> shrinking should be considered identical
-;; => I do need subtractive and additive diffs
-(defn diff-region [current former]
-  (let [{[xs ys]   :start
-         [xe ye]   :end} current
-        {[xs' ys'] :start
-         [xe' ye'] :end} former
-        same-start?     (= ys ys')
-        same-end?       (= ye ye')
-        same-line?      (and same-start? same-end?)
-        identical?      (and (= [xs ys] [xs' ys'])
-                             (= [xe ye] [xe' ye']))
-        shrink-right?   (and same-line? (< xe xe'))
-        shrink-left?    (and same-line? (> xs xs'))
-        enlarge-left?   (and same-line? (< xs xs'))
-        enlarge-right?  (and same-line? (> xe xe'))
-        shrink-bottom?  (and same-start? (< ye ye'))
-        shrink-top?     (and same-end? (> ys ys'))
-        enlarge-bottom? (and same-start? (> ye ye'))
-        enlarge-top?    (and same-end? (< ys ys'))]
-    (cond
-      identical? {}
-      (or shrink-right?
-          shrink-bottom?)  {:start [xe  ye]
-                            :end   [xe' ye']}
-      (or shrink-left?
-          shrink-top?)     {:start [xs' ys']
-                            :end   [xs  ys]}
-      (or enlarge-right?
-          enlarge-bottom?) {:start [xe' ye']
-                            :end   [xe ye]}
-      (or enlarge-left?
-          enlarge-top?)    {:start [xs  ys]
-                            :end   [xs' ys']}
-      :else current)))
+(defn additive-diff [current formers]
+  (if-let [former (some #(when (= (:type current) (:type %)) %) formers)]
+    (let [{[xs ys]   :start
+           [xe ye]   :end} (:region current)
+          {[xs' ys'] :start
+           [xe' ye'] :end} (:region former)
+          exact-start?   (= [xs ys] [xs' ys'])
+          exact-end?     (= [xe ye] [xe' ye'])
+          similar-start? (= ys ys')
+          similar-end?   (= ye ye')
+          shrunk-left?   (> xs xs')
+          shrunk-right?  (< xe xe')
+          shrunk-top?    (> ys ys')
+          shrunk-bottom? (< ye ye')
+          grown-left?    (< xs xs')
+          grown-right?   (> xe xe')
+          grown-top?     (< ys ys')
+          grown-bottom?  (> ye ye')]
+      (cond
+        (or (and exact-start? exact-end?)
+            (and exact-start? similar-end? shrunk-right?)
+            (and exact-start? shrunk-bottom?)
+            (and exact-end? similar-start? shrunk-left?)
+            (and exact-end? shrunk-top?)) nil
 
-(defn occlude [highlight existing]
-  (or (some->> existing
-               (some #(when (= (:type highlight) (:type %))))
-               (diff-region highlight))
-      highlight))
+        (or (and exact-start? similar-end? grown-right?)
+            (and exact-start? grown-bottom?)) (assoc current :region {:start [xe' ye'] :end [xe ye]})
 
-(defn- display! [emission terminal x y]
-  (reduce-idx (fn [ix _ input] (t/put! terminal input ix y)) x nil emission))
+        (or (and exact-end? similar-start? grown-left?)
+            (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
+        :else current))
+    current))
 
-(defn print-line! [line terminal scheme [x y]]
-  (let [ix (atom x)
-        {cs :cs style :style} scheme]
+(defn print-line! [{line     :line
+                    y        :at
+                    padding  :padding
+                    terminal :terminal
+                    [xs xe]  :sub-region
+                    {cs    :cs
+                     style :style} :scheme}]
+  (letfn [(pad! [x]
+            (when padding
+              (dotimes [offset padding]
+                (t/put! terminal \space (+ x offset) y))))
+          (show! [x emission state]
+            (t/foreground! terminal (cs (:id state)))
+            (reduce-idx
+              (fn [x' _ input]
+                (t/put! terminal input x' y)) x nil emission))
+          (print! [x [emission state]]
+            (show! x emission state)
+            (+ x (count emission)))
+          (print-sub! [x [emission state]]
+            (let [x' (+ x (count emission))]
+              (cond
+                (and (<= x xs) (>= x' xe)) (show! xs (->> emission (drop (- xs x)) (take (- xe xs))) state)
+                (and (<= x xs) (> x' xs))  (show! xs (drop (- xs x) emission) state)
+                (>= x' xe)                 (show! x (take (- xe x) emission) state)
+                (> x' xs)                  (show! x emission state)
+                :else nil)
+              x'))]
     (t/background! terminal (cs h/-back))
     (when style (t/style! terminal style))
     (t/visible! terminal false)
-    (h/process line
-               (fn [emission type]
-                 (t/foreground! terminal (cs type))
-                 (display! emission terminal @ix y)
-                 (swap! ix #(+ % (count emission)))))
+    (-> (if (and xs xe) print-sub! print!)
+        (h/foldl 0 line)
+        (pad!))
     (t/background! terminal :default)
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))
 
-(defn print-hud!
-  ([hud terminal scheme]
-   (print-hud! hud terminal scheme [0 0]))
-  ([hud terminal scheme [x y]]
-   (reduce-idx
-     (fn [cy cx line]
-       (print-line! line terminal scheme [cx (project-y hud cy)])
-       0) y x (:lines hud))))
+(defn- highlight! [{:keys [hud terminal]} highlights]
+  (doseq [{highlight :region
+           scheme    :scheme} highlights
+          :let [selection (project-selection hud highlight)
+                [xs ys]   (:start selection)]]
+    (->> (region hud selection)
+         (:lines)
+         (reduce-idx
+           (fn [y x line]
+             (print-line! {:at        (project-y hud y)
+                           :line      (i/line hud [x y])
+                           :terminal   terminal
+                           :scheme     scheme
+                           :sub-region [x (+ x (count line))]})
+             0) ys xs))))
 
-(defn highlight! [ctx regions]
-  (let [{terminal :terminal
-         complete :complete-hud} ctx]
-    (run!
-      #(when-not (empty? %)
-         (let [scheme     (:scheme %)
-               projection (project-selection complete %)
-               {[xs ys] :start} projection]
-           (-> (region complete projection)
-               (print-hud! terminal scheme [xs ys])))) regions)))
-
-(defn clean! [{:keys [colourscheme highlights] :as ctx}]
-  ;; Always re-render from the beginning of the line to avoid syntax highlighting artifacts
+(defn clean! [{:keys [colourscheme
+                      garbage
+                      highlights
+                      complete-hud
+                      previous-hud
+                      terminal]}]
   (letfn [(reset [selection]
-            (-> selection
-                (occlude highlights)
-                (update :start (fn [[_ y]] [0 y]))
-                (assoc  :scheme (-> colourscheme (clean-cs) (simple-scheme)))))]
-    (->> (:garbage ctx) (mapv reset) (highlight! ctx))))
+            (when (= (:ov complete-hud) (:ov previous-hud))
+              (some-> (additive-diff selection highlights)
+                      (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme))))))]
+    (->> garbage
+         (mapv reset)
+         (remove nil?)
+         (highlight! {:hud previous-hud
+                      :terminal terminal}))))
 
-(defn selections! [{:keys [highlights garbage] :as ctx}]
-  (->> highlights
-       (sort-by :priority)
-       (mapv #(occlude % garbage))
-       (highlight! ctx)))
+(defn selections! [{:keys [highlights
+                           garbage
+                           complete-hud
+                           previous-hud
+                           terminal]}]
+  (letfn [(reset [selection]
+            (if (= (:ov complete-hud) (:ov previous-hud))
+              (additive-diff selection garbage)
+              selection))]
+    (->> highlights
+         (sort-by :priority)
+         (mapv reset)
+         (remove nil?)
+         (highlight! {:hud complete-hud
+                      :terminal terminal}))))
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]
@@ -215,18 +236,26 @@
 
 ;; === Rendering strategies ===
 
-;; FIXME: Merge padding with printing
-(defn- pad-erase [current-line former-line]
-  (cond
-    (and (empty? former-line)
-         (empty? current-line)) []
-    (empty? former-line)  current-line
-    (empty? current-line) (-> (count former-line) (repeat \space) (vec))
-    :else (let [hc (count current-line)
-                hf (count former-line)
-                largest (max hc hf)]
-            (->> (range 0 (- largest hc))
-                 (reduce (fn [c _] (conj c \space)) current-line)))))
+(defn- pad [current-line former-line]
+  (let [c (count current-line)
+        f (count former-line)]
+    (when (> f c) (- f c))))
+
+(defn total! [ctx]
+  (let [terminal (:terminal ctx)
+        now      (-> ctx (:complete-hud) (project-hud) (:lines))
+        then     (-> ctx (:previous-hud) (project-hud) (:lines))
+        scheme   (-> ctx (:colourscheme) (simple-scheme))
+        limit    (max (count now) (count then))]
+    (dotimes [y limit]
+      (let [a (nth now y nil)
+            b (nth then y nil)]
+        (print-line!
+          {:at         y
+           :line       a
+           :padding    (pad a b)
+           :terminal   terminal
+           :scheme     scheme})))))
 
 (defn diff! [ctx]
   (let [{terminal     :terminal
@@ -239,34 +268,21 @@
         limit    (max (count now) (count then))]
     (if (not= (:ov complete) (:ov previous))
       (total! ctx)
-      (loop [y 0]
-        (when (< y limit)
-          (let [a (nth now y nil)
-                b (nth then y nil)]
-            (when (not= a b)
-              (-> (pad-erase a b)
-                  (print-line! terminal scheme [0 y])))
-            (recur (inc y))))))))
+      (dotimes [y limit]
+        (let [a (nth now y nil)
+              b (nth then y nil)]
+          (when (not= a b)
+            (print-line! {:at       y
+                          :line     a
+                          :padding  (pad a b)
+                          :terminal terminal
+                          :scheme   scheme})))))))
 
 (defn nothing! [ctx]
   (let [{complete :complete-hud
          previous :previous-hud} ctx]
     (when (not= (:ov complete) (:ov previous))
       (total! ctx))))
-
-(defn total! [ctx]
-  (let [terminal (:terminal ctx)
-        now      (-> ctx (:complete-hud) (project-hud) (:lines))
-        then     (-> ctx (:previous-hud) (project-hud) (:lines))
-        scheme   (-> ctx (:colourscheme) (simple-scheme))
-        limit    (max (count now) (count then))]
-    (loop [y 0]
-      (when (< y limit)
-        (let [a (nth now y nil)
-              b (nth then y nil)]
-          (-> (pad-erase a b)
-              (print-line! terminal scheme [0 y]))
-          (recur (inc y)))))))
 
 (defn render [ctx]
   (case (:render ctx)

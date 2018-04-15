@@ -7,14 +7,14 @@
 (defrecord Event [action key])
 (defrecord Seeker [lines
                    cursor
-                   height                                   ;; Can't I remove the height?
+                   height
                    expansion
                    selection
                    clipboard
                    history
                    rhistory]
   Object
-  (toString [this]
+  (toString [_]
     (str {:lines     lines
           :height    height
           :cursor    cursor
@@ -77,9 +77,6 @@
    (sym-at seeker (:cursor seeker)))
   ([seeker [x y]]
    (-> seeker (line [x y]) (nth x nil))))
-
-(defn height [seeker]
-  (:height seeker))
 
 (defn rebase [seeker f]
   (-> seeker (update :lines (comp vec f)) (resize)))
@@ -158,7 +155,7 @@
 (defn move-y [seeker f]
   (move seeker
         (fn [[x y]]
-          (let [height (height seeker)
+          (let [height (:height seeker)
                 ny     (f y)]
             (if (<= 0 ny (dec height))
               [x ny]
@@ -190,8 +187,7 @@
   (-> seeker (end-y) (end-x)))
 
 (defn- advance-with [seeker f]
-  (let [[_ y] (:cursor seeker)
-        h (-> seeker height dec)
+  (let [h (-> seeker :height dec)
         w (-> seeker line count)]
     (m/match [(:cursor seeker)]
              [[w h]] seeker
@@ -244,7 +240,7 @@
 
 (defn join [this-seeker that-seeker]
   (let [[x y] (:cursor that-seeker)
-        ths (height this-seeker)]
+        ths   (:height this-seeker)]
     (-> this-seeker
         (rebase #(concat % (:lines that-seeker)))
         (assoc :selection (:selection that-seeker))
@@ -422,13 +418,15 @@
 (defn closed-expand [seeker]
   "Note: This assumes that the left-hand side of the seeker starts with a closed parens"
   (let [r (left seeker)
-        beginning (start seeker)]
+        beginning (start seeker)
+        switch #(assoc % :cursor    (:cursor seeker)
+                         :selection (:cursor %))]
     (loop [seen 1
            current (-> seeker (select) (regress))]
       (let [l (left current)]
         (cond
-          (zero? seen) [:matched current]
-          (= (:cursor beginning) (:cursor current)) [:unmatched current]
+          (zero? seen) [:matched (switch current)]
+          (= (:cursor beginning) (:cursor current)) [:unmatched (switch current)]
           (a-pair? l r) (recur (dec seen) (regress current))
           (= l r) (recur (inc seen) (regress current))
           :else (recur seen (regress current)))))))
@@ -452,7 +450,7 @@
                [:word \[ \]] (-> seeker (near-expand) (second))
                [:word \{ \}] (-> seeker (near-expand) (second))
                [:word \space \space] (-> seeker (near-expand) (second))
-               [:word \space (:or \) \] \})] (-> seeker (advance) (closed-expand) (second))
+               [:word (:or \" \space) (:or \) \] \})] (-> seeker (advance) (closed-expand) (second))
                [:word (:or \) \] \}) _] (-> seeker (closed-expand) (second))
                [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (open-expand) (second))
                [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select) (jump-right))
@@ -464,8 +462,8 @@
   (letfn [(choose [[m s]]
             (when (= :matched m) (-> s (regress) (selection))))]
     (cond
-      (open-pairs (right seeker)) (-> seeker (select) (open-expand) (choose))
-      (closed-pairs (left seeker)) (-> seeker (regress) (select) (near-expand) (choose))
+      (open-pairs (right seeker)) (-> seeker (open-expand) (choose))
+      (closed-pairs (left seeker)) (-> seeker (closed-expand) (choose))
       :else (-> seeker (near-expand) (choose)))))
 
 (defn forget [seeker]
@@ -502,7 +500,7 @@
 
 (defn stringify [seeker]
   (->> (repeat "\n")
-       (take (height seeker))
+       (take (:height seeker))
        (interleave (:lines seeker))
        (map #(apply str %))
        (s/join)))
