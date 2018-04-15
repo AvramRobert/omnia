@@ -471,12 +471,12 @@
             #(-> (process % select-down 4)
                  (process enter)
                  (:highlights)
-                 (= h/empty-set))
+                 (= i/empty-vec))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (process enter)
                  (:highlights)
-                 (= h/empty-set)))))
+                 (= i/empty-vec)))))
 
 (defn highlighting [ctx]
   (queue-highlights ctx)
@@ -504,7 +504,8 @@
                               (process (char-key \a) 4)
                               (process left 5)
                               (process parens-match)
-                              (:highlights))]
+                              (:highlights)
+                              (set))]
     (is (true? (contains? actual-highlights
                           (scheme
                             :open-paren
@@ -525,7 +526,7 @@
       (process left 5)
       (process parens-match)
       (:highlights)
-      (= h/empty-set)
+      (= i/empty-vec)
       (is)))
 
 (defn parens-matching [ctx]

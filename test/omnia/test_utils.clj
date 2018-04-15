@@ -57,17 +57,6 @@
                                 :ns ""
                                 :type ""}) xs)})))))
 
-(defn gen-info [size]
-  (->> (gen/tuple gen/string-alphanumeric
-                  gen/string-alphanumeric
-                  gen/string-alphanumeric
-                  (gen/vector gen/string-alphanumeric size))
-       (gen/fmap (fn [[ns name docs args]]
-                   (list {:ns ns
-                          :name name
-                          :doc docs
-                          :arglists-str (s/join "\n" args)})))))
-
 (defn test-terminal [{:keys [background!
                              foreground!
                              style!
@@ -143,8 +132,6 @@
 (def next-eval (event :next-eval :down))
 (def parens-match (event :match \p))
 (def suggest (event :suggest :tab))
-(def sign (event :signature \p))
-(def docs (event :docs \d))
 
 (defn process
   ([ctx event]
@@ -232,7 +219,7 @@
                       (= expected-end end)))))))
 
 (defn empty-garbage [ctx]
-  (assoc ctx :garbage h/empty-set))
+  (assoc ctx :garbage i/empty-vec))
 
 (defn move-start-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/start-y))

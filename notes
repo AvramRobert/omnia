@@ -268,12 +268,12 @@ Legend:
                  b 2
             (+ a b))'|'
 
-56. Write test for multi-paged highlight and then a delete of the highlighted.
-    This should by default lead to total re-render of the screen.
-    In case of diff, if all the lines are the same, the re-render is not triggered
-    and thus there remain highlighting artifacts.
-    Write a test for this. This should also help you in the future more accurately test
-    a solution where total re-render wouldn't be required.
+ > 56. Write test for multi-paged highlight and then a delete of the highlighted.
+       This should by default lead to total re-render of the screen.
+       In case of diff, if all the lines are the same, the re-render is not triggered
+       and thus there remain highlighting artifacts.
+       Write a test for this. This should also help you in the future more accurately test
+       a solution where total re-render wouldn't be required.
 
  > 57. An alternative way of highlighting with complete diffs:
        Extend the highlighter in such a way, that when highlighting a region,

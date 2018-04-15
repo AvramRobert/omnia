@@ -137,22 +137,33 @@
           (is (empty? stls))
           (is (empty? unstls))))))
 
-#_(defn reset-diff-render [ctx]
-  (-> (move-top-fov ctx)
-      (process down 2)
-      (process select-up 4)
-      (process backspace)
-      (stateful)
-      (execute r/diff!)
-      (inspect
-        (fn [{:keys [chars cursors _ _ _ _]}]
-          ;; FIXME: Check reset
-          ))))
+(defn reset-diff-render [ctx]
+  (let [processed (-> (move-top-fov ctx)
+                      (process down)
+                      (process select-up 3)
+                      (process backspace))
+        {expected-chars   :chars
+         expected-cursors :cursors} (discretise processed)]
+    (-> processed
+        (stateful)
+        (execute r/diff!)
+        (inspect
+          (fn [{:keys [chars cursors _ _ _ _]}]
+            (->> (map vector chars cursors)
+                 (filter (fn [[char cursor]] (not= \space char)))
+                 (map
+                   (fn [e-char e-cursor [char cursor]]
+                     [e-char e-cursor char cursor]) expected-chars expected-cursors)
+                 (reduce
+                   (fn [_ [e-char e-cursor char cursor]]
+                     (is (= e-char char))
+                     (is (= e-cursor cursor))) nil)))))))
 
 (defn diff-render [ctx]
   (projected-diff-render ctx (one gen/char-alpha))
   (padded-diff-render ctx)
-  (no-change-diff-render ctx))
+  (no-change-diff-render ctx)
+  (reset-diff-render ctx))
 
 (defspec diff-render-test
          100

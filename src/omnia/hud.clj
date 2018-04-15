@@ -31,7 +31,6 @@
                     highlights
                     garbage])
 
-(def empty-set #{})
 (def empty-line (i/seeker [i/empty-vec]))
 
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
@@ -99,8 +98,8 @@
        :seeker        i/empty-seeker
        :suggestions   i/empty-seeker
        :docs          i/empty-seeker
-       :highlights    empty-set                             ;; make these things normal vectors
-       :garbage       empty-set})))
+       :highlights    i/empty-vec
+       :garbage       i/empty-vec})))
 
 (defn adjoin [ths tht]
   (i/rebase ths #(concat % (:lines tht))))
@@ -261,7 +260,7 @@
                %))))
 
 (defn gc [ctx]
-  (assoc ctx :highlights empty-set
+  (assoc ctx :highlights i/empty-vec
              :garbage (:highlights ctx)))
 
 (defn match [ctx]
