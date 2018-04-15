@@ -31,34 +31,40 @@
 
      java -jar $JAR \"path=$DIR\"" file-name version))
 
+(def prepare-jar
+  (-> (t/task    (println "Running tests.."))
+      (t/then-do (sh "lein" "test"))
+      (t/then-do (println "Creating uberjar.."))
+      (t/then-do (sh "lein" "uberjar"))))
+
+(defn release-for [os]
+  (t/do-tasks
+    [version     (m/omnia-version)
+     system      (name os)
+     title       (format "omnia-%s" version)
+     sa-title    (format "%s-standalone" title)
+     directory   (format "%s-%s/" title system)
+     config-file (format "%s/omnia.edn" directory)
+     exec-file   (format "%s/omnia" directory)
+     config      (-> (c/config-for os) (str) (f/format-str))
+     exec        (executable version title)
+     _     (println (format "Creating release files for %s.." system))
+     _     (sh "mkdir" directory)
+     _     (sh "cp" (format "target/uberjar/%s.jar" sa-title) directory)
+     _     (sh "mv" (format "%s%s.jar" directory sa-title) (format "%s%s.jar" directory title))
+     _     (spit config-file config)
+     _     (spit exec-file exec)
+     _     (println "Creating tar..")
+     _     (sh "tar" "-cvf" (format "%s-%s.tar" title system) (format "./%s" directory))
+     _     (println "Removing directory..")
+     _     (sh "rm" "-rf" directory)
+     _     (println "Done!")]))
+
+
 (defn release []
-  (->
-    (t/do-tasks
-      [version     (m/omnia-version)
-       title       (format "omnia-%s" version)
-       sa-title    (format "%s-standalone" title)
-       directory   (format "%s/" title)
-       config-file (format "%s/omnia.edn" directory)
-       exec-file   (format "%s/omnia" directory)
-       config      (-> c/default-config (str) (f/format-str))
-       exec        (executable version title)
-       _     (println "Running tests..")
-       _     (sh "lein" "test")
-       _     (println "Creating uberjar..")
-       _     (sh "lein" "uberjar")
-       _     (println "Creating release files..")
-       _     (sh "mkdir" title)
-       _     (sh "mv" (format "target/uberjar/%s.jar" sa-title) directory)
-       _     (sh "mv" (format "%s/%s.jar" title sa-title) (format "%s/%s.jar" title title))
-       _     (spit config-file config)
-       _     (spit exec-file exec)
-       _     (println "Creating tar..")
-       _     (sh "tar" "-cvf" (format "%s.tar" title) (format "./%s" directory))
-       _     (println "Removing directory..")
-       _     (sh "rm" "-rf" directory)
-       _     (println "Done!")
-       _     (System/exit 1)])
-    (t/recover (fn [{:keys [message]}]
-                 (println (format "Release failed with: %s" message))
-                 (System/exit -1)))
-    (t/run)))
+  (-> prepare-jar
+      (t/then-do (->> [c/linux c/macOS] (mapv release-for) (t/sequenced)))
+      (t/recover (fn [{:keys [message]}]
+                   (println (format "Release failed with: %s" message))
+                   (System/exit -1)))
+      (t/run)))

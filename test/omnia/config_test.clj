@@ -27,4 +27,4 @@
           (is (contains? v :key))
           (is (contains? v :ctrl))
           (is (contains? v :shift))
-          (is (contains? v :alt))) (c/normalise c/default-config)))
+          (is (contains? v :alt))) (c/normalise c/default-keymap)))

@@ -5,11 +5,16 @@
             [halfling.task :refer [task]]
             [omnia.highlight :as h]))
 
+(def ^:const macOS :macOS)
+(def ^:const linux :linux)
+(def ^:const os :os)
 (def ^:const keymap :keymap)
 (def ^:const colourscheme :colourscheme)
 
-(def editor-keymap
-  {:docs              {:key \i :alt true}
+(def ^:private linux-keymap
+  {
+   ;; --- EDITOR KEYMAP ---
+   :docs              {:key \i :alt true}
    :signature         {:key \p :alt true}
    :expand            {:key \w :ctrl true}
    :undo              {:key \z :alt true}
@@ -32,10 +37,9 @@
    :jump-select-right {:key :right :shift true :ctrl true}
    :backspace         {:key :backspace}
    :delete            {:key :delete}
-   :newline           {:key :enter}})
-
-(def hud-keymap
-  {:match       {:key \p :ctrl true}
+   :newline           {:key :enter}
+   ;; --- HUD KEYMAP ---
+   :match       {:key \p :ctrl true}
    :suggest     {:key :tab}
    :scroll-up   {:key :page-up}
    :scroll-down {:key :page-down}
@@ -46,7 +50,46 @@
    :eval        {:key \e :alt true}
    :exit        {:key \d :ctrl true}})
 
-(def syntax-cs
+(def ^:private macOS-keymap
+  {
+   ; --- EDITOR KEYMAP ---
+   :docs              {:key \i :alt true}
+   :signature         {:key \p :alt true}
+   :expand            {:key \w :ctrl true}
+   :undo              {:key \z :alt true}
+   :redo              {:key \y :alt true}
+   :paste             {:key \v :alt true}
+   :copy              {:key \c :alt true}
+   :cut               {:key \x :alt true}
+   :select-all        {:key \a :ctrl true}
+   :up                {:key :up}
+   :down              {:key :down}
+   :left              {:key :left}
+   :right             {:key :right}
+   :jump-left         {:key :left :ctrl true}
+   :jump-right        {:key :right :ctrl true}
+   :select-up         {:key :up :shift true}
+   :select-down       {:key :down :shift true}
+   :select-left       {:key :left :shift true}
+   :select-right      {:key :right :shift true}
+   :jump-select-left  {:key :left :shift true :ctrl true}
+   :jump-select-right {:key :right :shift true :ctrl true}
+   :backspace         {:key :backspace}
+   :delete            {:key :delete}
+   :newline           {:key :enter}
+   ; --- HUD KEYMAP ---
+   :match       {:key \p :ctrl true}
+   :suggest     {:key :tab}
+   :scroll-up   {:key :page-up}
+   :scroll-down {:key :page-down}
+   :prev-eval   {:key :up :alt true}
+   :next-eval   {:key :down :alt true}
+   :format      {:key \l :ctrl true :alt true}
+   :clear       {:key \r :ctrl true}
+   :eval        {:key \e :alt true}
+   :exit        {:key \d :ctrl true}})
+
+(def ^:private standard-cs
   {h/-list     :white
    h/-vector   :white
    h/-map      :white
@@ -59,24 +102,24 @@
    h/-function :yellow
    h/-text     :white
    h/-select   :blue
-   h/-back     :default})
+   h/-back     :default
+   h/-break    :default
+   h/-space    :default})
 
-(def control-cs
-  {h/-break :default
-   h/-space :default})
+(defn keymap-for [os]
+  (if (= os macOS) macOS-keymap linux-keymap))
 
-(defn ext-cs [cs]
-  {h/-string* (cs h/-string :green)})
+(defn make-colourscheme [cs]
+  (assoc cs h/-string* (cs h/-string :green)))
 
-(defn- make-cs [cs]
-  (merge cs (ext-cs cs)))
+(defn config-for [os-key]
+  {os os-key
+   keymap  (keymap-for os-key)
+   colourscheme (make-colourscheme standard-cs)})
 
-(def default-keymap (merge editor-keymap hud-keymap))
-(def default-cs (make-cs (merge syntax-cs control-cs)))
-
-(def default-config
-  {keymap       default-keymap
-   colourscheme default-cs})
+(def default-keymap (keymap-for linux))
+(def default-cs     (make-colourscheme standard-cs))
+(def default-config (config-for linux))
 
 (defn- failed [msg cause]
   (throw (Exception. (str msg "\n" cause))))
@@ -105,16 +148,17 @@
              :shift false
              :alt   false} %) config))
 
-(defn- patch-with [patcher patchee]
-  (reduce
-    (fn [c [k v]]
-      (if (contains? c k) c (assoc c k v)))
-    patchee patcher))
-
 (defn patch [config]
-  (-> config
-      (update colourscheme #(->> % (patch-with default-cs) (make-cs)))
-      (update keymap (partial patch-with default-keymap))))
+  (letfn [(patched [patchee patcher]
+            (reduce
+              (fn [m [k v]]
+                (if (contains? m k) m (assoc m k v))) patchee patcher))
+          (fix-keymap [kmap] (->> (:os config) (keymap-for) (patched kmap)))
+          (fix-scheme [cs]   (->> default-cs (patched cs) (make-colourscheme)))]
+    (-> config
+        (update os #(or % linux))
+        (update colourscheme fix-scheme)
+        (update keymap fix-keymap))))
 
 (defn read-config [path]
   (task
