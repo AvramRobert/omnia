@@ -136,12 +136,12 @@
          ns          :ns
          doc         :doc
          name        :name
-         [_ no-info] :status} (-> (info-msg seeker ns) (send!) (first))]
-    (when-not no-info
+         [status]    :status} (-> (info-msg seeker ns) (send!) (first))]
+    (when (= "done" status)
       {:name name
        :args (-> arg-list (or "") (split #"\n"))
        :ns ns
-       :doc (or doc "")})))
+       :doc (if (empty? doc) "" doc)})))
 
 (defn add-predef! [repl]
   (evaluate! repl predef))
