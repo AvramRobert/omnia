@@ -322,7 +322,7 @@
     (-> selected
         (process left)
         (stateful)
-        (execute r/clean!)
+        (execute r/collect!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (flatten expected-chars) chars))

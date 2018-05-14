@@ -88,6 +88,9 @@
 (defn put! [terminal ch x y]
   ((:put! terminal) ch x y))
 
+(defn clear! [terminal]
+  ((:clear! terminal)))
+
 (defn stop! [terminal]
   ((:stop! terminal)))
 
@@ -122,6 +125,10 @@
                       (doto terminal
                         (.setCursorPosition x y)
                         (.putCharacter ch)))
+     :clear!        (fn []
+                      (doto terminal
+                        (.flush)
+                        (.clearScreen)))
      :visible!      (fn [bool]
                       (.setCursorVisible terminal bool))
      :stop!         (fn []

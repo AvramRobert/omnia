@@ -198,7 +198,7 @@
                            :sub-region [x (+ x (count line))]})
              0) ys xs))))
 
-(defn clean! [{:keys [colourscheme
+(defn collect! [{:keys [colourscheme
                       garbage
                       highlights
                       complete-hud
@@ -278,6 +278,11 @@
                           :terminal terminal
                           :scheme   scheme})))))))
 
+(defn clear! [ctx]
+  (let [terminal (:terminal ctx)]
+    (t/clear! terminal)
+    (total! ctx)))
+
 (defn nothing! [ctx]
   (let [{complete :complete-hud
          previous :previous-hud} ctx]
@@ -286,6 +291,7 @@
 
 (defn render [ctx]
   (case (:render ctx)
-    :diff (doto ctx (clean!) (diff!) (selections!) (position!))
-    :nothing (doto ctx (clean!) (nothing!) (selections!) (position!))
+    :diff (doto ctx (collect!) (diff!) (selections!) (position!))
+    :clear (doto ctx (clear!) (selections!) (position!))
+    :nothing (doto ctx (collect!) (nothing!) (selections!) (position!))
     (doto ctx (total!) (selections!) (position!))))
