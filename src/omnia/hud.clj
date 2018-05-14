@@ -324,6 +324,7 @@
     (-> (remember ctx)
         (persist start-hud)
         (rebase (:seeker ctx))
+        (calibrate)
         (un-suggest))))
 
 (defn exit [ctx]
