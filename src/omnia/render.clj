@@ -2,14 +2,11 @@
   (:require [omnia.terminal :as t]
             [omnia.input :as i]
             [omnia.highlight :as h]
-            [omnia.more :refer [map-vals reduce-idx --]]))
+            [omnia.more :refer [lmerge-with map-vals reduce-idx --]]))
 
 (declare total! diff! nothing!)
 
 ;; === Highlighting scheme ==
-
-(def primary 1)
-(def secondary 0)
 
 (defn simple-scheme [cs]
   {:cs cs :style nil})
@@ -111,38 +108,36 @@
         (i/reset-x xe)
         (i/extract))))
 
-(defn additive-diff [current formers]
-  (if-let [former (some #(when (= (:type current) (:type %)) %) formers)]
-    (let [{[xs ys]   :start
-           [xe ye]   :end} (:region current)
-          {[xs' ys'] :start
-           [xe' ye'] :end} (:region former)
-          exact-start?   (= [xs ys] [xs' ys'])
-          exact-end?     (= [xe ye] [xe' ye'])
-          similar-start? (= ys ys')
-          similar-end?   (= ye ye')
-          shrunk-left?   (> xs xs')
-          shrunk-right?  (< xe xe')
-          shrunk-top?    (> ys ys')
-          shrunk-bottom? (< ye ye')
-          grown-left?    (< xs xs')
-          grown-right?   (> xe xe')
-          grown-top?     (< ys ys')
-          grown-bottom?  (> ye ye')]
-      (cond
-        (or (and exact-start? exact-end?)
-            (and exact-start? similar-end? shrunk-right?)
-            (and exact-start? shrunk-bottom?)
-            (and exact-end? similar-start? shrunk-left?)
-            (and exact-end? shrunk-top?)) nil
+(defn additive-diff [current former]
+  (let [{[xs ys]   :start
+         [xe ye]   :end} (:region current)
+        {[xs' ys'] :start
+         [xe' ye'] :end} (:region former)
+        exact-start?   (= [xs ys] [xs' ys'])
+        exact-end?     (= [xe ye] [xe' ye'])
+        similar-start? (= ys ys')
+        similar-end?   (= ye ye')
+        shrunk-left?   (> xs xs')
+        shrunk-right?  (< xe xe')
+        shrunk-top?    (> ys ys')
+        shrunk-bottom? (< ye ye')
+        grown-left?    (< xs xs')
+        grown-right?   (> xe xe')
+        grown-top?     (< ys ys')
+        grown-bottom?  (> ye ye')]
+    (cond
+      (or (and exact-start? exact-end?)
+          (and exact-start? similar-end? shrunk-right?)
+          (and exact-start? shrunk-bottom?)
+          (and exact-end? similar-start? shrunk-left?)
+          (and exact-end? shrunk-top?)) nil
 
-        (or (and exact-start? similar-end? grown-right?)
-            (and exact-start? grown-bottom?)) (assoc current :region {:start [xe' ye'] :end [xe ye]})
+      (or (and exact-start? similar-end? grown-right?)
+          (and exact-start? grown-bottom?)) (assoc current :region {:start [xe' ye'] :end [xe ye]})
 
-        (or (and exact-end? similar-start? grown-left?)
-            (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
-        :else current))
-    current))
+      (or (and exact-end? similar-start? grown-left?)
+          (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
+      :else current)))
 
 (defn print-line! [{line     :line
                     y        :at
@@ -199,17 +194,25 @@
              0) ys xs))))
 
 (defn collect! [{:keys [colourscheme
-                      garbage
-                      highlights
-                      complete-hud
-                      previous-hud
-                      terminal]}]
-  (letfn [(reset [selection]
-            (when (= (:ov complete-hud) (:ov previous-hud))
-              (some-> (additive-diff selection highlights)
-                      (assoc :scheme (-> colourscheme (clean-cs) (simple-scheme))))))]
-    (->> garbage
-         (mapv reset)
+                        garbage
+                        highlights
+                        complete-hud
+                        previous-hud
+                        terminal]}]
+  (letfn [(prioritise [highlights]
+            (if (:selection highlights)
+              (select-keys highlights [:selection])
+              highlights))
+          (clean-up [highlight]
+            (assoc highlight :scheme (-> colourscheme (clean-cs) (simple-scheme))))
+          (diff [currents formers]
+            (if (= (:ov complete-hud) (:ov previous-hud))
+              (->> (prioritise formers)
+                   (lmerge-with additive-diff (prioritise currents))
+                   (map-vals #(some-> % (clean-up))))
+              {}))]
+    (->> (diff garbage highlights)
+         (vals)
          (remove nil?)
          (highlight! {:hud previous-hud
                       :terminal terminal}))))
@@ -219,15 +222,18 @@
                            complete-hud
                            previous-hud
                            terminal]}]
-  (letfn [(reset [selection]
+  (letfn [(prioritise [highlights]
+            (if (:selection highlights)
+              (select-keys highlights [:selection])
+              highlights))
+          (diff [currents formers]
             (if (= (:ov complete-hud) (:ov previous-hud))
-              (additive-diff selection garbage)
-              selection))]
-    (->> highlights
-         (sort-by :priority)
-         (mapv reset)
+              (lmerge-with additive-diff (prioritise currents) (prioritise formers))
+              (prioritise currents)))]
+    (->> (diff highlights garbage)
+         (vals)
          (remove nil?)
-         (highlight! {:hud complete-hud
+         (highlight! {:hud      complete-hud
                       :terminal terminal}))))
 
 (defn position! [{:keys [terminal complete-hud]}]

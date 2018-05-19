@@ -313,7 +313,7 @@ Legend:
        The line printer will basically always guarantee proper highlighting by starting from the
        beginning, processing normally and only printing something when the desired region is reached.
 
-61. The highlight of incremental selections skips parens. I think it's because of the highlighting sort priority.
+ > 61. The highlight of incremental selections skips parens. I think it's because of the highlighting sort priority.
 
  > 62. Clearing with ov moves the cursor at the end and thus produces an artifact.
 

@@ -31,6 +31,7 @@
                     highlights
                     garbage])
 
+(def empty-map {})
 (def empty-line (i/seeker [i/empty-vec]))
 
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
@@ -252,36 +253,33 @@
   (let [{complete :complete-hud
          cs       :colourscheme} ctx
         scheme (fn [region]
-                 {:priority primary
-                  :type     :selection
-                  :region   region
+                 {:region   region
                   :scheme   {:cs (select-cs cs)
                              :style nil}})]
-    (update ctx :highlights
-            #(if (i/selection? complete)
-               (->> complete (i/selection) (scheme) (conj %))
-               %))))
+    (if (i/selection? complete)
+      (update ctx :highlights #(->> complete (i/selection) (scheme) (assoc % :selection)))
+      ctx)))
 
 (defn gc [ctx]
-  (assoc ctx :highlights i/empty-vec
+  (assoc ctx :highlights empty-map
              :garbage (:highlights ctx)))
 
 (defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
-    (let [scheme (fn [type region]
-                   {:priority secondary
-                    :type     type
-                    :region   region
+    (let [scheme (fn [region]
+                   {:region   region
                     :scheme   {:cs (-> ctx (:colourscheme) (clean-cs))
                                :style :underline}})]
       (update ctx :highlights
-              #(conj % (scheme :open-paren
-                               {:start [xs ys]
-                                :end   [(inc xs) ys]})
-                       (scheme :closed-paren
-                               {:start [xe ye]
-                                :end   [(inc xe) ye]}))))
+              #(assoc % :open-paren
+                        (scheme
+                          {:start [xs ys]
+                           :end   [(inc xs) ys]})
+                        :closed-paren
+                        (scheme
+                          {:start [xe ye]
+                           :end   [(inc xe) ye]}))))
     ctx))
 
 (defn auto-match [ctx]

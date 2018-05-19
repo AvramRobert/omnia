@@ -18,6 +18,18 @@
   (let [r (apply + values)]
     (if (neg? r) 0 r)))
 
+(defn lmerge-with [f pm & maps]
+  (reduce
+    (fn [m [k v]]
+      (if (every? #(contains? % k) maps)
+        (->> maps
+             (map #(get % k))
+             (concat [v])
+             (apply f)
+             (assoc m k))
+        (assoc m k v)))
+    {} pm))
+
 (defn reduce-idx
   ([f seed coll]
    (reduce-idx f 0 seed coll))
