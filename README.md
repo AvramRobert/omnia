@@ -28,15 +28,17 @@ Download it from the AUR:
  * Omnia has configurable syntax highlighting and key bindings: 
  * Take a look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
 
-#### Syntax highlighting and key bindings
+#### Syntax highlighting
  * For configuration please look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md).
 
- ![syntax-highlighting](images/highlighting.gif)
+ ![syntax-highlighting](images/syntax-highlighting.gif)
+ 
+ ![syntax-highlighting-config](images/syntax-highlighting-config.gif)
 
 #### Structural editing
  * Manipulate s-exprs in a paredit-like fashion
 
- ![sexprs](images/sexprs.gif)
+ ![sexprs](images/structural.gif)
 
 #### Multi-line input
  * Input, edit and structure code in multiple lines
@@ -46,13 +48,13 @@ Download it from the AUR:
 #### Multi-view input
  * The view has no bottom, so you can exceed it whilst being able to navigate back and forth
 
- ![multi-page](images/multi-page.gif)
+ ![multi-view](images/multi-view.gif)
 
 
 #### Automatic parens matching
  * Always know in which expression you are:
  
- ![paren-matching](images/matching.gif)
+ ![parens-matching](images/parens-matching.gif)
 
 #### Code formatting
  * Format the current input code *by need*
@@ -73,7 +75,7 @@ Download it from the AUR:
 #### Documentation lookup
  * Look up the documentation of a function and scroll through it
  
- ![docs-lookup](images/docs.gif)
+ ![docs-lookup](images/documentation.gif)
 
 #### Selection system
  * Select code forward, backward up and down
@@ -105,6 +107,11 @@ and then pasting inside the REPL is not *currently* directly supported.
  * No mouse support for scrolling as of yet
 
  ![scrolling](images/scrolling.gif)
+ 
+#### Output clearing
+ * Clear the output history
+ 
+ ![clearing](images/clearing.gif)
 
 #### Dependency resolution
  * Bind external libraries at runtime and use them in the REPL
@@ -123,7 +130,7 @@ and then pasting inside the REPL is not *currently* directly supported.
  * Evaluations from previous REPL sessions are stored on disk
  * Histories have a limit of 1000 evaluations
 
- ![repl-history](images/persistent.gif)a
+ ![repl-history](images/history.gif)
  
 #### Graceful failures
  * Should omnia crash for reasons unknown, the REPL will shut down with an appropriate
