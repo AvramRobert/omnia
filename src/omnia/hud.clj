@@ -430,6 +430,12 @@
         (track-docs doc-lines)
         (pop-up-riffle doc-lines))))
 
+(defn gobble [ctx event]
+  (-> (remember ctx)
+      (update :persisted-hud #(-> % (i/rebase drop-last) (adjoin (:key event))))
+      (rebase)
+      (preserve caret i/empty-seeker)))
+
 ;; === Input ===
 
 (defn capture [ctx event]
@@ -448,6 +454,8 @@
 
 (defn process [ctx event]
   (case (:action event)
+    :id (-> ctx (continue))
+    :gobble (-> ctx (gc) (scroll-stop) (gobble event) (calibrate) (diff-render) (resize) (continue))
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
@@ -479,7 +487,7 @@
 (defn sleep [msecs]
   (tsk/task (Thread/sleep msecs)))
 
-(defn read-eval-print [config]
+#_(defn read-eval-print [config]
   (loop [task (-> config (context) (continue) (tsk/success))]
     (m/match [@task]
              [[:continue ctx]] (-> (tsk/task (render ctx))
@@ -492,3 +500,39 @@
                                     (tsk/then-do ctx)
                                     (tsk/run))
              :else task)))
+
+(defn tell! [agent what]
+  (send-off agent (fn [[_ ctx]]
+                    (let [[status nctx] (process ctx what)
+                          _ (render nctx)]
+                      [status nctx]))))
+
+(defn read-out! [a]
+  (tsk/task
+    (loop [agent a]
+      (m/match [@agent]
+               [[:continue ctx]] (if-let [nagent (some->> (:repl ctx) (r/read-out!) (seq) (apply i/join-many) (i/->Event :gobble) (tell! agent))]
+                                   (recur nagent)
+                                   (recur agent))
+               [[:terminate ctx]] ()))))
+
+(defn read-eval! [a]
+  (tsk/task
+    (loop [agent a]
+      (m/match [@agent]
+               [[:continue ctx]] (if-let [nagent (some->> (:terminal ctx) (t/poll-keystroke!) (match-stroke ctx) (tell! a))]
+                                   (recur nagent)
+                                   (recur agent))
+               [[:terminate ctx]] ()))))
+
+(defn render-intro! [a]
+  (tsk/task (tell! a (i/->Event :id nil))))
+
+(defn read-eval-print [config]
+  (let [oracle (-> config (context) (continue) (agent))]
+    (-> (fn [a _ _ _] (second @a))
+        (tsk/mapply (tsk/success oracle)
+                    (render-intro! oracle)
+                    (read-eval! oracle)
+                    (read-out! oracle))
+        (tsk/run))))

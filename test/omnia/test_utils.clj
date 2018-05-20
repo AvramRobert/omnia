@@ -98,7 +98,7 @@
                              :repl (-> (r/repl {:host    ""
                                                 :port    0
                                                 :history history
-                                                :send!   (constantly receive)}))
+                                                :client  (fn [a] a)}))
                              :keymap default-keymap
                              :colourscheme default-cs})
                  (h/seek seeker)

@@ -6,21 +6,24 @@
             [halfling.task :refer [task]]
             [omnia.input :as i]
             [omnia.format :as f]
-            [cider.nrepl :refer [cider-nrepl-handler]]))
+            [cider.nrepl :refer [cider-nrepl-handler]]
+            [clojure.tools.nrepl :as n]))
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
 (defrecord REPL [ns
                  host
                  port
-                 send!
+                 client
                  history
                  timeline
                  result])
 
+(def predef-resolution
+  "(require '[omnia.resolution :refer [retrieve retrieve-from]])")
+
 (def predef
-  (->> ['(require '[omnia.resolution :refer [retrieve retrieve-from]])]
-       (mapv str)
+  (->> [predef-resolution]
        (join "\n")
        (i/from-string)))
 
@@ -61,10 +64,10 @@
     :else (-> response (:value) (str) (f/format-str) (i/from-string))))
 
 (defn- connect [host port timeout]
-  (let [conn (nrepl/connect :host host :port port)]
-    (fn [msg]
-      (-> (nrepl/client conn timeout)
-          (nrepl/message msg)))))
+  (n/client (n/connect :host host :port port) timeout))
+
+(defn- send! [repl msg]
+  (-> (:client repl) (n/message msg)))
 
 (defn- eval-msg [seeker]
   {:op   :eval
@@ -114,34 +117,40 @@
 
 (defn result [repl] (:result repl))
 
-(defn complete! [{:keys [ns send!]} seeker]
-  (->> (complete-msg seeker ns)
-       (send!)
+(defn complete! [repl seeker]
+  (->> (complete-msg seeker (:ns repl))
+       (send! repl)
        (first)
        (:completions)
        (mapv (comp i/from-string :candidate))
        (apply i/join-many)))
 
-(defn evaluate! [{:keys [send!] :as repl} seeker]
+(defn evaluate! [repl seeker]
   (let [result (->> (eval-msg seeker)
-                    (send!)
+                    (send! repl)
                     (mapv response->seeker)
                     (apply i/join-many))]
     (-> (remember repl seeker)
         (cache-result result)
         (reset-timeline))))
 
-(defn info! [{:keys [ns send!]} seeker]
+(defn info! [repl seeker]
   (let [{arg-list    :arglists-str
          ns          :ns
          doc         :doc
          name        :name
-         [status]    :status} (-> (info-msg seeker ns) (send!) (first))]
+         [status]    :status} (->> (:ns repl) (info-msg seeker) (send! repl) (first))]
     (when (= "done" status)
       {:name name
        :args (-> arg-list (or "") (split #"\n"))
-       :ns ns
-       :doc (if (empty? doc) "" doc)})))
+       :ns   ns
+       :doc  (if (empty? doc) "" doc)})))
+
+(defn read-out! [repl]
+  (let [transport (-> repl :client meta :clojure.tools.nrepl/transport)]
+    (->> (nrepl/response-seq transport 1000)
+         (filter #(or (:out %) (:err %)))
+         (map response->seeker))))
 
 (defn add-predef! [repl]
   (evaluate! repl predef))
@@ -154,19 +163,20 @@
 (defn stop-server! [server]
   (s/stop-server server))
 
-;; TODO: the repl may stream responses and would basically signal an end with a final message containing the value ["done"]
 (defn repl [{:as   params
-             :keys [ns port host send! timeout history]
-             :or   {timeout 10000                            ;; fixme: kill infinite processes and return warning
+             :keys [ns port host client timeout history]
+             :or   {timeout 1000
                     history empty-history
                     ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (assert (and (not (nil? port))
                (not (nil? host))) "`repl` must receive a host and a port")
-  (map->REPL {:ns ns
-              :host host
-              :port port
-              :send! (or send! (connect host port timeout))
-              :history history
-              :timeline (count history)
-              :result i/empty-seeker}))
+  (let [client   (or client (connect host port timeout))
+        timeline (count history)]
+    (map->REPL {:ns       ns
+                :host     host
+                :port     port
+                :client   client
+                :history  history
+                :timeline timeline
+                :result   i/empty-seeker})))

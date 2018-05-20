@@ -100,8 +100,18 @@
 (defn keystroke! [terminal]
   ((:keystroke! terminal)))
 
+(defn poll-keystroke! [terminal]
+  ((:poll-keystroke terminal)))
+
 (defn size [terminal]
   ((:size terminal)))
+
+(defn- keymap [pressed-key]
+  (let [event (-> pressed-key (.getKeyType) (key-events))]
+    {:key   (if (= :character event) (.getCharacter pressed-key) event)
+     :ctrl  (.isCtrlDown pressed-key)
+     :alt   (.isAltDown  pressed-key)
+     :shift (.isShiftDown pressed-key)}))
 
 (defn terminal []
   (let [charset (Charset/forName "UTF-8")
@@ -109,36 +119,33 @@
                   (DefaultTerminalFactory. System/out System/in charset)
                   (.setForceTextTerminal true))
         terminal ^Terminal (.createTerminal factory)]
-    {:background!   (fn [colour]
-                      (->> :default (colours colour) (.setBackgroundColor terminal)))
-     :foreground!   (fn [colour]
-                      (->> :white (colours colour) (.setForegroundColor terminal)))
-     :style!        (fn [style]
-                      (some->> (styles style) (.enableSGR terminal)))
-     :un-style!     (fn [style]
-                      (some->> (styles style) (.disableSGR terminal)))
-     :size          (fn []
-                      (-> terminal (.getTerminalSize) (.getRows)))
-     :move!         (fn [x y]
-                      (.setCursorPosition terminal x y))
-     :put!          (fn [ch x y]
-                      (doto terminal
-                        (.setCursorPosition x y)
-                        (.putCharacter ch)))
-     :clear!        (fn []
-                      (doto terminal
-                        (.flush)
-                        (.clearScreen)))
-     :visible!      (fn [bool]
-                      (.setCursorVisible terminal bool))
-     :stop!         (fn []
-                      (.exitPrivateMode terminal))
-     :start!        (fn []
-                      (.enterPrivateMode terminal))
-     :keystroke!    (fn []
-                      (let [pressed (.readInput terminal)
-                            event   (-> pressed (.getKeyType) (key-events))]
-                        {:key   (if (= :character event) (.getCharacter pressed) event)
-                         :ctrl  (.isCtrlDown pressed)
-                         :alt   (.isAltDown  pressed)
-                         :shift (.isShiftDown pressed)}))}))
+    {:background!    (fn [colour]
+                       (->> :default (colours colour) (.setBackgroundColor terminal)))
+     :foreground!    (fn [colour]
+                       (->> :white (colours colour) (.setForegroundColor terminal)))
+     :style!         (fn [style]
+                       (some->> (styles style) (.enableSGR terminal)))
+     :un-style!      (fn [style]
+                       (some->> (styles style) (.disableSGR terminal)))
+     :size           (fn []
+                       (-> terminal (.getTerminalSize) (.getRows)))
+     :move!          (fn [x y]
+                       (.setCursorPosition terminal x y))
+     :put!           (fn [ch x y]
+                       (doto terminal
+                         (.setCursorPosition x y)
+                         (.putCharacter ch)))
+     :clear!         (fn []
+                       (doto terminal
+                         (.flush)
+                         (.clearScreen)))
+     :visible!       (fn [bool]
+                       (.setCursorVisible terminal bool))
+     :stop!          (fn []
+                       (.exitPrivateMode terminal))
+     :start!         (fn []
+                       (.enterPrivateMode terminal))
+     :poll-keystroke (fn []
+                       (some-> terminal (.pollInput) (keymap)))
+     :keystroke!     (fn []
+                       (-> terminal (.readInput) (keymap)))}))
