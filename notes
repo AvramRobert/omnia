@@ -355,8 +355,11 @@ Prospects:
 - ClojureDoc support // done
 - Automatic parens matching // done
 - Parametrised highlighting // done
+- Automatic code formatting
 - Slurping/barfing
 - Extensive validation, sane defaults and/or reporting for user config
 - Copying/cutting from external sources
-- Automatic code formatting
 - Documentation
+
+-> Think about removing omnia from the terminal and using the lanterna swing terminal emulator
+   This would give me a bit more control over input and look for both Linux and Mac
