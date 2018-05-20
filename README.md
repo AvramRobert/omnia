@@ -68,7 +68,7 @@ Download it from the AUR:
 #### Signature lookup
  * Look up the signature of a function
  
- ![signature-lookup](images/signature.webm)
+ ![signature-lookup](images/signature.gif)
  
 #### Documentation lookup
  * Look up the documentation of a function and scroll through it
