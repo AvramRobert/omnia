@@ -267,8 +267,7 @@
                           :scheme   scheme})))))))
 
 (defn clear! [ctx]
-  (-> ctx (:terminal) (t/clear!))
-  (total! ctx))
+  (-> ctx (:terminal) (t/clear!)))
 
 (defn nothing! [ctx]
   (let [{complete :complete-hud
@@ -279,6 +278,6 @@
 (defn render [ctx]
   (case (:render ctx)
     :diff (doto ctx (collect!) (diff!) (selections!) (position!))
-    :clear (doto ctx (clear!) (position!))
+    :clear (doto ctx (clear!) (total!) (position!))
     :nothing (doto ctx (collect!) (nothing!) (selections!) (position!))
     (doto ctx (total!) (selections!) (position!))))
