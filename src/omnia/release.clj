@@ -40,22 +40,22 @@
 (defn release-for [os]
   (t/do-tasks
     [version     (m/omnia-version)
-     system      (name os)
+     ;system      (name os)
      title       (format "omnia-%s" version)
      sa-title    (format "%s-standalone" title)
-     directory   (format "%s-%s/" title system)
+     directory   (format "%s/" title)
      config-file (format "%s/omnia.edn" directory)
      exec-file   (format "%s/omnia" directory)
      config      (-> (c/config-for os) (str) (f/format-str))
      exec        (executable version title)
-     _     (println (format "Creating release files for %s.." system))
+     _     (println (format "Creating release files.."))
      _     (sh "mkdir" directory)
      _     (sh "cp" (format "target/uberjar/%s.jar" sa-title) directory)
      _     (sh "mv" (format "%s%s.jar" directory sa-title) (format "%s%s.jar" directory title))
      _     (spit config-file config)
      _     (spit exec-file exec)
      _     (println "Creating tar..")
-     _     (sh "tar" "-cvf" (format "%s-%s.tar" title system) (format "./%s" directory))
+     _     (sh "tar" "-cvf" (format "%s.tar" title) (format "./%s" directory))
      _     (println "Removing directory..")
      _     (sh "rm" "-rf" directory)
      _     (println "Done!")]))
@@ -63,7 +63,7 @@
 
 (defn release []
   (-> prepare-jar
-      (t/then-do (->> [c/linux c/macOS] (mapv release-for) (t/sequenced)))
+      (t/then-do (->> [c/linux #_c/macOS] (mapv release-for) (t/sequenced)))
       (t/recover (fn [{:keys [message trace]}]
                    (println (format "Release failed with: %s" message))
                    (run! (comp println str) trace)

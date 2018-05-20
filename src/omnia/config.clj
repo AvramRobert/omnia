@@ -101,24 +101,25 @@
    h/-word     :yellow
    h/-function :yellow
    h/-text     :white
-   h/-select   :blue
-   h/-back     :default
-   h/-break    :default
-   h/-space    :default})
+   h/-select   :blue})
+
+(def ^:private control-cs
+  {h/-space :default
+   h/-back  :default
+   h/-break :default})
 
 (defn keymap-for [os]
   (if (= os macOS) macOS-keymap linux-keymap))
 
-(defn make-colourscheme [cs]
-  (assoc cs h/-string* (cs h/-string :green)))
+(defn scheme-from [cs]
+  (-> cs (merge control-cs) (assoc h/-string* (cs h/-string :green))))
 
 (defn config-for [os-key]
-  {os os-key
-   keymap  (keymap-for os-key)
-   colourscheme (make-colourscheme standard-cs)})
+  {keymap  (keymap-for os-key)
+   colourscheme standard-cs})
 
 (def default-keymap (keymap-for linux))
-(def default-cs     (make-colourscheme standard-cs))
+(def default-cs     (scheme-from standard-cs))
 (def default-config (config-for linux))
 
 (defn- failed [msg cause]
@@ -154,7 +155,7 @@
               (fn [m [k v]]
                 (if (contains? m k) m (assoc m k v))) patchee patcher))
           (fix-keymap [kmap] (->> (:os config) (keymap-for) (patched kmap)))
-          (fix-scheme [cs]   (->> default-cs (patched cs) (make-colourscheme)))]
+          (fix-scheme [cs]   (->> default-cs (patched cs) (scheme-from)))]
     (-> config
         (update os #(or % linux))
         (update colourscheme fix-scheme)
