@@ -97,11 +97,21 @@
 (defn start! [terminal]
   ((:start! terminal)))
 
-(defn keystroke! [terminal]
-  ((:keystroke! terminal)))
+(defn get-key! [terminal]
+  ((:get-key! terminal)))
+
+(defn poll-key! [terminal]
+  ((:poll-key! terminal)))
 
 (defn size [terminal]
   ((:size terminal)))
+
+(defn- match-key [pressed]
+  (let [event (-> pressed (.getKeyType) (key-events))]
+    {:key   (if (= :character event) (.getCharacter pressed) event)
+     :ctrl  (.isCtrlDown pressed)
+     :alt   (.isAltDown  pressed)
+     :shift (.isShiftDown pressed)}))
 
 (defn terminal []
   (let [charset (Charset/forName "UTF-8")
@@ -135,10 +145,7 @@
                       (.exitPrivateMode terminal))
      :start!        (fn []
                       (.enterPrivateMode terminal))
-     :keystroke!    (fn []
-                      (let [pressed (.readInput terminal)
-                            event   (-> pressed (.getKeyType) (key-events))]
-                        {:key   (if (= :character event) (.getCharacter pressed) event)
-                         :ctrl  (.isCtrlDown pressed)
-                         :alt   (.isAltDown  pressed)
-                         :shift (.isShiftDown pressed)}))}))
+     :poll-key!     (fn []
+                      (some-> terminal (.pollInput) (match-key)))
+     :get-key!      (fn []
+                      (-> terminal (.readInput) (match-key)))}))

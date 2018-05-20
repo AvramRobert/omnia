@@ -68,7 +68,7 @@
                              put!
                              stop!
                              start!
-                             keystroke!]
+                             get-key!]
                       :as fns}]
   (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
   (let [unit (constantly nil)]
@@ -83,7 +83,7 @@
      :put!        (or put! unit)
      :stop!       (or stop! unit)
      :start!      (or start! unit)
-     :keystroke!  (or keystroke! unit)}))
+     :get-key!  (or get-key! unit)}))
 
 (defn gen-context [{:keys [size fov seeker receive history]
                     :or {size 0
@@ -132,6 +132,7 @@
 (def next-eval (event :next-eval :down))
 (def parens-match (event :match \p))
 (def suggest (event :suggest :tab))
+(defn gobble [seeker] (event :gobble seeker))
 
 (defn process
   ([ctx event]

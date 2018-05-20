@@ -13,7 +13,8 @@
                  [cider/cider-nrepl "0.15.1"]
                  [com.cemerick/pomegranate "1.0.0"]
                  [org.tcrawley/dynapath "1.0.0"]
-                 [org.slf4j/slf4j-simple "1.7.22"]]
+                 [org.slf4j/slf4j-simple "1.7.22"]
+                 [org.clojure/core.async "0.4.474"]]
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
