@@ -29,7 +29,6 @@
                     highlights
                     garbage])
 
-(def empty-map {})
 (def empty-line (i/seeker [i/empty-vec]))
 
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
@@ -251,18 +250,16 @@
   (let [{complete :complete-hud
          cs       :colourscheme} ctx
         scheme (fn [region]
-                 {:region   region
-                  :scheme   {:cs (select-cs cs)
-                             :style nil}})]
+                 {:region region
+                  :scheme (-> cs (select-cs) (simple-scheme))})]
     (if (i/selection? complete)
-      (update ctx :highlights #(->> complete (i/selection) (scheme) (assoc % :selection)))
+      (assoc-in ctx [:highlights :selection] (->> complete (i/selection) (scheme)))
       ctx)))
 
 (defn gc [ctx]
-  (letfn [(clean-up [x]
-            (assoc x :scheme (-> ctx (:colourscheme) (clean-cs) (simple-scheme))))]
-    (assoc ctx :highlights empty-map
-               :garbage (->> ctx (:highlights) (map-vals clean-up)))))
+  (let [colourscheme (-> ctx (:colourscheme) (clean-cs) (simple-scheme))]
+    (assoc ctx :highlights i/empty-map
+               :garbage (map-vals #(assoc % :scheme colourscheme) (:highlights ctx)))))
 
 (defn match [ctx]
   (if-let [{[xs ys] :start
@@ -271,15 +268,9 @@
                    {:region   region
                     :scheme   {:cs (-> ctx (:colourscheme) (clean-cs))
                                :style :underline}})]
-      (update ctx :highlights
-              #(assoc % :open-paren
-                        (scheme
-                          {:start [xs ys]
-                           :end   [(inc xs) ys]})
-                        :closed-paren
-                        (scheme
-                          {:start [xe ye]
-                           :end   [(inc xe) ye]}))))
+      (-> ctx
+          (assoc-in [:highlights :open-paren] (scheme {:start [xs ys] :end [(inc xs) ys]}))
+          (assoc-in [:highlights :closed-paren] (scheme {:start [xe ye] :end [(inc xe) ye]}))))
     ctx))
 
 (defn auto-match [ctx]

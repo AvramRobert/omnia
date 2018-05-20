@@ -475,12 +475,12 @@
             #(-> (process % select-down 4)
                  (process enter)
                  (:highlights)
-                 (= h/empty-map))
+                 (= i/empty-map))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (process enter)
                  (:highlights)
-                 (= h/empty-map)))))
+                 (= i/empty-map)))))
 
 (defn highlighting [ctx]
   (queue-highlights ctx)
@@ -523,7 +523,7 @@
       (process left 5)
       (process parens-match)
       (:highlights)
-      (= h/empty-map)
+      (= i/empty-map)
       (is)))
 
 (defn parens-matching [ctx]

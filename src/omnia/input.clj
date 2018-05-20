@@ -24,6 +24,7 @@
           :history   history
           :rhistory  rhistory})))
 
+(def empty-map {})
 (def empty-vec [])
 (def empty-list '())
 (def empty-seeker
