@@ -64,7 +64,8 @@
 (defn release []
   (-> prepare-jar
       (t/then-do (->> [c/linux c/macOS] (mapv release-for) (t/sequenced)))
-      (t/recover (fn [{:keys [message]}]
+      (t/recover (fn [{:keys [message trace]}]
                    (println (format "Release failed with: %s" message))
+                   (run! (comp println str) trace)
                    (System/exit -1)))
       (t/run)))
