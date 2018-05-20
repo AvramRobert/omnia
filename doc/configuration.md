@@ -1,8 +1,8 @@
 ## Configuration 
 
-The default keymap and colour scheme can be found here:
+The default keymap and syntax highlighting colour scheme can be found here:
 * [Keymap](https://github.com/AvramRobert/omnia/blob/master/doc/keymap.md)
-* [Colourscheme](https://github.com/AvramRobert/omnia/blob/master/doc/colourscheme.md)
+* [Syntax highlighting](https://github.com/AvramRobert/omnia/blob/master/doc/syntax.md)
 
 Omnia has a configuration file called `omnia.edn`, wherein one can configure its key bindings, 
 and syntax highlighting.
@@ -21,7 +21,7 @@ Every keybind is defined as a map similar to the following: <br />
 `:key` denotes the key to be pressed, whilst `ctrl`, `alt` and `shift` denote if 
 `:key` should be pressed together with either `ctrl`, `alt` or `shift`. <br /> 
 
-For simple character keys, the value of that `:key` field should just be a normal Clojure character. <br />
+For simple character keys, the value of `:key` field should just be a normal Clojure character. <br />
 
 Example - I want something to happen when I press "c": <br />
 
@@ -29,7 +29,7 @@ Example - I want something to happen when I press "c": <br />
 {:key \c}
 ```
 
-For more esoteric keys, like `enter`, `space`, `tab` etc, the keyword version of the name of that specific 
+For more esoteric keys like `enter`, `space`, `tab` etc, the keyword version of the name of that specific 
 key is required. <br />
 
 Example - I want something to happen when I press `enter`: <br />

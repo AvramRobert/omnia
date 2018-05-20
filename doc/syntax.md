@@ -1,4 +1,4 @@
-## Colour scheme
+## Syntax highlighting
 
 |Construct | Colour | Config parameter |
 |----------|--------|------------------|
