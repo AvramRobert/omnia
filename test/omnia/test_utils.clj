@@ -163,9 +163,9 @@
 (defn project-cursor [ctx]
   (rd/project-cursor (:complete-hud ctx)))
 
-(defn project-selection [ctx]
+(defn project-highlight [ctx h-key]
   (let [complete (:complete-hud ctx)
-        selection (-> (:highlights ctx) (first) (:region))]
+        selection (-> (:highlights ctx) (get h-key) (:region))]
     (rd/project-selection complete selection)))
 
 (defn no-projection [ctx]
@@ -210,13 +210,13 @@
 (defn history [ctx]
   (get-in ctx [:repl :history]))
 
-(defn highlights? [hs region]
+(defn highlights? [highlited region]
   (let [{expected-start :start
-         expected-end   :end} region]
-    (->> (mapv :region hs)
-         (some (fn [{:keys [start end]}]
-                 (and (= expected-start start)
-                      (= expected-end end)))))))
+         expected-end   :end} region
+        {actual-start   :start
+         actual-end     :end} (:region highlited)]
+    (and (= expected-start actual-start)
+         (= expected-end actual-end))))
 
 (defn empty-garbage [ctx]
   (assoc ctx :garbage i/empty-vec))

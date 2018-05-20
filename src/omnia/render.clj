@@ -193,17 +193,18 @@
                            :sub-region [x (+ x (count line))]})
              0) ys xs))))
 
+(defn prioritise [highlights]
+  (if (:selection highlights)
+    (select-keys highlights [:selection])
+    highlights))
+
 (defn collect! [{:keys [colourscheme
                         garbage
                         highlights
                         complete-hud
                         previous-hud
                         terminal]}]
-  (letfn [(prioritise [highlights]
-            (if (:selection highlights)
-              (select-keys highlights [:selection])
-              highlights))
-          (clean-up [highlight]
+  (letfn [(clean-up [highlight]
             (assoc highlight :scheme (-> colourscheme (clean-cs) (simple-scheme))))
           (diff [currents formers]
             (if (= (:ov complete-hud) (:ov previous-hud))
@@ -222,11 +223,7 @@
                            complete-hud
                            previous-hud
                            terminal]}]
-  (letfn [(prioritise [highlights]
-            (if (:selection highlights)
-              (select-keys highlights [:selection])
-              highlights))
-          (diff [currents formers]
+  (letfn [(diff [currents formers]
             (if (= (:ov complete-hud) (:ov previous-hud))
               (lmerge-with additive-diff (prioritise currents) (prioritise formers))
               (prioritise currents)))]

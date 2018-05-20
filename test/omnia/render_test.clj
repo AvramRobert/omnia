@@ -68,8 +68,8 @@
 (defn discretise-h [{:keys [complete-hud highlights] :as ctx}]
   "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
    each being the ones the `terminal` highlights on the screen."
-  (->> highlights
-       (sort-by :priority)
+  (->> (r/prioritise highlights)
+       (vals)
        (mapv #(let [{start :start
                      end   :end} (-> complete-hud
                                    (r/project-selection (:region %))
@@ -292,8 +292,8 @@
           (fn [{:keys [chars cursors bgs fgs stls unstls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
-            (is (not (empty? stls)))
-            (is (not (empty? unstls)))
+            (is (empty? stls))
+            (is (empty? unstls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
@@ -391,6 +391,7 @@
     (can-be total
             #(-> (process % select-up 5)
                  (:highlights)
+                 (:selection)
                  (highlights? {:start [x (- y 5)]
                                :end   [x y]})))))
 
@@ -402,19 +403,19 @@
     (can-be ctx
             #(-> (move-top-fov %)
                  (process select-all)
-                 (project-selection)
+                 (project-highlight :selection)
                  (= {:start start-bottom
                      :end   end-bottom}))
             #(-> (move-top-fov %)
                  (process up 2)
                  (process select-down 100)
                  (process select-right 10)
-                 (project-selection)
+                 (project-highlight :selection)
                  (= {:start start-bottom
                      :end   end-bottom}))
             #(-> (move-end-fov %)
                  (process select-up 100)
-                 (project-selection)
+                 (project-highlight :selection)
                  (= {:start start-top
                      :end   end-top})))))
 
@@ -424,26 +425,24 @@
     (-> (move-top-fov ctx)
         (process up 2)
         (process select-right)
-        (update :highlights vec)
-        (update-in [:highlights 0 :region]
+        (update-in [:highlights :selection :region]
                    #(let [{[xs ys] :start
                            [xe ye] :end} %]
                       {:start [xs (+ ys fov)]
                        :end   [xe (+ ye fov)]}))
-        (can-be #(-> % (project-selection) (= (no-projection %)))))))
+        (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
 
 (defn paged-selection-upper-clip [ctx]
   (let [complete (:complete-hud ctx)
         fov      (:fov complete)]
     (-> (move-end-fov ctx)
         (process select-right)
-        (update :highlights vec)
-        (update-in [:highlights 0 :region]
+        (update-in [:highlights :selection :region]
                    #(let [{[xs ys] :start
                            [xe ye] :end} %]
                       {:start [xs (- ys fov)]
                        :end   [xe (- ye fov)]}))
-        (can-be #(-> % (project-selection) (= (no-projection %)))))))
+        (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
 
 ; selection is currently reset when scrolling
 ;(defn scrolled-selection-projection [ctx] true)
@@ -532,9 +531,9 @@
 
 (defn- check-diff [{:keys [now then expected]}]
   (let [current {:region now}
-        formers [{:region then}]
+        former {:region then}
         result  (if expected {:region expected} expected)]
-    (is (= result (r/additive-diff current formers)))))
+    (is (= result (r/additive-diff current former)))))
 
 (defn upper-x-diff []
   (let [a {:start [4 1] :end [4 3]}

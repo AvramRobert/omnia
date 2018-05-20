@@ -7,9 +7,7 @@
                                   project-cursor
                                   select-cs
                                   clean-cs
-                                  simple-scheme
-                                  primary
-                                  secondary]]
+                                  simple-scheme]]
             [omnia.repl :as r]
             [omnia.input :as i]
             [clojure.core.match :as m]

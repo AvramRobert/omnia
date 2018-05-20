@@ -443,11 +443,13 @@
     (can-be top
             #(-> (process % select-down 4)
                  (:highlights)
+                 (:selection)
                  (highlights? {:start [xt yt]
                                :end   [xt (+ yt 4)]}))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (:highlights)
+                 (:selection)
                  (highlights? {:start [xb (- yb 4)]
                                :end   [xb yb]})))))
 
@@ -460,23 +462,25 @@
             #(-> (process % select-down 4)
                  (process enter)
                  (:garbage)
+                 (:selection)
                  (highlights? {:start [xt yt]
                                :end   [xt (+ yt 4)]}))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (process enter)
                  (:garbage)
+                 (:selection)
                  (highlights? {:start [xb (- yb 4)]
                                :end   [xb yb]}))
             #(-> (process % select-down 4)
                  (process enter)
                  (:highlights)
-                 (= i/empty-vec))
+                 (= h/empty-map))
             #(-> (move-bottom-fov %)
                  (process select-up 4)
                  (process enter)
                  (:highlights)
-                 (= i/empty-vec)))))
+                 (= h/empty-map)))))
 
 (defn highlighting [ctx]
   (queue-highlights ctx)
@@ -493,10 +497,8 @@
 
 (defn highlight-matched [ctx]
   (let [[x y] (get-in ctx [:complete-hud :cursor])
-        scheme (fn [type region]
-                 {:priority r/secondary
-                  :type     type
-                  :region   region
+        scheme (fn [region]
+                 {:region   region
                   :scheme   {:cs    (-> ctx (:colourscheme) (r/clean-cs))
                              :style :underline}})
         actual-highlights (-> ctx
@@ -504,18 +506,13 @@
                               (process (char-key \a) 4)
                               (process left 5)
                               (process parens-match)
-                              (:highlights)
-                              (set))]
-    (is (true? (contains? actual-highlights
-                          (scheme
-                            :open-paren
-                            {:start [x y]
-                             :end   [(inc x) y]}))))
-    (is (true? (contains? actual-highlights
-                          (scheme
-                            :closed-paren
-                            {:start [(+ x 5) y]
-                             :end   [(+ x 6) y]}))))))
+                              (:highlights))]
+    (is (= (:open-paren actual-highlights)
+           (scheme {:start [x y]
+                    :end   [(inc x) y]})))
+    (is (= (:closed-paren actual-highlights)
+           (scheme {:start [(+ x 5) y]
+                    :end   [(+ x 6) y]})))))
 
 (defn dont-highlight-unmatched [ctx]
   (-> ctx
@@ -526,7 +523,7 @@
       (process left 5)
       (process parens-match)
       (:highlights)
-      (= i/empty-vec)
+      (= h/empty-map)
       (is)))
 
 (defn parens-matching [ctx]
