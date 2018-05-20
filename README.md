@@ -21,12 +21,20 @@ Omnia is a REPL with almost all the power of a fully fledged editor, without bei
 Download it from the AUR:
 
     yaourt -S omnia
-
-
+    
 ## Features
 
-#### Expression editing
- * Manipulate s-exprs similar to paredit
+#### Configurable
+ * Omnia has configurable syntax highlighting and key bindings: 
+ * Take a look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
+
+#### Syntax highlighting and key bindings
+ * For configuration please look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md).
+
+ ![syntax-highlighting](images/highlighting.gif)
+
+#### Structural editing
+ * Manipulate s-exprs in a paredit-like fashion
 
  ![sexprs](images/sexprs.gif)
 
@@ -35,25 +43,46 @@ Download it from the AUR:
 
  ![multi-line](images/multi-line.gif)
  
-#### Multi-page input
- * There is no bottom, so you can exceed the view whilst being able to navigate back and forth
+#### Multi-view input
+ * The view has no bottom, so you can exceed it whilst being able to navigate back and forth
 
  ![multi-page](images/multi-page.gif)
 
-#### Editor-like input suggestions
+
+#### Automatic parens matching
+ * Always know in which expression you are:
+ 
+ ![paren-matching](images/matching.gif)
+
+#### Code formatting
+ * Format the current input code *by need*
+ * Automatic formatting not yet supported
+
+ ![formatting](images/formatting.gif)
+
+#### Input suggestions with autocompletion
  * Receive input suggestions and select from a truncated list
 
  ![input-suggestions](images/suggestions.gif)
 
-#### Editor-like selection system
+#### Signature lookup
+ * Look up the signature of a function
+ 
+ ![signature-lookup](images/signature.webm)
+ 
+#### Documentation lookup
+ * Look up the documentation of a function and scroll through it
+ 
+ ![docs-lookup](images/docs.gif)
+
+#### Selection system
  * Select code forward, backward up and down
  * Selected code can be cut, copied, deleted or overwritten
 
  ![selection](images/selection.gif)
 
-#### Expanding selection
- * Select code by means of expansion
- * Expand incrementally from nothing to words, to inner expressions, to outer expressions
+#### Selection expansion
+ * Select code by means of incremental expansion
 
  ![selection-expansion](images/expansion.gif)
  
@@ -66,29 +95,16 @@ and then pasting inside the REPL is not *currently* directly supported.
 
  ![copy-cut-paste](images/copy-cut-paste.gif)
 
-#### Code formatting
- * Format the current input code *by need*
- * Automatic formatting not yet supported
-
- ![formatting](images/formatting.gif)
-
-#### Parens matching
- * Match parenthesis *by need* when the cursor is next to one
- * Automatic parens matching not yet supported
-
- ![paren-matching](images/matching.gif)
+#### Undo/Redo
+ * Undo actions and redo undoes
+ 
+ ![undo-redo](images/undo-redo.gif)
 
 #### Scrolling
  * Scroll up and down the view arbitrarily
  * No mouse support for scrolling as of yet
 
  ![scrolling](images/scrolling.gif)
-
-#### Persistent REPL history
- * Evaluations from previous REPL sessions are stored on disk
- * Histories have a limit of 1000 evaluations
-
- ![repl-history](images/persistent.gif)
 
 #### Dependency resolution
  * Bind external libraries at runtime and use them in the REPL
@@ -103,183 +119,16 @@ and then pasting inside the REPL is not *currently* directly supported.
                 '[joda-time/joda-time "2.9.9"])
  ```
  
-#### Configurable syntax highlighting
- * For configuration please look at the *Configuration* section.
+#### Persistent REPL history
+ * Evaluations from previous REPL sessions are stored on disk
+ * Histories have a limit of 1000 evaluations
 
- ![syntax-highlighting](images/highlighting.gif)
-
-#### Configurable keybindings
- * The keybindings for all actions omnia supports can be configured
-
-Please look at the *Configuration* section for more information.
-
+ ![repl-history](images/persistent.gif)a
+ 
 #### Graceful failures
  * Should omnia crash for reasons unknown, the REPL will shut down with an appropriate
    message and log the stack trace of the error in a file called `.omnia.error`
  * The stack trace log can be found in the directory where the omnia executable is
-
-## Configuration
-
-Each Omnia release comes with a configuration file called `omnia.edn`, wherein
-one can configure things like keybindings, syntax highlighting and toggling of features.
-
-### Syntax highlighting
-
-Currently supported colours:
- * :black
- * :white
- * :red
- * :blue
- * :yellow
- * :cyan
- * :magenta
- * :green
- * :default (transparent)
-
-#### Default colourscheme
-
-|Construct | Colour | Config parameter |
-|----------|--------|------------------|
-|Function calls | :yellow | :function |
-|Numbers | :blue | :number |
-|Strings | :green | :string |
-|Chars | :green | :char |
-|Keywords | :cyan | :keyword |
-|Comments | :magenta | :comment |
-|Lists | :white | :list |
-|Vectors | :white | :vector |
-|Maps | :white | :map |
-|Special words | :yellow | :word |
-|Text | :white | :text |
-|Selections | :blue | :selection |
-
-**NOTE** Multi-line string highlighting is not supported.
-
-### Keybindings
-
-**MacOS users**: Some of the default keybindings may not work directly, because MacOS attributes higher
-priority to keys that do UI things and thus cannot be rebinded to something else.
-Please just bind those actions to other keys.
-
-#### Default keymap
-| Operation    | Keybind        | Description | Config parameter|
-|--------------|----------------|-------------|-----------------|
-|Input char| any character key | Inserts character | - |
-|Move up/down/left/right | Arrows UP/DOWN/LEFT/RIGHT | Moves the cursor | :up, :down, :left, :right |
-|Newline | ENTER | Jumps to the next line | :newline |
-|Backspace | BACKSPACE | Deletes character to the left or removes selected input | :backspace |
-|Delete | DELETE | Deletes character to the right or removes selected input | :delete |
-|Evaluate| ALT + E | Evaluates the input | :eval |
-|Clear | CTRL + R | Clears screen of previous evaluations | :clear |
-|Format| CTRL + ALT + L | Formats input | :format |
-|Match | CTRL + P | Highlights the parens matching the current one | :match |
-|Suggest | TAB            | Displays a list of possible inputs. Inputs can be selected by repeatedly pressing the key | :suggest |
-|Jump | CTRL + LEFT/RIGHT | Jumps over words and spaces | :jump-left, :jump-right |
-|Select | SHIFT + LEFT/RIGHT/UP/DOWN | Selects input in the direction specified by the arrow | :select-up, :select-down, :select-left, :select-right |
-|Expand select| CTRL + W | Selects by gradually expanding from words to expressions | :expand |
-|Jump select | CTRL + SHIFT + LEFT/RIGHT | Selects the words and spaces it jumps over | :jump-select-left, jump-select-right |
-|Copy | ALT + C | Copies the current selection | :copy |
-|Cut  | ALT + X | Cuts the current selection | :cut |
-|Paste | ALT + P | Pastes the cut/copied selection | :paste |
-|Select all | CTRL + A | Selects the whole input | :select-all |
-|Scroll up  | PAGE-UP | Scrolls up the view | :scroll-up |
-|Scroll down | PAGE-DOWN | Scrolls down the view | :scroll-down |
-|Previous evaluation | ALT + UP | Goes to the previous evaluation in the history | :prev-eval |
-|Next evaluation | ALT + DOWN | Goes to the following evaluation in the history | :next-eval |
-|Exit | CTRL + D | Exits the REPL | :exit |
-|Force quit | CTRL + C | Forcibly terminates the REPL | - |
-
-### Configuring the keymap
-
-**NOTE**: The syntax for configuring keybindings may change in the future.
-
-Each operation omnia supports is bound to a unique key or combination of keys. 
-Every keybind is defined as a map similar to the following: <br />
-
-```clojure
-{ :key   <key> 
-  :ctrl  <boolean> 
-  :alt   <boolean> 
-  :shift <boolean> }
-```
-
-The :key field represents the actual key being pressed. For simple character keys, 
-the value of that field should just be the normal Clojure character version of that key. <br />
-For example, if I want for something to happen when I press "c": <br />
-
-```clojure
-{ :key   \c 
-  :ctrl  false 
-  :alt   false 
-  :shift false }
-```
-
-For more esoteric keys, like "enter", "space", "tab" etc, the keyword version of the name of that specific 
-key is required. <br />
-For example, if I want for something to happen when I press "enter": <br />
-
-```clojure
-{:key   :enter 
- :ctrl  false 
- :alt   false 
- :shift false}
-```
-
-Any key combination with "ctrl", "alt" and/or "shift" is done by setting the value of "ctrl", "alt" and/or "shift"
-to "true" in that map. <br />
-For example, if I want for something to happen when I press "alt" and "e": <br /> 
-
-```clojure
-{:key   \e 
- :ctrl  false 
- :alt   true 
- :shift false }
-```
-
-Lastly, you need only specify "ctrl", "alt" and "shift" when you want to turn them *on*.
-By default, they are always set to "false". That means, that <br />
-
-```clojure
-{:key   :enter
- :ctrl  false 
- :shift false 
- :alt   false}
-```
-is equivalent to
-```clojure
-{:key :enter}
-```
-
-#### Supported keys
-**NOTE**: Please keep in mind that all the character keys, ENTER, SPACE, BACKSPACE, DELETE
-and the arrow keys are used for actual input. I would advise not reserving them for other operations. <br />
-Combinations of key + ctrl/alt/shift are however open. 
- 
- * All character keys
- * The arrows: :left, :right, :up, :down
- * :enter
- * :space
- * :backspace
- * :tab
- * :page-up, :page-down
- * :escape
- * :home
- * :end
- * :insert
- * :delete
- * :f1 through :f19
-
-#### Unsupported key combinations
-Due to some issues with the terminal library omnia uses, some key combinations do not currently work:
-
- * CTRL + ENTER
- * CTRL + UP
- * CTRL + DOWN
- * CTRL + BACKSPACE
-
-There are also some issues with the *command* key on MacOS.
-Should you discover additional issues, please feel free to report them so I can add them to the list.
-Solutions for this issue are currently being investigated.
 
 ### Bugs
 
@@ -306,21 +155,15 @@ Pull requests are also very welcome!
 Omnia is under constant development, enhancement and improvement.
 Incoming features in (not necessarily) chronological order:
 
- * Undo/redo support
  * Slurping / barfing expressions
- * Arity lookup
- * Clojure documentation lookup
- * Validation improvements for user config
- * Config improvements
- * Copying/cutting/pasting from external sources
- * Automatic parens matching
+ * REPL content manipulation
  * Automatic code formatting
- * More code documentation
- * Performance improvements
+ * Additional performance improvements
+ * Better exception printing
  * ..
 
 ## License
 
-Copyright © 2017 Robert Marius Avram
+Copyright © 2017-2018 Robert Marius Avram
 
 Distributed under the Apache-2.0 License.
