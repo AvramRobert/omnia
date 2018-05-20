@@ -13,7 +13,7 @@
             [clojure.core.match :as m]
             [omnia.format :as f]
             [omnia.terminal :as t]
-            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version]]))
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals]]))
 
 (defrecord Context [terminal
                     repl
@@ -259,8 +259,11 @@
       ctx)))
 
 (defn gc [ctx]
-  (assoc ctx :highlights empty-map
-             :garbage (:highlights ctx)))
+  (letfn [(clean-up [x]
+            (assoc x :scheme {:cs    (-> ctx (:colourscheme) (clean-cs))
+                              :style nil}))]
+    (assoc ctx :highlights empty-map
+               :garbage (->> ctx (:highlights) (map-vals clean-up)))))
 
 (defn match [ctx]
   (if-let [{[xs ys] :start

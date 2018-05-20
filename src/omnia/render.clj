@@ -4,7 +4,7 @@
             [omnia.highlight :as h]
             [omnia.more :refer [lmerge-with map-vals reduce-idx --]]))
 
-(declare total! diff! nothing!)
+(declare total! diff! clear! nothing!)
 
 ;; === Highlighting scheme ==
 
@@ -177,61 +177,48 @@
     (t/visible! terminal true)
     (when style (t/un-style! terminal style))))
 
-(defn- highlight! [{:keys [hud terminal]} highlights]
-  (doseq [{highlight :region
-           scheme    :scheme} highlights
-          :let [selection (project-selection hud highlight)
-                [xs ys]   (:start selection)]]
-    (->> (region hud selection)
-         (:lines)
-         (reduce-idx
-           (fn [y x line]
-             (print-line! {:at        (project-y hud y)
-                           :line      (i/line hud [x y])
-                           :terminal   terminal
-                           :scheme     scheme
-                           :sub-region [x (+ x (count line))]})
-             0) ys xs))))
-
 (defn prioritise [highlights]
   (if (:selection highlights)
     (select-keys highlights [:selection])
     highlights))
 
-(defn collect! [{:keys [colourscheme
-                        garbage
-                        highlights
-                        complete-hud
-                        previous-hud
-                        terminal]}]
-  (letfn [(clean-up [highlight]
-            (assoc highlight :scheme (-> colourscheme (clean-cs) (simple-scheme))))
-          (diff [currents formers]
-            (if (= (:ov complete-hud) (:ov previous-hud))
-              (->> (prioritise formers)
-                   (lmerge-with additive-diff (prioritise currents))
-                   (map-vals #(some-> % (clean-up))))
-              {}))]
-    (->> (diff garbage highlights)
-         (vals)
+(defn highlight! [ctx {:keys [current former hud]}]
+  (let [{complete :complete-hud
+         previous :previous-hud
+         terminal :terminal} ctx
+        highlights (if (= (:ov complete) (:ov previous))
+                     (lmerge-with additive-diff (prioritise current) (prioritise former))
+                     (prioritise current))]
+    (->> (vals highlights)
          (remove nil?)
-         (highlight! {:hud previous-hud
-                      :terminal terminal}))))
+         (run!
+           (fn [{highlight :region scheme :scheme}]
+             (let [selection (project-selection hud highlight)
+                   [xs ys]   (:start selection)]
+               (->> (region hud selection)
+                    (:lines)
+                    (reduce-idx
+                      (fn [y x line]
+                        (print-line! {:at         (project-y hud y)
+                                      :line       (i/line hud [x y])
+                                      :terminal   terminal
+                                      :scheme     scheme
+                                      :sub-region [x (+ x (count line))]})
+                        0) ys xs))))))))
+
+(defn collect! [{:keys [garbage
+                        highlights
+                        previous-hud] :as ctx}]
+  (highlight! ctx {:current garbage
+                   :former  highlights
+                   :hud     previous-hud}))
 
 (defn selections! [{:keys [highlights
                            garbage
-                           complete-hud
-                           previous-hud
-                           terminal]}]
-  (letfn [(diff [currents formers]
-            (if (= (:ov complete-hud) (:ov previous-hud))
-              (lmerge-with additive-diff (prioritise currents) (prioritise formers))
-              (prioritise currents)))]
-    (->> (diff highlights garbage)
-         (vals)
-         (remove nil?)
-         (highlight! {:hud      complete-hud
-                      :terminal terminal}))))
+                           complete-hud] :as ctx}]
+  (highlight! ctx {:current highlights
+                   :former  garbage
+                   :hud     complete-hud}))
 
 (defn position! [{:keys [terminal complete-hud]}]
   (let [[x y] (project-cursor complete-hud)]
