@@ -4,8 +4,6 @@
             [omnia.highlight :as h]
             [omnia.more :refer [lmerge-with map-vals reduce-idx --]]))
 
-(declare total! diff! clear! nothing!)
-
 ;; === Highlighting scheme ==
 
 (defn simple-scheme [cs]

@@ -260,8 +260,7 @@
 
 (defn gc [ctx]
   (letfn [(clean-up [x]
-            (assoc x :scheme {:cs    (-> ctx (:colourscheme) (clean-cs))
-                              :style nil}))]
+            (assoc x :scheme (-> ctx (:colourscheme) (clean-cs) (simple-scheme))))]
     (assoc ctx :highlights empty-map
                :garbage (->> ctx (:highlights) (map-vals clean-up)))))
 
