@@ -506,18 +506,18 @@
 
 (defn read-out! [a]
   (tsk/task
-    (loop [_ nil]
+    (loop []
       (m/match [@a]
                [[:continue ctx]]  (do (some->> ctx (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble) (tell! a))
-                                      (recur nil))
+                                      (recur))
                [[:terminate ctx]] ()))))
 
 (defn read-in! [a]
   (tsk/task
-    (loop [_ nil]
+    (loop []
       (m/match [@a]
                [[:continue ctx]]  (do (some->> ctx (:terminal) (t/poll-key!) (match-stroke ctx) (tell! a))
-                                      (recur nil))
+                                      (recur))
                [[:terminate ctx]] ()))))
 
 (defn init! [a]
