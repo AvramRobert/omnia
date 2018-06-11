@@ -100,7 +100,6 @@
                        :ns      repl-ns}
          server       (r/start-server! repl-config)
          repl         (r/repl repl-config)
-         _            (r/add-predef! repl)
          _            (t/start! terminal)
          ctx          (-> (assoc config :terminal terminal
                                         :repl repl)

@@ -444,18 +444,33 @@
         (rebase seeker)
         (seek seeker))))
 
+(defn gobble [ctx event]
+  (let [persistent (-> (:persisted-hud ctx)
+                       (i/rebase drop-last)
+                       (adjoin (:key event))
+                       (adjoin i/empty-seeker)
+                       (adjoin caret))]
+    (-> (remember ctx)
+        (persist persistent)
+        (rebase))))
+
 (defn reformat [ctx]
   (let [formatted (-> ctx (:seeker) (f/format-seeker))]
     (-> (remember ctx)
         (rebase formatted)
         (seek formatted))))
 
+
+(defn predef [ctx event]
+  (r/evaluate! (:repl ctx) (:key event))
+  ctx)
+
 ;; === Events ===
 
 (defn process [ctx event]
   (case (:action event)
-    :id (-> ctx (continue))
-    :gobble (-> ctx (gc) (scroll-stop) (gobble event) (calibrate) (diff-render) (resize) (continue))
+    :predef (-> ctx (predef event) (continue))
+    :gobble (-> ctx (scroll-stop) (gobble event) (calibrate) (diff-render) (resize) (continue))
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
@@ -478,61 +493,46 @@
              [nil false] (i/->Event :none key)
              [_ _] (i/->Event action key))))
 
-(defn iread [ctx]
-  (tsk/task (t/keystroke! (:terminal ctx))))
-
-(defn ieval [ctx stroke]
-  (tsk/task (process ctx (match-stroke ctx stroke))))
-
 (defn sleep [msecs]
   (tsk/task (Thread/sleep msecs)))
 
-#_(defn read-eval-print [config]
-  (loop [task (-> config (context) (continue) (tsk/success))]
-    (m/match [@task]
-             [[:continue ctx]] (-> (tsk/task (render ctx))
-                                   (tsk/then-do (iread ctx))
-                                   (tsk/then #(ieval ctx %))
-                                   (tsk/run)
-                                   (recur))
-             [[:terminate ctx]] (-> (tsk/task (render ctx))
-                                    (tsk/then-do (sleep 1200))
-                                    (tsk/then-do ctx)
-                                    (tsk/run))
-             :else task)))
-
-(defn tell! [agent what]
-  (send-off agent (fn [[_ ctx]]
-                    (let [[status nctx] (process ctx what)
-                          _ (render nctx)]
-                      [status nctx]))))
+(defn tell! [a event]
+  (letfn [(proceed [[_ ctx]]
+            (let [[status nctx] (process ctx event)
+                  _ (render nctx)]
+              [status nctx]))]
+    (or (some-> a (agent-error) (throw))
+        (send-off a proceed))))
 
 (defn read-out! [a]
   (tsk/task
-    (loop [agent a]
-      (m/match [@agent]
-               [[:continue ctx]] (if-let [nagent (some->> (:repl ctx) (r/read-out!) (seq) (apply i/join-many) (i/->Event :gobble) (tell! agent))]
-                                   (recur nagent)
-                                   (recur agent))
+    (loop [_ nil]
+      (m/match [@a]
+               [[:continue ctx]]  (do (some->> ctx (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble) (tell! a))
+                                      (recur nil))
                [[:terminate ctx]] ()))))
 
-(defn read-eval! [a]
+(defn read-in! [a]
   (tsk/task
-    (loop [agent a]
-      (m/match [@agent]
-               [[:continue ctx]] (if-let [nagent (some->> (:terminal ctx) (t/poll-keystroke!) (match-stroke ctx) (tell! a))]
-                                   (recur nagent)
-                                   (recur agent))
+    (loop [_ nil]
+      (m/match [@a]
+               [[:continue ctx]]  (do (some->> ctx (:terminal) (t/poll-key!) (match-stroke ctx) (tell! a))
+                                      (recur nil))
                [[:terminate ctx]] ()))))
 
-(defn render-intro! [a]
-  (tsk/task (tell! a (i/->Event :id nil))))
+(defn init! [a]
+  (tsk/task
+    (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
+         (apply i/join-many)
+         (i/->Event :predef)
+         (tell! a))))
 
 (defn read-eval-print [config]
-  (let [oracle (-> config (context) (continue) (agent))]
-    (-> (fn [a _ _ _] (second @a))
-        (tsk/mapply (tsk/success oracle)
-                    (render-intro! oracle)
-                    (read-eval! oracle)
-                    (read-out! oracle))
+  (let [oracle (->> config (context) (continue) (agent))]
+    (-> (tsk/zip
+          (init! oracle)
+          (read-in! oracle)
+          (read-out! oracle))
+        (tsk/then-do (sleep 1200))
+        (tsk/then-do (second @oracle))
         (tsk/run))))

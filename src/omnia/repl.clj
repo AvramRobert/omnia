@@ -6,8 +6,7 @@
             [halfling.task :refer [task]]
             [omnia.input :as i]
             [omnia.format :as f]
-            [cider.nrepl :refer [cider-nrepl-handler]]
-            [clojure.tools.nrepl :as n]))
+            [cider.nrepl :refer [cider-nrepl-handler]]))
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
@@ -18,14 +17,6 @@
                  history
                  timeline
                  result])
-
-(def predef-resolution
-  "(require '[omnia.resolution :refer [retrieve retrieve-from]])")
-
-(def predef
-  (->> [predef-resolution]
-       (join "\n")
-       (i/from-string)))
 
 (def empty-history [i/empty-seeker])
 
@@ -63,11 +54,9 @@
     (ex? response) i/empty-seeker
     :else (-> response (:value) (str) (f/format-str) (i/from-string))))
 
-(defn- connect [host port timeout]
-  (n/client (n/connect :host host :port port) timeout))
-
 (defn- send! [repl msg]
-  (-> (:client repl) (n/message msg)))
+  (let [client (:client repl)]
+    @(client msg)))
 
 (defn- eval-msg [seeker]
   {:op   :eval
@@ -118,7 +107,8 @@
 (defn result [repl] (:result repl))
 
 (defn complete! [repl seeker]
-  (->> (complete-msg seeker (:ns repl))
+  (->> (:ns repl)
+       (complete-msg seeker)
        (send! repl)
        (first)
        (:completions)
@@ -152,8 +142,8 @@
          (filter #(or (:out %) (:err %)))
          (map response->seeker))))
 
-(defn add-predef! [repl]
-  (evaluate! repl predef))
+(defn read-out! [repl]
+  (send! repl {:op :read-out}))
 
 (defn start-server! [{:keys [host port]}]
   (s/start-server :host host
@@ -163,20 +153,48 @@
 (defn stop-server! [server]
   (s/stop-server server))
 
+(defn- pipe-out! [transport pipe]
+  (letfn [(wait! [] (reset! pipe :waiting) nil)
+          (gather! [timeout]
+            (some->> (nrepl/response-seq transport timeout)
+                     (filter #(or (:out %) (:err %) (:ex %)))
+                     (mapv response->seeker)
+                     (seq)))]
+    (case @pipe
+      :stop (wait!)
+      :continue (gather! 100)
+      nil)))
+
+(defn- wait-ack [pipe]
+  (loop [x @pipe]
+    (if (= :waiting x) nil (recur @pipe))))
+
+(defn connect [host port timeout]
+  (let [pipe      (atom :continue)
+        transport (nrepl/connect :port port :host host)
+        client    (nrepl/client transport timeout)]
+    (fn [msg]
+      (if (->> msg (:op) (= :read-out))
+        (future (pipe-out! transport pipe))
+        (future
+          (let [_      (reset! pipe :stop)
+                _      (wait-ack pipe)
+                result (-> client (nrepl/message msg) (vec))
+                _      (reset! pipe :continue)]
+            result))))))
+
 (defn repl [{:as   params
              :keys [ns port host client timeout history]
-             :or   {timeout 1000
+             :or   {timeout 10000
                     history empty-history
                     ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (assert (and (not (nil? port))
                (not (nil? host))) "`repl` must receive a host and a port")
-  (let [client   (or client (connect host port timeout))
-        timeline (count history)]
-    (map->REPL {:ns       ns
-                :host     host
-                :port     port
-                :client   client
-                :history  history
-                :timeline timeline
-                :result   i/empty-seeker})))
+  (map->REPL {:ns ns
+              :host host
+              :port port
+              :client (or client (connect host port timeout))
+              :history history
+              :timeline (count history)
+              :result i/empty-seeker}))
