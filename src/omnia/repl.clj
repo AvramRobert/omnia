@@ -136,11 +136,8 @@
        :ns   ns
        :doc  (if (empty? doc) "" doc)})))
 
-(defn read-out! [repl]
-  (let [transport (-> repl :client meta :clojure.tools.nrepl/transport)]
-    (->> (nrepl/response-seq transport 1000)
-         (filter #(or (:out %) (:err %)))
-         (map response->seeker))))
+(defn out-subscribe! [repl]
+  (send! repl {:op :out-subscribe}))
 
 (defn read-out! [repl]
   (send! repl {:op :read-out}))

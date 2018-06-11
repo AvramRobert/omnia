@@ -462,8 +462,10 @@
 
 
 (defn predef [ctx event]
-  (r/evaluate! (:repl ctx) (:key event))
-  ctx)
+  (let [repl (:repl ctx)
+        _    (r/evaluate! repl (:key event))
+        _    (r/out-subscribe! repl)]
+    ctx))
 
 ;; === Events ===
 
