@@ -11,7 +11,7 @@ All notable changes to this project will be documented in this file.
 - Fixed bugs with syntax highlighting and rendering
 - Now uses the `CIDER` nREPL middleware for all its REPL backend features
 - Configuration has been simplified to just key bindings and colour scheme
-- Project now has a separate documentation page
+- Printed outputs of concurrent processes now feed back into the REPL
 
 ### Removed
 - The ability to disable syntax highlighting, input suggestions and scrolling

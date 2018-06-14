@@ -64,30 +64,6 @@
       (tsk/recover (fn [_] (System/exit -1)))
       (tsk/run)))
 
-#_(defn -main [& args]
-  (-> (tsk/do-tasks
-        [argmap       (read-args! args)
-         config       (-> (:dir argmap) (config-path) (c/read-config))
-         history      (-> (:dir argmap) (history-path) (r/read-history))
-         terminal     (t/terminal)
-         repl-config  {:history history
-                       :host    repl-host
-                       :port    (rand-port)
-                       :ns      repl-ns}
-         server       (r/start-server! repl-config)
-         repl         (r/repl repl-config)
-         _            (r/add-predef! repl)
-         _            (t/start! terminal)
-         ctx          (-> (assoc config :terminal terminal
-                                        :repl repl)
-                          (h/read-eval-print))
-         _            (hooks! ctx argmap)
-         _            (t/stop! terminal)
-         _            (r/stop-server! server)])
-      (tsk/recover fail!)
-      (tsk/then succeed!)
-      (tsk/run)))
-
 (defn -main [& args]
   (-> (tsk/do-tasks
         [argmap       (read-args! args)

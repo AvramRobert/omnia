@@ -430,12 +430,6 @@
         (track-docs doc-lines)
         (pop-up-riffle doc-lines))))
 
-(defn gobble [ctx event]
-  (-> (remember ctx)
-      (update :persisted-hud #(-> % (i/rebase drop-last) (adjoin (:key event))))
-      (rebase)
-      (preserve caret i/empty-seeker)))
-
 ;; === Input ===
 
 (defn capture [ctx event]
@@ -506,21 +500,18 @@
     (or (some-> a (agent-error) (throw))
         (send-off a proceed))))
 
-(defn read-out! [a]
+(defn continuously! [a f]
   (tsk/task
-    (loop []
-      (m/match [@a]
-               [[:continue ctx]]  (do (some->> ctx (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble) (tell! a))
-                                      (recur))
-               [[:terminate ctx]] ()))))
+    (loop [[status ctx] @a]
+      (when (= :continue status)
+        (some->> ctx (f) (tell! a))
+        (recur @a)))))
+
+(defn read-out! [a]
+  (continuously! a #(some->> % (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble))))
 
 (defn read-in! [a]
-  (tsk/task
-    (loop []
-      (m/match [@a]
-               [[:continue ctx]]  (do (some->> ctx (:terminal) (t/poll-key!) (match-stroke ctx) (tell! a))
-                                      (recur))
-               [[:terminate ctx]] ()))))
+  (continuously! a #(some->> % (:terminal) (t/poll-key!) (match-stroke %))))
 
 (defn init! [a]
   (tsk/task
