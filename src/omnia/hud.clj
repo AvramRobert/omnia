@@ -243,9 +243,6 @@
 (defn clear-render [ctx]
   (assoc ctx :render :clear))
 
-(defn no-render [ctx]
-  (assoc ctx :render :nothing))
-
 (defn highlight [ctx]
   (let [{complete :complete-hud
          cs       :colourscheme} ctx
@@ -441,7 +438,7 @@
 (defn gobble [ctx event]
   (let [persistent (-> (:persisted-hud ctx)
                        (i/rebase drop-last)
-                       (adjoin (:key event))
+                       (adjoin (:value event))
                        (adjoin i/empty-seeker)
                        (adjoin caret))]
     (-> (remember ctx)
@@ -457,7 +454,7 @@
 
 (defn predef [ctx event]
   (let [repl (:repl ctx)
-        _    (r/evaluate! repl (:key event))
+        _    (r/evaluate! repl (:value event))
         _    (r/out-subscribe! repl)]
     ctx))
 
@@ -489,9 +486,6 @@
              [nil false] (i/->Event :none key)
              [_ _] (i/->Event action key))))
 
-(defn sleep [msecs]
-  (tsk/task (Thread/sleep msecs)))
-
 (defn tell! [a event]
   (letfn [(proceed [[_ ctx]]
             (let [[status nctx] (process ctx event)
@@ -513,7 +507,7 @@
 (defn read-in! [a]
   (continuously! a #(some->> % (:terminal) (t/poll-key!) (match-stroke %))))
 
-(defn init! [a]
+(defn predef! [a]
   (tsk/task
     (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
          (apply i/join-many)
@@ -523,9 +517,9 @@
 (defn read-eval-print [config]
   (let [oracle (->> config (context) (continue) (agent))]
     (-> (tsk/zip
-          (init! oracle)
+          (predef! oracle)
           (read-in! oracle)
           (read-out! oracle))
-        (tsk/then-do (sleep 1200))
+        (tsk/then-do (Thread/sleep 1200))
         (tsk/then-do (second @oracle))
         (tsk/run))))

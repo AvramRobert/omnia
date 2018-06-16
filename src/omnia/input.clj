@@ -4,7 +4,7 @@
             [clojure.set :refer [union map-invert]]
             [omnia.more :refer [do-until]]))
 
-(defrecord Event [action key])
+(defrecord Event [action value])
 (defrecord Seeker [lines
                    cursor
                    height
@@ -536,5 +536,5 @@
     :newline (-> seeker (remember) (break) (deselect))
     :undo  (-> seeker (undo) (deselect))
     :redo  (-> seeker (redo) (deselect))
-    :char (-> seeker (remember) (insert (:key event)) (deselect))
+    :char (-> seeker (remember) (insert (:value event)) (deselect))
     seeker))
