@@ -331,7 +331,7 @@
 ;; V. Evaluating
 
 (defn remember-preserve-persist [ctx]
-  (let [expected-hud (i/join-many (:complete-hud ctx) h/empty-line h/caret)]
+  (let [expected-hud (i/join-many (:complete-hud ctx) i/empty-line h/caret)]
     (-> ctx
         (process evaluate)
         (can-be #(<=> (:seeker %) i/empty-seeker)

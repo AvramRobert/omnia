@@ -46,13 +46,17 @@
   (and (contains? response :value)
        (nil? (:value response))))
 
+(defn- val? [response]
+  (contains? response :value))
+
 (defn- response->seeker [response]
+  (omnia.more/debug response)
   (cond
     (out? response) (-> response (:out) (f/format-str) (i/from-string))
     (err? response) (-> response (:err) (i/from-string))
     (eff? response) [[\n \i \l]]
-    (ex? response) i/empty-seeker
-    :else (-> response (:value) (str) (f/format-str) (i/from-string))))
+    (val? response) (-> response (:value) (str) (f/format-str) (i/from-string))
+    :else i/empty-seeker))
 
 (defn- send! [repl msg]
   (let [client (:client repl)]
@@ -116,10 +120,12 @@
        (apply i/join-many)))
 
 (defn evaluate! [repl seeker]
-  (let [result (->> (eval-msg seeker)
-                    (send! repl)
-                    (mapv response->seeker)
-                    (apply i/join-many))]
+  (let [new-line #(conj % i/empty-line)
+        result    (->> (eval-msg seeker)
+                       (send! repl)
+                       (mapv response->seeker)
+                       (new-line)
+                       (apply i/join-many))]
     (-> (remember repl seeker)
         (cache-result result)
         (reset-timeline))))

@@ -29,8 +29,6 @@
                     highlights
                     garbage])
 
-(def empty-line (i/seeker [i/empty-vec]))
-
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
 (def delimiter (i/from-string "------"))
@@ -71,7 +69,7 @@
          repl-info
          clj-version
          java-version
-         empty-line
+         i/empty-line
          caret)))
 
 (defn empty-hud [{:keys [terminal]}]

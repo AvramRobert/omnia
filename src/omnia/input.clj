@@ -51,6 +51,8 @@
   ([] (seeker []))
   ([lines] (-> empty-seeker (assoc :lines lines) (resize))))
 
+(def empty-line (seeker [empty-vec]))
+
 (defn from-string [string]
   (letfn [(char-vec [xs] (vec (.toCharArray xs)))
           (newlines [xs] (if (empty? xs)
