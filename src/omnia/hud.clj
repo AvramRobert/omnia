@@ -466,7 +466,7 @@
 (defn process [ctx event]
   (case (:action event)
     :predef (-> ctx (predef event) (continue))
-    :gobble (-> ctx (scroll-stop) (gobble event) (calibrate) (diff-render) (resize) (continue))
+    :gobble (-> ctx (gobble event) (scroll-stop) (diff-render) (resize) (continue))
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
