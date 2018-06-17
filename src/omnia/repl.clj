@@ -50,7 +50,6 @@
   (contains? response :value))
 
 (defn- response->seeker [response]
-  (omnia.more/debug response)
   (cond
     (out? response) (-> response (:out) (f/format-str) (i/from-string))
     (err? response) (-> response (:err) (i/from-string))
