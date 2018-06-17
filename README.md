@@ -1,4 +1,5 @@
-# omnia
+
+# <img src="images/omnia-logo.png" width="100" height="101"> mnia
 
 A Clojure REPL for prototyping, experimenting and trying things out. <br />
 
