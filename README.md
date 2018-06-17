@@ -25,11 +25,11 @@ Download it from the AUR:
     
 ## Features
 
-#### Configurable
- * Omnia has configurable syntax highlighting and key bindings: 
- * Take a look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
+#### Configurable Keymap
+ * Standard keymap can be found here [Keymap](https://github.com/AvramRobert/omnia/blob/master/doc/keymap.md)
+ * For configuration,take a look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
 
-#### Syntax highlighting
+#### Configurable syntax highlighting
  * For configuration please look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md).
 
  ![syntax-highlighting](images/syntax-highlighting.gif)
