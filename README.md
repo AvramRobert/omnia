@@ -170,6 +170,33 @@ Incoming features in (not necessarily) chronological order:
  * Better exception printing
  * ..
 
+### Rationale
+
+ Omnia is a stand-alone REPL. You can think of it as a better `lein repl`.
+ It doesn't however have any support for interactive development with existing Clojure projects.
+ It was actually never meant to be used for interactive development or to be integrated with
+ any kind of editors. The rationale behind it is just to provide a better sandbox for experimenting with ideas,
+ that needn't necessarily be part of some project.
+ Hence its description: "A Clojure REPL for prototyping, experimenting and trying things out."
+
+ I've given a lightning talk about it and its rationale, should you want to find out more about it. <br />
+ The talk starts roughly at 1:05: https://www.youtube.com/watch?v=qdeU-2eoEIY
+
+ Now the big question. What about `rebel-readline`?
+ I've been asked this question too many times to count. <br />
+ Well, purely historically, `omnia` came into existence much sooner than `rebel-readline`.
+ I've started the project around the beginning of 2017 and also open-sourced its first
+ draft in November of that year. <br />
+
+ Nevertheless, both projects although similar, differ quite heavily in intent.
+ `omnia`'s goal is to be a specialised, stand-alone REPL for Clojure.
+ It will thus be focused on Clojure and it will try to provide the best experience
+ just for Clojure itself. `rebel-readline`, as far as the description goes, is a more
+ general-purpose terminal library for building REPLs targeting Clojure dialects.
+
+ The way I think of it is like this: `omnia` is simply a tool. `rebel-readline` is a mechanism
+ to build tools akin to `omnia`.
+
 ## License
 
 Copyright © 2017-2018 Robert Marius Avram
