@@ -59,7 +59,7 @@
 
 (defn- send! [repl msg]
   (let [client (:client repl)]
-    @(client msg)))
+    (client msg)))
 
 (defn- eval-msg [seeker]
   {:op   :eval
@@ -177,13 +177,12 @@
         client    (nrepl/client transport timeout)]
     (fn [msg]
       (if (->> msg (:op) (= :read-out))
-        (future (pipe-out! transport pipe))
-        (future
-          (let [_      (reset! pipe :stop)
-                _      (wait-ack pipe)
-                result (-> client (nrepl/message msg) (vec))
-                _      (reset! pipe :continue)]
-            result))))))
+        (pipe-out! transport pipe)
+        (let [_      (reset! pipe :stop)
+              _      (wait-ack pipe)
+              result (-> client (nrepl/message msg) (vec))
+              _      (reset! pipe :continue)]
+          result)))))
 
 (defn repl [{:as   params
              :keys [ns port host client timeout history]

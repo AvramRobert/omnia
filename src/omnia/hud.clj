@@ -13,6 +13,7 @@
             [clojure.core.match :as m]
             [omnia.format :as f]
             [omnia.terminal :as t]
+            [omnia.sink :as s]
             [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals]]))
 
 (defrecord Context [terminal
@@ -484,40 +485,40 @@
              [nil false] (i/->Event :none key)
              [_ _] (i/->Event action key))))
 
-(defn tell! [a event]
+(defn drain-into! [sink event]
   (letfn [(proceed [[_ ctx]]
             (let [[status nctx] (process ctx event)
                   _ (render nctx)]
               [status nctx]))]
-    (or (some-> a (agent-error) (throw))
-        (send-off a proceed))))
+    (or (some-> sink (s/error) (throw))
+        (s/dispatch! sink proceed))))
 
-(defn continuously! [a f]
+(defn continuously! [sink f]
   (tsk/task
-    (loop [[status ctx] @a]
+    (loop [[status ctx] @sink]
       (when (= :continue status)
-        (some->> ctx (f) (tell! a))
-        (recur @a)))))
+        (some->> ctx (f) (drain-into! sink))
+        (recur @sink)))))
 
-(defn read-out! [a]
-  (continuously! a #(some->> % (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble))))
+(defn read-out! [sink]
+  (continuously! sink #(some->> % (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble))))
 
-(defn read-in! [a]
-  (continuously! a #(some->> % (:terminal) (t/poll-key!) (match-stroke %))))
+(defn read-in! [sink]
+  (continuously! sink #(some->> % (:terminal) (t/poll-key!) (match-stroke %))))
 
-(defn predef! [a]
+(defn predef! [sink]
   (tsk/task
     (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
          (apply i/join-many)
          (i/->Event :predef)
-         (tell! a))))
+         (drain-into! sink))))
 
 (defn read-eval-print [config]
-  (let [oracle (->> config (context) (continue) (agent))]
+  (let [sink (->> config (context) (continue) (s/sink))]
     (-> (tsk/zip
-          (predef! oracle)
-          (read-in! oracle)
-          (read-out! oracle))
+          (predef! sink)
+          (read-in! sink)
+          (read-out! sink))
         (tsk/then-do (Thread/sleep 1200))
-        (tsk/then-do (second @oracle))
+        (tsk/then-do (second @sink))
         (tsk/run))))

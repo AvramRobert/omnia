@@ -317,9 +317,21 @@ Legend:
 
  > 62. Clearing with ov moves the cursor at the end and thus produces an artifact.
 
-63. Asynchronous computations and uncaught exceptions may print to std-out or std-err without nrepl itself
-    capturing these. These things thus pollute the buffer because omnia doesn't capture and transform them into
-    seekers. I need something that feeds back into either the main thread or something else the client is listening to.
+ > 63. Asynchronous computations and uncaught exceptions may print to std-out or std-err without nrepl itself
+       capturing these. These things thus pollute the buffer because omnia doesn't capture and transform them into
+       seekers. I need something that feeds back into either the main thread or something else the client is listening to.
+
+64. The resource consumption comes from using futures to dispatch every evaluation and wait on it.
+    Futures use agents and apparently don't reuse the agent pool. (or at least, based on my observations, create a new one each time)
+    I need some sort of lightweight threads, that spawn by need.
+    Something that returns immediately, but doesn't create unnecessary overhead when none is needed.
+    Doing (future (pipe-out! ...)) or (future (... wait ... )) for EVERY repl evaluation is idiotic.
+    core-async might help here..
+
+   Wait. Instead of using futures, I can use queues.
+   I can define a queue for the output read and process outputs asynchronously.
+   Every evaluation message will be processed synchronously, whilst output-read responses will be
+   joined with the main output pipeline blockingly (but fairly)
 
 ----------------- MIGRATION VERSIONS -------------------
 
