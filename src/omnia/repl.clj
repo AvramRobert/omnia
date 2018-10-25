@@ -27,8 +27,6 @@
        (map resolve)
        (apply s/default-handler)))
 
-(def empty-history [i/empty-seeker])
-
 (defn read-history [path]
   (task
     (->> [""]
@@ -196,7 +194,7 @@
 (defn repl [{:as   params
              :keys [ns port host client timeout history]
              :or   {timeout 10000
-                    history empty-history
+                    history [i/empty-seeker]
                     ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (assert (and (not (nil? port))
