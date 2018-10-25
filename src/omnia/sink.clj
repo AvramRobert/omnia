@@ -36,7 +36,7 @@
 
 (defn dispatch! [sink f]
   (let [queue (.queue sink)
-        _     (.offer queue f)]
+        _     (.add queue f)]
     sink))
 
 (defn kill! [sink]
