@@ -6,7 +6,9 @@
             [halfling.task :refer [task]]
             [omnia.input :as i]
             [omnia.format :as f]
-            [cider.nrepl :refer [cider-nrepl-handler]]))
+            [cider.nrepl.middleware.complete]
+            [cider.nrepl.middleware.info]
+            [cider.nrepl.middleware.out]))
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
@@ -17,6 +19,13 @@
                  history
                  timeline
                  result])
+
+(def handler
+  (->> '[cider.nrepl.middleware.complete/wrap-complete
+         cider.nrepl.middleware.info/wrap-info
+         cider.nrepl.middleware.out/wrap-out]
+       (map resolve)
+       (apply s/default-handler)))
 
 (def empty-history [i/empty-seeker])
 
@@ -150,7 +159,7 @@
 (defn start-server! [{:keys [host port]}]
   (s/start-server :host host
                   :port port
-                  :handler cider-nrepl-handler))
+                  :handler handler))
 
 (defn stop-server! [server]
   (s/stop-server server))
