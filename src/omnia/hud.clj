@@ -504,7 +504,7 @@
   (continuously! sink #(some->> % (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble))))
 
 (defn read-in! [sink]
-  (continuously! sink #(some->> % (:terminal) (t/poll-key!) (match-stroke %))))
+  (continuously! sink #(some->> % (:terminal) (t/get-key!) (match-stroke %))))
 
 (defn predef! [sink]
   (tsk/task

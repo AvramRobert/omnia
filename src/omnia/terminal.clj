@@ -103,9 +103,6 @@
 (defn poll-key! [terminal]
   ((:poll-key! terminal)))
 
-(defn poll-keystroke! [terminal]
-  ((:poll-keystroke terminal)))
-
 (defn size [terminal]
   ((:size terminal)))
 
