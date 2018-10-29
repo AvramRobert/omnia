@@ -8,7 +8,8 @@
             [omnia.format :as f]
             [cider.nrepl.middleware.complete]
             [cider.nrepl.middleware.info]
-            [cider.nrepl.middleware.out]))
+            [cider.nrepl.middleware.out]
+            [clojure.tools.nrepl :as repl]))
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
@@ -55,6 +56,9 @@
 
 (defn- val? [response]
   (contains? response :value))
+
+(def read-out-msg {:op :read-out})
+(def out-sub-msg {:op :out-subscribe})
 
 (defn- response->seeker [response]
   (cond
@@ -149,10 +153,10 @@
        :doc  (if (empty? doc) "" doc)})))
 
 (defn out-subscribe! [repl]
-  (send! repl {:op :out-subscribe}))
+  (send! repl out-sub-msg))
 
 (defn read-out! [repl]
-  (send! repl {:op :read-out}))
+  (send! repl read-out-msg))
 
 (defn start-server! [{:keys [host port]}]
   (s/start-server :host host
@@ -167,7 +171,7 @@
           (gather! [timeout]
             (some->> (nrepl/response-seq transport timeout)
                      (filter #(or (:out %) (:err %) (:ex %)))
-                     (mapv response->seeker)
+                     (map response->seeker)
                      (seq)))]
     (case @pipe
       :stop (wait!)

@@ -31,22 +31,22 @@
         er (atom [])
         q  ^LinkedBlockingQueue (LinkedBlockingQueue.)
         e  ^ExecutorService (Executors/newSingleThreadExecutor)
-        t  (.submit e (queue-consumer q s er))]
+        t  (.submit ^ExecutorService e (queue-consumer q s er))]
     (Sink. q e t s er)))
 
-(defn dispatch! [sink f]
+(defn dispatch! [^Sink sink f]
   (let [queue (.queue sink)
-        _     (.add queue f)]
+        _     (.add ^LinkedBlockingQueue queue f)]
     sink))
 
-(defn kill! [sink]
+(defn kill! [^Sink sink]
   (let [t (.task sink)
         e (.executor sink)]
     (.cancel ^Future t true)
     (.shutdown ^ExecutorService e)))
 
-(defn errors [sink]
+(defn errors [^Sink sink]
   @(.errors sink))
 
-(defn error [sink]
+(defn error [^Sink sink]
   (-> sink (.errors) (deref) (last)))

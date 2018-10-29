@@ -14,7 +14,9 @@
             [omnia.format :as f]
             [omnia.terminal :as t]
             [omnia.sink :as s]
-            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals]]))
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals]])
+  (:import (omnia.sink Sink)
+           (clojure.lang IDeref)))
 
 (defrecord Context [terminal
                     repl
@@ -278,11 +280,15 @@
 
 ;; === Control ===
 
+(defrecord Cont [status ctx])
+
 (defn continue [ctx]
-  [:continue ctx])
+  (Cont. :continue ctx)
+  #_[:continue ctx])
 
 (defn terminate [ctx]
-  [:terminate ctx])
+  (Cont. :terminate ctx)
+  #_[:terminate ctx])
 
 (defn calibrate [ctx]
   (let [nov (correct-ov (:complete-hud ctx)
@@ -485,28 +491,29 @@
              [nil false] (i/->Event :none key)
              [_ _] (i/->Event action key))))
 
-(defn drain-into! [sink event]
-  (letfn [(proceed [[_ ctx]]
-            (let [[status nctx] (process ctx event)
-                  _ (render nctx)]
-              [status nctx]))]
-    (or (some-> sink (s/error) (throw))
-        (s/dispatch! sink proceed))))
+(defn drain-into! [^Sink sink event]
+  (letfn [(proceed [^Cont cont]
+            (let [ncont (-> cont (.ctx) (process event))
+                  _     (-> ncont (.ctx) (render))]
+              ncont))]
+      (or (some-> sink (s/error) (throw))
+          (s/dispatch! sink proceed))))
 
-(defn continuously! [sink f]
+(defn continuously! [^IDeref sink f]
   (tsk/task
-    (loop [[status ctx] @sink]
-      (when (= :continue status)
-        (some->> ctx (f) (drain-into! sink))
-        (recur @sink)))))
+    (loop []
+      (let [cont ^Cont (.deref sink)]
+        (when (= :continue (.status cont))
+          (some->> cont (.ctx) (f) (drain-into! sink))
+          (recur))))))
 
-(defn read-out! [sink]
-  (continuously! sink #(some->> % (:repl) (r/read-out!) (apply i/join-many) (i/->Event :gobble))))
+(defn read-out! [^IDeref sink repl]
+  (continuously! sink (fn [_] (some->> repl (r/read-out!) (apply i/join-many) (i/->Event :gobble)))))
 
-(defn read-in! [sink]
-  (continuously! sink #(some->> % (:terminal) (t/poll-key!) (match-stroke %))))
+(defn read-in! [^IDeref sink terminal]
+  (continuously! sink #(some->> terminal (t/poll-key!) (match-stroke %))))
 
-(defn predef! [sink]
+(defn predef! [^Sink sink]
   (tsk/task
     (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
          (apply i/join-many)
@@ -514,11 +521,13 @@
          (drain-into! sink))))
 
 (defn read-eval-print [config]
-  (let [sink (->> config (context) (continue) (s/sink))]
+  (let [sink (->> config (context) (continue) (s/sink))
+        repl (:repl config)
+        term (:terminal config)]
     (-> (tsk/zip
           (predef! sink)
-          (read-in! sink)
-          (read-out! sink))
+          (read-in! sink term)
+          (read-out! sink repl))
         (tsk/then-do (Thread/sleep 1200))
-        (tsk/then-do (second @sink))
+        (tsk/then-do (.ctx ^Cont (.deref ^IDeref sink)))
         (tsk/run))))
