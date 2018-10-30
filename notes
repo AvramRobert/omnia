@@ -335,6 +335,15 @@ Legend:
       (Problem was some middleware in cider's nrepl, that always submitted to new agents.
        From now on keep only reference and include the USED middlewares in the repl namespace)
 
+65. I have to stop looping constantly and polling the transport.
+;; If I could only have a client that basically writes outs to a socket whenever he got them
+;; and I would have a listener for that socket, which upon receiving a message, would transfer the message to the sink..
+;; That way, I wouldn't have to block on anything (other than the listener having to listen to the bloody socket)
+;; Actually that might work.
+;; The transport always writes to a socket.
+;; Can't I somehow change the thing that is calling the socket?
+;; Have a slightly altered bencode transport function, that changes where it pumps data
+
 ----------------- MIGRATION VERSIONS -------------------
 
 clojure 1.8.0 -> 1.9.0:
