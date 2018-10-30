@@ -98,7 +98,7 @@
                              :repl (-> (r/repl {:host    ""
                                                 :port    0
                                                 :history history
-                                                :client (constantly (future receive))}))
+                                                :client (constantly receive)}))
                              :keymap default-keymap
                              :colourscheme default-cs})
                  (h/seek seeker)
@@ -139,7 +139,7 @@
    (process ctx event 1))
   ([ctx event n]
    (->> (range 0 n)
-        (reduce (fn [nctx _] (second (h/process nctx event))) ctx))))
+        (reduce (fn [nctx _] (-> nctx (h/process event) (.ctx))) ctx))))
 
 (defn fov [ctx]
   (get-in ctx [:complete-hud :fov]))
