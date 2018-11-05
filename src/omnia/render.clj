@@ -275,7 +275,7 @@
     (when (not= (:ov complete) (:ov previous))
       (total! ctx))))
 
-(defn render [ctx]
+(defn render! [ctx]
   (case (:render ctx)
     :diff (doto ctx (collect!) (diff!) (selections!) (position!))
     :clear (doto ctx (clear!) (total!) (position!))

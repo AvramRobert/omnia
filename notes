@@ -335,7 +335,9 @@ Legend:
       (Problem was some middleware in cider's nrepl, that always submitted to new agents.
        From now on keep only reference and include the USED middlewares in the repl namespace)
 
-65. I have to stop looping constantly and polling the transport.
+65. I have to stop looping constantly and polling the transport. This is extremely inefficient
+    Also, blocking by means of polling is a terrible idea.
+    -> Until this is solved properly, revert the async support in 0.2.1.
 ;; If I could only have a client that basically writes outs to a socket whenever he got them
 ;; and I would have a listener for that socket, which upon receiving a message, would transfer the message to the sink..
 ;; That way, I wouldn't have to block on anything (other than the listener having to listen to the bloody socket)

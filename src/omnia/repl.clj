@@ -183,6 +183,7 @@
     (if (= :waiting x) nil (recur @pipe))))
 
 (defn connect [host port timeout]
+  "Connect with pollable reading"
   (let [pipe      (atom :continue)
         transport (nrepl/connect :port port :host host)
         client    (nrepl/client transport timeout)]
@@ -195,6 +196,13 @@
               _      (reset! pipe :continue)]
           result)))))
 
+;; TOOD: Use `connect` once it's reimplemented properly with a solution for issue #65
+(defn connect' [host port timeout]
+  "Connect without pollable reading"
+  (let [transport (nrepl/connect :port port :host host)
+        client    (nrepl/client transport timeout)]
+    (fn [msg] (-> client (nrepl/message msg) (vec)))))
+
 (defn repl [{:as   params
              :keys [ns port host client timeout history]
              :or   {timeout 10000
@@ -206,7 +214,7 @@
   (map->REPL {:ns ns
               :host host
               :port port
-              :client (or client (connect host port timeout))
+              :client (or client (connect' host port timeout))
               :history history
               :timeline (count history)
               :result i/empty-seeker}))

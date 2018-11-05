@@ -1,6 +1,6 @@
 (ns omnia.hud
   (:require [halfling.task :as tsk]
-            [omnia.render :refer [render
+            [omnia.render :refer [render!
                                   top-y
                                   bottom-y
                                   project-hud
@@ -494,7 +494,7 @@
 (defn drain-into! [^Sink sink event]
   (letfn [(proceed [^Cont cont]
             (let [ncont (-> cont (.ctx) (process event))
-                  _     (-> ncont (.ctx) (render))]
+                  _     (-> ncont (.ctx) (render!))]
               ncont))]
       (or (some-> sink (s/error) (throw))
           (s/dispatch! sink proceed))))
@@ -511,7 +511,7 @@
   (continuously! sink (fn [_] (some->> repl (r/read-out!) (apply i/join-many) (i/->Event :gobble)))))
 
 (defn read-in! [^IDeref sink terminal]
-  (continuously! sink #(some->> terminal (t/poll-key!) (match-stroke %))))
+  (continuously! sink #(some->> terminal (t/get-key!) (match-stroke %))))
 
 (defn predef! [^Sink sink]
   (tsk/task
@@ -520,14 +520,48 @@
          (i/->Event :predef)
          (drain-into! sink))))
 
+;; TODO: Use this once you find a better solution for Issue #65
+#_(defn read-eval-print [config]
+    (let [sink (->> config (context) (continue) (s/sink))
+          repl (:repl config)
+          term (:terminal config)]
+      (-> (tsk/zip
+            (predef! sink)
+            (read-in! sink term)
+            (read-out! sink repl))
+          (tsk/then-do (Thread/sleep 1200))
+          (tsk/then-do (.ctx ^Cont (.deref ^IDeref sink)))
+          (tsk/run))))
+
+(defn render-ret! [^Cont cont]
+  (render! (.ctx cont))
+  cont)
+
+(defn prelude! [^Cont cont]
+  (let [event (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
+                   (apply i/join-many)
+                   (i/->Event :predef))]
+    (-> (.ctx cont)
+        (process event)
+        (tsk/task)
+        (tsk/then render-ret!))))
+
+(defn read! [terminal ^Cont cont]
+  (tsk/task
+    (loop [current-cont cont]
+      (if (= :continue (.status current-cont))
+        (->> (t/get-key! terminal)
+             (match-stroke (.ctx current-cont))
+             (process (.ctx current-cont))
+             (render-ret!)
+             (recur))
+        current-cont))))
+
 (defn read-eval-print [config]
-  (let [sink (->> config (context) (continue) (s/sink))
-        repl (:repl config)
+  (let [cont (->> config (context) (continue))
         term (:terminal config)]
-    (-> (tsk/zip
-          (predef! sink)
-          (read-in! sink term)
-          (read-out! sink repl))
-        (tsk/then-do (Thread/sleep 1200))
-        (tsk/then-do (.ctx ^Cont (.deref ^IDeref sink)))
+    (-> (prelude! cont)
+        (tsk/then (partial read! term))
+        (tsk/then #(do (Thread/sleep 1200) %))
+        (tsk/then #(.ctx ^Cont %))
         (tsk/run))))
