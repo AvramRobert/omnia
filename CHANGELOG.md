@@ -1,6 +1,15 @@
 # Change Log
 All notable changes to this project will be documented in this file.
-## [0.2.0] 
+## [0.2.1]
+### Changed
+- Fixed agent pool leak coming from CIDER nrepl
+- Fixed unnecessary CPU resource consumption when idle
+- Performance improvements
+
+### Removed
+- (Temporarily) output capturing of async actions in REPL
+
+## [0.2.0]
 ### Changed
 - Added automatic parens matching
 - Added parametricity, arity and documentation lookup
