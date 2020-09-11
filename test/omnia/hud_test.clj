@@ -499,8 +499,8 @@
   (let [[x y] (get-in ctx [:complete-hud :cursor])
         scheme (fn [region]
                  {:region   region
-                  :scheme   {:cs    (-> ctx (:colourscheme) (r/clean-cs))
-                             :style :underline}})
+                  :scheme   {:cs     (-> ctx (:colourscheme) (r/clean-cs))
+                             :styles [:underline]}})
         actual-highlights (-> ctx
                               (process (char-key \())
                               (process (char-key \a) 4)

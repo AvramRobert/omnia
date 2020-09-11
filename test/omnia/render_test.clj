@@ -15,15 +15,13 @@
         bgs     (atom [])
         fgs     (atom [])
         stls    (atom [])
-        unstls  (atom [])
         acc     (fn [atm val] (swap! atm #(conj % val)))
         size    (t/size (:terminal ctx))]
     (assoc ctx
-      :terminal (test-terminal {:background! (fn [colour] (acc bgs colour))
-                                :foreground! (fn [colour] (acc fgs colour))
-                                :style!      (fn [style]  (acc stls style))
-                                :un-style!   (fn [style]  (acc unstls style))
-                                :put!        (fn [ch x y]
+      :terminal (test-terminal {:put!        (fn [ch x y fg bg stl]
+                                               (acc bgs bg)
+                                               (acc fgs fg)
+                                               (acc stls stl)
                                                (acc chars ch)
                                                (acc cursors [x y]))
                                 :size        (fn [] size)})
@@ -31,8 +29,7 @@
               :cursors cursors
               :bgs     bgs
               :fgs     fgs
-              :stls    stls
-              :unstls  unstls})))
+              :stls    stls})))
 
 (defn inspect [ctx p]
   (when-let [state (:state ctx)]

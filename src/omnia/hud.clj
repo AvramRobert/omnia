@@ -264,8 +264,8 @@
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
     (let [scheme (fn [region]
                    {:region   region
-                    :scheme   {:cs (-> ctx (:colourscheme) (clean-cs))
-                               :style :underline}})]
+                    :scheme   {:cs     (-> ctx (:colourscheme) (clean-cs))
+                               :styles [:underline]}})]
       (-> ctx
           (assoc-in [:highlights :open-paren] (scheme {:start [xs ys] :end [(inc xs) ys]}))
           (assoc-in [:highlights :closed-paren] (scheme {:start [xe ye] :end [(inc xe) ye]}))))

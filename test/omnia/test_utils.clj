@@ -57,11 +57,7 @@
                                 :ns ""
                                 :type ""}) xs)})))))
 
-(defn test-terminal [{:keys [background!
-                             foreground!
-                             style!
-                             un-style!
-                             visible!
+(defn test-terminal [{:keys [refresh!
                              clear!
                              size
                              move!
@@ -72,12 +68,8 @@
                       :as fns}]
   (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
   (let [unit (constantly nil)]
-    {:background! (or background! unit)
-     :foreground! (or foreground! unit)
-     :style!      (or style! unit)
-     :un-style!   (or un-style! unit)
-     :visible!    (or visible! unit)
-     :clear!      (or clear! unit)
+    {:clear!      (or clear! unit)
+     :refresh!    (or refresh! unit)
      :size        (or size (constantly 10))
      :move!       (or move! unit)
      :put!        (or put! unit)

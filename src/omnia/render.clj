@@ -7,7 +7,7 @@
 ;; === Highlighting scheme ==
 
 (defn simple-scheme [cs]
-  {:cs cs :style nil})
+  {:cs cs :styles [:bold]})
 
 ;; === Various colourschemes ===
 
@@ -143,16 +143,19 @@
                     terminal :terminal
                     [xs xe]  :sub-region
                     {cs    :cs
-                     style :style} :scheme}]
-  (letfn [(pad! [x]
+                     styles :styles} :scheme}]
+  (letfn [(do-print! [ch x y state]
+            (let [fg (cs (:id state))
+                  bg (cs h/-back)]
+              (t/put! terminal ch x y fg bg styles)))
+          (pad! [x]
             (when padding
               (dotimes [offset padding]
-                (t/put! terminal \space (+ x offset) y))))
+                (do-print! \space (+ x offset) y h/->text))))
           (show! [x emission state]
-            (t/foreground! terminal (cs (:id state)))
             (reduce-idx
               (fn [x' _ input]
-                (t/put! terminal input x' y)) x nil emission))
+                (do-print! input x' y state)) x nil emission))
           (print! [x [emission state]]
             (show! x emission state)
             (+ x (count emission)))
@@ -165,15 +168,10 @@
                 (> x' xs)                  (show! x emission state)
                 :else nil)
               x'))]
-    (t/background! terminal (cs h/-back))
-    (when style (t/style! terminal style))
-    (t/visible! terminal false)
+    #_(t/visible! terminal false)
     (-> (if (and xs xe) print-sub! print!)
         (h/foldl 0 line)
-        (pad!))
-    (t/background! terminal :default)
-    (t/visible! terminal true)
-    (when style (t/un-style! terminal style))))
+        (pad!))))
 
 (defn prioritise [highlights]
   (if (:selection highlights)
@@ -275,9 +273,12 @@
     (when (not= (:ov complete) (:ov previous))
       (total! ctx))))
 
+(defn refresh! [ctx]
+  (-> ctx (:terminal) (t/refresh!)))
+
 (defn render! [ctx]
   (case (:render ctx)
-    :diff (doto ctx (collect!) (diff!) (selections!) (position!))
-    :clear (doto ctx (clear!) (total!) (position!))
-    :nothing (doto ctx (collect!) (nothing!) (selections!) (position!))
-    (doto ctx (total!) (selections!) (position!))))
+    :diff (doto ctx (collect!) (diff!) (selections!) (position!) (refresh!))
+    :clear (doto ctx (clear!) (total!) (position!) (refresh!))
+    :nothing (doto ctx (collect!) (nothing!) (selections!) (position!) (refresh!))
+    (doto ctx (total!) (selections!) (position!) (refresh!))))
