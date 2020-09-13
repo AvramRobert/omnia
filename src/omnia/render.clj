@@ -7,7 +7,7 @@
 ;; === Highlighting scheme ==
 
 (defn simple-scheme [cs]
-  {:cs cs :styles [:bold]})
+  {:cs cs :styles []})
 
 ;; === Various colourschemes ===
 
@@ -168,7 +168,6 @@
                 (> x' xs)                  (show! x emission state)
                 :else nil)
               x'))]
-    #_(t/visible! terminal false)
     (-> (if (and xs xe) print-sub! print!)
         (h/foldl 0 line)
         (pad!))))

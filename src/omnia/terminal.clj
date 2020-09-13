@@ -4,8 +4,8 @@
            (com.googlecode.lanterna.input KeyType KeyStroke)
            (java.nio.charset Charset)
            (com.googlecode.lanterna.screen TerminalScreen)
-           (com.googlecode.lanterna.terminal.swing SwingTerminalFrame)
-           (java.awt Color)))
+           (com.googlecode.lanterna.terminal.swing SwingTerminalFrame TerminalEmulatorColorConfiguration TerminalEmulatorPalette AWTTerminalFontConfiguration)
+           (java.awt Color Font)))
 
 ; === Lanterna Terminal ===
 
@@ -126,9 +126,13 @@
 
 
 (defn terminal []
-  (let [emulator ^SwingTerminalFrame  (-> (DefaultTerminalFactory.)
-                                          (.createTerminalEmulator))
-        terminal ^TerminalScreen (TerminalScreen. emulator)] ;; find a way to set the terminal background
+  (let [colour-config (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)
+        font-config   (AWTTerminalFontConfiguration/newInstance (into-array Font [(Font/decode "Monospaced")]))
+        terminal (-> (DefaultTerminalFactory.)
+                     (.setTerminalEmulatorColorConfiguration colour-config)
+                     (.setTerminalEmulatorFontConfiguration font-config)
+                     (.createTerminalEmulator)
+                     (TerminalScreen.))]
     (map->Term
       {:size      (fn []
                     (-> terminal (.getTerminalSize) (.getRows)))
@@ -137,9 +141,7 @@
                     (.setCursorPosition terminal (pos x y)))
 
        :put!      (fn [^Character ch x y fg bg stls]
-                    (.setCharacter terminal
-                                   (pos x y)
-                                   (text-char ch fg bg stls)))
+                    (.setCharacter terminal x y (text-char ch fg bg stls)))
 
        :clear!    (fn [] (.clear terminal))
 
