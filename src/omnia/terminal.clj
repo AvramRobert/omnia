@@ -1,11 +1,11 @@
 (ns omnia.terminal
-  (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed TextColor)
+  (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed)
            (com.googlecode.lanterna.terminal Terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
-           (java.nio.charset Charset)
            (com.googlecode.lanterna.screen TerminalScreen)
-           (com.googlecode.lanterna.terminal.swing SwingTerminalFrame TerminalEmulatorColorConfiguration TerminalEmulatorPalette AWTTerminalFontConfiguration)
-           (java.awt Color Font)))
+           (com.googlecode.lanterna.terminal.swing TerminalEmulatorColorConfiguration TerminalEmulatorPalette SwingTerminalFontConfiguration)
+           (java.awt Font)
+           (java.io File)))
 
 ; === Lanterna Terminal ===
 
@@ -124,13 +124,22 @@
       (cond->
         (not (empty? stls)) (.withModifiers (mapv styles stls)))))
 
+(defn- custom-font [^String path]
+  (->> (File. path) (Font/createFont Font/TRUETYPE_FONT)))
 
-(defn terminal []
-  (let [colour-config (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)
-        font-config   (AWTTerminalFontConfiguration/newInstance (into-array Font [(Font/decode "Monospaced")]))
-        terminal (-> (DefaultTerminalFactory.)
-                     (.setTerminalEmulatorColorConfiguration colour-config)
-                     (.setTerminalEmulatorFontConfiguration font-config)
+(defn- font-of [path size]
+  (-> path (custom-font) (.deriveFont Font/BOLD (float size))))
+
+(defn- derive-palette [config]
+  (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL))
+
+(defn- derive-font [config]
+  (SwingTerminalFontConfiguration/newInstance (into-array Font [(font-of "./Hasklig-Regular.otf" 15)])))
+
+(defn terminal [config]
+  (let [terminal (-> (DefaultTerminalFactory.)
+                     (.setTerminalEmulatorColorConfiguration (derive-palette config))
+                     (.setTerminalEmulatorFontConfiguration (derive-font config))
                      (.createTerminalEmulator)
                      (TerminalScreen.))]
     (map->Term
