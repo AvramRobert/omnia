@@ -78,18 +78,18 @@
 (defn empty-hud [{:keys [terminal]}]
   (hud (t/size terminal)))
 
-(defn context [{:keys [terminal repl keymap colourscheme] :as config}]
+(defn context [{:keys [terminal repl keymap palette] :as config}]
   (assert (not (nil? terminal)) "Please provide a proper terminal (look in omnia.terminal)")
   (assert (not (nil? repl)) "Please provide a proper repl (look in omnia.repl)")
   (assert (not (nil? keymap)) "Please provide a proper keymap (look in omnia.config)")
-  (assert (not (nil? colourscheme)) "Please provide a proper colourscheme (look in omnia.config)")
+  (assert (not (nil? palette)) "Please provide a proper palette (look in omnia.config)")
   (let [ehud (empty-hud config)
         hud  (init-hud config)]
     (map->Context
       {:terminal      terminal
        :repl          repl
        :keymap        keymap
-       :colourscheme  colourscheme
+       :colourscheme  palette
        :render        :diff
        :previous-hud  ehud
        :persisted-hud hud
