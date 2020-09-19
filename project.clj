@@ -7,6 +7,7 @@
                  [com.googlecode.lanterna/lanterna "3.0.3"]
                  [org.clojure/core.match "0.3.0-alpha5"]
                  [fipp "0.6.22"]
+                 [prismatic/schema "1.1.12"]
                  [org.clojure/tools.nrepl "0.2.13"]
                  [halfling "1.1.1"]
                  [instaparse "1.4.9"]

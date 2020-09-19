@@ -2,14 +2,17 @@
   (:require [omnia.more :refer [map-vals gulp-or-else]]
             [clojure.string :refer [join]]
             [clojure.set :refer [map-invert]]
-            [halfling.task :refer [task]]
-            [omnia.highlight :as h]))
+            [halfling.task :as t]
+            [omnia.highlight :as h]
+            [schema.core :as c]))
 
 (def ^:const macOS :macOS)
 (def ^:const linux :linux)
 (def ^:const os :os)
 (def ^:const keymap :keymap)
 (def ^:const colourscheme :colourscheme)
+
+
 
 (def ^:private linux-keymap
   {
@@ -125,12 +128,12 @@
 (defn- failed [msg cause]
   (throw (Exception. (str msg "\n" cause))))
 
-(defn validate [config]
+(defn validate [keymap]
   (letfn [(report! [errs]
             (if (empty? errs)
-              config
+              keymap
               (failed "Duplicate bindings in keymap:" (join "\n" errs))))]
-    (->> (get config keymap)
+    (->> keymap
          (group-by val)
          (vals)
          (filter #(> (count %) 1))
@@ -143,27 +146,32 @@
          (report!))))
 
 (defn normalise [config]
-  (map-vals
-    #(merge {:key   :none
-             :ctrl  false
-             :shift false
-             :alt   false} %) config))
+  {:key   (:key config)
+   :ctrl  (:ctrl config false)
+   :alt   (:alt config false)
+   :shift (:shift config false)})
 
-(defn patch [config]
-  (letfn [(patched [patchee patcher]
-            (reduce
-              (fn [m [k v]]
-                (if (contains? m k) m (assoc m k v))) patchee patcher))
-          (fix-keymap [kmap] (->> (:os config) (keymap-for) (patched kmap)))
-          (fix-scheme [cs]   (->> default-cs (patched cs) (scheme-from)))]
-    (-> config
-        (update os #(or % linux))
-        (update colourscheme fix-scheme)
-        (update keymap fix-keymap))))
+(defn keep-left [a b]
+  (if a a b))
+
+(defn- prune-keymap [provided-keymap]
+  (->> default-keymap
+       (merge-with keep-left provided-keymap)
+       (map-vals normalise)
+       (map-invert)))
+
+(defn- prune-palette [provided-palette]
+  (->> default-cs
+       (merge-with keep-left provided-palette)))
+
+(defn convert [config]
+  {:os           :linux
+   :keymap       (-> config (:keymap) (prune-keymap))
+   :colourscheme (-> config (:colourscheme) (prune-palette))})
 
 (defn read-config [path]
-  (task
-    (-> (gulp-or-else path default-config)
-        (patch)
-        (validate)
-        (update keymap (comp map-invert normalise)))))
+  (t/do-tasks
+    [config (gulp-or-else path default-config)
+     _      (validate (:keymap config))
+     result (convert config)]
+    result))
