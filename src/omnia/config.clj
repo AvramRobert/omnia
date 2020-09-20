@@ -58,7 +58,7 @@
 (def Colour
   (s/cond-pre default PredefinedColour CustomColour))
 
-(def Palette
+(def Syntax
   {h/-list       Colour
    h/-vector     Colour
    h/-map        Colour
@@ -75,10 +75,10 @@
    h/-break      Colour
    h/-back       Colour})
 
-(def TerminalPalette default)
+(def InternalSyntax
+  (merge Syntax {h/-string* Colour}))
 
-(def InternalPalette
-  (merge Palette {h/-string* Colour}))
+(def Palette default)
 
 (def Font
   (s/cond-pre default s/Str))
@@ -86,22 +86,22 @@
 (def FontSize
   (s/cond-pre default s/Num))
 
+(def TerminalConfig
+  {:font      Font
+   :font-size FontSize
+   :palette   Palette})
+
 (def Config
-  {:os                                OS
-   :keymap                            KeyMap
-   :palette                           Palette
-   (s/optional-key :terminal-palette) TerminalPalette
-   (s/optional-key :font)             Font
-   (s/optional-key :font-size)        FontSize})
+  {:os                        OS
+   :keymap                    KeyMap
+   :syntax                    Syntax
+   (s/optional-key :terminal) TerminalConfig})
 
 (def InternalConfig
-  {:os               OS
-   :palette          InternalPalette
-   ;:terminal-palette TerminalPalette
-   :keymap           InternalKeyMap
-   ;:font             Font
-   ;:font-size        FontSize
-   })
+  {:os       OS
+   :keymap   InternalKeyMap
+   :syntax   InternalSyntax
+   :terminal TerminalConfig})
 
 (s/def default-os :- OS
   :linux)
@@ -143,7 +143,7 @@
    :eval              {:key \e :alt true}
    :exit              {:key \d :ctrl true}})
 
-(s/def default-palette :- Palette
+(s/def default-syntax :- Syntax
   {h/-list       :white
    h/-vector     :white
    h/-map        :white
@@ -160,12 +160,17 @@
    h/-back       :default
    h/-break      :default})
 
-(s/def default-config :- Config
-  {:os      default-os
-   :keymap  default-keymap
-   :palette default-palette})
+(s/def default-terminal-config :- TerminalConfig
+  {:font      :default
+   :font-size :default
+   :palette   :default})
 
-(defn- validate [keymap]
+(s/def default-config :- Config
+  {:os     default-os
+   :keymap default-keymap
+   :syntax default-syntax})
+
+(s/defn check-duplicates! [keymap :- KeyMap]
   (letfn [(report! [errs]
             (if (empty? errs)
               (t/success keymap)
@@ -181,34 +186,40 @@
                      (-> actions first second))))
          (report!))))
 
-(defn- normalise [config]
-  {:key   (:key config)
-   :ctrl  (:ctrl config false)
-   :alt   (:alt config false)
-   :shift (:shift config false)})
+(defn validate! [config]
+  (s/validate KeyMap (:keymap config))
+  (s/validate Syntax (:syntax config))
+  (check-duplicates! (:keymap config)))
 
-(defn- keep-left [a b]
-  (if a a b))
+(s/defn normalise-binding [binding :- KeyBinding] :- InternalKeyBinding
+  {:key   (:key binding)
+   :ctrl  (:ctrl binding false)
+   :alt   (:alt binding false)
+   :shift (:shift binding false)})
 
-(defn- prune-keymap [provided-keymap]
+(s/defn normalise-palette [palette :- Syntax] :- InternalSyntax
+  (assoc palette h/-string* (palette h/-string :green)))
+
+(s/defn enhance-keymap [provided-keymap :- KeyMap] :- InternalKeyMap
   (->> default-keymap
-       (merge-with keep-left provided-keymap)
-       (map-vals normalise)
+       (merge-with (fn [a b] (or a b)) provided-keymap)
+       (map-vals normalise-binding)
        (map-invert)))
 
-(defn- prune-palette [provided-palette]
-  (-> keep-left
-      (merge-with default-palette provided-palette)
-      (assoc h/-string* (get provided-palette h/-string :green))))
+(s/defn enhance-syntax [provided-syntax :- Syntax] :- InternalSyntax
+  (->> provided-syntax
+       (merge-with (fn [a b] (or a b)) default-syntax)
+       (normalise-palette)))
 
 (s/defn convert [config :- Config] :- InternalConfig
-  {:os           (get :os config default-os)
-   :keymap       (-> config (:keymap) (prune-keymap))
-   :palette      (-> config (:palette) (prune-palette))})
+  {:os           (config :os default-os)
+   :keymap       (-> config (:keymap) (enhance-keymap))
+   :syntax       (-> config (:palette) (enhance-syntax))
+   :terminal     (config :terminal default-terminal-config)})
 
 (s/defn read-config [path :- String]
   (t/do-tasks
     [config (gulp-or-else path default-config)
-     _      (validate (:keymap config))
+     _      (validate! config)
      result (convert config)]
     result))
