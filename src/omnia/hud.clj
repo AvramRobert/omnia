@@ -246,7 +246,7 @@
 (defn gc [ctx]
   (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
     (assoc ctx :highlights i/empty-map
-               :garbage (map-vals #(assoc % :scheme scheme) (:highlights ctx)))))
+               :garbage (map-vals #(assoc % :scheme scheme :styles []) (:highlights ctx)))))
 
 (defn match [ctx]
   (if-let [{[xs ys] :start
