@@ -4,10 +4,7 @@
                                   top-y
                                   bottom-y
                                   project-hud
-                                  project-cursor
-                                  select-cs
-                                  clean-cs
-                                  simple-scheme]]
+                                  project-cursor]]
             [omnia.repl :as r]
             [omnia.input :as i]
             [clojure.core.match :as m]
@@ -20,8 +17,7 @@
 
 (defrecord Context [terminal
                     repl
-                    keymap
-                    colourscheme
+                    config
                     render
                     previous-hud
                     persisted-hud
@@ -75,23 +71,18 @@
          i/empty-line
          caret)))
 
-(defn empty-hud [{:keys [terminal]}]
-  (hud (t/size terminal)))
-
-(defn context [{:keys [terminal repl keymap syntax] :as config}]
+(defn context [config terminal repl]
   (assert (not (nil? terminal)) "Please provide a proper terminal (look in omnia.terminal)")
   (assert (not (nil? repl)) "Please provide a proper repl (look in omnia.repl)")
-  (assert (not (nil? keymap)) "Please provide a proper keymap (look in omnia.config)")
-  (assert (not (nil? syntax)) "Please provide a proper syntax palette (look in omnia.config)")
-  (let [ehud (empty-hud config)
-        hud  (init-hud config)]
+  (let [empty-hud (hud (t/size terminal))
+        hud       (init-hud {:terminal terminal
+                             :repl     repl})]
     (map->Context
-      {:terminal      terminal
+      {:config        config
+       :terminal      terminal
        :repl          repl
-       :keymap        keymap
-       :colourscheme  syntax
        :render        :diff
-       :previous-hud  ehud
+       :previous-hud  empty-hud
        :persisted-hud hud
        :complete-hud  hud
        :seeker        i/empty-seeker
@@ -244,28 +235,26 @@
 (defn clear-render [ctx]
   (assoc ctx :render :clear))
 
-(defn highlight [ctx]
-  (let [{complete :complete-hud
-         cs       :colourscheme} ctx
-        scheme (fn [region]
+(defn highlight [{:keys [complete-hud config] :as ctx}]
+  (let [scheme (fn [region]
                  {:region region
-                  :scheme (-> cs (select-cs) (simple-scheme))})]
-    (if (i/selection? complete)
-      (assoc-in ctx [:highlights :selection] (->> complete (i/selection) (scheme)))
+                  :scheme (-> config (:syntax) (:selection))})]
+    (if (i/selection? complete-hud)
+      (assoc-in ctx [:highlights :selection] (->> complete-hud (i/selection) (scheme)))
       ctx)))
 
 (defn gc [ctx]
-  (let [colourscheme (-> ctx (:colourscheme) (clean-cs) (simple-scheme))]
+  (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
     (assoc ctx :highlights i/empty-map
-               :garbage (map-vals #(assoc % :scheme colourscheme) (:highlights ctx)))))
+               :garbage (map-vals #(assoc % :scheme scheme) (:highlights ctx)))))
 
 (defn match [ctx]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> (:complete-hud ctx) (i/find-pair))]
     (let [scheme (fn [region]
                    {:region   region
-                    :scheme   {:cs     (-> ctx (:colourscheme) (clean-cs))
-                               :styles [:underline]}})]
+                    :scheme   (-> ctx (:config) (:syntax) (:clean-up))
+                    :styles   [:underline]})]
       (-> ctx
           (assoc-in [:highlights :open-paren] (scheme {:start [xs ys] :end [(inc xs) ys]}))
           (assoc-in [:highlights :closed-paren] (scheme {:start [xe ye] :end [(inc xe) ye]}))))
@@ -456,7 +445,6 @@
         (rebase formatted)
         (seek formatted))))
 
-
 (defn predef [ctx event]
   (let [repl (:repl ctx)
         _    (r/evaluate! repl (:value event))
@@ -483,9 +471,9 @@
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
-(defn match-stroke [{:keys [keymap]} stroke]
+(defn match-stroke [ctx stroke]
   (let [key    (:key stroke)
-        action (get keymap stroke)]
+        action (-> ctx (:config) (:keymap) (get stroke))]
     (m/match [action (char? key)]
              [nil true] (i/->Event :char key)
              [nil false] (i/->Event :none key)
@@ -557,11 +545,10 @@
              (recur))
         current-cont))))
 
-(defn read-eval-print [config]
-  (let [cont (->> config (context) (continue))
-        term (:terminal config)]
+(defn read-eval-print [config terminal repl]
+  (let [cont (continue (context config terminal repl))]
     (-> (prelude! cont)
-        (tsk/then (partial read! term))
+        (tsk/then (partial read! terminal))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/then #(.ctx ^Cont %))
         (tsk/run))))

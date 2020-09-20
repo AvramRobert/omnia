@@ -4,28 +4,6 @@
             [omnia.highlight :as h]
             [omnia.more :refer [lmerge-with map-vals reduce-idx --]]))
 
-;; === Highlighting scheme ==
-
-(defn simple-scheme [cs]
-  {:cs cs :styles []})
-
-;; === Various colourschemes ===
-
-(defn no-cs [cs]
-  (-> (cs h/-text :white)
-      (constantly)
-      (map-vals cs)))
-
-(defn clean-cs [cs]
-  (assoc cs h/-select :default
-            h/-back   :default))
-
-(defn select-cs [cs]
-  (-> (no-cs cs)
-      (assoc h/-back   (cs h/-select))
-      (assoc h/-select (cs h/-select))))
-
-
 ;; === Projections ===
 
 (defn bottom-y [hud]
@@ -142,8 +120,8 @@
                     padding  :padding
                     terminal :terminal
                     [xs xe]  :sub-region
-                    {cs    :cs
-                     styles :styles} :scheme}]
+                    cs       :scheme
+                    styles   :styles}]
   (letfn [(do-print! [ch x y state]
             (let [fg (cs (:id state))
                   bg (cs h/-back)]
@@ -187,7 +165,7 @@
     (->> (vals highlights)
          (remove nil?)
          (run!
-           (fn [{highlight :region scheme :scheme}]
+           (fn [{highlight :region scheme :scheme styles :styles}]
              (let [selection (project-selection hud highlight)
                    [xs ys]   (:start selection)]
                (->> (region hud selection)
@@ -198,6 +176,7 @@
                                       :line       (i/line hud [x y])
                                       :terminal   terminal
                                       :scheme     scheme
+                                      :styles     styles
                                       :sub-region [x (+ x (count line))]})
                         0) ys xs))))))))
 
@@ -230,26 +209,27 @@
   (let [terminal (:terminal ctx)
         now      (-> ctx (:complete-hud) (project-hud) (:lines))
         then     (-> ctx (:previous-hud) (project-hud) (:lines))
-        scheme   (-> ctx (:colourscheme) (simple-scheme))
+        scheme   (-> ctx (:config) (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
       (let [a (nth now y nil)
             b (nth then y nil)]
         (print-line!
-          {:at         y
-           :line       a
-           :padding    (pad a b)
-           :terminal   terminal
-           :scheme     scheme})))))
+          {:at       y
+           :line     a
+           :padding  (pad a b)
+           :terminal terminal
+           :scheme   scheme
+           :styles  []})))))
 
 (defn diff! [ctx]
   (let [{terminal     :terminal
          complete     :complete-hud
          previous     :previous-hud
-         colourscheme :colourscheme} ctx
+         config       :config} ctx
         now      (-> complete (project-hud) (:lines))
         then     (-> previous (project-hud) (:lines))
-        scheme   (simple-scheme colourscheme)
+        scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (:ov complete) (:ov previous))
       (total! ctx)
@@ -261,7 +241,8 @@
                           :line     a
                           :padding  (pad a b)
                           :terminal terminal
-                          :scheme   scheme})))))))
+                          :scheme   scheme
+                          :styles   []})))))))
 
 (defn clear! [ctx]
   (-> ctx (:terminal) (t/clear!)))

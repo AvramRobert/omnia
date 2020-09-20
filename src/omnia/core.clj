@@ -77,9 +77,7 @@
          server       (r/start-server! repl-config)
          repl         (r/repl repl-config)
          _            (t/start! terminal)
-         ctx          (-> (assoc config :terminal terminal
-                                        :repl repl)
-                          (h/read-eval-print))
+         ctx          (h/read-eval-print config terminal repl)
          _            (hooks! ctx argmap)
          _            (t/stop! terminal)
          _            (r/stop-server! server)])

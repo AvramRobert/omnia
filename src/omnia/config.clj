@@ -43,7 +43,7 @@
    :ctrl  s/Bool
    :shift s/Bool})
 
-(def InternalKeyMap
+(def KeyMapConfig
   {InternalKeyBinding KeyAction})
 
 (def KeyMap
@@ -78,6 +78,11 @@
 (def InternalSyntax
   (merge Syntax {h/-string* Colour}))
 
+(def SyntaxConfig
+  {:standard  InternalSyntax
+   :clean-up  InternalSyntax
+   :selection InternalSyntax})
+
 (def Palette default)
 
 (def Font
@@ -99,8 +104,8 @@
 
 (def InternalConfig
   {:os       OS
-   :keymap   InternalKeyMap
-   :syntax   InternalSyntax
+   :keymap   KeyMapConfig
+   :syntax   SyntaxConfig
    :terminal TerminalConfig})
 
 (s/def default-os :- OS
@@ -200,7 +205,7 @@
 (s/defn normalise-palette [palette :- Syntax] :- InternalSyntax
   (assoc palette h/-string* (palette h/-string :green)))
 
-(s/defn enhance-keymap [provided-keymap :- KeyMap] :- InternalKeyMap
+(s/defn enhance-keymap [provided-keymap :- KeyMap] :- KeyMapConfig
   (->> default-keymap
        (merge-with (fn [a b] (or a b)) provided-keymap)
        (map-vals normalise-binding)
@@ -211,11 +216,28 @@
        (merge-with (fn [a b] (or a b)) default-syntax)
        (normalise-palette)))
 
+(defn- clean-up-palette [syntax-palette]
+  (assoc syntax-palette h/-select :default
+                        h/-back   :default))
+
+(defn- selection-palette [syntax-palette]
+  (let [select-colour (syntax-palette h/-select)]
+    (-> (syntax-palette h/-text)
+        (constantly)
+        (map-vals syntax-palette)
+        (assoc h/-back   select-colour)
+        (assoc h/-select select-colour))))
+
 (s/defn convert [config :- Config] :- InternalConfig
-  {:os           (config :os default-os)
-   :keymap       (-> config (:keymap) (enhance-keymap))
-   :syntax       (-> config (:palette) (enhance-syntax))
-   :terminal     (config :terminal default-terminal-config)})
+  (let [syntax   (-> config (:syntax) (enhance-syntax))
+        select   (selection-palette syntax)
+        clean-up (clean-up-palette syntax)]
+    {:os      (config :os default-os)
+     :keymap  (-> config (:keymap) (enhance-keymap))
+     :syntax  {:standard syntax
+               :clean-up clean-up
+               :selection select}
+     :terminal (config :terminal default-terminal-config)}))
 
 (s/defn read-config [path :- String]
   (t/do-tasks
