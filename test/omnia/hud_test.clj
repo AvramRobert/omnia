@@ -632,3 +632,42 @@
                                       :fov 15
                                       :seeker (one (gen-seeker-of 17))})]
                   (pop-ups tctx)))
+
+
+(defn unchanged-highlights [ctx]
+  (-> ctx
+      (process (char-key \())
+      (process right)
+      (process ignore)
+      (:highlights)
+      (can-be #(not (nil? (:open-paren %))))))
+
+(defn unchanged-selection [ctx]
+  (-> ctx
+      (move-start-fov)
+      (process select-right 12)
+      (process ignore)
+      (:highlights)
+      (can-be #(not (nil? (:selection %))))))
+
+(defn unchanged-scrolling [ctx]
+  (let [offset      2
+        initial-lor (-> ctx (:complete-hud) (:lor))]
+    (-> ctx
+        (move-end-fov)
+        (process scroll-up offset)
+        (process ignore)
+        (lor)
+        (= (+ offset initial-lor))
+        (is))))
+
+(defn ignores [ctx]
+  (unchanged-highlights ctx)
+  (unchanged-selection ctx)
+  (unchanged-scrolling ctx))
+
+(defspec ignoring-test
+         100
+         (for-all [tctx (gen-context {:fov 10
+                                      :seeker (one (gen-seeker-of 17))})]
+                  (ignores tctx)))

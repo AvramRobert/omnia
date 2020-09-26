@@ -12,7 +12,7 @@
             [omnia.terminal :as t]
             [omnia.sink :as s]
             [schema.core :as sc]
-            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point]]
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point Region]]
             [omnia.config :refer [InternalConfig InternalSyntax]])
   (:import (omnia.sink Sink)
            (clojure.lang IDeref)
@@ -22,14 +22,10 @@
 (def Render
   (sc/enum :diff :total :clear :nothing))
 
-(def Region
-  {:start Point
-   :end   Point})
-
 (def Highlight
-     {:region Region
-      :scheme InternalSyntax
-      :styles [sc/Keyword]})
+  {:region Region
+   :scheme InternalSyntax
+   :styles [sc/Keyword]})
 
 (def Highlights
   {(sc/optional-key :selection)    Highlight
@@ -493,16 +489,21 @@
     :format (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (clear-render) (resize) (continue))
     :eval (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
+    :exit  (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
+    :ignore (continue ctx)
     (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
-(defn match-stroke [ctx stroke]
+(defn match-stroke [ctx stroke]                             ;; I think this should be done in the terminal
   (let [key    (:key stroke)
-        action (-> ctx (:config) (:keymap) (get stroke))]
-    (m/match [action (char? key)]
-             [nil true] (i/->Event :char key)
-             [nil false] (i/->Event :none key)
-             [_ _] (i/->Event action key))))
+        action (-> ctx (:config) (:keymap) (get stroke))
+        unknown?   (and (nil? action)
+                        (not (char? key)))
+        character? (and (nil? action)
+                        (char? key))]
+    (cond
+      unknown?   (i/->Event :ignore nil)
+      character? (i/->Event :char key)
+      :else      (i/->Event action key))))
 
 (defn drain-into! [^Sink sink event]
   (letfn [(proceed [^Cont cont]

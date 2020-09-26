@@ -6,6 +6,10 @@
 (def Point
   (s/constrained [s/Int] #(= 2 (count %))))
 
+(def Region
+  {:start Point
+   :end   Point})
+
 (defn inc< [value max]
   (let [x (inc value)]
     (if (> x max) value x)))

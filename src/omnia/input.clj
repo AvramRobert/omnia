@@ -1,18 +1,42 @@
 (ns omnia.input
   (:require [clojure.core.match :as m]
             [clojure.string :as s]
+            [schema.core :as schema]
             [clojure.set :refer [union map-invert]]
-            [omnia.more :refer [do-until]]))
+            [omnia.more :refer [do-until Point Region]]))
+
+(def Lines
+  [[Character]])
+
+(def Expansion
+  (schema/enum :word :expr))
+
+(def InputEvent
+  {:action (schema/eq :char)
+   :value  Character})
+
+(def ControlEvent
+  {:action (schema/enum
+             :expand :select-all :paste :copy :cut
+             :up :down :left :right :jump-left :jump-right
+             :select-up :select-down :select-left :select-right
+             :jump-select-left :jump-select-right :backspace
+             :delete :newline :undo :redo)})
+
+(def Eventx
+  (schema/cond-pre InputEvent ControlEvent))
 
 (defrecord Event [action value])
-(defrecord Seeker [lines
-                   cursor
-                   height
-                   expansion
-                   selection
-                   clipboard
-                   history
-                   rhistory]
+
+(schema/defrecord Seeker
+  [lines     :- Lines
+   cursor    :- Point
+   expansion :- Expansion
+   selection :- (schema/maybe Region)
+   height    :- schema/Int
+   clipboard :- (schema/maybe Seeker)   ;; this is a seeker, question is, does it need to be one?
+   history   :- '(Seeker)
+   rhistory  :- '(Seeker)]
   Object
   (toString [_]
     (str {:lines     lines
