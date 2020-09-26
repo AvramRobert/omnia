@@ -499,8 +499,8 @@
   (let [[x y] (get-in ctx [:complete-hud :cursor])
         scheme (fn [region]
                  {:region   region
-                  :scheme   {:cs     (-> ctx (:colourscheme) (r/clean-cs))
-                             :styles [:underline]}})
+                  :scheme   (-> ctx (:config) (:syntax) (:clean-up))
+                  :styles   [:underline]})
         actual-highlights (-> ctx
                               (process (char-key \())
                               (process (char-key \a) 4)
@@ -531,7 +531,7 @@
   (dont-highlight-unmatched ctx))
 
 (defspec parens-matching-test
-         100
+         1
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
                                       :seeker (one (gen-seeker-of 10))})]

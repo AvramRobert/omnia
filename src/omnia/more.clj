@@ -1,6 +1,10 @@
 (ns omnia.more
   (:require [clojure.java.io :as io]
-            [clojure.edn :as edn]))
+            [clojure.edn :as edn]
+            [schema.core :as s]))
+
+(def Point
+  (s/constrained [s/Int] #(= 2 (count %))))
 
 (defn inc< [value max]
   (let [x (inc value)]

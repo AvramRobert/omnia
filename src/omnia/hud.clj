@@ -11,22 +11,44 @@
             [omnia.format :as f]
             [omnia.terminal :as t]
             [omnia.sink :as s]
-            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals]])
+            [schema.core :as sc]
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point]]
+            [omnia.config :refer [InternalConfig InternalSyntax]])
   (:import (omnia.sink Sink)
-           (clojure.lang IDeref)))
+           (clojure.lang IDeref)
+           (omnia.terminal Term)
+           (omnia.repl REPL)))
 
-(defrecord Context [terminal
-                    repl
-                    config
-                    render
-                    previous-hud
-                    persisted-hud
-                    complete-hud
-                    seeker
-                    suggestions
-                    docs
-                    highlights
-                    garbage])
+(def Render
+  (sc/enum :diff :total :clear :nothing))
+
+(def Region
+  {:start Point
+   :end   Point})
+
+(def Highlight
+     {:region Region
+      :scheme InternalSyntax
+      :styles [sc/Keyword]})
+
+(def Highlights
+  {(sc/optional-key :selection)    Highlight
+   (sc/optional-key :open-paren)   Highlight
+   (sc/optional-key :closed-paren) Highlight})
+
+(sc/defrecord Context
+  [terminal      :- Term
+   repl          :- REPL
+   config        :- InternalConfig
+   render        :- Render
+   previous-hud  :- sc/Any
+   persisted-hud :- sc/Any
+   complete-hud  :- sc/Any
+   seeker        :- sc/Any
+   suggestions   :- sc/Any
+   docs          :- sc/Any
+   highlights    :- Highlights
+   garbage       :- [Highlights]])
 
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
@@ -71,9 +93,9 @@
          i/empty-line
          caret)))
 
-(defn context [config terminal repl]
-  (assert (not (nil? terminal)) "Please provide a proper terminal (look in omnia.terminal)")
-  (assert (not (nil? repl)) "Please provide a proper repl (look in omnia.repl)")
+(sc/defn context [config   :- InternalConfig
+                  terminal :- Term
+                  repl     :- REPL] :- Context
   (let [empty-hud (hud (t/size terminal))
         hud       (init-hud {:terminal terminal
                              :repl     repl})]
@@ -88,7 +110,7 @@
        :seeker        i/empty-seeker
        :suggestions   i/empty-seeker
        :docs          i/empty-seeker
-       :highlights    i/empty-vec
+       :highlights    i/empty-map
        :garbage       i/empty-vec})))
 
 (defn adjoin [ths tht]
@@ -236,17 +258,20 @@
   (assoc ctx :render :clear))
 
 (defn highlight [{:keys [complete-hud config] :as ctx}]
-  (let [scheme (fn [region]
-                 {:region region
-                  :scheme (-> config (:syntax) (:selection))})]
-    (if (i/selection? complete-hud)
-      (assoc-in ctx [:highlights :selection] (->> complete-hud (i/selection) (scheme)))
-      ctx)))
+  (if (i/selection? complete-hud)
+    (assoc-in ctx [:highlights :selection]
+              {:region (i/selection complete-hud)
+               :scheme (-> config (:syntax) (:selection))})
+    ctx))
 
 (defn gc [ctx]
   (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
     (assoc ctx :highlights i/empty-map
-               :garbage (map-vals #(assoc % :scheme scheme :styles []) (:highlights ctx)))))
+               :garbage (->> (:highlights ctx)
+                             (map-vals (fn [selection]
+                                         {:region (:region selection)
+                                          :scheme scheme
+                                          :styles []}))))))
 
 (defn match [ctx]
   (if-let [{[xs ys] :start

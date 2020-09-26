@@ -2,7 +2,7 @@
   (:require [clojure.test.check.generators :as gen]
             [clojure.test :refer [is]]
             [omnia.more :refer [--]]
-            [omnia.config :refer [default-keymap default-cs]]
+            [omnia.config :as c]
             [omnia.input :as i]
             [omnia.hud :as h]
             [omnia.repl :as r]
@@ -68,14 +68,15 @@
                       :as fns}]
   (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
   (let [unit (constantly nil)]
-    {:clear!      (or clear! unit)
-     :refresh!    (or refresh! unit)
-     :size        (or size (constantly 10))
-     :move!       (or move! unit)
-     :put!        (or put! unit)
-     :stop!       (or stop! unit)
-     :start!      (or start! unit)
-     :get-key!  (or get-key! unit)}))
+    (t/map->Term
+      {:clear!      (or clear! unit)
+       :refresh!    (or refresh! unit)
+       :size        (or size (constantly 10))
+       :move!       (or move! unit)
+       :put!        (or put! unit)
+       :stop!       (or stop! unit)
+       :start!      (or start! unit)
+       :get-key!  (or get-key! unit)})))
 
 (defn gen-context [{:keys [size fov seeker receive history]
                     :or {size 0
@@ -86,13 +87,12 @@
        (gen/fmap
          (fn [hud-seeker]
            (let [hud (h/hud fov hud-seeker)]
-             (-> (h/context {:terminal (test-terminal {:size (constantly fov)})
-                             :repl (-> (r/repl {:host    ""
-                                                :port    0
-                                                :history history
-                                                :client (constantly receive)}))
-                             :keymap default-keymap
-                             :colourscheme default-cs})
+             (-> (h/context (c/convert c/default-config)
+                            (test-terminal {:size (constantly fov)})
+                            (r/repl {:host    ""
+                                     :port    0
+                                     :history history
+                                     :client (constantly receive)}))
                  (h/seek seeker)
                  (h/persist hud)
                  (h/rebase)
