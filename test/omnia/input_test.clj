@@ -288,41 +288,41 @@
 
 (defbench retrieving-bench retrieving)
 
-;; VI. Advancing
+;; VI. Progressing
 
-(defn simple-advance [seeker line]
+(defn simple-progress [seeker line]
   (-> (i/start seeker)
       (i/split (fn [a b] [line a b]))
-      (can-be #(-> % (i/advance) (after? %)))))
+      (can-be #(-> % (i/progress) (after? %)))))
 
-(defn stop-advance-when-text-ends [seeker]
+(defn stop-progress-when-text-ends [seeker]
   (-> (i/end seeker)
-      (can-be #(-> % (i/advance) (there? %)))))
+      (can-be #(-> % (i/progress) (there? %)))))
 
 (defn wrap-when-line-ends [seeker text]
   (-> (i/start seeker)
       (i/peer (fn [a b] (concat text a b)))
       (i/end-x)
-      (can-be #(-> % (i/advance) (after? %)))))
+      (can-be #(-> % (i/progress) (after? %)))))
 
-(defn advancing [seeker]
-  (simple-advance seeker (one gen-line))
-  (stop-advance-when-text-ends seeker)
+(defn progressing [seeker]
+  (simple-progress seeker (one gen-line))
+  (stop-progress-when-text-ends seeker)
   (wrap-when-line-ends seeker (one gen-text)))
 
-(defspec advancing-test
+(defspec progressing-test
          100
          (for-all [seeker gen-seeker]
-                  (advancing seeker)))
+                  (progressing seeker)))
 
-(defbench advancing-bench advancing)
+(defbench progressing-bench progressing)
 
 ;; VII. Regressing
 
 (defn simple-regress [seeker line]
   (-> seeker
       (i/split (fn [a b] [a line b]))
-      (can-be #(-> % (i/advance) (i/regress) (there? %)))))
+      (can-be #(-> % (i/progress) (i/regress) (there? %)))))
 
 (defn stop-regress-when-start [seeker]
   (-> (i/start-x seeker)
@@ -437,10 +437,10 @@
 (defn delete-omitting-single-parens [seeker]
   (letfn [(f [s c] (i/slicel s #(conj % c)))]
     (-> (i/end seeker)
-        (can-be #(-> (f % \)) (i/advance) (i/delete) (<=> (f % \))))
-                #(-> (f % \]) (i/advance) (i/delete) (<=> (f % \])))
-                #(-> (f % \}) (i/advance) (i/delete) (<=> (f % \})))
-                #(-> (f % \") (i/advance) (i/delete) (<=> (f % \")))))))
+        (can-be #(-> (f % \)) (i/progress) (i/delete) (<=> (f % \))))
+                #(-> (f % \]) (i/progress) (i/delete) (<=> (f % \])))
+                #(-> (f % \}) (i/progress) (i/delete) (<=> (f % \})))
+                #(-> (f % \") (i/progress) (i/delete) (<=> (f % \")))))))
 
 (defn delete-selections [seeker]
   (-> seeker
@@ -676,7 +676,7 @@
                          (i/jump-right)
                          (i/jump-right)
                          (i/jump-right)
-                         (i/advance)
+                         (i/progress)
                          (i/expand)
                          (i/expand)
                          (i/extract)
@@ -912,7 +912,7 @@
                 (i/peer (fn [a b] (concat a [(concat [ol] [il] line [ir] [or])] b)))
                 (i/start-x)
                 (can-be #(->> (i/find-pair %) (chars-at %) (= [ol or]))
-                        #(->> (i/advance %) (i/find-pair) (chars-at %) (= [il ir])))))
+                        #(->> (i/progress %) (i/find-pair) (chars-at %) (= [il ir])))))
           nil parens))
       nil parens)))
 
@@ -924,8 +924,8 @@
             (i/slice (fn [a b] (concat [l l l] a b [r r])))
             (i/start-x)
             (can-be #(->> (i/find-pair %) (nil?))
-                    #(->> (i/advance %) (i/find-pair) (chars-at %) (= [l r]))
-                    #(->> (i/advance %) (i/advance) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
+                    #(->> (i/progress %) (i/find-pair) (chars-at %) (= [l r]))
+                    #(->> (i/progress %) (i/progress) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
 
 (defn pairing [seeker]
   (pair-outer-parens seeker)
@@ -949,41 +949,41 @@
     ;; s1
     (is (= :unmatched (-> (i/open-expand s1) (first))))
     (is (= :matched   (-> (i/end-x s1) (i/closed-expand) (first))))
-    (is (= :matched   (-> (i/advance s1) (i/open-expand) (first))))
+    (is (= :matched (-> (i/progress s1) (i/open-expand) (first))))
     (is (= :matched   (-> (i/end-x s1) (i/regress) (i/closed-expand) (first))))
-    (is (= :matched   (-> (i/advance s1) (i/advance) (i/open-expand) (first))))
-    (is (= :unmatched (-> (i/advance s1) (i/advance) (i/advance) (i/open-expand) (first))))
+    (is (= :matched (-> (i/progress s1) (i/progress) (i/open-expand) (first))))
+    (is (= :unmatched (-> (i/progress s1) (i/progress) (i/progress) (i/open-expand) (first))))
     (is (= :unmatched (-> (i/end-x s1) (i/open-expand) (first))))
-    (is (= :unmatched (-> (i/advance s1) (i/closed-expand) (first))))
+    (is (= :unmatched (-> (i/progress s1) (i/closed-expand) (first))))
     (is (= :unmatched (-> (i/start s1) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/advance s1) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/progress s1) (i/near-expand) (first))))
     (is (= :unmatched (-> (i/end-x s1) (i/near-expand) (first))))
-    (is (= :matched   (-> (i/advance s1) (i/advance) (i/near-expand) (first))))
+    (is (= :matched (-> (i/progress s1) (i/progress) (i/near-expand) (first))))
     (is (= :matched   (-> (i/end-x s1) (i/regress) (i/near-expand) (first))))
     ;;;; s2
     (is (= :matched (-> (i/open-expand s2) (first))))
     (is (= :matched (-> (i/end-x s2) (i/closed-expand) (first))))
-    (is (= :matched (-> (i/advance s2) (i/open-expand) (first))))
-    (is (= :matched (-> (i/advance s2) (i/advance) (i/near-expand) (first))))
-    (is (= :matched (-> (i/advance s2) (i/advance) (i/advance) (i/near-expand) (first))))
+    (is (= :matched (-> (i/progress s2) (i/open-expand) (first))))
+    (is (= :matched (-> (i/progress s2) (i/progress) (i/near-expand) (first))))
+    (is (= :matched (-> (i/progress s2) (i/progress) (i/progress) (i/near-expand) (first))))
     (is (= :matched (-> (i/end-x s2) (i/regress) (i/near-expand) (first))))
     (is (= :matched (-> (i/end-x s2) (i/regress) (i/regress) (i/near-expand) (first))))
     ;;;;; s3
     (is (= :matched (-> (i/open-expand s3) (first))))
-    (is (= :matched (-> (i/advance s3) (i/open-expand) (first))))
-    (is (= :matched (-> (i/advance s3) (i/advance) (i/open-expand) (first))))
-    (is (= :matched   (-> (i/advance s3) (i/advance) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/advance s3) (i/advance) (i/advance) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/advance s3) (i/advance) (i/advance) (i/closed-expand) (first))))
+    (is (= :matched (-> (i/progress s3) (i/open-expand) (first))))
+    (is (= :matched (-> (i/progress s3) (i/progress) (i/open-expand) (first))))
+    (is (= :matched (-> (i/progress s3) (i/progress) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/progress s3) (i/progress) (i/progress) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/progress s3) (i/progress) (i/progress) (i/closed-expand) (first))))
     (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/near-expand) (first))))
     (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/regress) (i/near-expand) (first))))
     (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/regress) (i/regress) (i/open-expand) (first))))
     ;;;; s4
     (is (= :unmatched (-> (i/open-expand s4) (first))))
     (is (= :unmatched (-> (i/closed-expand s4) (first))))
-    (is (= :unmatched (-> (i/advance s4) (i/open-expand) (first))))
-    (is (= :unmatched (-> (i/advance s4) (i/advance) (i/open-expand) (first))))
-    (is (= :matched (-> (i/advance s4) (i/advance) (i/advance) (i/open-expand) (first))))
+    (is (= :unmatched (-> (i/progress s4) (i/open-expand) (first))))
+    (is (= :unmatched (-> (i/progress s4) (i/progress) (i/open-expand) (first))))
+    (is (= :matched (-> (i/progress s4) (i/progress) (i/progress) (i/open-expand) (first))))
     (is (= :matched (-> (i/end-x s4) (i/regress) (i/near-expand) (first))))
     (is (= :unmatched (-> (i/end-x s4) (i/regress) (i/regress) (i/near-expand) (first))))
     (is (= :unmatched (-> (i/end-x s4) (i/regress) (i/regress) (i/regress) (i/near-expand) (first))))))

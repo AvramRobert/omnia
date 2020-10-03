@@ -2,6 +2,7 @@
   (:require [omnia.more :refer [map-vals gulp-or-else]]
             [clojure.string :refer [join]]
             [clojure.set :refer [map-invert]]
+            [omnia.event :as e]
             [halfling.task :as t]
             [omnia.highlight :as h]
             [schema.core :as s]))
@@ -12,15 +13,15 @@
 (def OS
   (s/enum :linux :mac :windows))
 
-(def KeyAction
-  (s/enum :docs :signature :expand :undo :redo
-          :paste :copy :cut :select-all :up
-          :down :left :right :jump-left :jump-right
-          :select-up :select-down :select-left :select-right
-          :jump-select-left :jump-select-right :backspace
-          :delete :newline :match :suggest :scroll-up
-          :scroll-down :prev-eval :next-eval :format
-          :clear :eval :exit))
+(def KeyEvent
+  (s/enum e/docs e/signature e/expand e/undo e/redo
+          e/paste e/copy e/cut e/select-all e/up
+          e/down e/left e/right e/jump-left e/jump-right
+          e/select-up e/select-down e/select-left e/select-right
+          e/jump-select-left e/jump-select-right e/backspace
+          e/delete e/break e/match e/suggest e/scroll-up
+          e/scroll-down e/prev-eval e/next-eval e/indent
+          e/clear e/evaluate e/exit))
 
 (def ControlKey
   (s/enum :up :down :left :right :delete :enter :backspace :tab :page-up :page-down))
@@ -44,10 +45,10 @@
    :shift s/Bool})
 
 (def KeyMapConfig
-  {InternalKeyBinding KeyAction})
+  {InternalKeyBinding KeyEvent})
 
 (def KeyMap
-  {KeyAction KeyBinding})
+  {KeyEvent KeyBinding})
 
 (def PredefinedColour
   (s/enum :black :white :red :green :blue :cyan :magenta :yellow))
@@ -112,41 +113,41 @@
   :linux)
 
 (s/def default-keymap :- KeyMap
-  {:docs              {:key \i :alt true}
-   :signature         {:key \p :alt true}
-   :expand            {:key \w :ctrl true}
-   :undo              {:key \z :alt true}
-   :redo              {:key \y :alt true}
-   :paste             {:key \v :alt true}
-   :copy              {:key \c :alt true}
-   :cut               {:key \x :alt true}
-   :select-all        {:key \a :ctrl true}
-   :up                {:key :up}
-   :down              {:key :down}
-   :left              {:key :left}
-   :right             {:key :right}
-   :jump-left         {:key :left :ctrl true}
-   :jump-right        {:key :right :ctrl true}
-   :select-up         {:key :up :shift true}
-   :select-down       {:key :down :shift true}
-   :select-left       {:key :left :shift true}
-   :select-right      {:key :right :shift true}
-   :jump-select-left  {:key :left :shift true :ctrl true}
-   :jump-select-right {:key :right :shift true :ctrl true}
-   :backspace         {:key :backspace}
-   :delete            {:key :delete}
-   :newline           {:key :enter}
+  {e/docs              {:key \i :alt true}
+   e/signature         {:key \p :alt true}
+   e/expand            {:key \w :ctrl true}
+   e/undo              {:key \z :alt true}
+   e/redo              {:key \y :alt true}
+   e/paste             {:key \v :alt true}
+   e/copy              {:key \c :alt true}
+   e/cut               {:key \x :alt true}
+   e/select-all        {:key \a :ctrl true}
+   e/up                {:key :up}
+   e/down              {:key :down}
+   e/left              {:key :left}
+   e/right             {:key :right}
+   e/jump-left         {:key :left :ctrl true}
+   e/jump-right        {:key :right :ctrl true}
+   e/select-up         {:key :up :shift true}
+   e/select-down       {:key :down :shift true}
+   e/select-left       {:key :left :shift true}
+   e/select-right      {:key :right :shift true}
+   e/jump-select-left  {:key :left :shift true :ctrl true}
+   e/jump-select-right {:key :right :shift true :ctrl true}
+   e/backspace         {:key :backspace}
+   e/delete            {:key :delete}
+   e/break             {:key :enter}
    ;; --- HUD KEYMAP ---
-   :match             {:key \p :ctrl true}
-   :suggest           {:key :tab}
-   :scroll-up         {:key :page-up}
-   :scroll-down       {:key :page-down}
-   :prev-eval         {:key :up :alt true}
-   :next-eval         {:key :down :alt true}
-   :format            {:key \l :ctrl true :alt true}
-   :clear             {:key \r :ctrl true}
-   :eval              {:key \e :alt true}
-   :exit              {:key \d :ctrl true}})
+   e/match             {:key \p :ctrl true}
+   e/suggest           {:key :tab}
+   e/scroll-up         {:key :page-up}
+   e/scroll-down       {:key :page-down}
+   e/prev-eval         {:key :up :alt true}
+   e/next-eval         {:key :down :alt true}
+   e/indent            {:key \l :ctrl true :alt true}
+   e/clear             {:key \r :ctrl true}
+   e/evaluate          {:key \e :alt true}
+   e/exit              {:key \d :ctrl true}})
 
 (s/def default-syntax :- Syntax
   {h/-list       :white

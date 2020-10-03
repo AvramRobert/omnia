@@ -8,7 +8,8 @@
             [omnia.repl :as r]
             [omnia.terminal :as t]
             [omnia.render :as rd]
-            [clojure.string :as s]))
+            [clojure.string :as s]
+            [omnia.event :as e]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
@@ -98,37 +99,30 @@
                  (h/rebase)
                  (h/remember)))))))
 
-(defn event
-  ([action]
-   {:action action})
-  ([action value]
-   {:action action
-    :value  value}))
-
-(def up (event :up))
-(def down (event :down))
-(def left (event :left))
-(def right (event :right))
-(def select-all (event :select-all))
-(def select-down (event :select-down))
-(def select-up (event :select-up))
-(def select-right (event :select-right))
-(def select-left (event :select-left))
-(def expand (event :expand))
-(def copy (event :copy))
-(def paste (event :paste))
-(def backspace (event :backspace))
-(def enter (event :newline))
-(def scroll-up (event :scroll-up))
-(def scroll-down (event :scroll-down))
-(defn char-key [k] (event :char k))
-(def clear (event :clear))
-(def evaluate (event :eval))
-(def prev-eval (event :prev-eval))
-(def next-eval (event :next-eval))
-(def parens-match (event :match))
-(def suggest (event :suggest))
-(def ignore (event :ignore))
+(def up (e/event e/up))
+(def down (e/event e/down))
+(def left (e/event e/left))
+(def right (e/event e/right))
+(def select-all (e/event e/select-all))
+(def select-down (e/event e/select-down))
+(def select-up (e/event e/select-up))
+(def select-right (e/event e/select-right))
+(def select-left (e/event e/select-left))
+(def expand (e/event e/expand))
+(def copy (e/event e/copy))
+(def paste (e/event e/paste))
+(def backspace (e/event e/backspace))
+(def enter (e/event e/break))
+(def scroll-up (e/event e/scroll-up))
+(def scroll-down (e/event e/scroll-down))
+(defn char-key [k] (e/event e/character k))
+(def clear (e/event e/clear))
+(def evaluate (e/event e/evaluate))
+(def prev-eval (e/event e/prev-eval))
+(def next-eval (e/event e/next-eval))
+(def parens-match (e/event e/match))
+(def suggest (e/event e/suggest))
+(def ignore (e/event e/ignore))
 
 (defn process
   ([ctx event]

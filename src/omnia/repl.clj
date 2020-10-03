@@ -166,39 +166,7 @@
 (defn stop-server! [server]
   (s/stop-server server))
 
-(defn- pipe-out! [transport pipe]
-  (letfn [(wait! [] (reset! pipe :waiting) nil)
-          (gather! [timeout]
-            (some->> (nrepl/response-seq transport timeout)
-                     (filter #(or (:out %) (:err %) (:ex %)))
-                     (map response->seeker)
-                     (seq)))]
-    (case @pipe
-      :stop (wait!)
-      :continue (gather! 100)
-      nil)))
-
-(defn- wait-ack [pipe]
-  (loop [x @pipe]
-    (if (= :waiting x) nil (recur @pipe))))
-
 (defn connect [host port timeout]
-  "Connect with pollable reading"
-  (let [pipe      (atom :continue)
-        transport (nrepl/connect :port port :host host)
-        client    (nrepl/client transport timeout)]
-    (fn [msg]
-      (if (->> msg (:op) (= :read-out))
-        (pipe-out! transport pipe)
-        (let [_      (reset! pipe :stop)
-              _      (wait-ack pipe)
-              result (-> client (nrepl/message msg) (vec))
-              _      (reset! pipe :continue)]
-          result)))))
-
-;; TOOD: Use `connect` once it's reimplemented properly with a solution for issue #65
-(defn connect' [host port timeout]
-  "Connect without pollable reading"
   (let [transport (nrepl/connect :port port :host host)
         client    (nrepl/client transport timeout)]
     (fn [msg] (-> client (nrepl/message msg) (vec)))))
@@ -214,7 +182,7 @@
   (map->REPL {:ns ns
               :host host
               :port port
-              :client (or client (connect' host port timeout))
+              :client (or client (connect host port timeout))
               :history history
               :timeline (count history)
               :result i/empty-seeker}))

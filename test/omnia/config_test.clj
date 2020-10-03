@@ -15,16 +15,16 @@
          100
          (for-all [[ik v] gen-keybind]
                   (let [[k _] (one (gen-keybind-unlike ik))]
-                    (-> (assoc-in c/default-config [c/keymap k] v)
-                        (c/validate)
+                    (-> (assoc-in c/default-config [:keymap k] v)
+                        (c/validate!)
                         (t/task)
                         (t/run)
                         (t/broken?)
                         (is)))))
 
 (deftest normalise-keymap
-  (run! (fn [[_ v]]
-          (is (contains? v :key))
-          (is (contains? v :ctrl))
-          (is (contains? v :shift))
-          (is (contains? v :alt))) (c/normalise c/default-keymap)))
+  (run! (fn [[k _]]
+          (is (contains? k :key))
+          (is (contains? k :ctrl))
+          (is (contains? k :shift))
+          (is (contains? k :alt))) (c/enhance-keymap c/default-keymap)))

@@ -92,7 +92,7 @@ Omnia can highlight the following things and defines the following keys for them
 - Numbers: `:number`
 - Strings: `:string`
 - Keywords: `:keyword`
-- Characters: `:char`
+- Characters: `:character`
 - Comments: `:comment`
 - Lists: `:list`
 - Vectors: `:vector`

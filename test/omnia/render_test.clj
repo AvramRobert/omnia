@@ -18,13 +18,13 @@
         acc     (fn [atm val] (swap! atm #(conj % val)))
         size    (t/size (:terminal ctx))]
     (assoc ctx
-      :terminal (test-terminal {:put!        (fn [ch x y fg bg stl]
-                                               (acc bgs bg)
-                                               (acc fgs fg)
-                                               (acc stls stl)
-                                               (acc chars ch)
-                                               (acc cursors [x y]))
-                                :size        (fn [] size)})
+      :terminal (test-terminal {:put! (fn [ch x y fg bg stl]
+                                        (acc bgs bg)
+                                        (acc fgs fg)
+                                        (run! #(acc stls %) stl)
+                                        (acc chars ch)
+                                        (acc cursors [x y]))
+                                :size (fn [] size)})
       :state {:chars   chars
               :cursors cursors
               :bgs     bgs
@@ -93,11 +93,10 @@
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-cursors cursors))
             (is (= expected-chars chars)))))))
 
@@ -112,11 +111,10 @@
     (-> (stateful processed)
         (execute r/diff!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-cursors cursors))
             (is (= expected-chars chars)))))))
 
@@ -126,13 +124,12 @@
       (stateful)
       (execute r/diff!)
       (inspect
-        (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+        (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? chars))
           (is (empty? cursors))
           (is (empty? fgs))
           (is (empty? bgs))
-          (is (empty? stls))
-          (is (empty? unstls))))))
+          (is (empty? stls))))))
 
 (defn reset-diff-render [ctx]
   (let [processed (-> (move-top-fov ctx)
@@ -175,13 +172,12 @@
   (-> (stateful ctx)
       (execute r/nothing!)
       (inspect
-        (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+        (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? bgs))
           (is (empty? fgs))
           (is (empty? chars))
           (is (empty? cursors))
-          (is (empty? stls))
-          (is (empty? unstls))))))
+          (is (empty? stls))))))
 
 (defn nothing-to-diff-render [ctx]
   (let [processed (-> (move-top-fov ctx)
@@ -189,11 +185,10 @@
     (-> (stateful processed)
         (execute r/nothing!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (not (empty? chars)))
             (is (not (empty? cursors))))))))
 
@@ -218,11 +213,10 @@
     (-> (stateful processed)
         (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
@@ -235,11 +229,10 @@
     (-> (stateful processed)
         (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
@@ -250,11 +243,10 @@
     (-> (stateful processed)
         (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
@@ -265,11 +257,10 @@
     (-> (stateful processed)
         (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (not (empty? stls)))
-            (is (not (empty? unstls)))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
@@ -286,11 +277,10 @@
     (-> (stateful processed)
         (execute r/selections!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 

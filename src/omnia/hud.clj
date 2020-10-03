@@ -7,16 +7,13 @@
                                   project-cursor]]
             [omnia.repl :as r]
             [omnia.input :as i]
-            [clojure.core.match :as m]
             [omnia.format :as f]
             [omnia.terminal :as t]
-            [omnia.sink :as s]
+            [omnia.event :as e]
             [schema.core :as sc]
             [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point Region]]
             [omnia.config :refer [InternalConfig InternalSyntax]])
-  (:import (omnia.sink Sink)
-           (clojure.lang IDeref)
-           (omnia.terminal Term)
+  (:import (omnia.terminal Term)
            (omnia.repl REPL)))
 
 (def Render
@@ -260,6 +257,7 @@
                :scheme (-> config (:syntax) (:selection))})
     ctx))
 
+;; Question is: Should this thing actually provide a scheme or should I just pick it from the context?
 (defn gc [ctx]
   (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
     (assoc ctx :highlights i/empty-map
@@ -466,18 +464,17 @@
         (rebase formatted)
         (seek formatted))))
 
-(defn predef [ctx event]
+(defn inject [ctx event]
   (let [repl (:repl ctx)
-        _    (r/evaluate! repl (:value event))
-        _    (r/out-subscribe! repl)]
+        _    (->> event (:value) (i/from-string) (r/evaluate! repl))
+        _    (r/read-out! repl)]
     ctx))
 
 ;; === Events ===
 
 (defn process [ctx event]
   (case (:action event)
-    :predef (-> ctx (predef event) (continue))
-    :gobble (-> ctx (gobble event) (scroll-stop) (diff-render) (resize) (continue))
+    :inject (-> ctx (inject event) (continue))
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
@@ -486,10 +483,10 @@
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
     :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :format (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :indent (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (clear-render) (resize) (continue))
-    :eval (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
-    :exit  (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
+    :evaluate (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     :ignore (continue ctx)
     (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
@@ -501,60 +498,16 @@
         character? (and (nil? action)
                         (char? key))]
     (cond
-      unknown?   (i/->Event :ignore nil)
-      character? (i/->Event :char key)
-      :else      (i/->Event action key))))
-
-(defn drain-into! [^Sink sink event]
-  (letfn [(proceed [^Cont cont]
-            (let [ncont (-> cont (.ctx) (process event))
-                  _     (-> ncont (.ctx) (render!))]
-              ncont))]
-      (or (some-> sink (s/error) (throw))
-          (s/dispatch! sink proceed))))
-
-(defn continuously! [^IDeref sink f]
-  (tsk/task
-    (loop []
-      (let [cont ^Cont (.deref sink)]
-        (when (= :continue (.status cont))
-          (some->> cont (.ctx) (f) (drain-into! sink))
-          (recur))))))
-
-(defn read-out! [^IDeref sink repl]
-  (continuously! sink (fn [_] (some->> repl (r/read-out!) (apply i/join-many) (i/->Event :gobble)))))
-
-(defn read-in! [^IDeref sink terminal]
-  (continuously! sink #(some->> terminal (t/get-key!) (match-stroke %))))
-
-(defn predef! [^Sink sink]
-  (tsk/task
-    (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
-         (apply i/join-many)
-         (i/->Event :predef)
-         (drain-into! sink))))
-
-;; TODO: Use this once you find a better solution for Issue #65
-#_(defn read-eval-print [config]
-    (let [sink (->> config (context) (continue) (s/sink))
-          repl (:repl config)
-          term (:terminal config)]
-      (-> (tsk/zip
-            (predef! sink)
-            (read-in! sink term)
-            (read-out! sink repl))
-          (tsk/then-do (Thread/sleep 1200))
-          (tsk/then-do (.ctx ^Cont (.deref ^IDeref sink)))
-          (tsk/run))))
+      unknown?   (e/event e/ignore)
+      character? (e/event e/character key)
+      :else      (e/event action))))
 
 (defn render-ret! [^Cont cont]
   (render! (.ctx cont))
   cont)
 
 (defn prelude! [^Cont cont]
-  (let [event (->> [(i/from-string "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
-                   (apply i/join-many)
-                   (i/->Event :predef))]
+  (let [event (e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
     (-> (.ctx cont)
         (process event)
         (tsk/task)

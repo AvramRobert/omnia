@@ -2,6 +2,7 @@
   (:require [clojure.core.match :as m]
             [clojure.string :as s]
             [schema.core :as schema]
+            [omnia.event :as e]
             [clojure.set :refer [union map-invert]]
             [omnia.more :refer [do-until Point Region]]))
 
@@ -11,32 +12,15 @@
 (def Expansion
   (schema/enum :word :expr))
 
-(def InputEvent
-  {:action (schema/eq :char)
-   :value  Character})
-
-(def ControlEvent
-  {:action (schema/enum
-             :expand :select-all :paste :copy :cut
-             :up :down :left :right :jump-left :jump-right
-             :select-up :select-down :select-left :select-right
-             :jump-select-left :jump-select-right :backspace
-             :delete :newline :undo :redo)})
-
-(def Eventx
-  (schema/cond-pre InputEvent ControlEvent))
-
-(defrecord Event [action value])
-
 (schema/defrecord Seeker
   [lines     :- Lines
    cursor    :- Point
    expansion :- Expansion
-   selection :- (schema/maybe Region)
+   selection :- (schema/maybe Point)    ;; this represents the starting point of the selection, the end is the cursor
    height    :- schema/Int
    clipboard :- (schema/maybe Seeker)   ;; this is a seeker, question is, does it need to be one?
-   history   :- '(Seeker)
-   rhistory  :- '(Seeker)]
+   history   :- [Seeker]
+   rhistory  :- [Seeker]]
   Object
   (toString [_]
     (str {:lines     lines
@@ -213,7 +197,7 @@
 (defn end [seeker]
   (-> seeker (end-y) (end-x)))
 
-(defn- advance-with [seeker f]
+(defn- progress-with [seeker f]
   (let [h (-> seeker :height dec)
         w (-> seeker line count)]
     (m/match [(:cursor seeker)]
@@ -228,7 +212,7 @@
            :else (move-x seeker dec)))
 
 (defn regress [seeker] (regress-with seeker identity))
-(defn advance [seeker] (advance-with seeker identity))
+(defn progress [seeker] (progress-with seeker identity))
 
 (defn left [seeker]
   (when (not= [0 0] (:cursor seeker))
@@ -374,10 +358,10 @@
   (jump seeker regress left))
 
 (defn jump-right [seeker]
-  (jump seeker advance right))
+  (jump seeker progress right))
 
 (defn munch [seeker]
-  (let [x (advance seeker)]
+  (let [x (progress seeker)]
     (cond
       (= (:cursor seeker) (:cursor x)) seeker
       (pair? seeker) (-> seeker (pair-delete) (regress))
@@ -433,14 +417,14 @@
   (let [l (right seeker)
         ending (end seeker)]
     (loop [seen 1
-           current (-> seeker (select) (advance))]
+           current (-> seeker (select) (progress))]
       (let [r (right current)]
         (cond
           (zero? seen) [:matched current]
           (= (:cursor ending) (:cursor current)) [:unmatched current]
-          (a-pair? l r) (recur (dec seen) (advance current))
-          (= l r) (recur (inc seen) (advance current))
-          :else (recur seen (advance current)))))))
+          (a-pair? l r) (recur (dec seen) (progress current))
+          (= l r) (recur (inc seen) (progress current))
+          :else (recur seen (progress current)))))))
 
 (defn closed-expand [seeker]
   "Note: This assumes that the left-hand side of the seeker starts with a closed parens"
@@ -477,7 +461,7 @@
                [:word \[ \]] (-> seeker (near-expand) (second))
                [:word \{ \}] (-> seeker (near-expand) (second))
                [:word \space \space] (-> seeker (near-expand) (second))
-               [:word (:or \" \space) (:or \) \] \})] (-> seeker (advance) (closed-expand) (second))
+               [:word (:or \" \space) (:or \) \] \})] (-> seeker (progress) (closed-expand) (second))
                [:word (:or \) \] \}) _] (-> seeker (closed-expand) (second))
                [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (open-expand) (second))
                [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select) (jump-right))
@@ -538,29 +522,30 @@
        (map #(apply str %))
        (run! println)))
 
-(defn process [seeker event]
-  (case (:action event)
-    :expand (-> seeker (expand))
-    :select-all (-> seeker (select-all))
-    :paste (-> seeker (remember) (paste)  (deselect))
-    :copy (-> seeker (copy) (deselect))
-    :cut (-> seeker (remember) (cut) (deselect))
-    :up (-> seeker (climb) (deselect))
-    :down (-> seeker (fall) (deselect))
-    :left (-> seeker (regress) (deselect))
-    :right (-> seeker (advance) (deselect))
-    :jump-left (-> seeker (jump-left) (deselect))
-    :jump-right (-> seeker (jump-right) (deselect))
-    :select-up (-> seeker (soft-select) (climb))
-    :select-down (-> seeker (soft-select) (fall))
-    :select-left (-> seeker (soft-select) (regress))
-    :select-right (-> seeker (soft-select) (advance))
-    :jump-select-left (-> seeker (soft-select) (jump-left))
-    :jump-select-right (-> seeker (soft-select) (jump-right))
-    :backspace (-> seeker (remember) (delete) (deselect))
-    :delete (-> seeker (remember) (munch) (deselect))
-    :newline (-> seeker (remember) (break) (deselect))
-    :undo  (-> seeker (undo) (deselect))
-    :redo  (-> seeker (redo) (deselect))
-    :char (-> seeker (remember) (insert (:value event)) (deselect))
+(schema/defn process [seeker :- Seeker
+                      event  :- e/InputEvent] :- Seeker
+  (condp = (:action event)
+    e/expand            (-> seeker (expand))
+    e/select-all        (-> seeker (select-all))
+    e/copy              (-> seeker (copy) (deselect))
+    e/cut               (-> seeker (remember) (cut) (deselect))
+    e/paste             (-> seeker (remember) (paste) (deselect))
+    e/up                (-> seeker (climb) (deselect))
+    e/down              (-> seeker (fall) (deselect))
+    e/left              (-> seeker (regress) (deselect))
+    e/right             (-> seeker (progress) (deselect))
+    e/jump-left         (-> seeker (jump-left) (deselect))
+    e/jump-right        (-> seeker (jump-right) (deselect))
+    e/select-up         (-> seeker (soft-select) (climb))
+    e/select-down       (-> seeker (soft-select) (fall))
+    e/select-left       (-> seeker (soft-select) (regress))
+    e/select-right      (-> seeker (soft-select) (progress))
+    e/jump-select-left  (-> seeker (soft-select) (jump-left))
+    e/jump-select-right (-> seeker (soft-select) (jump-right))
+    e/backspace         (-> seeker (remember) (delete) (deselect))
+    e/delete            (-> seeker (remember) (munch) (deselect))
+    e/break             (-> seeker (remember) (break) (deselect))
+    e/undo              (-> seeker (undo) (deselect))
+    e/redo              (-> seeker (redo) (deselect))
+    e/character         (-> seeker (insert (:value event)) (deselect))
     seeker))

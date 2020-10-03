@@ -46,13 +46,12 @@
      directory   (format "%s/" title)
      config-file (format "%s/omnia.edn" directory)
      exec-file   (format "%s/omnia" directory)
-     config      (-> (c/config-for os) (str) (f/format-str))
      exec        (executable version title)
      _     (println (format "Creating release files.."))
      _     (sh "mkdir" directory)
      _     (sh "cp" (format "target/uberjar/%s.jar" sa-title) directory)
      _     (sh "mv" (format "%s%s.jar" directory sa-title) (format "%s%s.jar" directory title))
-     _     (spit config-file config)
+     _     (spit config-file c/default-config)
      _     (spit exec-file exec)
      _     (println "Creating tar..")
      _     (sh "tar" "-cvf" (format "%s.tar" title) (format "./%s" directory))
@@ -63,7 +62,7 @@
 
 (defn release []
   (-> prepare-jar
-      (t/then-do (->> [c/linux #_c/macOS] (mapv release-for) (t/sequenced)))
+      (t/then-do (->> [:linux] (mapv release-for) (t/sequenced)))
       (t/recover (fn [{:keys [message trace]}]
                    (println (format "Release failed with: %s" message))
                    (run! (comp println str) trace)
