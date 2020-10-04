@@ -12,6 +12,8 @@
 (def Expansion
   (schema/enum :word :expr))
 
+;; Instead of changing the history constantly, I can use a cursor over the history as a timeline
+;; Bump the cursor back and forth over the timeline when I undo or redo
 (schema/defrecord Seeker
   [lines     :- Lines
    cursor    :- Point
@@ -378,6 +380,17 @@
         (start)
         (slicer #(drop sx %)))))
 
+(defn extract-for [seeker region]
+  (let [{[xs ys] :start
+         [xe ye] :end} region]
+    (-> seeker
+        (reset-y ys)
+        (reset-x xs)
+        (select)
+        (reset-y ye)
+        (reset-x xe)
+        (extract))))
+
 (defn copy [seeker]
   (->> seeker (extract) (assoc seeker :clipboard)))
 
@@ -521,6 +534,15 @@
        (:lines)
        (map #(apply str %))
        (run! println)))
+
+(schema/defn adjoin [this :- Seeker
+                     that :- Seeker] :- Seeker
+  (rebase this #(concat % (:lines that))))
+
+(schema/defn indent [seeker :- Seeker
+                     amount :- schema/Int] :- Seeker
+  (let [padding (repeat amount \space)]
+    (rebase seeker (fn [lines] (mapv #(vec (concat padding %)) lines)))))
 
 (schema/defn process [seeker :- Seeker
                       event  :- e/InputEvent] :- Seeker

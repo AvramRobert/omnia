@@ -6,6 +6,7 @@
             [omnia.test-utils :refer :all]
             [omnia.more :refer [map-vals reduce-idx]]
             [omnia.render :as r]
+            [omnia.hud :as h]
             [omnia.terminal :as t]
             [omnia.input :as i]))
 
@@ -69,9 +70,9 @@
        (vals)
        (mapv #(let [{start :start
                      end   :end} (-> complete-hud
-                                   (r/project-selection (:region %))
-                                   (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
-                                   (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
+                                   (h/project-selection (:region %))
+                                   (update :start (fn [[x y]] [x (h/project-y complete-hud y)]))
+                                   (update :end (fn [[x y]] [x (h/project-y complete-hud y)])))]
                 (-> (index ctx)
                     (assoc :cursor start
                            :selection end)
@@ -85,7 +86,7 @@
   (let [selected         (-> (move-end-fov ctx)
                              (process select-right 100))
         processed        (process selected backspace)
-        n-last           (-> (:complete-hud ctx) (:lines) (last) (count))
+        n-last           (-> (:complete-hud ctx) (:seeker) (:lines) (last) (count))
         expected-chars   (repeat n-last \space)
         expected-cursors (->> (discretise selected)
                               (:cursors)
@@ -103,7 +104,7 @@
 (defn projected-diff-render [ctx k]
   (let [processed        (-> (move-end-fov ctx)
                              (process (char-key k) 10))
-        last-n           (-> (:complete-hud processed) (:lines) (last) (count))
+        last-n           (-> (:complete-hud processed) (:seeker) (:lines) (last) (count))
         {chars   :chars
          cursors :cursors} (discretise processed)
         expected-chars   (take-last last-n chars)
@@ -333,30 +334,31 @@
 (defn move-with [ctx {:keys [scroll ov]
                       :or   {scroll 0
                              ov     0}}]
-  (let [fov (get-in ctx [:complete-hud :fov])]
-    (i/rebase (:complete-hud ctx) #(->> (take-last (+ fov scroll ov) %)
-                                        (take fov)))))
+  (let [fov    (-> ctx :complete-hud :fov)
+        seeker (-> ctx :complete-hud :seeker)]
+    (i/rebase seeker #(->> (take-last (+ fov scroll ov) %) (take fov)))))
 
 (defn total-hud-projection [ctx]
-  (let [total (make-total ctx)]
+  (let [total               (make-total ctx)
+        expected-projection (-> ctx :complete-hud :seeker)]
     (-> total
         (process scroll-up 10)
         (project-complete)
-        (<=> (:complete-hud total)))))
+        (<=>seeker expected-projection))))
 
 (defn scrolled-hud-projection [ctx]
   (can-be ctx
-          #(-> % (process scroll-up 1) (project-complete) (<=> (move-with % {:scroll 1})))
-          #(-> % (process scroll-up 4) (project-complete) (<=> (move-with % {:scroll 4})))
-          #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=> (move-with % {:scroll 3})))))
+          #(-> % (process scroll-up 1) (project-complete) (<=>seeker (move-with % {:scroll 1})))
+          #(-> % (process scroll-up 4) (project-complete) (<=>seeker (move-with % {:scroll 4})))
+          #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=>seeker (move-with % {:scroll 3})))))
 
 (defn paged-hud-projection [ctx]
   (-> (move-top-fov ctx)
       (process up 2)
       (can-be
-        #(-> % (process scroll-up 1) (project-complete) (<=> (move-with % {:scroll 1 :ov 2})))
-        #(-> % (process scroll-up 4) (project-complete) (<=> (move-with % {:scroll 4 :ov 2})))
-        #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=> (move-with % {:scroll 3 :ov 2}))))))
+        #(-> % (process scroll-up 1) (project-complete) (<=>seeker (move-with % {:scroll 1 :ov 2})))
+        #(-> % (process scroll-up 4) (project-complete) (<=>seeker (move-with % {:scroll 4 :ov 2})))
+        #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=>seeker (move-with % {:scroll 3 :ov 2}))))))
 
 (defn hud-projection [ctx]
   (total-hud-projection ctx)
@@ -383,10 +385,10 @@
                                :end   [x y]})))))
 
 (defn paged-selection-extension [ctx]
-  (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (i/start-x) (:cursor))
-        end-bottom (-> (move-end-fov ctx) (:complete-hud) (i/end-x) (:cursor))
-        start-top  (-> (move-start-fov ctx) (:complete-hud) (:cursor))
-        end-top (-> (move-start-fov ctx) (move-bottom-fov) (:complete-hud) (i/end-x) (:cursor))]
+  (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (:seeker) (i/start-x) (:cursor))
+        end-bottom   (-> (move-end-fov ctx) (:complete-hud) (:seeker) (i/end-x) (:cursor))
+        start-top    (-> (move-start-fov ctx) (:complete-hud) (:seeker) (:cursor))
+        end-top      (-> (move-start-fov ctx) (move-bottom-fov) (:complete-hud) (:seeker) (i/end-x) (:cursor))]
     (can-be ctx
             #(-> (move-top-fov %)
                  (process select-all)
@@ -407,8 +409,7 @@
                      :end   end-top})))))
 
 (defn paged-selection-lower-clip [ctx]
-  (let [complete (:complete-hud ctx)
-        fov      (:fov complete)]
+  (let [fov (-> ctx :complete-hud :fov)]
     (-> (move-top-fov ctx)
         (process up 2)
         (process select-right)
@@ -420,8 +421,7 @@
         (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
 
 (defn paged-selection-upper-clip [ctx]
-  (let [complete (:complete-hud ctx)
-        fov      (:fov complete)]
+  (let [fov (-> ctx :complete-hud :fov)]
     (-> (move-end-fov ctx)
         (process select-right)
         (update-in [:highlights :selection :region]
@@ -452,8 +452,8 @@
 (defn total-cursor-projection [ctx]
   (let [total (move-end-fov (make-total ctx))
         [x y] (cursor total)
-        hp    (get-in total [:persisted-hud :height])
-        hc    (get-in total [:complete-hud :height])]
+        hp    (get-in total [:persisted-hud :seeker :height])
+        hc    (get-in total [:complete-hud :seeker :height])]
     (can-be total
             #(-> % (process up) (project-cursor) (= [x (dec y)]))
             #(-> % (process up 4) (project-cursor) (= [x (- y 4)]))

@@ -6,9 +6,8 @@
             [omnia.input :as i]
             [omnia.hud :as h]
             [omnia.repl :as r]
+            [omnia.server :as s]
             [omnia.terminal :as t]
-            [omnia.render :as rd]
-            [clojure.string :as s]
             [omnia.event :as e]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
@@ -17,9 +16,12 @@
   ([generator] (many generator (rand-int 100)))
   ([generator n] (vec (repeatedly n #(one generator)))))
 
-(defmacro <=> [this-seeker that-seeker]
+(defmacro <=>seeker [this-seeker that-seeker]
   `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
        (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
+
+(defmacro <=>hud [this-hud that-hud]
+  `(<=>seeker (:seeker ~this-hud) (:seeker ~that-hud)))
 
 (defmacro can-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -88,16 +90,16 @@
        (gen/fmap
          (fn [hud-seeker]
            (let [hud (h/hud fov hud-seeker)]
-             (-> (h/context (c/convert c/default-config)
+             (-> (r/context (c/convert c/default-config)
                             (test-terminal {:size (constantly fov)})
-                            (r/repl {:host    ""
+                            (s/repl {:host    ""
                                      :port    0
                                      :history history
                                      :client (constantly receive)}))
-                 (h/seek seeker)
-                 (h/persist hud)
-                 (h/rebase)
-                 (h/remember)))))))
+                 (r/seek seeker)
+                 (r/persist hud)
+                 (r/rebase)
+                 (r/remember)))))))
 
 (def up (e/event e/up))
 (def down (e/event e/down))
@@ -129,7 +131,7 @@
    (process ctx event 1))
   ([ctx event n]
    (->> (range 0 n)
-        (reduce (fn [nctx _] (-> nctx (h/process event) (.ctx))) ctx))))
+        (reduce (fn [nctx _] (-> nctx (r/process event) (.ctx))) ctx))))
 
 (defn fov [ctx]
   (get-in ctx [:complete-hud :fov]))
@@ -141,28 +143,28 @@
   (get-in ctx [:complete-hud :lor]))
 
 (defn y [ctx]
-  (get-in ctx [:complete-hud :cursor 1]))
+  (get-in ctx [:complete-hud :seeker :cursor 1]))
 
 (defn project-y [ctx]
   (let [complete (:complete-hud ctx)
-        [_ y] (:cursor complete)]
-    (rd/project-y complete y)))
+        [_ y]    (-> complete :seeker :cursor)]
+    (h/project-y complete y)))
 
 (defn project-complete [ctx]
-  (rd/project-hud (:complete-hud ctx)))
+  (h/project-hud (:complete-hud ctx)))
 
 (defn project-cursor [ctx]
-  (rd/project-cursor (:complete-hud ctx)))
+  (h/project-cursor (:complete-hud ctx)))
 
 (defn project-highlight [ctx h-key]
-  (let [complete (:complete-hud ctx)
+  (let [complete  (:complete-hud ctx)
         selection (-> (:highlights ctx) (get h-key) (:region))]
-    (rd/project-selection complete selection)))
+    (h/project-selection complete selection)))
 
 (defn no-projection [ctx]
   (let [complete (:complete-hud ctx)]
-    {:start [0 (rd/bottom-y complete)]
-     :end   [0 (rd/bottom-y complete)]}))
+    {:start [0 (h/bottom-y complete)]
+     :end   [0 (h/bottom-y complete)]}))
 
 (defn shrink-by [ctx n]
   (update ctx :terminal (fn [term] (assoc term :size (constantly (-- (t/size term) n))))))
@@ -171,29 +173,19 @@
   (update ctx :terminal (fn [term] (assoc term :size (constantly (+ (t/size term) n))))))
 
 (defn make-total [ctx]
-  (let [h (get-in ctx [:complete-hud :height])]
+  (let [h (get-in ctx [:complete-hud :seeker :height])]
     (-> ctx
         (assoc :terminal (test-terminal {:size (fn [] h)}))
         (assoc-in [:persisted-hud :fov] h)
         (assoc-in [:persisted-hud :lor] h)
-        (h/rebase)
-        (h/remember))))
+        (r/rebase)
+        (r/remember))))
 
 (defn cursor [ctx]
-  (get-in ctx [:complete-hud :cursor]))
+  (get-in ctx [:complete-hud :seeker :cursor]))
 
 (defn suggestions [ctx]
-  (-> (:repl ctx) (r/complete! i/empty-seeker)))
-
-(defn signatures [ctx]
-  (letfn [(sign [{:keys [ns name args]}]
-            (->> args
-                 (mapv #(str ns "/" name " " %))
-                 (s/join "\n")
-                 (i/from-string)))]
-    (-> (:repl ctx)
-        (r/info! i/empty-seeker)
-        (sign))))
+  (-> (:repl ctx) (s/complete! i/empty-seeker)))
 
 (defn evaluation [seeker]
   {:value (i/stringify seeker)})
@@ -214,39 +206,39 @@
 
 (defn move-start-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/start-y))
-       (h/rebase)
-       (h/remember)))
+       (r/rebase)
+       (r/remember)))
 
 (defn move-end-fov [ctx]
   (->> (update ctx :seeker (comp i/start-x i/end))
-       (h/rebase)
-       (h/remember)))
+       (r/rebase)
+       (r/remember)))
 
 (defn move-top-fov [ctx]
   (let [fov (get-in ctx [:complete-hud :fov])
         top #(-- % (dec fov))]                              ;; (dec) because you want to land on the fov'th line
     (-> (move-end-fov ctx)
         (update :seeker #(i/move-y % top))
-        (h/rebase)
-        (h/remember))))
+        (r/rebase)
+        (r/remember))))
 
 (defn move-bottom-fov [ctx]
   (let [fov (get-in ctx [:complete-hud :fov])
         bottom #(+ % (dec fov))]
     (-> (update ctx :seeker #(i/move-y % bottom))
-        (h/rebase)
-        (h/remember))))
+        (r/rebase)
+        (r/remember))))
 
 (defn from-start [ctx]
   (-> ctx
-      (update :persisted-hud i/start-x)
+      (update-in [:persisted-hud :seeker] i/start-x)
       (update :seeker i/start-x)
-      (h/rebase)
-      (h/remember)))
+      (r/rebase)
+      (r/remember)))
 
 (defn from-end [ctx]
   (-> ctx
-      (update :persisted-hud i/end-x)
+      (update-in [:persisted-hud :seeker] i/end-x)
       (update :seeker i/end-x)
-      (h/rebase)
-      (h/remember)))
+      (r/rebase)
+      (r/remember)))

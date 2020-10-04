@@ -1,8 +1,8 @@
 (ns omnia.core
   (:gen-class)
   (:require [omnia.terminal :as t]
-            [omnia.repl :as r]
-            [omnia.hud :as h]
+            [omnia.server :as r]
+            [omnia.repl :as h]
             [omnia.config :as c]
             [clojure.string :as s]
             [halfling.task :as tsk])

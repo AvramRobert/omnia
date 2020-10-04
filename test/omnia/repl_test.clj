@@ -1,12 +1,12 @@
-(ns omnia.hud-test
+(ns omnia.repl_test
   (:require [clojure.test :refer [is]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
-            [omnia.input :as i]
-            [omnia.render :as r]))
+            [omnia.repl :as r]
+            [omnia.input :as i]))
 
 ;; I. Calibrating
 
@@ -30,17 +30,17 @@
       (process up 2)
       (move-bottom-fov)
       (update :seeker #(i/move % (fn [[x y]] [x (+ 2 y)])))
-      (h/preserve)
-      (h/rebase)
-      (h/calibrate)
+      (r/preserve)
+      (r/rebase)
+      (r/calibrate)
       (can-be #(= (ov %) 0))))
 
 (defn exceed-upper-bound-non-incrementally [ctx]
   (-> (move-top-fov ctx)
       (update :seeker #(i/move % (fn [[x y]] [x (- 2 y)])))
-      (h/preserve)
-      (h/rebase)
-      (h/calibrate)
+      (r/preserve)
+      (r/rebase)
+      (r/calibrate)
       (can-be #(= (ov %) 2))))
 
 (defn scroll-upper-bound [ctx]
@@ -293,9 +293,9 @@
 (defn capture-and-remember [ctx]
   (-> (move-end-fov ctx)
       (process (char-key \a))
-      (can-be #(-> (:complete-hud %) (i/left) (= \a))
+      (can-be #(-> (:complete-hud %) (:seeker) (i/left) (= \a))
               #(-> (:seeker %) (i/left) (= \a))
-              #(-> (:previous-hud %) (<=> (:complete-hud ctx))))))
+              #(-> (:previous-hud %) (<=>hud (:complete-hud ctx))))))
 
 (defn capturing [ctx]
   (capture-and-remember ctx))
@@ -310,13 +310,13 @@
 ;; IV. Clearing
 
 (defn clear-remember-persist [ctx]
-  (let [expected-persisted (h/init-hud ctx)
-        expected-complete (i/join expected-persisted (:seeker ctx))]
+  (let [expected-persisted (h/init-hud (:terminal ctx) (:repl ctx))
+        expected-complete  (update expected-persisted :seeker #(i/join % (:seeker ctx)))]
     (-> ctx
         (process clear)
-        (can-be #(<=> (:complete-hud %) expected-complete)
-                #(<=> (:persisted-hud %) expected-persisted)
-                #(<=> (:previous-hud %) (:complete-hud ctx))))))
+        (can-be #(<=>hud (:complete-hud %) expected-complete)
+                #(<=>hud (:persisted-hud %) expected-persisted)
+                #(<=>hud (:previous-hud %) (:complete-hud ctx))))))
 
 (defn clearing [ctx]
   (clear-remember-persist ctx))
@@ -331,13 +331,13 @@
 ;; V. Evaluating
 
 (defn remember-preserve-persist [ctx]
-  (let [expected-hud (i/join-many (:complete-hud ctx) i/empty-line h/caret)]
+  (let [expected-hud (update-in ctx [:complete-hud :seeker] #(i/join-many % i/empty-line h/caret))]
     (-> ctx
         (process evaluate)
-        (can-be #(<=> (:seeker %) i/empty-seeker)
-                #(<=> (:previous-hud %) (:complete-hud ctx))
-                #(<=> (:complete-hud %) expected-hud)
-                #(<=> (:persisted-hud %) expected-hud)))))
+        (can-be #(<=>seeker (:seeker %) i/empty-seeker)
+                #(<=>hud (:previous-hud %) (:complete-hud ctx))
+                #(<=>hud (:complete-hud %) expected-hud)
+                #(<=>hud (:persisted-hud %) expected-hud)))))
 
 (defn evaluating [ctx]
   (remember-preserve-persist ctx))
@@ -357,8 +357,8 @@
   (let [hist (history ctx)]
     (-> ctx
         (process prev-eval)
-        (can-be #(<=> (:previous-hud %) (:complete-hud ctx))
-                #(<=> (:seeker %) (first hist))))))
+        (can-be #(<=>hud (:previous-hud %) (:complete-hud ctx))
+                #(<=>seeker (:seeker %) (first hist))))))
 
 (defn roll-keep-clipboard [ctx]
   (-> ctx
@@ -370,7 +370,7 @@
       (process backspace)
       (process paste)
       (:complete-hud)
-      (<=> (:complete-hud ctx))
+      (<=>hud (:complete-hud ctx))
       (is)))
 
 (defn rolling-back [ctx]
@@ -394,8 +394,8 @@
       (process prev-eval)
       (process next-eval)
       (can-be
-        #(<=> (:seeker %) (:seeker ctx))
-        #(-> % (process next-eval) (:previous-hud) (<=> (:complete-hud %))))))
+        #(<=>seeker (:seeker %) (:seeker ctx))
+        #(-> % (process next-eval) (:previous-hud) (<=>hud (:complete-hud %))))))
 
 (defn rolling-forward [ctx]
   (roll-rebase-remember-forward ctx))
@@ -416,11 +416,11 @@
         end (move-end-fov ctx)
         replaced-point (cursor end)]
     (can-be end
-            #(-> % (process suggest) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 0)))
-            #(-> % (process suggest 4) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 3)))
-            #(-> % (process suggest 11) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 10)))
-            #(-> % (process suggest 13) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 0)))
-            #(-> % (process suggest 14) (:complete-hud) (i/move (fn [_] replaced-point)) (i/line) (= (suggestion-at 1))))))
+            #(-> % (process suggest) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 0)))
+            #(-> % (process suggest 4) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 3)))
+            #(-> % (process suggest 11) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 10)))
+            #(-> % (process suggest 13) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 0)))
+            #(-> % (process suggest 14) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 1))))))
 
 (defn suggesting [ctx]
   (suggestion-override ctx))
@@ -438,8 +438,8 @@
 (defn queue-highlights [ctx]
   (let [top (-> (from-start ctx) (move-top-fov))
         bottom (-> (from-start ctx) (move-top-fov) (move-bottom-fov))
-        [xt yt] (get-in top [:complete-hud :cursor])
-        [xb yb] (get-in bottom [:complete-hud :cursor])]
+        [xt yt] (get-in top [:complete-hud :seeker :cursor])
+        [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
     (can-be top
             #(-> (process % select-down 4)
                  (:highlights)
@@ -456,8 +456,8 @@
 (defn garbage-collect-highlights [ctx]
   (let [top (-> (from-start ctx) (move-top-fov))
         bottom (-> (from-start ctx) (move-top-fov) (move-bottom-fov))
-        [xt yt] (get-in top [:complete-hud :cursor])
-        [xb yb] (get-in bottom [:complete-hud :cursor])]
+        [xt yt] (get-in top [:complete-hud :seeker :cursor])
+        [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
     (can-be top
             #(-> (process % select-down 4)
                  (process enter)
@@ -496,7 +496,7 @@
 ;; X. Parenthesis matching
 
 (defn highlight-matched [ctx]
-  (let [[x y] (get-in ctx [:complete-hud :cursor])
+  (let [[x y] (get-in ctx [:complete-hud :seeker :cursor])
         scheme (fn [region]
                  {:region   region
                   :scheme   (-> ctx (:config) (:syntax) (:clean-up))
@@ -542,61 +542,67 @@
 (defn pop-up-with-calibration [ctx content]
   (let [window  (->> content (:height) (h/window content))
         context (-> ctx (move-top-fov) (process up 2))]
-    (is (= 2 (-> context (h/pop-up-static window) (ov))))
-    (is (= 2 (-> context (process down 2) (h/pop-up-static window) (ov))))
-    (is (= 2 (-> context (move-bottom-fov) (h/pop-up-static window) (ov))))
-    (is (= 1 (-> context (move-bottom-fov) (process down) (h/pop-up-static window) (ov))))))
+    (is (= 2 (-> context (r/pop-up-static window) (ov))))
+    (is (= 2 (-> context (process down 2) (r/pop-up-static window) (ov))))
+    (is (= 2 (-> context (move-bottom-fov) (r/pop-up-static window) (ov))))
+    (is (= 1 (-> context (move-bottom-fov) (process down) (r/pop-up-static window) (ov))))))
 
 (defn empty-pop-up-window [ctx]
   (let [window (h/window i/empty-seeker 10)
-        expected (i/join-many h/delimiter i/empty-seeker h/delimiter)
+        expected (i/join-many r/delimiter i/empty-seeker r/delimiter)
         actual (-> ctx
                    (move-end-fov)
-                   (h/pop-up-static window)
+                   (r/pop-up-static window)
                    (:complete-hud)
+                   (:seeker)
                    (i/rebase #(take-last 2 %)))]
-    (<=> expected actual)))
+    (<=>seeker expected actual)))
 
 (defn pop-up-window [ctx content]
   (let [size (:height content)
-        expected (i/join-many h/delimiter (h/indent content 1) h/delimiter)
+        expected (i/join-many r/delimiter (i/indent content 1) r/delimiter)
         actual (-> ctx
                    (move-end-fov)
-                   (h/pop-up-static (h/window content size))
+                   (r/pop-up-static (h/window content size))
                    (:complete-hud)
+                   (:seeker)
                    (i/rebase #(take-last (+ size 2) %)))]
-    (<=> expected actual)))
+    (<=>seeker expected actual)))
 
 (defn pop-up-statically [ctx content]
-  (let [window (h/window content (:height content))
-        expected-cursor (-> ctx :complete-hud :cursor)]
+  (let [window          (h/window content (:height content))
+        expected-cursor (-> ctx :complete-hud :seeker :cursor)]
     (is (= expected-cursor
            (-> ctx
-               (h/pop-up-static window)
+               (r/pop-up-static window)
                (:complete-hud)
+               (:seeker)
                (:cursor))))
     (is (= expected-cursor
            (->> window
                 (h/riffle)
-                (h/pop-up-static ctx)
+                (r/pop-up-static ctx)
                 (:complete-hud)
+                (:seeker)
                 (:cursor))))))
 
 (defn pop-up-riffled [ctx content]
   (let [window (h/window content (- (:height content) 2))
         [x _] (-> content (i/start) (i/end-x) (:cursor))
         [_ y] (-> ctx :complete-hud :cursor)
-        line #(-> window (i/reset-y %) (h/indent 1) (i/line))]
+        line #(-> window (i/reset-y %) (i/indent 1) (i/line))]
     (is (= [(+ x 1) (+ y 2)]          ;; + x 1 because indentation
            (-> ctx
-               (h/pop-up-riffle window)
+               (r/pop-up-riffle window)
                (:complete-hud)
+               (:seeker)
                (:cursor))))
     (is (= (line 1)
            (->> window
                 (h/riffle)
-                (h/pop-up-riffle ctx)
+                (r/pop-up-riffle ctx)
                 (:complete-hud)
+                (:seeker)
                 (i/line))))
     (is (= (line 4)
            (->> window
@@ -604,8 +610,9 @@
                 (h/riffle)
                 (h/riffle)
                 (h/riffle)
-                (h/pop-up-riffle ctx)
+                (r/pop-up-riffle ctx)
                 (:complete-hud)
+                (:seeker)
                 (i/line))))
     (is (= (line 0)
            (->> window
@@ -614,8 +621,9 @@
                 (h/riffle)
                 (h/riffle)
                 (h/riffle)
-                (h/pop-up-riffle ctx)
+                (r/pop-up-riffle ctx)
                 (:complete-hud)
+                (:seeker)
                 (i/line))))))
 
 

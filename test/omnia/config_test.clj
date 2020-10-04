@@ -4,7 +4,6 @@
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [omnia.test-utils :refer [one can-be]]
-            [omnia.highlight :as h]
             [omnia.config :as c]
             [halfling.task :as t]))
 

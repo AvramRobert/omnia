@@ -1,88 +1,10 @@
 (ns omnia.render
   (:require [omnia.terminal :as t]
             [omnia.input :as i]
-            [omnia.highlight :as h]
-            [omnia.more :refer [lmerge-with map-vals reduce-idx --]]))
-
-;; === Projections ===
-
-(defn bottom-y [hud]
-  "The lower y bound of a page (exclusive)
-  bottom-y = height - ov - 1
-  Subtract 1 because we count from 0"
-  (let [{height :height
-         ov     :ov} hud]
-    (-- height ov 1)))
-
-(defn top-y [hud]
-  "The upper y bound of a page (inclusive)
-  top-y = (height - fov - ov)"
-  (let [{height :height
-         fov    :fov
-         ov     :ov} hud]
-    (-- height fov ov)))
-
-(defn project-y [hud y]
-  "given hud-y, screen-y = hud-y - top-y
-   given screen-y, hud-y = screen-y + top-y"
-  (let [{fov :fov
-         h   :height} hud
-        ys (top-y hud)]
-    (if (> h fov) (- y ys) y)))
-
-(defn project-cursor [hud]
-  (let [[x hy] (:cursor hud)
-        y (project-y hud hy)]
-    [x y]))
-
-(defn project-selection [hud selection]
-  (let [{fov :fov
-         h   :height} hud
-        {[xs ys] :start
-         [xe ye] :end} selection
-        top             (top-y hud)
-        bottom          (bottom-y hud)
-        unpaged?        (< h fov)
-        clipped-top?    (< ys top)
-        clipped-bottom? (> ye bottom)
-        visible-top?    (<= top ys bottom)
-        visible-bottom? (<= top ye bottom)
-        end-bottom      (-> hud (i/reset-y bottom) (i/end-x) (:cursor))]
-    (cond
-      unpaged? selection
-      (and visible-top?
-           visible-bottom?) selection
-      (and visible-top?
-           clipped-bottom?) {:start [xs ys]
-                             :end   end-bottom}
-      (and visible-bottom?
-           clipped-top?) {:start [0 top]
-                          :end   [xe ye]}
-      :else {:start [0 bottom]
-             :end   [0 bottom]})))
-
-(defn project-hud [hud]
-  (let [{lor     :lor
-         fov     :fov
-         ov      :ov
-         scroll? :scroll?} hud
-        take-right (fn [n coll] (lazy-seq (take-last n coll)))]
-    (if scroll?
-      (i/rebase hud #(->> % (take-right lor) (take fov)))
-      (i/rebase hud #(->> % (drop-last ov) (take-right fov))))))
-
-;; === Rendering primitives ===
-
-(defn- region [hud selection]
-  (let [{[xs ys] :start
-         [xe ye] :end} selection]
-    (-> hud
-        (i/reset-y ys)
-        (i/reset-x xs)
-        (i/select)
-        (i/reset-y ye)
-        (i/reset-x xe)
-        (i/extract))))
+            [omnia.hud :as h]
+            [schema.core :as s]
+            [omnia.highlight :refer [foldl -back ->text]]
+            [omnia.more :refer [Point Region lmerge-with map-vals reduce-idx --]]))
 
 (defn additive-diff [current former]
   (let [{[xs ys]   :start
@@ -124,12 +46,12 @@
                     styles   :styles}]
   (letfn [(do-print! [ch x y state]
             (let [fg (cs (:id state))
-                  bg (cs h/-back)]
+                  bg (cs -back)]
               (t/put! terminal ch x y fg bg styles)))
           (pad! [x]
             (when padding
               (dotimes [offset padding]
-                (do-print! \space (+ x offset) y h/->text))))
+                (do-print! \space (+ x offset) y ->text))))
           (show! [x emission state]
             (reduce-idx
               (fn [x' _ input]
@@ -147,7 +69,7 @@
                 :else nil)
               x'))]
     (-> (if (and xs xe) print-sub! print!)
-        (h/foldl 0 line)
+        (foldl 0 line)
         (pad!))))
 
 (defn prioritise [highlights]
@@ -165,15 +87,16 @@
     (->> (vals highlights)
          (remove nil?)
          (run!
-           (fn [{highlight :region scheme :scheme styles :styles}]
-             (let [selection (project-selection hud highlight)
+           (fn [{region :region scheme :scheme styles :styles}]
+             (let [selection (h/project-selection hud region)
+                   seeker    (:seeker hud)
                    [xs ys]   (:start selection)]
-               (->> (region hud selection)
+               (->> (i/extract-for seeker selection)
                     (:lines)
                     (reduce-idx
                       (fn [y x line]
-                        (print-line! {:at         (project-y hud y)
-                                      :line       (i/line hud [x y])
+                        (print-line! {:at         (h/project-y hud y)
+                                      :line       (i/line seeker [x y])
                                       :terminal   terminal
                                       :scheme     scheme
                                       :styles     styles
@@ -195,7 +118,7 @@
                    :hud     complete-hud}))
 
 (defn position! [{:keys [terminal complete-hud]}]
-  (let [[x y] (project-cursor complete-hud)]
+  (let [[x y] (h/project-cursor complete-hud)]
     (t/move! terminal x y)))
 
 ;; === Rendering strategies ===
@@ -207,8 +130,8 @@
 
 (defn total! [ctx]
   (let [terminal (:terminal ctx)
-        now      (-> ctx (:complete-hud) (project-hud) (:lines))
-        then     (-> ctx (:previous-hud) (project-hud) (:lines))
+        now      (-> ctx (:complete-hud) (h/project-hud) (:lines))
+        then     (-> ctx (:previous-hud) (h/project-hud) (:lines))
         scheme   (-> ctx (:config) (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
@@ -227,8 +150,8 @@
          complete     :complete-hud
          previous     :previous-hud
          config       :config} ctx
-        now      (-> complete (project-hud) (:lines))
-        then     (-> previous (project-hud) (:lines))
+        now      (-> complete (h/project-hud) (:lines))
+        then     (-> previous (h/project-hud) (:lines))
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (:ov complete) (:ov previous))

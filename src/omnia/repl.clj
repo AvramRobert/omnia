@@ -1,188 +1,416 @@
 (ns omnia.repl
-  (:require [clojure.tools.nrepl.server :as s]
-            [clojure.tools.nrepl :as nrepl]
-            [omnia.more :refer [dec< inc< gulp-or-else]]
-            [clojure.string :refer [split trim-newline join]]
-            [halfling.task :refer [task]]
+  (:require [halfling.task :as tsk]
+            [omnia.server :as r]
+            [omnia.hud :as h]
             [omnia.input :as i]
             [omnia.format :as f]
-            [cider.nrepl.middleware.complete]
-            [cider.nrepl.middleware.info]
-            [cider.nrepl.middleware.out]
-            [clojure.tools.nrepl :as repl]))
+            [omnia.terminal :as t]
+            [omnia.event :as e]
+            [schema.core :as s]
+            [omnia.render :refer [render!]]
+            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point Region]]
+            [omnia.config :refer [InternalConfig InternalSyntax]])
+  (:import (omnia.terminal Term)
+           (omnia.server REPLServer)
+           (omnia.input Seeker)
+           (omnia.hud Hud)))
 
-;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
+(def Render
+  (s/enum :diff :total :clear :nothing))
 
-(defrecord REPL [ns
-                 host
-                 port
-                 client
-                 history
-                 timeline
-                 result])
+(def Highlight
+  {:region Region
+   :scheme InternalSyntax
+   :styles [s/Keyword]})
 
-(def handler
-  (->> '[cider.nrepl.middleware.complete/wrap-complete
-         cider.nrepl.middleware.info/wrap-info
-         cider.nrepl.middleware.out/wrap-out]
-       (map resolve)
-       (apply s/default-handler)))
+(def Highlights
+  {(s/optional-key :selection)    Highlight
+   (s/optional-key :open-paren)   Highlight
+   (s/optional-key :closed-paren) Highlight})
 
-(defn read-history [path]
-  (task
-    (->> [""]
-         (gulp-or-else path)
-         (mapv i/from-string))))
+(s/defrecord Context
+  [terminal      :- Term
+   repl          :- REPLServer
+   config        :- InternalConfig
+   render        :- Render
+   previous-hud  :- Hud
+   persisted-hud :- Hud
+   complete-hud  :- Hud
+   seeker        :- Seeker
+   suggestions   :- (s/maybe Hud)
+   docs          :- s/Any
+   highlights    :- Highlights
+   garbage       :- Highlights])
 
-(defn write-history [path repl]
-  (task (->> (:history repl)
-             (mapv i/stringify)
-             (take-last 1000)
-             (vec)
-             (spit path))))
+(def delimiter (i/from-string "------"))
+(def caret (i/from-string "Ω =>"))
+(def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
 
-(defn- out? [response]
-  (contains? response :out))
+(s/defn context [config    :- InternalConfig
+                  terminal :- Term
+                  repl     :- REPLServer] :- Context
+  (let [empty-hud (h/hud (t/size terminal))
+        hud       (h/init-hud terminal repl)]
+    (map->Context
+      {:config        config
+       :terminal      terminal
+       :repl          repl
+       :render        :diff
+       :previous-hud  empty-hud
+       :persisted-hud hud
+       :complete-hud  hud
+       :seeker        i/empty-seeker
+       :suggestions   nil
+       :docs          i/empty-seeker
+       :highlights    i/empty-map
+       :garbage       i/empty-map})))
 
-(defn- err? [response]
-  (contains? response :err))
+(s/defn rebase
+  ([ctx :- Context] :- Context
+   (rebase ctx (:seeker ctx)))
+  ([ctx    :- Context
+    seeker :- Seeker] :- Context
+   (let [persisted (:persisted-hud ctx)
+         rebased   (update persisted :seeker #(i/join % seeker))]
+     (assoc ctx :complete-hud rebased))))
 
-(defn- ex? [response]
-  (contains? response :ex))
+(s/defn preserve [ctx & seekers] :- Context
+  (update-in ctx [:complete-hud :seeker] #(reduce i/join % seekers)))
 
-(defn- eff? [response]
-  (and (contains? response :value)
-       (nil? (:value response))))
+(s/defn persist
+  ([ctx :- Context] :- Context
+   (persist ctx (:complete-hud ctx)))
+  ([ctx :- Context
+    hud :- Hud] :- Context
+   (assoc ctx :persisted-hud hud)))
 
-(defn- val? [response]
-  (contains? response :value))
+(s/defn remember [ctx :- Context] :- Context
+  (assoc ctx :previous-hud (:complete-hud ctx)))
 
-(def read-out-msg {:op :read-out})
-(def out-sub-msg {:op :out-subscribe})
+(s/defn seek [ctx    :- Context
+              seeker :- Seeker] :- Context
+  (->> (get-in ctx [:seeker :clipboard])
+       (or (:clipboard seeker))
+       (assoc seeker :clipboard)
+       (assoc ctx :seeker)))
 
-(defn- response->seeker [response]
-  (cond
-    (out? response) (-> response (:out) (f/format-str) (i/from-string))
-    (err? response) (-> response (:err) (i/from-string))
-    (eff? response) [[\n \i \l]]
-    (val? response) (-> response (:value) (str) (f/format-str) (i/from-string))
-    :else i/empty-seeker))
+(s/defn pop-up-riffle [ctx :- Context
+                       hud :- Hud] :- Context
+  (let [seeker    (:seeker ctx)
+        paginated (h/paginate hud)
+        ph        (-> hud :seeker :height)
+        top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
+        new-ov    (-- (:height bottom) ph)]
+    (-> ctx
+        (rebase (-> (i/join-many top delimiter paginated)
+                    (i/end-x)
+                    (i/adjoin delimiter)
+                    (i/adjoin bottom)))
+        (assoc-in [:complete-hud :ov] new-ov))))
 
-(defn- send! [repl msg]
-  (let [client (:client repl)]
-    (client msg)))
+(s/defn pop-up-static [ctx :- Context
+                       hud :- Hud] :- Context
+  (let [seeker    (:seeker ctx)
+        paginated (h/paginate hud)
+        ph        (-> hud :seeker :height)
+        top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
+        new-ov    (-- (:height bottom) ph)]
+    (-> ctx
+        (rebase (-> top
+                    (i/adjoin delimiter)
+                    (i/adjoin paginated)
+                    (i/adjoin delimiter)
+                    (i/adjoin bottom)))
+        (assoc-in [:complete-hud :ov] new-ov))))
 
-(defn- eval-msg [seeker]
-  {:op   :eval
-   :code (i/stringify seeker)})
+(defn track-suggest [ctx suggestions]
+  (assoc ctx :suggestions suggestions))
 
-(defn- complete-msg [seeker ns]
-  {:op     :complete
-   :symbol (-> seeker
-               (i/expand)
-               (i/extract)
-               (i/stringify)
-               (trim-newline))
-   :ns     ns})
+(defn track-docs [ctx docs]
+  (assoc ctx :docs docs))
 
-(defn- info-msg [seeker ns]
-  {:op      :info
-   :symbol  (-> seeker
+(defn un-suggest [ctx]
+  (assoc ctx :suggestions nil))
+
+(defn un-docs [ctx]
+  (assoc ctx :docs i/empty-seeker))
+
+(s/defn auto-complete [ctx :- Context] :- Context
+  (let [{seeker      :seeker
+         suggestions :suggestions} ctx
+        sgst (some-> suggestions (:seeker) (i/line))]
+    (seek ctx
+          (if (nil? suggestions)
+            seeker
+            (-> seeker
                 (i/expand)
-                (i/extract)
-                (i/stringify)
-                (trim-newline))
-   :ns      ns})
+                (i/delete)
+                (i/slicer #(concat sgst %))
+                (i/move-x #(+ % (count sgst))))))))
 
-(defn- hsize [repl] (count (:history repl)))
+;; === Rendering ===
 
-(defn- cache-result [repl result]
-  (update repl :result (fn [_] result)))
+(defn re-render [ctx]
+  (assoc ctx :render :total))
 
-(defn- remember [repl seeker]
-  (let [lines (:lines seeker)]
-    (if (or (empty? lines)
-            (-> lines first empty?))
-      repl
-      (update repl :history #(conj % seeker)))))
+(defn diff-render [ctx]
+  (assoc ctx :render :diff))
 
-(defn- reset-timeline [repl]
-  (update repl :timeline (fn [_] (hsize repl))))
+(defn clear-render [ctx]
+  (assoc ctx :render :clear))
 
-(defn travel-back [repl]
-  (update repl :timeline #(dec< % 0)))
+(s/defn highlight [ctx :- Context] :- Context
+  (let [seeker    (-> ctx :complete-hud :seeker)
+        scheme    (-> ctx :config :syntax :selection)]
+    (if (i/selection? seeker)
+      (assoc-in ctx [:highlights :selection]
+                {:region (i/selection seeker)
+                 :scheme  scheme
+                 :styles []})
+      ctx)))
 
-(defn travel-forward [repl]
-  (update repl :timeline #(inc< % (hsize repl))))
+;; Question is: Should this thing actually provide a scheme or should I just pick it from the context?
+(s/defn gc [ctx :- Context] :- Context
+  (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
+    (assoc ctx :highlights i/empty-map
+               :garbage (->> (:highlights ctx)
+                             (map-vals (fn [selection]
+                                         {:region (:region selection)
+                                          :scheme scheme
+                                          :styles []}))))))
 
-(defn then [repl]
-  (nth (:history repl) (:timeline repl) i/empty-seeker))
+(s/defn match [ctx :- Context] :- Context
+  (if-let [{[xs ys] :start
+            [xe ye] :end} (-> ctx (:complete-hud) (:seeker) (i/find-pair))]
+    (let [scheme (fn [region]
+                   {:region region
+                    :scheme (-> ctx (:config) (:syntax) (:clean-up))
+                    :styles [:underline]})]
+      (-> ctx
+          (assoc-in [:highlights :open-paren] (scheme {:start [xs ys] :end [(inc xs) ys]}))
+          (assoc-in [:highlights :closed-paren] (scheme {:start [xe ye] :end [(inc xe) ye]}))))
+    ctx))
 
-(defn result [repl] (:result repl))
+(s/defn auto-match [ctx :- Context] :- Context
+  (let [seeker (-> ctx :complete-hud :seeker)]
+    (cond
+      (i/open-pairs (i/right seeker)) (match ctx)
+      (i/closed-pairs (i/left seeker)) (match ctx)
+      :else ctx)))
 
-(defn complete! [repl seeker]
-  (->> (:ns repl)
-       (complete-msg seeker)
-       (send! repl)
-       (first)
-       (:completions)
-       (mapv (comp i/from-string :candidate))
-       (apply i/join-many)))
+;; === Control ===
 
-(defn evaluate! [repl seeker]
-  (let [new-line #(conj % i/empty-line)
-        result    (->> (eval-msg seeker)
-                       (send! repl)
-                       (mapv response->seeker)
-                       (new-line)
-                       (apply i/join-many))]
-    (-> (remember repl seeker)
-        (cache-result result)
-        (reset-timeline))))
+(defrecord Cont [status ctx])
 
-(defn info! [repl seeker]
-  (let [{arg-list    :arglists-str
-         ns          :ns
-         doc         :doc
-         name        :name
-         [status]    :status} (->> (:ns repl) (info-msg seeker) (send! repl) (first))]
-    (when (= "done" status)
-      {:name name
-       :args (-> arg-list (or "") (split #"\n"))
-       :ns   ns
-       :doc  (if (empty? doc) "" doc)})))
+(defn continue [ctx]
+  (Cont. :continue ctx)
+  #_[:continue ctx])
 
-(defn out-subscribe! [repl]
-  (send! repl out-sub-msg))
+(defn terminate [ctx]
+  (Cont. :terminate ctx)
+  #_[:terminate ctx])
 
-(defn read-out! [repl]
-  (send! repl read-out-msg))
+(s/defn calibrate [ctx :- Context] :- Context
+  (let [nov (h/correct-ov (:complete-hud ctx)
+                          (:previous-hud ctx))]
+    (-> ctx
+        (assoc-in [:persisted-hud :ov] nov)
+        (assoc-in [:complete-hud :ov] nov))))
 
-(defn start-server! [{:keys [host port]}]
-  (s/start-server :host host
-                  :port port
-                  :handler handler))
+(defn resize [ctx]
+  (let [new-fov  (-> ctx (:terminal) (t/size))
+        fov      (-> ctx (:persisted-hud) (:fov))]
+    (if (not= new-fov fov)
+      (-> (remember ctx)
+          (assoc-in [:persisted-hud :lor] new-fov)
+          (assoc-in [:persisted-hud :fov] new-fov)
+          (assoc-in [:complete-hud :lor] new-fov)
+          (assoc-in [:complete-hud :fov] new-fov)
+          (calibrate)
+          (re-render))
+      ctx)))
 
-(defn stop-server! [server]
-  (s/stop-server server))
+(defn clear [{:keys [terminal repl] :as ctx}]
+  (let [start-hud (h/init-hud terminal repl)]
+    (-> (remember ctx)
+        (persist start-hud)
+        (rebase (:seeker ctx))
+        (calibrate)
+        (un-suggest))))
 
-(defn connect [host port timeout]
-  (let [transport (nrepl/connect :port port :host host)
-        client    (nrepl/client transport timeout)]
-    (fn [msg] (-> client (nrepl/message msg) (vec)))))
+(defn exit [ctx]
+  (-> (preserve ctx goodbye)
+      (assoc-in [:persisted-hud :ov] 0)
+      (assoc-in [:complete-hud :ov] 0)))
 
-(defn repl [{:as   params
-             :keys [ns port host client timeout history]
-             :or   {timeout 10000
-                    history [i/empty-seeker]
-                    ns      (ns-name *ns*)}}]
-  (assert (map? params) "Input to `repl` must be a map.")
-  (assert (and (not (nil? port))
-               (not (nil? host))) "`repl` must receive a host and a port")
-  (map->REPL {:ns ns
-              :host host
-              :port port
-              :client (or client (connect host port timeout))
-              :history history
-              :timeline (count history)
-              :result i/empty-seeker}))
+(defn deselect [ctx]
+  (-> ctx
+      (update-in [:complete-hud :seeker] i/deselect)
+      (update-in [:persisted-hud :seeker] i/deselect)
+      (update :seeker i/deselect)))
+
+(defn scroll-up [ctx]
+  (-> (remember ctx)
+      (update :complete-hud h/scroll-up)))
+
+(defn scroll-down [ctx]
+  (-> (remember ctx)
+      (update :complete-hud h/scroll-down)))
+
+(defn scroll-stop [ctx]
+  (-> ctx
+      (update :complete-hud h/scroll-stop)
+      (update :persisted-hud h/scroll-stop)))
+
+;; === REPL ===
+
+(defn roll [ctx f]
+  (let [clipboard (get-in ctx [:seeker :clipboard])
+        then-repl   (-> ctx :repl f)
+        then-seeker (-> (r/then then-repl)
+                        (i/end)
+                        (assoc :clipboard clipboard))]
+    (-> (remember ctx)
+        (rebase then-seeker)
+        (seek then-seeker)
+        (assoc :repl then-repl))))
+
+(defn roll-back [ctx]
+  (roll ctx r/travel-back))
+
+(defn roll-forward [ctx]
+  (roll ctx r/travel-forward))
+
+(defn evaluate [ctx]
+  (let [evaluation (r/evaluate! (:repl ctx) (:seeker ctx))
+        result     (r/result evaluation)]
+    (-> (remember ctx)
+        (preserve result caret i/empty-seeker)
+        (persist)
+        (seek i/empty-seeker)
+        (assoc :repl evaluation))))
+
+(s/defn suggest [ctx :- Context] :- Context
+  (let [{seeker      :seeker
+         repl        :repl
+         suggestions :suggestions} ctx
+        suggestions (if (nil? suggestions)
+                      (-> (r/complete! repl seeker) (h/window 10))
+                      (h/riffle suggestions))]
+    (-> (remember ctx)
+        (track-suggest suggestions)
+        (auto-complete)
+        (pop-up-riffle suggestions))))
+
+(s/defn sign [ctx :- Context] :- Context
+  (let [{repl   :repl
+         seeker :seeker} ctx
+        make-lines (fn [{:keys [ns name args]}]
+                     (mapv #(i/from-string (str ns "/" name " " %)) args))
+        info-lines (some->> (r/info! repl seeker)
+                            (make-lines)
+                            (apply i/join-many))]
+    (-> (remember ctx)
+        (pop-up-static (-> info-lines
+                           (or i/empty-seeker)
+                           (h/window 10))))))
+
+(s/defn document [ctx :- Context] :- Context
+  (let [{repl   :repl
+         seeker :seeker
+         docs   :docs} ctx
+        empty-docs {:doc ""}
+        doc-lines (if (empty? (:lines docs))
+                    (-> (r/info! repl seeker)
+                        (or empty-docs)
+                        (:doc)
+                        (i/from-string)
+                        (h/window 15))
+                    (h/riffle docs))]
+    (-> (remember ctx)
+        (track-docs doc-lines)
+        (pop-up-riffle doc-lines))))
+
+;; === Input ===
+
+(defn capture [ctx event]
+  (let [seeker (-> ctx (:seeker) (i/process event))]
+    (-> (remember ctx)
+        (rebase seeker)
+        (seek seeker))))
+
+(defn reformat [ctx]
+  (let [formatted (-> ctx (:seeker) (f/format-seeker))]
+    (-> (remember ctx)
+        (rebase formatted)
+        (seek formatted))))
+
+(defn inject [ctx event]
+  (let [repl (:repl ctx)
+        _    (->> event (:value) (i/from-string) (r/evaluate! repl))
+        _    (r/read-out! repl)]
+    ctx))
+
+;; === Events ===
+
+(defn process [ctx event]
+  (case (:action event)
+    :inject (-> ctx (inject event) (continue))
+    :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
+    :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (un-docs) (scroll-stop) (suggest) (deselect) (auto-match) (diff-render) (resize) (continue))
+    :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
+    :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :indent (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (clear-render) (resize) (continue))
+    :evaluate (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
+    :ignore (continue ctx)
+    (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
+
+(defn match-stroke [ctx stroke]                             ;; I think this should be done in the terminal
+  (let [key    (:key stroke)
+        action (-> ctx (:config) (:keymap) (get stroke))
+        unknown?   (and (nil? action)
+                        (not (char? key)))
+        character? (and (nil? action)
+                        (char? key))]
+    (cond
+      unknown?   (e/event e/ignore)
+      character? (e/event e/character key)
+      :else      (e/event action))))
+
+(defn render-ret! [^Cont cont]
+  (render! (.ctx cont))
+  cont)
+
+(defn prelude! [^Cont cont]
+  (let [event (e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
+    (-> (.ctx cont)
+        (process event)
+        (tsk/task)
+        (tsk/then render-ret!))))
+
+(defn read! [terminal ^Cont cont]
+  (tsk/task
+    (loop [current-cont cont]
+      (if (= :continue (.status current-cont))
+        (->> (t/get-key! terminal)
+             (match-stroke (.ctx current-cont))
+             (process (.ctx current-cont))
+             (render-ret!)
+             (recur))
+        current-cont))))
+
+(defn read-eval-print [config terminal repl]
+  (let [cont (continue (context config terminal repl))]
+    (-> (prelude! cont)
+        (tsk/then (partial read! terminal))
+        (tsk/then #(do (Thread/sleep 1200) %))
+        (tsk/then #(.ctx ^Cont %))
+        (tsk/run))))
