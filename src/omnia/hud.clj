@@ -22,6 +22,14 @@
    ov :- s/Int
    scroll? :- s/Bool])
 
+(def empty-hud
+  (map->Hud
+    {:seeker  i/empty-seeker
+     :lor     0
+     :fov     0
+     :ov      0
+     :scroll? false}))
+
 (s/defn hud [fov & prelude] :- Hud
   "lor = line of reference
      indicates the amount of lines that have been viewed so far
@@ -122,34 +130,40 @@
       (i/rebase seeker #(->> % (drop-last ov) (take-right fov))))))
 
 (s/defn correct-ov
-  ([hud :- Hud] :- s/Int
-   (correct-ov hud hud))
-  ([hud :- Hud
-    previous-hud :- Hud] :- s/Int
-   (let [{fov                       :fov
-          ov                        :ov
-          {h :height [_ y] :cursor} :seeker} hud
-         {pfov         :fov
-          {ph :height} :seeker} previous-hud
-         upper-y (top-y hud)                                ;; the top viewable y
-         lower-y (bottom-y hud)                             ;; the lower viewable y
-         over-upper? (< y upper-y)
-         over-lower? (> y lower-y)
-         at-lower? (= y lower-y)
-         smaller? (< h ph)
-         larger? (> h ph)
-         unpaged? (and (<= h fov)
-                       (<= ph fov))
-         resized? (and (not= pfov fov)
-                       (not= 0 ov))]
-     (cond
-       resized? (++ ov (- pfov fov))                        ;; we've changed the terminal size
-       unpaged? ov                                          ;; we've not exceeded the fov
-       (and larger? at-lower?) ov                           ;; we've gotten bigger but we're still at the bottom
-       (or larger? smaller?) (++ ov (- h ph))               ;; we've changed in size
-       over-upper? (++ ov (- upper-y y))                    ;; we've exceeded the upper bound
-       over-lower? (-- ov (- y lower-y))                    ;; we've exceeded the lower bound
-       :else ov))))
+  [hud :- Hud
+   previous-hud :- Hud] :- s/Int
+  (let [{fov                       :fov
+         ov                        :ov
+         {h :height [_ y] :cursor} :seeker} hud
+        {pfov         :fov
+         {ph :height} :seeker} previous-hud
+        upper-y     (top-y hud)                             ;; the top viewable y
+        lower-y     (bottom-y hud)                          ;; the lower viewable y
+        over-upper? (< y upper-y)
+        over-lower? (> y lower-y)
+        at-lower?   (= y lower-y)
+        smaller?    (< h ph)
+        smaller?    (< h ph)
+        larger?     (> h ph)
+        unpaged?    (and (<= h fov)
+                         (<= ph fov))
+        resized?    (and (not= pfov fov)
+                         (not= 0 ov))]
+    (cond
+      resized? (++ ov (- pfov fov))                         ;; we've changed the terminal size
+      unpaged? ov                                           ;; we've not exceeded the fov
+      (and larger? at-lower?) ov                            ;; we've gotten bigger but we're still at the bottom
+      (or larger? smaller?) (++ ov (- h ph))                ;; we've changed in size
+      over-upper? (++ ov (- upper-y y))                     ;; we've exceeded the upper bound
+      over-lower? (-- ov (- y lower-y))                     ;; we've exceeded the lower bound
+      :else ov)))
+
+(s/defn corrected
+  ([hud :- Hud] :- Hud
+   (corrected hud hud))
+  ([hud :- Hud,
+    previous-hud :- Hud] :- Hud
+   (assoc hud :ov (correct-ov hud previous-hud))))
 
 (s/defn paginate [hud :- Hud] :- Seeker
   (let [cursor (project-cursor hud)]
@@ -166,16 +180,13 @@
 
 (s/defn window [seeker :- Seeker
                 size   :- s/Int] :- Hud
-  (letfn [(correct [hud]
-            (assoc hud :ov (correct-ov hud)))]
-    (->> seeker (i/start) (i/end-x) (hud size) (correct))))
+  (->> seeker (i/start) (i/end-x) (hud size) (corrected)))
 
 (s/defn riffle [hud :- Hud] :- Hud
   (let [[_ y]   (-> hud :seeker :cursor)
         height  (-> hud :seeker :height)
-        y'      (mod* (inc y) height)
-        correct #(assoc % :ov (correct-ov %))]
-    (-> hud (update :seeker #(i/reset-y % y')) (correct))))
+        y'      (mod* (inc y) height)]
+    (-> hud (update :seeker #(i/reset-y % y')) (corrected))))
 
 ;; === Screen scrolling ===
 
@@ -209,3 +220,9 @@
 
 (s/defn scroll-down [hud :- Hud] :- Hud
   (scroll hud downwards))
+
+(s/defn reseek [hud :- Hud, f] :- Hud
+  (update hud :seeker f))
+
+(s/defn hollow? [hud :- Hud] :- s/Bool
+  (-> hud :seeker :lines empty?))

@@ -522,6 +522,11 @@
         (assoc :rhistory (rest rhistory))
         (assoc :history (-> seeker (forget) (cons history))))))
 
+(schema/defn strip [seeker :- Seeker] :- (schema/maybe Seeker)
+  (if (empty? (:lines seeker))
+    nil
+    seeker))
+
 (defn stringify [seeker]
   (->> (repeat "\n")
        (take (:height seeker))

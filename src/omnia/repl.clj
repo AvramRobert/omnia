@@ -37,7 +37,7 @@
    persisted-hud :- Hud
    complete-hud  :- Hud
    seeker        :- Seeker
-   suggestions   :- (s/maybe Hud)
+   suggestions   :- Hud
    docs          :- s/Any
    highlights    :- Highlights
    garbage       :- Highlights])
@@ -47,20 +47,22 @@
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
 
 (s/defn context [config    :- InternalConfig
-                  terminal :- Term
-                  repl     :- REPLServer] :- Context
-  (let [empty-hud (h/hud (t/size terminal))
-        hud       (h/init-hud terminal repl)]
+                 terminal :- Term
+                 repl     :- REPLServer] :- Context
+  (let [seeker        i/empty-line
+        previous-hud  (h/hud (t/size terminal))
+        persisted-hud (h/init-hud terminal repl)
+        complete-hud  (h/reseek persisted-hud #(i/join % seeker))]
     (map->Context
       {:config        config
        :terminal      terminal
        :repl          repl
        :render        :diff
-       :previous-hud  empty-hud
-       :persisted-hud hud
-       :complete-hud  hud
-       :seeker        i/empty-seeker
-       :suggestions   nil
+       :previous-hud  previous-hud
+       :persisted-hud persisted-hud
+       :complete-hud  complete-hud
+       :seeker        seeker
+       :suggestions   h/empty-hud
        :docs          i/empty-seeker
        :highlights    i/empty-map
        :garbage       i/empty-map})))
@@ -101,13 +103,11 @@
         ph        (-> hud :seeker :height)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
-        new-ov    (-- (:height bottom) ph)]
-    (-> ctx
-        (rebase (-> (i/join-many top delimiter paginated)
+        new-ov    (-- (:height bottom) ph)]                 ;; this never worked
+    (rebase ctx (-> (i/join-many top delimiter paginated)
                     (i/end-x)
                     (i/adjoin delimiter)
-                    (i/adjoin bottom)))
-        (assoc-in [:complete-hud :ov] new-ov))))
+                    (i/adjoin bottom)))))
 
 (s/defn pop-up-static [ctx :- Context
                        hud :- Hud] :- Context
@@ -116,14 +116,12 @@
         ph        (-> hud :seeker :height)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
-        new-ov    (-- (:height bottom) ph)]
-    (-> ctx
-        (rebase (-> top
+        new-ov    (-- (:height bottom) ph)]                 ;; this never worked
+    (rebase ctx (-> top
                     (i/adjoin delimiter)
                     (i/adjoin paginated)
                     (i/adjoin delimiter)
-                    (i/adjoin bottom)))
-        (assoc-in [:complete-hud :ov] new-ov))))
+                    (i/adjoin bottom)))))
 
 (defn track-suggest [ctx suggestions]
   (assoc ctx :suggestions suggestions))
@@ -132,7 +130,7 @@
   (assoc ctx :docs docs))
 
 (defn un-suggest [ctx]
-  (assoc ctx :suggestions nil))
+  (assoc ctx :suggestions h/empty-hud))
 
 (defn un-docs [ctx]
   (assoc ctx :docs i/empty-seeker))
@@ -140,9 +138,9 @@
 (s/defn auto-complete [ctx :- Context] :- Context
   (let [{seeker      :seeker
          suggestions :suggestions} ctx
-        sgst (some-> suggestions (:seeker) (i/line))]
+        sgst (-> suggestions (:seeker) (i/line))]
     (seek ctx
-          (if (nil? suggestions)
+          (if (h/hollow? suggestions)
             seeker
             (-> seeker
                 (i/expand)
@@ -296,7 +294,7 @@
   (let [{seeker      :seeker
          repl        :repl
          suggestions :suggestions} ctx
-        suggestions (if (nil? suggestions)
+        suggestions (if (h/hollow? suggestions)
                       (-> (r/complete! repl seeker) (h/window 10))
                       (h/riffle suggestions))]
     (-> (remember ctx)
@@ -376,11 +374,14 @@
 (defn match-stroke [ctx stroke]                             ;; I think this should be done in the terminal
   (let [key    (:key stroke)
         action (-> ctx (:config) (:keymap) (get stroke))
+        ;control?   (and (char? key)
+        ;                (Character/isISOControl ^Character char)) ;; Swing gives me control characters
         unknown?   (and (nil? action)
                         (not (char? key)))
         character? (and (nil? action)
                         (char? key))]
     (cond
+      ;      control?   ()
       unknown?   (e/event e/ignore)
       character? (e/event e/character key)
       :else      (e/event action))))

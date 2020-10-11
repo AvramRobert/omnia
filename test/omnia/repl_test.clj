@@ -227,7 +227,7 @@
       (can-be #(= (lor %) (lor ctx)))))
 
 (defn stop-upward-scroll [ctx]
-  (let [h (get-in ctx [:complete-hud :height])]
+  (let [h (get-in ctx [:complete-hud :seeker :height])]
     (-> ctx
         (process scroll-up 100)
         (lor)
@@ -331,7 +331,8 @@
 ;; V. Evaluating
 
 (defn remember-preserve-persist [ctx]
-  (let [expected-hud (update-in ctx [:complete-hud :seeker] #(i/join-many % i/empty-line h/caret))]
+  (let [expected-hud (-> (:complete-hud ctx)
+                         (h/reseek #(i/join-many % i/empty-line h/caret)))]
     (-> ctx
         (process evaluate)
         (can-be #(<=>seeker (:seeker %) i/empty-seeker)
@@ -433,6 +434,29 @@
                                       :seeker (one (gen-seeker-of 17))})]
                   (suggesting tctx)))
 
+(defn no-override [ctx]
+  (let [end            (move-end-fov ctx)
+        current-line   (-> end (:complete-hud) (:seeker) (i/line))
+        current-cursor (-> end (:complete-hud) (:seeker) (:cursor))]
+    (-> end
+        (process suggest)
+        (:complete-hud)
+        (:seeker)
+        (i/reset-to current-cursor)
+        (i/line)
+        (= current-line))))
+
+(defn empty-suggesting [ctx]
+  (no-override ctx))
+
+(defspec empty-suggesting-test
+         100
+         (for-all [tctx (gen-context {:size 20
+                                      :fov 15
+                                      :receive i/empty-seeker
+                                      :seeker (one (gen-seeker-of 17))})]
+                  (empty-suggesting tctx)))
+
 ;; IX. Highlighting
 
 (defn queue-highlights [ctx]
@@ -531,7 +555,7 @@
   (dont-highlight-unmatched ctx))
 
 (defspec parens-matching-test
-         1
+         100
          (for-all [tctx (gen-context {:size 20
                                       :fov 7
                                       :seeker (one (gen-seeker-of 10))})]
@@ -589,8 +613,8 @@
 (defn pop-up-riffled [ctx content]
   (let [window (h/window content (- (:height content) 2))
         [x _] (-> content (i/start) (i/end-x) (:cursor))
-        [_ y] (-> ctx :complete-hud :cursor)
-        line #(-> window (i/reset-y %) (i/indent 1) (i/line))]
+        [_ y] (-> ctx :complete-hud :seeker :cursor)
+        line #(-> window (:seeker) (i/reset-y %) (i/indent 1) (i/line))]
     (is (= [(+ x 1) (+ y 2)]          ;; + x 1 because indentation
            (-> ctx
                (r/pop-up-riffle window)
