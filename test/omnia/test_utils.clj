@@ -125,6 +125,7 @@
 (def parens-match (e/event e/match))
 (def suggest (e/event e/suggest))
 (def ignore (e/event e/ignore))
+(def backspace (e/event e/backspace))
 
 (defn process
   ([ctx event]
