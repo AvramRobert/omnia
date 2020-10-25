@@ -101,12 +101,10 @@
         paginated (h/paginate hud)
         ph        (-> hud :seeker :height)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
-        new-ov    (-- (:height bottom) ph)]                 ;; this never worked
-    (rebase ctx (-> (i/conjoin-many top delimiter paginated)
+        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (rebase ctx (-> (i/conjoin top delimiter paginated)
                     (i/end-x)
-                    (i/adjoin delimiter)
-                    (i/adjoin bottom)))))
+                    (i/adjoin delimiter bottom)))))
 
 (s/defn pop-up-static [ctx :- Context
                        hud :- Hud] :- Context
@@ -114,13 +112,8 @@
         paginated (h/paginate hud)
         ph        (-> hud :seeker :height)
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
-        new-ov    (-- (:height bottom) ph)]                 ;; this never worked
-    (rebase ctx (-> top
-                    (i/adjoin delimiter)
-                    (i/adjoin paginated)
-                    (i/adjoin delimiter)
-                    (i/adjoin bottom)))))
+        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (rebase ctx (i/adjoin top delimiter paginated delimiter bottom))))
 
 (defn track-suggest [ctx suggestions]
   (assoc ctx :suggestions suggestions))
@@ -308,7 +301,7 @@
                      (mapv #(i/from-string (str ns "/" name " " %)) args))
         info-lines (some->> (r/info! repl seeker)
                             (make-lines)
-                            (apply i/conjoin-many))]
+                            (i/conjoined))]
     (-> (remember ctx)
         (pop-up-static (-> info-lines
                            (or i/empty-seeker)

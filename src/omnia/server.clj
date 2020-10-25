@@ -128,7 +128,7 @@
        (first)
        (:completions)
        (mapv (comp i/from-string :candidate))
-       (apply i/conjoin-many)))
+       (i/conjoined)))
 
 (defn evaluate! [repl seeker]
   (let [new-line #(conj % i/empty-line)
@@ -136,7 +136,7 @@
                        (send! repl)
                        (mapv response->seeker)
                        (new-line)
-                       (apply i/conjoin-many))]
+                       (i/conjoined))]
     (-> (remember repl seeker)
         (cache-result result)
         (reset-timeline))))

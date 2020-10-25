@@ -34,7 +34,7 @@
      Conceptually it is the same as the `lor`, but only on input seeker level.
    scroll? = scrolling flag
      indicates if there should be scrolled currently"
-  {:seeker  (apply i/conjoin-many prelude)
+  {:seeker  (i/conjoined prelude)
    :fov     fov
    :lor     fov
    :ov      0

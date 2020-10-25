@@ -235,17 +235,30 @@
     {:start start
      :end   end}))
 
-(defn conjoin [this-seeker that-seeker]
+(s/defn adjoin' [this :- Seeker
+                 that :- Seeker] :- Seeker
+  (rebase this #(concat % (:lines that))))
+
+(s/defn conjoin' [this-seeker :- Seeker
+                  that-seeker :- Seeker] :- Seeker
   (let [[x y] (:cursor that-seeker)
-        ths (:height this-seeker)]
-    (-> this-seeker
-        (rebase #(concat % (:lines that-seeker)))
+        ths   (:height this-seeker)]
+    (-> (adjoin' this-seeker that-seeker)
         (assoc :selection (:selection that-seeker))
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (reset-to [x (+ y ths)]))))
 
-(defn conjoin-many [& seekers]
-  (reduce conjoin empty-seeker seekers))
+(s/defn conjoin [seeker :- Seeker, & seekers :- [Seeker]] :- Seeker
+  (reduce conjoin' seeker seekers))
+
+(s/defn conjoined [seekers :- [Seeker]] :- Seeker
+  (reduce conjoin' empty-seeker seekers))
+
+(s/defn adjoin [seeker :- Seeker, & seekers :- [Seeker]] :- Seeker
+  (reduce adjoin' seeker seekers))
+
+(s/defn adjoined [seekers :- [Seeker]] :- Seeker
+  (reduce adjoin' empty-seeker seekers))
 
 (defn climb [seeker]
   (let [offset (move-y seeker dec)]
@@ -518,10 +531,6 @@
        (:lines)
        (map #(apply str %))
        (run! println)))
-
-(s/defn adjoin [this :- Seeker
-                that :- Seeker] :- Seeker
-  (rebase this #(concat % (:lines that))))
 
 (s/defn indent [seeker :- Seeker
                 amount :- s/Int] :- Seeker
