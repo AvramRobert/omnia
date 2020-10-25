@@ -7,13 +7,13 @@
             [omnia.terminal :as t]
             [omnia.event :as e]
             [schema.core :as s]
+            [omnia.hud :refer [Hud]]
+            [omnia.terminal :refer [Terminal]]
+            [omnia.input :refer [Seeker]]
+            [omnia.server :refer [REPLServer]]
             [omnia.render :refer [render!]]
             [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point Region]]
-            [omnia.config :refer [InternalConfig InternalSyntax]])
-  (:import (omnia.terminal Term)
-           (omnia.server REPLServer)
-           (omnia.input Seeker)
-           (omnia.hud Hud)))
+            [omnia.config :refer [InternalConfig InternalSyntax]]))
 
 (def Render
   (s/enum :diff :total :clear :nothing))
@@ -28,44 +28,43 @@
    (s/optional-key :open-paren)   Highlight
    (s/optional-key :closed-paren) Highlight})
 
-(s/defrecord Context
-  [terminal      :- Term
-   repl          :- REPLServer
-   config        :- InternalConfig
-   render        :- Render
-   previous-hud  :- Hud
-   persisted-hud :- Hud
-   complete-hud  :- Hud
-   seeker        :- Seeker
-   suggestions   :- Hud
-   docs          :- s/Any
-   highlights    :- Highlights
-   garbage       :- Highlights])
+(def Context
+  {:terminal      Terminal
+   :repl          REPLServer
+   :config        InternalConfig
+   :render        Render
+   :previous-hud  Hud
+   :persisted-hud Hud
+   :complete-hud  Hud
+   :seeker        Seeker
+   :suggestions   Hud
+   :docs          s/Any
+   :highlights    Highlights
+   :garbage       Highlights})
 
 (def delimiter (i/from-string "------"))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
 
-(s/defn context [config    :- InternalConfig
-                 terminal :- Term
+(s/defn context [config   :- InternalConfig
+                 terminal :- Terminal
                  repl     :- REPLServer] :- Context
   (let [seeker        i/empty-line
         previous-hud  (h/hud (t/size terminal))
         persisted-hud (h/init-hud terminal repl)
-        complete-hud  (h/reseek persisted-hud #(i/join % seeker))]
-    (map->Context
-      {:config        config
-       :terminal      terminal
-       :repl          repl
-       :render        :diff
-       :previous-hud  previous-hud
-       :persisted-hud persisted-hud
-       :complete-hud  complete-hud
-       :seeker        seeker
-       :suggestions   h/empty-hud
-       :docs          i/empty-seeker
-       :highlights    i/empty-map
-       :garbage       i/empty-map})))
+        complete-hud  (h/reseek persisted-hud #(i/conjoin % seeker))]
+    {:config        config
+     :terminal      terminal
+     :repl          repl
+     :render        :diff
+     :previous-hud  previous-hud
+     :persisted-hud persisted-hud
+     :complete-hud  complete-hud
+     :seeker        seeker
+     :suggestions   h/empty-hud
+     :docs          i/empty-seeker
+     :highlights    i/empty-map
+     :garbage       i/empty-map}))
 
 (s/defn rebase
   ([ctx :- Context] :- Context
@@ -73,11 +72,11 @@
   ([ctx    :- Context
     seeker :- Seeker] :- Context
    (let [persisted (:persisted-hud ctx)
-         rebased   (update persisted :seeker #(i/join % seeker))]
+         rebased   (update persisted :seeker #(i/conjoin % seeker))]
      (assoc ctx :complete-hud rebased))))
 
 (s/defn preserve [ctx & seekers] :- Context
-  (update-in ctx [:complete-hud :seeker] #(reduce i/join % seekers)))
+  (update-in ctx [:complete-hud :seeker] #(reduce i/conjoin % seekers)))
 
 (s/defn persist
   ([ctx :- Context] :- Context
@@ -104,7 +103,7 @@
         top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))
         new-ov    (-- (:height bottom) ph)]                 ;; this never worked
-    (rebase ctx (-> (i/join-many top delimiter paginated)
+    (rebase ctx (-> (i/conjoin-many top delimiter paginated)
                     (i/end-x)
                     (i/adjoin delimiter)
                     (i/adjoin bottom)))))
@@ -309,7 +308,7 @@
                      (mapv #(i/from-string (str ns "/" name " " %)) args))
         info-lines (some->> (r/info! repl seeker)
                             (make-lines)
-                            (apply i/join-many))]
+                            (apply i/conjoin-many))]
     (-> (remember ctx)
         (pop-up-static (-> info-lines
                            (or i/empty-seeker)

@@ -1,51 +1,35 @@
 (ns omnia.input
   (:require [clojure.core.match :as m]
-            [clojure.string :as s]
-            [schema.core :as schema]
+            [schema.core :as s]
             [omnia.event :as e]
+            [clojure.string :refer [join split-lines]]
             [clojure.set :refer [union map-invert]]
             [omnia.more :refer [do-until Point Region]]))
 
-(def Lines
-  [[Character]])
-
-(def Expansion
-  (schema/enum :word :expr))
-
 ;; Instead of changing the history constantly, I can use a cursor over the history as a timeline
 ;; Bump the cursor back and forth over the timeline when I undo or redo
-(schema/defrecord Seeker
-  [lines     :- Lines
-   cursor    :- Point
-   expansion :- Expansion
-   selection :- (schema/maybe Point)    ;; this represents the starting point of the selection, the end is the cursor
-   height    :- schema/Int
-   clipboard :- (schema/maybe Seeker)   ;; this is a seeker, question is, does it need to be one?
-   history   :- [Seeker]
-   rhistory  :- [Seeker]]
-  Object
-  (toString [_]
-    (str {:lines     lines
-          :height    height
-          :cursor    cursor
-          :expansion expansion
-          :selection selection
-          :clipboard clipboard
-          :history   history
-          :rhistory  rhistory})))
+(def Seeker
+  {:lines     [[Character]]
+   :cursor    Point
+   :height    s/Int
+   :expansion (s/enum :word :expr)
+   :history   [Seeker]
+   :rhistory  [Seeker]
+   :selection (s/maybe Point)
+   :clipboard (s/maybe Seeker)})
 
 (def empty-map {})
 (def empty-vec [])
 (def empty-list '())
 (def empty-seeker
-  (map->Seeker {:lines     empty-vec
-                :cursor    [0 0]
-                :height    0
-                :expansion :word
-                :selection nil
-                :clipboard nil
-                :history   empty-list
-                :rhistory  empty-list}))
+  {:lines     empty-vec
+   :cursor    [0 0]
+   :height    0
+   :expansion :word
+   :selection nil
+   :clipboard nil
+   :history   empty-list
+   :rhistory  empty-list})
 
 (def open-pairs {\( \) \[ \] \{ \}})
 (def closed-pairs (map-invert open-pairs))
@@ -71,7 +55,7 @@
                                 (mapv (fn [_] [])))
                            xs))]
     (->> string
-         (s/split-lines)
+         (split-lines)
          (mapv char-vec)
          (newlines)
          (seeker))))
@@ -251,17 +235,17 @@
     {:start start
      :end   end}))
 
-(defn join [this-seeker that-seeker]
+(defn conjoin [this-seeker that-seeker]
   (let [[x y] (:cursor that-seeker)
-        ths   (:height this-seeker)]
+        ths (:height this-seeker)]
     (-> this-seeker
         (rebase #(concat % (:lines that-seeker)))
         (assoc :selection (:selection that-seeker))
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (reset-to [x (+ y ths)]))))
 
-(defn join-many [& seekers]
-  (reduce join empty-seeker seekers))
+(defn conjoin-many [& seekers]
+  (reduce conjoin empty-seeker seekers))
 
 (defn climb [seeker]
   (let [offset (move-y seeker dec)]
@@ -427,9 +411,9 @@
 
 (defn open-expand [seeker]
   "Note: This assumes that the right-hand side of the seeker starts with an open parens"
-  (let [l (right seeker)
+  (let [l      (right seeker)
         ending (end seeker)]
-    (loop [seen 1
+    (loop [seen    1
            current (-> seeker (select) (progress))]
       (let [r (right current)]
         (cond
@@ -441,11 +425,11 @@
 
 (defn closed-expand [seeker]
   "Note: This assumes that the left-hand side of the seeker starts with a closed parens"
-  (let [r (left seeker)
+  (let [r         (left seeker)
         beginning (start seeker)
-        switch #(assoc % :cursor    (:cursor seeker)
-                         :selection (:cursor %))]
-    (loop [seen 1
+        switch    #(assoc % :cursor (:cursor seeker)
+                            :selection (:cursor %))]
+    (loop [seen    1
            current (-> seeker (select) (regress))]
       (let [l (left current)]
         (cond
@@ -458,7 +442,7 @@
 (defn near-expand [seeker]
   "Note: This assumes that the seeker isn't neighbouring parens"
   (let [beginning (start seeker)]
-    (loop [seen ()
+    (loop [seen    ()
            current seeker]
       (let [l (left current) r (first seen)]
         (cond
@@ -522,17 +506,12 @@
         (assoc :rhistory (rest rhistory))
         (assoc :history (-> seeker (forget) (cons history))))))
 
-(schema/defn strip [seeker :- Seeker] :- (schema/maybe Seeker)
-  (if (empty? (:lines seeker))
-    nil
-    seeker))
-
 (defn stringify [seeker]
   (->> (repeat "\n")
        (take (:height seeker))
        (interleave (:lines seeker))
        (map #(apply str %))
-       (s/join)))
+       (join)))
 
 (defn print-seeker [seeker]
   (->> seeker
@@ -540,39 +519,39 @@
        (map #(apply str %))
        (run! println)))
 
-(schema/defn adjoin [this :- Seeker
-                     that :- Seeker] :- Seeker
+(s/defn adjoin [this :- Seeker
+                that :- Seeker] :- Seeker
   (rebase this #(concat % (:lines that))))
 
-(schema/defn indent [seeker :- Seeker
-                     amount :- schema/Int] :- Seeker
+(s/defn indent [seeker :- Seeker
+                amount :- s/Int] :- Seeker
   (let [padding (repeat amount \space)]
     (rebase seeker (fn [lines] (mapv #(vec (concat padding %)) lines)))))
 
-(schema/defn process [seeker :- Seeker
-                      event  :- e/InputEvent] :- Seeker
+(s/defn process [seeker :- Seeker
+                 event :- e/InputEvent] :- Seeker
   (condp = (:action event)
-    e/expand            (-> seeker (expand))
-    e/select-all        (-> seeker (select-all))
-    e/copy              (-> seeker (copy) (deselect))
-    e/cut               (-> seeker (remember) (cut) (deselect))
-    e/paste             (-> seeker (remember) (paste) (deselect))
-    e/up                (-> seeker (climb) (deselect))
-    e/down              (-> seeker (fall) (deselect))
-    e/left              (-> seeker (regress) (deselect))
-    e/right             (-> seeker (progress) (deselect))
-    e/jump-left         (-> seeker (jump-left) (deselect))
-    e/jump-right        (-> seeker (jump-right) (deselect))
-    e/select-up         (-> seeker (soft-select) (climb))
-    e/select-down       (-> seeker (soft-select) (fall))
-    e/select-left       (-> seeker (soft-select) (regress))
-    e/select-right      (-> seeker (soft-select) (progress))
-    e/jump-select-left  (-> seeker (soft-select) (jump-left))
+    e/expand (-> seeker (expand))
+    e/select-all (-> seeker (select-all))
+    e/copy (-> seeker (copy) (deselect))
+    e/cut (-> seeker (remember) (cut) (deselect))
+    e/paste (-> seeker (remember) (paste) (deselect))
+    e/up (-> seeker (climb) (deselect))
+    e/down (-> seeker (fall) (deselect))
+    e/left (-> seeker (regress) (deselect))
+    e/right (-> seeker (progress) (deselect))
+    e/jump-left (-> seeker (jump-left) (deselect))
+    e/jump-right (-> seeker (jump-right) (deselect))
+    e/select-up (-> seeker (soft-select) (climb))
+    e/select-down (-> seeker (soft-select) (fall))
+    e/select-left (-> seeker (soft-select) (regress))
+    e/select-right (-> seeker (soft-select) (progress))
+    e/jump-select-left (-> seeker (soft-select) (jump-left))
     e/jump-select-right (-> seeker (soft-select) (jump-right))
-    e/backspace         (-> seeker (remember) (delete) (deselect))
-    e/delete            (-> seeker (remember) (munch) (deselect))
-    e/break             (-> seeker (remember) (break) (deselect))
-    e/undo              (-> seeker (undo) (deselect))
-    e/redo              (-> seeker (redo) (deselect))
-    e/character         (-> seeker (insert (:value event)) (deselect))
+    e/backspace (-> seeker (remember) (delete) (deselect))
+    e/delete (-> seeker (remember) (munch) (deselect))
+    e/break (-> seeker (remember) (break) (deselect))
+    e/undo (-> seeker (undo) (deselect))
+    e/redo (-> seeker (redo) (deselect))
+    e/character (-> seeker (insert (:value event)) (deselect))
     seeker))

@@ -311,7 +311,7 @@
 
 (defn clear-remember-persist [ctx]
   (let [expected-persisted (h/init-hud (:terminal ctx) (:repl ctx))
-        expected-complete  (update expected-persisted :seeker #(i/join % (:seeker ctx)))]
+        expected-complete  (update expected-persisted :seeker #(i/conjoin % (:seeker ctx)))]
     (-> ctx
         (process clear)
         (can-be #(<=>hud (:complete-hud %) expected-complete)
@@ -332,7 +332,7 @@
 
 (defn remember-preserve-persist [ctx]
   (let [expected-hud (-> (:complete-hud ctx)
-                         (h/reseek #(i/join-many % i/empty-line h/caret)))]
+                         (h/reseek #(i/conjoin-many % i/empty-line h/caret)))]
     (-> ctx
         (process evaluate)
         (can-be #(<=>seeker (:seeker %) i/empty-seeker)
@@ -573,7 +573,7 @@
 
 (defn empty-pop-up-window [ctx]
   (let [window (h/window i/empty-seeker 10)
-        expected (i/join-many r/delimiter i/empty-seeker r/delimiter)
+        expected (i/conjoin-many r/delimiter i/empty-seeker r/delimiter)
         actual (-> ctx
                    (move-end-fov)
                    (r/pop-up-static window)
@@ -584,7 +584,7 @@
 
 (defn pop-up-window [ctx content]
   (let [size (:height content)
-        expected (i/join-many r/delimiter (i/indent content 1) r/delimiter)
+        expected (i/conjoin-many r/delimiter (i/indent content 1) r/delimiter)
         actual (-> ctx
                    (move-end-fov)
                    (r/pop-up-static (h/window content size))

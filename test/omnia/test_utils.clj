@@ -68,18 +68,17 @@
                              stop!
                              start!
                              get-key!]
-                      :as fns}]
+                      :as   fns}]
   (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
   (let [unit (constantly nil)]
-    (t/map->Term
-      {:clear!      (or clear! unit)
-       :refresh!    (or refresh! unit)
-       :size        (or size (constantly 10))
-       :move!       (or move! unit)
-       :put!        (or put! unit)
-       :stop!       (or stop! unit)
-       :start!      (or start! unit)
-       :get-key!  (or get-key! unit)})))
+    {:clear!   (or clear! unit)
+     :refresh! (or refresh! unit)
+     :size     (or size (constantly 10))
+     :move!    (or move! unit)
+     :put!     (or put! unit)
+     :stop!    (or stop! unit)
+     :start!   (or start! unit)
+     :get-key! (or get-key! unit)}))
 
 (defn gen-context [{:keys [size fov seeker receive history]
                     :or {size 0

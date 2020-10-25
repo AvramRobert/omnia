@@ -629,7 +629,7 @@
 ;; XVI. Joining
 
 (defn join-texts [seeker1 seeker2]
-  (-> (i/join seeker1 seeker2)
+  (-> (i/conjoin seeker1 seeker2)
       (can-be #(<=>seeker % (i/seeker (concat (:lines seeker1)
                                               (:lines seeker2))))
               #(-> (i/line %) (= (i/line seeker2))))))
@@ -637,7 +637,7 @@
 (defn join-texts-with-selections [seeker1 seeker2]
   (let [s1 (-> seeker1 (i/select) (i/end))
         s2 (-> seeker2 (i/select) (i/end))]
-    (-> (i/join s1 s2)
+    (-> (i/conjoin s1 s2)
         (can-be #(-> (i/selection %) (:end) (= (:cursor (i/end %))))))))
 
 (defn joining [seeker1]

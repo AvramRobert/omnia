@@ -1,6 +1,8 @@
 (ns omnia.terminal
+  (:require [schema.core :as s]
+            [omnia.config :as c])
   (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed)
-           (com.googlecode.lanterna.terminal Terminal DefaultTerminalFactory)
+           (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna.terminal.swing TerminalEmulatorColorConfiguration TerminalEmulatorPalette SwingTerminalFontConfiguration)
@@ -75,36 +77,36 @@
    KeyType/MouseEvent     :mouse-event
    KeyType/EOF            :eof})
 
-(defrecord Term
-  [size
-   move!
-   clear!
-   stop!
-   start!
-   get-key!])
+(def Terminal
+  {:size     s/Any
+   :move!    s/Any
+   :clear!   s/Any
+   :stop!    s/Any
+   :start!   s/Any
+   :get-key! s/Any})
 
-(defn move! [^Term terminal x y]                            ;; FIXME: Find a way to make these implementations
+(defn move! [terminal x y]                            ;; FIXME: Find a way to make these implementations
   ((:move! terminal) x y))
 
-(defn put! [^Term terminal ch x y foreground background styles]
+(defn put! [terminal ch x y foreground background styles]
   ((:put! terminal) ch x y foreground background styles))
 
-(defn clear! [^Term terminal]
+(defn clear! [terminal]
   ((:clear! terminal)))
 
-(defn stop! [^Term terminal]
+(defn stop! [terminal]
   ((:stop! terminal)))
 
-(defn start! [^Term terminal]
+(defn start! [terminal]
   ((:start! terminal)))
 
-(defn refresh! [^Term terminal]
+(defn refresh! [terminal]
   ((:refresh! terminal)))
 
-(defn get-key! [^Term terminal]
+(defn get-key! [terminal]
   ((:get-key! terminal)))
 
-(defn size [^Term terminal]
+(defn size [terminal]
   ((:size terminal)))
 
 (defn- match-key [^KeyStroke pressed]
@@ -136,31 +138,30 @@
 (defn- derive-font [config]
   (SwingTerminalFontConfiguration/newInstance (into-array Font [(font-of "./Hasklig-Regular.otf" 15)])))
 
-(defn terminal [config]
+(s/defn terminal [config :- c/Config] :- Terminal
   (let [terminal (-> (DefaultTerminalFactory.)
                      (.setTerminalEmulatorColorConfiguration (derive-palette config))
                      (.setTerminalEmulatorFontConfiguration (derive-font config))
                      (.createTerminalEmulator)
                      (TerminalScreen.))]
-    (map->Term
-      {:size      (fn []
-                    (-> terminal (.getTerminalSize) (.getRows)))
+    {:size     (fn []
+                 (-> terminal (.getTerminalSize) (.getRows)))
 
-       :move!     (fn [x y]
-                    (.setCursorPosition terminal (pos x y)))
+     :move!    (fn [x y]
+                 (.setCursorPosition terminal (pos x y)))
 
-       :put!      (fn [^Character ch x y fg bg stls]
-                    (.setCharacter terminal x y (text-char ch fg bg stls)))
+     :put!     (fn [^Character ch x y fg bg stls]
+                 (.setCharacter terminal x y (text-char ch fg bg stls)))
 
-       :clear!    (fn [] (.clear terminal))
+     :clear!   (fn [] (.clear terminal))
 
-       :refresh!  (fn [] (.refresh terminal))
+     :refresh! (fn [] (.refresh terminal))
 
-       :stop!     (fn []
-                    (.stopScreen terminal true))
+     :stop!    (fn []
+                 (.stopScreen terminal true))
 
-       :start!    (fn []
-                    (.startScreen terminal))
+     :start!   (fn []
+                 (.startScreen terminal))
 
-       :get-key!  (fn []
-                    (-> terminal (.readInput) (match-key)))})))
+     :get-key! (fn []
+                 (-> terminal (.readInput) (match-key)))}))

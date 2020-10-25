@@ -2,11 +2,10 @@
   (:require [schema.core :as s]
             [omnia.input :as i]
             [omnia.terminal :as t]
-            [omnia.server :as serv]
-            [omnia.more :refer [Point Region omnia-version ++ -- mod* inc< dec<]])
-  (:import (omnia.input Seeker)
-           (omnia.terminal Term)
-           (omnia.server REPLServer)))
+            [omnia.more :refer [Point Region omnia-version ++ -- mod* inc< dec<]]
+            [omnia.input :refer [Seeker]]
+            [omnia.terminal :refer [Terminal]]
+            [omnia.server :refer [REPLServer]]))
 
 (def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
@@ -15,20 +14,12 @@
 (defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 (def continuation (i/from-string "..."))
 
-(s/defrecord Hud
-  [seeker :- Seeker
-   lor :- s/Int
-   fov :- s/Int
-   ov :- s/Int
-   scroll? :- s/Bool])
-
-(def empty-hud
-  (map->Hud
-    {:seeker  i/empty-seeker
-     :lor     0
-     :fov     0
-     :ov      0
-     :scroll? false}))
+(def Hud
+  {:seeker  Seeker
+   :lor     s/Int
+   :fov     s/Int
+   :ov      s/Int
+   :scroll? s/Bool})
 
 (s/defn hud [fov & prelude] :- Hud
   "lor = line of reference
@@ -43,14 +34,16 @@
      Conceptually it is the same as the `lor`, but only on input seeker level.
    scroll? = scrolling flag
      indicates if there should be scrolled currently"
-  (map->Hud
-    {:seeker (apply i/join-many prelude)
-     :fov    fov
-     :lor    fov
-     :ov     0
-     :scroll? false}))
+  {:seeker  (apply i/conjoin-many prelude)
+   :fov     fov
+   :lor     fov
+   :ov      0
+   :scroll? false})
 
-(s/defn init-hud [terminal :- Term,
+(def empty-hud
+  (hud i/empty-seeker))
+
+(s/defn init-hud [terminal :- Terminal,
                   repl     :- REPLServer] :- Hud
   (let [fov       (t/size terminal)
         repl-info (nrepl-info (:host repl) (:port repl))]

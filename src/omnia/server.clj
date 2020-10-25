@@ -1,42 +1,33 @@
 (ns omnia.server
-  (:require [clojure.tools.nrepl.server :as s]
+  (:require [clojure.tools.nrepl.server :as server]
             [clojure.tools.nrepl :as nrepl]
             [omnia.more :refer [dec< inc< gulp-or-else]]
             [clojure.string :refer [split trim-newline join]]
             [halfling.task :refer [task]]
             [omnia.input :as i]
             [omnia.format :as f]
-            [schema.core :as schema]
+            [schema.core :as s]
             [cider.nrepl.middleware.complete]
             [cider.nrepl.middleware.info]
             [cider.nrepl.middleware.out]))
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
-#_(schema/defrecord REPLServer
-  [ns       :- schema/Str
-   host     :- schema/Str
-   port     :- schema/Int
-   client   :- schema/Any
-   history  :- schema/Any
-   timeline :- schema/Any
-   result   :- schema/Any])
-
-(defrecord REPLServer
-  [ns
-   host
-   port
-   client
-   history
-   timeline
-   result])
+(def REPLServer
+  {:ns       s/Symbol
+   :host     s/Str
+   :port     s/Int
+   :client   s/Any
+   :history  s/Any
+   :timeline s/Any
+   :result   s/Any})
 
 (def handler
   (->> '[cider.nrepl.middleware.complete/wrap-complete
          cider.nrepl.middleware.info/wrap-info
          cider.nrepl.middleware.out/wrap-out]
        (map resolve)
-       (apply s/default-handler)))
+       (apply server/default-handler)))
 
 (defn read-history [path]
   (task
@@ -137,7 +128,7 @@
        (first)
        (:completions)
        (mapv (comp i/from-string :candidate))
-       (apply i/join-many)))
+       (apply i/conjoin-many)))
 
 (defn evaluate! [repl seeker]
   (let [new-line #(conj % i/empty-line)
@@ -145,7 +136,7 @@
                        (send! repl)
                        (mapv response->seeker)
                        (new-line)
-                       (apply i/join-many))]
+                       (apply i/conjoin-many))]
     (-> (remember repl seeker)
         (cache-result result)
         (reset-timeline))))
@@ -169,31 +160,30 @@
   (send! repl read-out-msg))
 
 (defn start-server! [{:keys [host port]}]
-  (s/start-server :host host
-                  :port port
-                  :handler handler))
+  (server/start-server :host host
+                       :port port
+                       :handler handler))
 
 (defn stop-server! [server]
-  (s/stop-server server))
+  (server/stop-server server))
 
 (defn connect [host port timeout]
   (let [transport (nrepl/connect :port port :host host)
         client    (nrepl/client transport timeout)]
     (fn [msg] (-> client (nrepl/message msg) (vec)))))
 
-(defn repl [{:as   params
-             :keys [ns port host client timeout history]
-             :or   {timeout 10000
-                    history [i/empty-seeker]
-                    ns      (ns-name *ns*)}}]
+(s/defn repl [{:as   params
+               :keys [ns port host client timeout history]
+               :or   {timeout 10000
+                      history [i/empty-seeker]
+                      ns      (ns-name *ns*)}}] :- REPLServer
   (assert (map? params) "Input to `repl` must be a map.")
   (assert (and (not (nil? port))
                (not (nil? host))) "`repl` must receive a host and a port")
-  (map->REPLServer
-    {:ns       ns
-     :host     host
-     :port     port
-     :client   (or client (connect host port timeout))
-     :history  history
-     :timeline (count history)
-     :result   i/empty-seeker}))
+  {:ns       ns
+   :host     host
+   :port     port
+   :client   (or client (connect host port timeout))
+   :history  history
+   :timeline (count history)
+   :result   i/empty-seeker})
