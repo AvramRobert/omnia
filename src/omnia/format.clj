@@ -58,12 +58,14 @@
 (defn normalise [original formatted]
   "The update order must be kept!
   First selection, then rebase, then movement!"
-  (let [form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
+  (let [clipboard   (:clipboard original)
+        form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
         real-indent (spaces original)]
     (-> original
         (reselect formatted)
         (i/rebase (fn [_] (:lines formatted)))
-        (i/move-x #(-> % (+ form-indent) (- real-indent))))))
+        (i/move-x #(-> % (+ form-indent) (- real-indent)))
+        (assoc :clipboard clipboard))))
 
 (defn deform [seeker]
   (let [cursor-onset (spaces seeker)

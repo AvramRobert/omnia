@@ -214,8 +214,14 @@
 (s/defn scroll-down [hud :- Hud] :- Hud
   (scroll hud downwards))
 
-(s/defn reseek [hud :- Hud, f] :- Hud
-  (update hud :seeker f))
-
 (s/defn hollow? [hud :- Hud] :- s/Bool
   (-> hud :seeker :lines empty?))
+
+(s/defn enrich-with [hud :- Hud, seekers :- [Seeker]] :- Hud
+  (update hud :seeker #(apply i/conjoin % seekers)))
+
+(s/defn view [hud :- Hud] :- String
+  (-> hud (:seeker) (i/debug-string)))
+
+(s/defn text [hud :- Hud] :- Seeker
+  (:seeker hud))

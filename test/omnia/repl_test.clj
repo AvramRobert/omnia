@@ -6,7 +6,54 @@
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
             [omnia.repl :as r]
-            [omnia.input :as i]))
+            [omnia.input :as i]
+            [schema.core :as s]))
+
+;; 0. Manipulation
+
+(defn automatic-preview-refresh [ctx text]
+  (let [some-input       (i/from-string "input")
+        new-hud          (-> ctx (r/persisted-hud) (h/enrich-with [text]))
+        expected-preview (-> new-hud (h/enrich-with [some-input]))
+        actual-preview   (-> ctx
+                             (r/with-text some-input)
+                             (r/with-hud new-hud)
+                             (r/preview-hud))]
+    (is (= expected-preview actual-preview))))
+
+(defn clipboard-propagation [ctx text]
+  (let [expected-clipboard  (i/from-string "content")
+        text-full-clip      (assoc text :clipboard expected-clipboard)
+        actual-clipboard    (-> ctx
+                                (process select-all)
+                                (process copy)
+                                (r/with-text text-full-clip)
+                                (r/input-area)
+                                (:clipboard))]
+    (<=>seeker expected-clipboard actual-clipboard)))
+
+(defn clipboard-preservation [ctx text]
+  (let [text-empty-clip    (assoc text :clipboard nil)
+        expected-clipboard (r/input-area ctx)
+        actual-clipboard    (-> ctx
+                               (process select-all)
+                               (process copy)
+                               (r/with-text text-empty-clip)
+                               (r/input-area)
+                               (:clipboard))]
+    (<=>seeker expected-clipboard actual-clipboard)))
+
+(s/defn manipulations [ctx :- r/Context, seeker :- i/Seeker]
+  (automatic-preview-refresh ctx seeker)
+  (clipboard-propagation ctx seeker)
+  (clipboard-preservation ctx seeker))
+
+(defspec manipulating-test 100
+  (for-all [seeker  (gen-seeker-of 10)
+            context (gen-context {:size   0
+                                  :fov    7
+                                  :seeker (one (gen-seeker-of 5))})]
+           (manipulations context seeker)))
 
 ;; I. Calibrating
 
@@ -203,12 +250,11 @@
   (correct-under-hud-shrinking ctx)
   (correct-under-hud-size-variance ctx))
 
-(defspec calibrating-test
-         100
-         (for-all [tctx (gen-context {:size 5
-                                      :fov 27
-                                      :seeker (one (gen-seeker-of 29))})]
-                  (calibrating tctx)))
+(defspec calibrating-test 100
+  (for-all [tctx (gen-context {:size   5
+                               :fov    27
+                               :seeker (one (gen-seeker-of 29))})]
+           (calibrating tctx)))
 
 ;; II. Scrolling
 
@@ -244,8 +290,8 @@
 
 (defn scroll-ending-with-ov [ctx]
   (let [offset (-> (move-top-fov ctx) (process up 2))
-        ov  (get-in offset [:complete-hud :ov])
-        fov (get-in offset [:complete-hud :fov])]
+        ov     (get-in offset [:complete-hud :ov])
+        fov    (get-in offset [:complete-hud :fov])]
     (-> offset
         (process scroll-up 3)
         (process scroll-down 5)
@@ -283,10 +329,10 @@
 
 (defspec scrolling-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))})]
-                  (scrolling tctx)))
+  (for-all [tctx (gen-context {:size   20
+                               :fov    7
+                               :seeker (one (gen-seeker-of 10))})]
+           (scrolling tctx)))
 
 ;; III. Capturing
 
@@ -302,10 +348,10 @@
 
 (defspec capturing-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))})]
-                  (capturing tctx)))
+  (for-all [tctx (gen-context {:size   20
+                               :fov    7
+                               :seeker (one (gen-seeker-of 10))})]
+           (capturing tctx)))
 
 ;; IV. Clearing
 
@@ -323,34 +369,39 @@
 
 (defspec clearing-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))})]
-                  (clearing tctx)))
+  (for-all [tctx (gen-context {:size   20
+                               :fov    7
+                               :seeker (one (gen-seeker-of 10))})]
+           (clearing tctx)))
 
 ;; V. Evaluating
 
 (defn remember-preserve-persist [ctx]
-  (let [expected-hud (-> (:complete-hud ctx)
-                         (h/reseek #(i/conjoin % i/empty-line h/caret)))]
+  (let [current-input      (r/input-area ctx)
+        expected-previous  (-> ctx (r/preview-hud) (h/text))
+        expected-persisted (-> ctx
+                               (r/persisted-hud)
+                               (h/text)
+                               (i/conjoin current-input i/empty-line h/caret))
+        expected-complete  (-> expected-persisted (i/conjoin i/empty-line))]
     (-> ctx
         (process evaluate)
-        (can-be #(<=>seeker (:seeker %) i/empty-seeker)
-                #(<=>hud (:previous-hud %) (:complete-hud ctx))
-                #(<=>hud (:complete-hud %) expected-hud)
-                #(<=>hud (:persisted-hud %) expected-hud)))))
+        (can-be #(-> % (h/text) (= i/empty-line))
+                #(-> % (r/previous-hud) (h/text) (= expected-previous))
+                #(-> % (r/persisted-hud) (h/text) (= expected-persisted))
+                #(-> % (r/preview-hud) (h/text) (= expected-complete))))))
 
-(defn evaluating [ctx]
+(s/defn evaluating [ctx :- r/Context]
   (remember-preserve-persist ctx))
 
 (defspec evaluating-test
          100
-         (let [seeker (one (gen-seeker-of 10))]
-           (for-all [tctx (gen-context {:size 20
-                                        :fov 7
-                                        :seeker seeker
-                                        :receive (evaluation seeker)})]
-                    (evaluating tctx))))
+  (let [seeker (one (gen-seeker-of 10))]
+    (for-all [tctx (gen-context {:size    20
+                                 :fov     7
+                                 :seeker  seeker
+                                 :receive (evaluation seeker)})]
+             (evaluating tctx))))
 
 ;; VI. Rolling back
 
@@ -380,11 +431,11 @@
 
 (defspec rolling-back-test
          100
-         (for-all [tctx (gen-context {:size 5
-                                      :fov 27
-                                      :history [(one (gen-seeker-of 32))]
-                                      :seeker (one (gen-seeker-of 29))})]
-                  (rolling-back tctx)))
+  (for-all [tctx (gen-context {:size    5
+                               :fov     27
+                               :history [(one (gen-seeker-of 32))]
+                               :seeker  (one (gen-seeker-of 29))})]
+           (rolling-back tctx)))
 
 ;; VII. Rolling forward
 
@@ -403,18 +454,18 @@
 
 (defspec rolling-forward-test
          100
-         (for-all [tctx (gen-context {:size 5
-                                      :fov 27
-                                      :history [(one (gen-seeker-of 32))]
-                                      :seeker (one (gen-seeker-of 29))})]
-                  (rolling-forward tctx)))
+  (for-all [tctx (gen-context {:size    5
+                               :fov     27
+                               :history [(one (gen-seeker-of 32))]
+                               :seeker  (one (gen-seeker-of 29))})]
+           (rolling-forward tctx)))
 
 ;; VIII. Suggesting
 
 (defn suggestion-override [ctx]
-  (let [suggestions (suggestions ctx)
-        suggestion-at (fn [th] (-> (i/reset-y suggestions th) (i/line)))
-        end (move-end-fov ctx)
+  (let [suggestions    (suggestions ctx)
+        suggestion-at  (fn [th] (-> (i/reset-y suggestions th) (i/line)))
+        end            (move-end-fov ctx)
         replaced-point (cursor end)]
     (can-be end
             #(-> % (process suggest) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 0)))
@@ -428,11 +479,11 @@
 
 (defspec suggesting-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 15
-                                      :receive (one (gen-suggestions 12))
-                                      :seeker (one (gen-seeker-of 17))})]
-                  (suggesting tctx)))
+  (for-all [tctx (gen-context {:size    20
+                               :fov     15
+                               :receive (one (gen-suggestions 12))
+                               :seeker  (one (gen-seeker-of 17))})]
+           (suggesting tctx)))
 
 (defn no-override [ctx]
   (let [end            (move-end-fov ctx)
@@ -451,16 +502,16 @@
 
 (defspec empty-suggesting-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 15
-                                      :receive i/empty-seeker
-                                      :seeker (one (gen-seeker-of 17))})]
-                  (empty-suggesting tctx)))
+  (for-all [tctx (gen-context {:size    20
+                               :fov     15
+                               :receive i/empty-seeker
+                               :seeker  (one (gen-seeker-of 17))})]
+           (empty-suggesting tctx)))
 
 ;; IX. Highlighting
 
 (defn queue-highlights [ctx]
-  (let [top (-> (from-start ctx) (move-top-fov))
+  (let [top    (-> (from-start ctx) (move-top-fov))
         bottom (-> (from-start ctx) (move-top-fov) (move-bottom-fov))
         [xt yt] (get-in top [:complete-hud :seeker :cursor])
         [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
@@ -478,7 +529,7 @@
                                :end   [xb yb]})))))
 
 (defn garbage-collect-highlights [ctx]
-  (let [top (-> (from-start ctx) (move-top-fov))
+  (let [top    (-> (from-start ctx) (move-top-fov))
         bottom (-> (from-start ctx) (move-top-fov) (move-bottom-fov))
         [xt yt] (get-in top [:complete-hud :seeker :cursor])
         [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
@@ -512,19 +563,19 @@
 
 (defspec highlighting-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))})]
-                  (highlighting tctx)))
+  (for-all [tctx (gen-context {:size   20
+                               :fov    7
+                               :seeker (one (gen-seeker-of 10))})]
+           (highlighting tctx)))
 
 ;; X. Parenthesis matching
 
 (defn highlight-matched [ctx]
   (let [[x y] (get-in ctx [:complete-hud :seeker :cursor])
-        scheme (fn [region]
-                 {:region   region
-                  :scheme   (-> ctx (:config) (:syntax) (:clean-up))
-                  :styles   [:underline]})
+        scheme            (fn [region]
+                            {:region region
+                             :scheme (-> ctx (:config) (:syntax) (:clean-up))
+                             :styles [:underline]})
         actual-highlights (-> ctx
                               (process (char-key \())
                               (process (char-key \a) 4)
@@ -556,10 +607,10 @@
 
 (defspec parens-matching-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 7
-                                      :seeker (one (gen-seeker-of 10))})]
-                  (parens-matching tctx)))
+  (for-all [tctx (gen-context {:size   20
+                               :fov    7
+                               :seeker (one (gen-seeker-of 10))})]
+           (parens-matching tctx)))
 
 ;; XI. Pop-ups
 
@@ -572,25 +623,25 @@
     (is (= 1 (-> context (move-bottom-fov) (process down) (r/pop-up-static window) (ov))))))
 
 (defn empty-pop-up-window [ctx]
-  (let [window (h/window i/empty-seeker 10)
+  (let [window   (h/window i/empty-seeker 10)
         expected (i/conjoin r/delimiter i/empty-seeker r/delimiter)
-        actual (-> ctx
-                   (move-end-fov)
-                   (r/pop-up-static window)
-                   (:complete-hud)
-                   (:seeker)
-                   (i/rebase #(take-last 2 %)))]
+        actual   (-> ctx
+                     (move-end-fov)
+                     (r/pop-up-static window)
+                     (:complete-hud)
+                     (:seeker)
+                     (i/rebase #(take-last 2 %)))]
     (<=>seeker expected actual)))
 
 (defn pop-up-window [ctx content]
-  (let [size (:height content)
+  (let [size     (:height content)
         expected (i/conjoin r/delimiter (i/indent content 1) r/delimiter)
-        actual (-> ctx
-                   (move-end-fov)
-                   (r/pop-up-static (h/window content size))
-                   (:complete-hud)
-                   (:seeker)
-                   (i/rebase #(take-last (+ size 2) %)))]
+        actual   (-> ctx
+                     (move-end-fov)
+                     (r/pop-up-static (h/window content size))
+                     (:complete-hud)
+                     (:seeker)
+                     (i/rebase #(take-last (+ size 2) %)))]
     (<=>seeker expected actual)))
 
 (defn pop-up-statically [ctx content]
@@ -614,8 +665,8 @@
   (let [window (h/window content (- (:height content) 2))
         [x _] (-> content (i/start) (i/end-x) (:cursor))
         [_ y] (-> ctx :complete-hud :seeker :cursor)
-        line #(-> window (:seeker) (i/reset-y %) (i/indent 1) (i/line))]
-    (is (= [(+ x 1) (+ y 2)]          ;; + x 1 because indentation
+        line   #(-> window (:seeker) (i/reset-y %) (i/indent 1) (i/line))]
+    (is (= [(+ x 1) (+ y 2)]                                ;; + x 1 because indentation
            (-> ctx
                (r/pop-up-riffle window)
                (:complete-hud)
@@ -660,10 +711,10 @@
 
 (defspec pop-up-test
          100
-         (for-all [tctx (gen-context {:size 20
-                                      :fov 15
-                                      :seeker (one (gen-seeker-of 17))})]
-                  (pop-ups tctx)))
+  (for-all [tctx (gen-context {:size   20
+                               :fov    15
+                               :seeker (one (gen-seeker-of 17))})]
+           (pop-ups tctx)))
 
 
 (defn unchanged-highlights [ctx]
@@ -700,6 +751,6 @@
 
 (defspec ignoring-test
          100
-         (for-all [tctx (gen-context {:fov 10
-                                      :seeker (one (gen-seeker-of 17))})]
-                  (ignores tctx)))
+  (for-all [tctx (gen-context {:fov    10
+                               :seeker (one (gen-seeker-of 17))})]
+           (ignores tctx)))

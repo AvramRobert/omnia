@@ -4,7 +4,8 @@
             [omnia.event :as e]
             [clojure.string :refer [join split-lines]]
             [clojure.set :refer [union map-invert]]
-            [omnia.more :refer [do-until Point Region]]))
+            [omnia.more :refer [do-until Point Region]])
+  (:import (java.io Writer)))
 
 ;; Instead of changing the history constantly, I can use a cursor over the history as a timeline
 ;; Bump the cursor back and forth over the timeline when I undo or redo
@@ -520,17 +521,16 @@
         (assoc :history (-> seeker (forget) (cons history))))))
 
 (defn stringify [seeker]
-  (->> (repeat "\n")
-       (take (:height seeker))
-       (interleave (:lines seeker))
-       (map #(apply str %))
-       (join)))
-
-(defn print-seeker [seeker]
   (->> seeker
        (:lines)
-       (map #(apply str %))
-       (run! println)))
+       (mapv #(apply str %))
+       (join "\n")))
+
+(s/defn debug-string [seeker :- Seeker] :- String
+  (-> seeker (slicel #(conj % "|")) (stringify)))
+
+(defn print-seeker [seeker]
+  (->> seeker (stringify) (println)))
 
 (s/defn indent [seeker :- Seeker
                 amount :- s/Int] :- Seeker

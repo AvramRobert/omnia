@@ -1,12 +1,15 @@
 (ns omnia.test-utils
-  (:require [clojure.test.check.generators :as gen]
+  (:require omnia.hud
+            omnia.input
+            [clojure.test.check.generators :as gen]
             [clojure.test :refer [is]]
+            [schema.core :as s]
             [omnia.more :refer [--]]
             [omnia.config :as c]
             [omnia.input :as i]
             [omnia.hud :as h]
             [omnia.repl :as r]
-            [omnia.server :as s]
+            [omnia.server :as server]
             [omnia.terminal :as t]
             [omnia.event :as e]))
 
@@ -22,6 +25,9 @@
 
 (defmacro <=>hud [this-hud that-hud]
   `(<=>seeker (:seeker ~this-hud) (:seeker ~that-hud)))
+
+(s/defn has-seeker [hud :- h/Hud seeker :- i/Seeker]
+  (is (= (:seeker hud) seeker)))
 
 (defmacro can-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -57,8 +63,8 @@
          (fn [xs]
            (list {:completions
                   (map (fn [s] {:candidate s
-                                :ns ""
-                                :type ""}) xs)})))))
+                                :ns        ""
+                                :type      ""}) xs)})))))
 
 (defn test-terminal [{:keys [refresh!
                              clear!
@@ -81,20 +87,20 @@
      :get-key! (or get-key! unit)}))
 
 (defn gen-context [{:keys [size fov seeker receive history]
-                    :or {size 0
-                         fov 10
-                         seeker i/empty-seeker
-                         history []}}]
+                    :or   {size    0
+                           fov     10
+                           seeker  i/empty-seeker
+                           history []}}]
   (->> (gen-seeker-of size)
        (gen/fmap
          (fn [hud-seeker]
            (let [hud (h/hud fov hud-seeker)]
              (-> (r/context (c/convert c/default-config)
                             (test-terminal {:size (constantly fov)})
-                            (s/repl {:host    ""
-                                     :port    0
-                                     :history history
-                                     :client (constantly receive)}))
+                            (server/repl {:host    ""
+                                          :port    0
+                                          :history history
+                                          :client  (constantly receive)}))
                  (r/seek seeker)
                  (r/persist hud)
                  (r/rebase)
@@ -147,7 +153,7 @@
 
 (defn project-y [ctx]
   (let [complete (:complete-hud ctx)
-        [_ y]    (-> complete :seeker :cursor)]
+        [_ y] (-> complete :seeker :cursor)]
     (h/project-y complete y)))
 
 (defn project-complete [ctx]
@@ -185,7 +191,7 @@
   (get-in ctx [:complete-hud :seeker :cursor]))
 
 (defn suggestions [ctx]
-  (-> (:repl ctx) (s/complete! i/empty-seeker)))
+  (-> (:repl ctx) (server/complete! i/empty-seeker)))
 
 (defn evaluation [seeker]
   {:value (i/stringify seeker)})
@@ -196,8 +202,8 @@
 (defn highlights? [highlited region]
   (let [{expected-start :start
          expected-end   :end} region
-        {actual-start   :start
-         actual-end     :end} (:region highlited)]
+        {actual-start :start
+         actual-end   :end} (:region highlited)]
     (and (= expected-start actual-start)
          (= expected-end actual-end))))
 
@@ -223,7 +229,7 @@
         (r/remember))))
 
 (defn move-bottom-fov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
+  (let [fov    (get-in ctx [:complete-hud :fov])
         bottom #(+ % (dec fov))]
     (-> (update ctx :seeker #(i/move-y % bottom))
         (r/rebase)

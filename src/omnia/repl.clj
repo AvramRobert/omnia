@@ -52,7 +52,7 @@
   (let [seeker        i/empty-line
         previous-hud  (h/hud (t/size terminal))
         persisted-hud (h/init-hud terminal repl)
-        complete-hud  (h/reseek persisted-hud #(i/conjoin % seeker))]
+        complete-hud  (h/enrich-with persisted-hud [seeker])]
     {:config        config
      :terminal      terminal
      :repl          repl
@@ -65,6 +65,39 @@
      :docs          i/empty-seeker
      :highlights    i/empty-map
      :garbage       i/empty-map}))
+
+
+(s/defn preview-hud [ctx :- Context] :- Hud
+  (:complete-hud ctx))
+
+(s/defn persisted-hud [ctx :- Context] :- Hud
+  (:persisted-hud ctx))
+
+(s/defn previous-hud [ctx :- Context] :- Hud
+  (:previous-hud ctx))
+
+(s/defn input-area [ctx :- Context] :- Hud
+  (:seeker ctx))
+
+(s/defn server [ctx :- Context] :- REPLServer
+  (:repl ctx))
+
+(s/defn refresh [ctx :- Context] :- Context
+  (assoc ctx
+    :previous-hud (:complete-hud ctx)
+    :complete-hud (-> ctx (:persisted-hud) (h/enrich-with [(:seeker ctx)]))))
+
+(s/defn with-hud [ctx :- Context, hud :- Hud] :- Context
+  (-> ctx (assoc :persisted-hud hud) (refresh)))
+
+(s/defn with-text [ctx :- Context, input :- Seeker] :- Context
+  (let [clipboard (or (:clipboard input)
+                      (-> ctx (input-area) (:clipboard)))
+        new-text  (assoc input :clipboard clipboard)]
+    (assoc ctx :seeker new-text)))
+
+(s/defn with-server [ctx :- Context, repl :- REPLServer] :- Context
+  (assoc ctx :repl repl))
 
 (s/defn rebase
   ([ctx :- Context] :- Context
@@ -258,14 +291,11 @@
 
 (defn roll [ctx f]
   (let [clipboard (get-in ctx [:seeker :clipboard])
-        then-repl   (-> ctx :repl f)
-        then-seeker (-> (r/then then-repl)
+        then-server   (-> ctx (server) f)
+        then-seeker (-> (r/then then-server)
                         (i/end)
                         (assoc :clipboard clipboard))]
-    (-> (remember ctx)
-        (rebase then-seeker)
-        (seek then-seeker)
-        (assoc :repl then-repl))))
+    (-> ctx (with-server then-server) (with-text then-seeker) (refresh))))
 
 (defn roll-back [ctx]
   (roll ctx r/travel-back))
@@ -273,14 +303,17 @@
 (defn roll-forward [ctx]
   (roll ctx r/travel-forward))
 
-(defn evaluate [ctx]
-  (let [evaluation (r/evaluate! (:repl ctx) (:seeker ctx))
-        result     (r/result evaluation)]
-    (-> (remember ctx)
-        (preserve result caret i/empty-seeker)
-        (persist)
-        (seek i/empty-seeker)
-        (assoc :repl evaluation))))
+(s/defn evaluate [ctx :- Context] :- Context
+  (let [text    (input-area ctx)
+        server' (-> ctx (server) (r/evaluate! text))
+        result  (r/last-eval server')
+        new-hud (-> ctx
+                    (persisted-hud)
+                    (h/enrich-with [text result caret]))]
+    (-> ctx
+        (with-server server')
+        (with-text i/empty-line)
+        (with-hud new-hud))))
 
 (s/defn suggest [ctx :- Context] :- Context
   (let [{seeker      :seeker
@@ -326,16 +359,12 @@
 ;; === Input ===
 
 (defn capture [ctx event]
-  (let [seeker (-> ctx (:seeker) (i/process event))]
-    (-> (remember ctx)
-        (rebase seeker)
-        (seek seeker))))
+  (let [new-input (-> ctx (input-area) (i/process event))]
+    (-> ctx (with-text new-input) (refresh))))
 
 (defn reformat [ctx]
-  (let [formatted (-> ctx (:seeker) (f/format-seeker))]
-    (-> (remember ctx)
-        (rebase formatted)
-        (seek formatted))))
+  (let [formatted (-> ctx (input-area) (f/format-seeker))]
+    (-> ctx (with-text formatted) (refresh))))
 
 (defn inject [ctx event]
   (let [repl (:repl ctx)

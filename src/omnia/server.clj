@@ -119,7 +119,7 @@
 (defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
 
-(defn result [repl] (:result repl))
+(defn last-eval [repl] (:result repl))
 
 (defn complete! [repl seeker]
   (->> (:ns repl)
