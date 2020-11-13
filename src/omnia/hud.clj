@@ -225,3 +225,6 @@
 
 (s/defn text [hud :- Hud] :- Seeker
   (:seeker hud))
+
+(s/defn deselect [hud :- Hud] :- Seeker
+  (update hud :seeker i/deselect))

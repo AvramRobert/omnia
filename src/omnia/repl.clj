@@ -82,6 +82,18 @@
 (s/defn server [ctx :- Context] :- REPLServer
   (:repl ctx))
 
+(s/defn terminal [ctx :- Context] :- Terminal
+  (:terminal ctx))
+
+(s/defn reset-preview [ctx :- Context, hud :- Hud] :- Context
+  (assoc ctx :complete-hud hud))
+
+(s/defn reset-persisted [ctx :- Context, hud :- Hud] :- Context
+  (assoc ctx :persisted-hud hud))
+
+(s/defn reset-input [ctx :- Context, input :- Seeker] :- Context
+  (assoc ctx :seeker input))
+
 (s/defn refresh [ctx :- Context] :- Context
   (assoc ctx
     :previous-hud (:complete-hud ctx)
@@ -89,6 +101,11 @@
 
 (s/defn with-hud [ctx :- Context, hud :- Hud] :- Context
   (-> ctx (assoc :persisted-hud hud) (refresh)))
+
+(s/defn with-preview [ctx :- Context, hud :- Hud] :- Context
+  (assoc ctx
+    :previous-hud (:complete-hud hud)
+    :complete-hud hud))
 
 (s/defn with-text [ctx :- Context, input :- Seeker] :- Context
   (let [clipboard (or (:clipboard input)
@@ -255,13 +272,11 @@
           (re-render))
       ctx)))
 
-(defn clear [{:keys [terminal repl] :as ctx}]
-  (let [start-hud (h/init-hud terminal repl)]
-    (-> (remember ctx)
-        (persist start-hud)
-        (rebase (:seeker ctx))
-        (calibrate)
-        (un-suggest))))
+(s/defn clear [ctx :- Context] :- Context
+  (let [terminal    (terminal ctx)
+        repl-server (server ctx)
+        new-hud     (h/init-hud terminal repl-server)]
+    (with-hud ctx new-hud)))
 
 (defn exit [ctx]
   (-> (preserve ctx goodbye)
@@ -269,23 +284,28 @@
       (assoc-in [:complete-hud :ov] 0)))
 
 (defn deselect [ctx]
-  (-> ctx
-      (update-in [:complete-hud :seeker] i/deselect)
-      (update-in [:persisted-hud :seeker] i/deselect)
-      (update :seeker i/deselect)))
+  (let [preview   (-> ctx (preview-hud) (h/deselect))
+        persisted (-> ctx (persisted-hud) (h/deselect))
+        input     (-> ctx (input-area) (i/deselect))]
+    (-> ctx
+        (reset-preview preview)
+        (reset-persisted persisted)
+        (reset-input input))))
 
 (defn scroll-up [ctx]
-  (-> (remember ctx)
-      (update :complete-hud h/scroll-up)))
+  (let [preview (-> ctx (preview-hud) (h/scroll-up))]
+    (with-preview ctx preview)))
 
 (defn scroll-down [ctx]
-  (-> (remember ctx)
-      (update :complete-hud h/scroll-down)))
+  (let [preview (-> ctx (preview-hud) (h/scroll-down))]
+    (with-preview ctx preview)))
 
 (defn scroll-stop [ctx]
-  (-> ctx
-      (update :complete-hud h/scroll-stop)
-      (update :persisted-hud h/scroll-stop)))
+  (let [preview   (-> ctx (preview-hud) (h/scroll-stop))
+        persisted (-> ctx (persisted-hud) (h/scroll-stop))]
+    (-> ctx
+        (reset-preview preview)
+        (reset-persisted persisted))))
 
 ;; === REPL ===
 
@@ -304,12 +324,12 @@
   (roll ctx r/travel-forward))
 
 (s/defn evaluate [ctx :- Context] :- Context
-  (let [text    (input-area ctx)
-        server' (-> ctx (server) (r/evaluate! text))
-        result  (r/last-eval server')
-        new-hud (-> ctx
-                    (persisted-hud)
-                    (h/enrich-with [text result caret]))]
+  (let [current-input (input-area ctx)
+        server'       (-> ctx (server) (r/evaluate! current-input))
+        result        (r/last-eval server')
+        new-hud       (-> ctx
+                          (persisted-hud)
+                          (h/enrich-with [current-input result caret]))]
     (-> ctx
         (with-server server')
         (with-text i/empty-line)
@@ -386,8 +406,8 @@
     :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
     :indent (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (clear) (deselect) (highlight) (auto-match) (clear-render) (resize) (continue))
-    :evaluate (-> ctx (gc) (un-suggest) (un-docs) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (un-suggest) (un-docs) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
+    :evaluate (-> ctx (gc) (un-suggest) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     :ignore (continue ctx)
     (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
