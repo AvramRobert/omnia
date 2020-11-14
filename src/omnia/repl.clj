@@ -12,7 +12,7 @@
             [omnia.input :refer [Seeker]]
             [omnia.server :refer [REPLServer]]
             [omnia.render :refer [render!]]
-            [omnia.more :refer [-- ++ inc< dec< mod* omnia-version map-vals Point Region]]
+            [omnia.more :refer [=> -- ++ inc< dec< mod* omnia-version map-vals Point Region]]
             [omnia.config :refer [InternalConfig InternalSyntax]]))
 
 (def Render
@@ -201,7 +201,8 @@
 (defn clear-render [ctx]
   (assoc ctx :render :clear))
 
-(s/defn highlight [ctx :- Context] :- Context
+(s/defn highlight :- Context
+  [ctx :- Context]
   (let [seeker    (-> ctx :complete-hud :seeker)
         scheme    (-> ctx :config :syntax :selection)]
     (if (i/selection? seeker)
@@ -212,7 +213,8 @@
       ctx)))
 
 ;; Question is: Should this thing actually provide a scheme or should I just pick it from the context?
-(s/defn gc [ctx :- Context] :- Context
+(s/defn gc :- Context
+  [ctx :- Context]
   (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
     (assoc ctx :highlights i/empty-map
                :garbage (->> (:highlights ctx)
@@ -221,7 +223,8 @@
                                           :scheme scheme
                                           :styles []}))))))
 
-(s/defn match [ctx :- Context] :- Context
+(s/defn match :- Context
+  [ctx :- Context]
   (if-let [{[xs ys] :start
             [xe ye] :end} (-> ctx (:complete-hud) (:seeker) (i/find-pair))]
     (let [scheme (fn [region]
@@ -233,7 +236,8 @@
           (assoc-in [:highlights :closed-paren] (scheme {:start [xe ye] :end [(inc xe) ye]}))))
     ctx))
 
-(s/defn auto-match [ctx :- Context] :- Context
+(s/defn auto-match :- Context
+  [ctx :- Context]
   (let [seeker (-> ctx :complete-hud :seeker)]
     (cond
       (i/open-pairs (i/right seeker)) (match ctx)
@@ -242,17 +246,22 @@
 
 ;; === Control ===
 
-(defrecord Cont [status ctx])
+(s/def Step
+  {:status (s/enum :continue :terminate)
+   :ctx    Context})
 
-(defn continue [ctx]
-  (Cont. :continue ctx)
-  #_[:continue ctx])
+(s/defn continue :- Step
+  [ctx :- Context]
+  {:status :continue
+   :ctx    ctx})
 
-(defn terminate [ctx]
-  (Cont. :terminate ctx)
-  #_[:terminate ctx])
+(s/defn terminate :- Step
+  [ctx :- Context]
+  {:status :terminate
+   :ctx    ctx})
 
-(s/defn calibrate [ctx :- Context] :- Context
+(s/defn calibrate :- Context
+  [ctx :- Context]
   (let [nov (h/correct-ov (:complete-hud ctx)
                           (:previous-hud ctx))]
     (-> ctx
@@ -272,7 +281,8 @@
           (re-render))
       ctx)))
 
-(s/defn clear [ctx :- Context] :- Context
+(s/defn clear :- Context
+  [ctx :- Context]
   (let [terminal    (terminal ctx)
         repl-server (server ctx)
         new-hud     (h/init-hud terminal repl-server)]
@@ -309,21 +319,25 @@
 
 ;; === REPL ===
 
-(defn roll [ctx f]
-  (let [clipboard (get-in ctx [:seeker :clipboard])
-        then-server   (-> ctx (server) f)
+(s/defn roll :- Context
+  [ctx :- Context, f :- (=> REPLServer REPLServer)]
+  (let [clipboard   (get-in ctx [:seeker :clipboard])
+        then-server (-> ctx (server) f)
         then-seeker (-> (r/then then-server)
                         (i/end)
                         (assoc :clipboard clipboard))]
     (-> ctx (with-server then-server) (with-text then-seeker) (refresh))))
 
-(defn roll-back [ctx]
+(s/defn roll-back :- Context
+  [ctx :- Context]
   (roll ctx r/travel-back))
 
-(defn roll-forward [ctx]
+(s/defn roll-forward :- Context
+  [ctx :- Context]
   (roll ctx r/travel-forward))
 
-(s/defn evaluate [ctx :- Context] :- Context
+(s/defn evaluate :- Context
+  [ctx :- Context]
   (let [current-input (input-area ctx)
         server'       (-> ctx (server) (r/evaluate! current-input))
         result        (r/last-eval server')
@@ -335,7 +349,8 @@
         (with-text i/empty-line)
         (with-hud new-hud))))
 
-(s/defn suggest [ctx :- Context] :- Context
+(s/defn suggest :- Context
+  [ctx :- Context]
   (let [{seeker      :seeker
          repl        :repl
          suggestions :suggestions} ctx
@@ -347,7 +362,8 @@
         (auto-complete)
         (pop-up-riffle suggestions))))
 
-(s/defn sign [ctx :- Context] :- Context
+(s/defn sign :- Context
+  [ctx :- Context]
   (let [{repl   :repl
          seeker :seeker} ctx
         make-lines (fn [{:keys [ns name args]}]
@@ -360,7 +376,8 @@
                            (or i/empty-seeker)
                            (h/window 10))))))
 
-(s/defn document [ctx :- Context] :- Context
+(s/defn document :- Context
+  [ctx :- Context]
   (let [{repl   :repl
          seeker :seeker
          docs   :docs} ctx
@@ -378,7 +395,9 @@
 
 ;; === Input ===
 
-(defn capture [ctx event]
+(s/defn capture :- Context
+  [ctx :- Context
+   event :- e/Event]
   (let [new-input (-> ctx (input-area) (i/process event))]
     (-> ctx (with-text new-input) (refresh))))
 
@@ -394,9 +413,11 @@
 
 ;; === Events ===
 
-(defn process [ctx event]
+(s/defn process :- Step
+  [ctx :- Context
+   event :- e/Event]
   (case (:action event)
-    :inject (-> ctx (inject event) (continue))
+    :inject (-> ctx (inject event) (diff-render) (continue))
     :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
@@ -427,32 +448,36 @@
       character? (e/event e/character key)
       :else      (e/event action))))
 
-(defn render-ret! [^Cont cont]
-  (render! (.ctx cont))
-  cont)
+(s/defn read! :- e/Event
+  [ctx :- Context]
+  (let [key (-> ctx (terminal) (t/get-key!))]
+    (match-stroke ctx key)))
 
-(defn prelude! [^Cont cont]
-  (let [event (e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")]
-    (-> (.ctx cont)
-        (process event)
-        (tsk/task)
-        (tsk/then render-ret!))))
+(s/defn eval-print! :- Step
+  [ctx :- Context, event :- e/Event]
+  (let [step (process ctx event)
+        _    (render! (:ctx step))]
+    step))
 
-(defn read! [terminal ^Cont cont]
+(s/defn prelude!
+  [ctx :- Context]
+  (->> "(require '[omnia.resolution :refer [retrieve retrieve-from]])"
+       (e/event e/inject)
+       (eval-print! ctx)
+       (tsk/task)))
+
+(s/defn run-loop!
+  [step :- Step]
   (tsk/task
-    (loop [current-cont cont]
-      (if (= :continue (.status current-cont))
-        (->> (t/get-key! terminal)
-             (match-stroke (.ctx current-cont))
-             (process (.ctx current-cont))
-             (render-ret!)
-             (recur))
-        current-cont))))
+    (loop [{:keys [status ctx] :as current-step} step]
+      (if (= :continue status)
+        (->> ctx (read!) (eval-print! ctx) (recur))
+        current-step))))
 
 (defn read-eval-print [config terminal repl]
-  (let [cont (continue (context config terminal repl))]
-    (-> (prelude! cont)
-        (tsk/then (partial read! terminal))
+  (let [initial-context (context config terminal repl)]
+    (-> (prelude! initial-context)
+        (tsk/then run-loop!)
         (tsk/then #(do (Thread/sleep 1200) %))
-        (tsk/then #(.ctx ^Cont %))
+        (tsk/then :ctx)
         (tsk/run))))

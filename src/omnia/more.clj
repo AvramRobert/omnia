@@ -10,6 +10,9 @@
   {:start Point
    :end   Point})
 
+(defn => [input-schema output-schema]
+  (s/->FnSchema input-schema output-schema))
+
 (defn inc< [value max]
   (let [x (inc value)]
     (if (> x max) value x)))

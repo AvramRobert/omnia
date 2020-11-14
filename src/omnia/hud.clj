@@ -21,7 +21,8 @@
    :ov      s/Int
    :scroll? s/Bool})
 
-(s/defn hud [fov & prelude] :- Hud
+(s/defn hud :- Hud
+  [fov & prelude]
   "lor = line of reference
      indicates the amount of lines that have been viewed so far
      when going through the history. (seeker + hud)
@@ -43,8 +44,9 @@
 (def empty-hud
   (hud i/empty-seeker))
 
-(s/defn init-hud [terminal :- Terminal,
-                  repl     :- REPLServer] :- Hud
+(s/defn init-hud :- Hud
+  [terminal :- Terminal,
+   repl :- REPLServer]
   (let [fov       (t/size terminal)
         repl-info (nrepl-info (:host repl) (:port repl))]
     (hud fov
@@ -55,7 +57,8 @@
          i/empty-line
          caret)))
 
-(s/defn bottom-y [hud :- Hud] :- s/Int
+(s/defn bottom-y :- s/Int
+  [hud :- Hud]
   "The lower y bound of a page (exclusive)
   bottom-y = height - ov - 1
   Subtract 1 because we count from 0"
@@ -63,7 +66,8 @@
         height (-> hud (:seeker) (:height))]
     (-- height ov 1)))
 
-(s/defn top-y [hud :- Hud] :- s/Int
+(s/defn top-y :- s/Int
+  [hud :- Hud]
   "The upper y bound of a page (inclusive)
   top-y = (height - fov - ov)"
   (let [fov    (:fov hud)
@@ -71,7 +75,8 @@
         height (-> hud (:seeker) (:height))]
     (-- height fov ov)))
 
-(s/defn project-y [hud :- Hud, y :- s/Int] :- s/Int
+(s/defn project-y :- s/Int
+  [hud :- Hud, y :- s/Int]
   "given hud-y, screen-y = hud-y - top-y
    given screen-y, hud-y = screen-y + top-y"
   (let [fov (:fov hud)
@@ -79,17 +84,19 @@
         ys  (top-y hud)]
     (if (> h fov) (- y ys) y)))
 
-(s/defn project-cursor [hud :- Hud] :- Point
+(s/defn project-cursor :- Point
+  [hud :- Hud]
   (let [[x hy] (-> hud :seeker :cursor)
-        y      (project-y hud hy)]
+        y (project-y hud hy)]
     [x y]))
 
-(s/defn project-selection [hud       :- Hud
-                           selection :- Region] :- Region
+(s/defn project-selection :- Region
+  [hud :- Hud
+   selection :- Region]
   (let [fov             (:fov hud)
         h               (-> hud (:seeker) (:height))
-        [xs ys]         (:start selection)
-        [xe ye]         (:end selection)
+        [xs ys] (:start selection)
+        [xe ye] (:end selection)
         top             (top-y hud)
         bottom          (bottom-y hud)
         unpaged?        (< h fov)
@@ -111,7 +118,8 @@
       :else {:start [0 bottom]
              :end   [0 bottom]})))
 
-(s/defn project-hud [hud :- Hud] :- Seeker
+(s/defn project-hud :- Seeker
+  [hud :- Hud]
   (let [{seeker  :seeker
          lor     :lor
          fov     :fov
@@ -122,9 +130,9 @@
       (i/rebase seeker #(->> % (take-right lor) (take fov)))
       (i/rebase seeker #(->> % (drop-last ov) (take-right fov))))))
 
-(s/defn correct-ov
+(s/defn correct-ov :- s/Int
   [hud :- Hud
-   previous-hud :- Hud] :- s/Int
+   previous-hud :- Hud]
   (let [{fov                       :fov
          ov                        :ov
          {h :height [_ y] :cursor} :seeker} hud
@@ -151,14 +159,15 @@
       over-lower? (-- ov (- y lower-y))                     ;; we've exceeded the lower bound
       :else ov)))
 
-(s/defn corrected
-  ([hud :- Hud] :- Hud
+(s/defn corrected :- Hud
+  ([hud :- Hud]
    (corrected hud hud))
   ([hud :- Hud,
-    previous-hud :- Hud] :- Hud
+    previous-hud :- Hud]
    (assoc hud :ov (correct-ov hud previous-hud))))
 
-(s/defn paginate [hud :- Hud] :- Seeker
+(s/defn paginate :- Seeker
+  [hud :- Hud]
   (let [cursor (project-cursor hud)]
     (if (not (zero? (:ov hud)))
       (-> hud
@@ -171,60 +180,73 @@
           (project-hud)
           (i/indent 1)))))
 
-(s/defn window [seeker :- Seeker
-                size   :- s/Int] :- Hud
+(s/defn window :- Hud
+  [seeker :- Seeker
+   size :- s/Int]
   (->> seeker (i/start) (i/end-x) (hud size) (corrected)))
 
 (s/defn riffle [hud :- Hud] :- Hud
-  (let [[_ y]   (-> hud :seeker :cursor)
-        height  (-> hud :seeker :height)
-        y'      (mod* (inc y) height)]
+  (let [[_ y] (-> hud :seeker :cursor)
+        height (-> hud :seeker :height)
+        y'     (mod* (inc y) height)]
     (-> hud (update :seeker #(i/reset-y % y')) (corrected))))
 
 ;; === Screen scrolling ===
 
-(s/defn nowards [hud :- Hud] :- s/Int
+(s/defn nowards :- s/Int
+  [hud :- Hud]
   (let [fov    (:fov hud)
         ov     (:ov hud)
         height (-> hud :seeker :height)]
     (if (> height fov) (+ fov ov) height)))
 
-(s/defn upwards [hud :- Hud] :- s/Int
+(s/defn upwards :- s/Int
+  [hud :- Hud]
   (let [lor    (:lor hud)
         height (-> hud :seeker :height)]
     (inc< lor height)))
 
-(s/defn downwards [hud :- Hud] :- s/Int
+(s/defn downwards :- s/Int
+  [hud :- Hud]
   (let [lor (:lor hud)]
     (dec< lor (nowards hud))))
 
-(s/defn scroll [hud :- Hud f] :- Hud
+(s/defn scroll :- Hud
+  [hud :- Hud f]
   (-> hud
       (assoc :scroll? true)
       (assoc :lor (f hud))))
 
-(s/defn scroll-stop [hud :- Hud] :- Hud
+(s/defn scroll-stop :- Hud
+  [hud :- Hud]
   (-> hud
       (scroll nowards)
       (assoc :scroll? false)))
 
-(s/defn scroll-up [hud :- Hud] :- Hud
+(s/defn scroll-up :- Hud
+  [hud :- Hud]
   (scroll hud upwards))
 
-(s/defn scroll-down [hud :- Hud] :- Hud
+(s/defn scroll-down :- Hud
+  [hud :- Hud]
   (scroll hud downwards))
 
-(s/defn hollow? [hud :- Hud] :- s/Bool
+(s/defn hollow? :- s/Bool
+  [hud :- Hud]
   (-> hud :seeker :lines empty?))
 
-(s/defn enrich-with [hud :- Hud, seekers :- [Seeker]] :- Hud
+(s/defn enrich-with :- Hud
+  [hud :- Hud, seekers :- [Seeker]]
   (update hud :seeker #(apply i/conjoin % seekers)))
 
-(s/defn view [hud :- Hud] :- String
+(s/defn view :- String
+  [hud :- Hud]
   (-> hud (:seeker) (i/debug-string)))
 
-(s/defn text [hud :- Hud] :- Seeker
+(s/defn text :- Seeker
+  [hud :- Hud]
   (:seeker hud))
 
-(s/defn deselect [hud :- Hud] :- Seeker
+(s/defn deselect :- Seeker
+  [hud :- Hud]
   (update hud :seeker i/deselect))

@@ -236,12 +236,14 @@
     {:start start
      :end   end}))
 
-(s/defn adjoin' [this :- Seeker
-                 that :- Seeker] :- Seeker
+(s/defn adjoin' :- Seeker
+  [this :- Seeker
+   that :- Seeker]
   (rebase this #(concat % (:lines that))))
 
-(s/defn conjoin' [this-seeker :- Seeker
-                  that-seeker :- Seeker] :- Seeker
+(s/defn conjoin' :- Seeker
+  [this-seeker :- Seeker
+   that-seeker :- Seeker]
   (let [[x y] (:cursor that-seeker)
         ths   (:height this-seeker)]
     (-> (adjoin' this-seeker that-seeker)
@@ -249,16 +251,20 @@
         (reselect (fn [[xs ys]] [xs (+ ys ths)]))
         (reset-to [x (+ y ths)]))))
 
-(s/defn conjoin [seeker :- Seeker, & seekers :- [Seeker]] :- Seeker
+(s/defn conjoin :- Seeker
+  [seeker :- Seeker, & seekers :- [Seeker]]
   (reduce conjoin' seeker seekers))
 
-(s/defn conjoined [seekers :- [Seeker]] :- Seeker
+(s/defn conjoined :- Seeker
+  [seekers :- [Seeker]]
   (reduce conjoin' empty-seeker seekers))
 
-(s/defn adjoin [seeker :- Seeker, & seekers :- [Seeker]] :- Seeker
+(s/defn adjoin :- Seeker
+  [seeker :- Seeker, & seekers :- [Seeker]]
   (reduce adjoin' seeker seekers))
 
-(s/defn adjoined [seekers :- [Seeker]] :- Seeker
+(s/defn adjoined :- Seeker
+  [seekers :- [Seeker]]
   (reduce adjoin' empty-seeker seekers))
 
 (defn climb [seeker]
@@ -526,19 +532,22 @@
        (mapv #(apply str %))
        (join "\n")))
 
-(s/defn debug-string [seeker :- Seeker] :- String
+(s/defn debug-string :- String
+  [seeker :- Seeker]
   (-> seeker (slicel #(conj % "|")) (stringify)))
 
 (defn print-seeker [seeker]
   (->> seeker (stringify) (println)))
 
-(s/defn indent [seeker :- Seeker
-                amount :- s/Int] :- Seeker
+(s/defn indent :- Seeker
+  [seeker :- Seeker
+   amount :- s/Int]
   (let [padding (repeat amount \space)]
     (rebase seeker (fn [lines] (mapv #(vec (concat padding %)) lines)))))
 
-(s/defn process [seeker :- Seeker
-                 event :- e/InputEvent] :- Seeker
+(s/defn process :- Seeker
+  [seeker :- Seeker
+   event :- e/InputEvent]
   (condp = (:action event)
     e/expand (-> seeker (expand))
     e/select-all (-> seeker (select-all))

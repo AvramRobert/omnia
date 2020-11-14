@@ -172,11 +172,12 @@
         client    (nrepl/client transport timeout)]
     (fn [msg] (-> client (nrepl/message msg) (vec)))))
 
-(s/defn repl [{:as   params
-               :keys [ns port host client timeout history]
-               :or   {timeout 10000
-                      history [i/empty-seeker]
-                      ns      (ns-name *ns*)}}] :- REPLServer
+(s/defn repl :- REPLServer
+  [{:as   params
+    :keys [ns port host client timeout history]
+    :or   {timeout 10000
+           history [i/empty-seeker]
+           ns      (ns-name *ns*)}}]
   (assert (map? params) "Input to `repl` must be a map.")
   (assert (and (not (nil? port))
                (not (nil? host))) "`repl` must receive a host and a port")

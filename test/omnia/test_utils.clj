@@ -137,7 +137,7 @@
    (process ctx event 1))
   ([ctx event n]
    (->> (range 0 n)
-        (reduce (fn [nctx _] (-> nctx (r/process event) (.ctx))) ctx))))
+        (reduce (fn [nctx _] (-> nctx (r/process event) (:ctx))) ctx))))
 
 (defn fov [ctx]
   (get-in ctx [:complete-hud :fov]))
