@@ -45,6 +45,8 @@
 (def delimiter (i/from-string "------"))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
+(def prelude [(e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")
+              (e/event e/clear)])
 
 (s/defn context [config   :- InternalConfig
                  terminal :- Terminal
@@ -433,51 +435,24 @@
     :ignore (continue ctx)
     (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
-(defn match-stroke [ctx stroke]                             ;; I think this should be done in the terminal
-  (let [key    (:key stroke)
-        action (-> ctx (:config) (:keymap) (get stroke))
-        ;control?   (and (char? key)
-        ;                (Character/isISOControl ^Character char)) ;; Swing gives me control characters
-        unknown?   (and (nil? action)
-                        (not (char? key)))
-        character? (and (nil? action)
-                        (char? key))]
-    (cond
-      ;      control?   ()
-      unknown?   (e/event e/ignore)
-      character? (e/event e/character key)
-      :else      (e/event action))))
+(s/defn read-with :- Context
+  [ctx :- Context,
+   event-stream :- [e/Event]]
+  (let [step   (process ctx (first event-stream))
+        status (:status step)
+        ctx'   (:ctx step)
+        _      (render! ctx')]
+    (case status
+      :continue (recur ctx' (rest event-stream))
+      :terminate ctx')))
 
-(s/defn read! :- e/Event
-  [ctx :- Context]
-  (let [key (-> ctx (terminal) (t/get-key!))]
-    (match-stroke ctx key)))
-
-(s/defn eval-print! :- Step
-  [ctx :- Context, event :- e/Event]
-  (let [step (process ctx event)
-        _    (render! (:ctx step))]
-    step))
-
-(s/defn prelude!
-  [ctx :- Context]
-  (->> "(require '[omnia.resolution :refer [retrieve retrieve-from]])"
-       (e/event e/inject)
-       (eval-print! ctx)
-       (tsk/task)))
-
-(s/defn run-loop!
-  [step :- Step]
-  (tsk/task
-    (loop [{:keys [status ctx] :as current-step} step]
-      (if (= :continue status)
-        (->> ctx (read!) (eval-print! ctx) (recur))
-        current-step))))
+(s/defn events-from :- [e/Event]
+  [terminal :- Terminal]
+  (iterate (fn [_] (t/get-event! terminal)) e/ignore))
 
 (defn read-eval-print [config terminal repl]
-  (let [initial-context (context config terminal repl)]
-    (-> (prelude! initial-context)
-        (tsk/then run-loop!)
+  (let [events          (concat prelude (events-from terminal))
+        initial-context (context config terminal repl)]
+    (-> (tsk/task (read-with initial-context events))
         (tsk/then #(do (Thread/sleep 1200) %))
-        (tsk/then :ctx)
         (tsk/run))))

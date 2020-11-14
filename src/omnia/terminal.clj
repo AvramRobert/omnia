@@ -1,6 +1,8 @@
 (ns omnia.terminal
   (:require [schema.core :as s]
-            [omnia.config :as c])
+            [omnia.config :as c]
+            [omnia.event :as e]
+            [omnia.more :refer [=>]])
   (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -78,12 +80,37 @@
    KeyType/EOF            :eof})
 
 (def Terminal
-  {:size     s/Any
-   :move!    s/Any
-   :clear!   s/Any
-   :stop!    s/Any
-   :start!   s/Any
-   :get-key! s/Any})
+  {:size       (=> Terminal s/Int)
+   :move!      (=> Terminal nil)
+   :clear!     (=> Terminal nil)
+   :stop!      (=> Terminal nil)
+   :start!     (=> Terminal nil)
+   :get-event! (=> Terminal e/Event)})
+
+(s/defn to-key-binding :- c/InternalKeyBinding
+  [pressed :- KeyStroke]
+  (let [event (-> pressed (.getKeyType) (key-events))]
+    {:key   (if (= :character event) (.getCharacter pressed) event)
+     :ctrl  (.isCtrlDown pressed)
+     :alt   (.isAltDown  pressed)
+     :shift (.isShiftDown pressed)}))
+
+(s/defn to-event :- e/Event
+  [config :- c/Config,
+   key-binding :- c/InternalKeyBinding]
+  (let [key        (:key key-binding)
+        action     (-> config (:keymap) (get key-binding))
+        ;control?   (and (char? key)
+        ;                (Character/isISOControl ^Character char)) ;; Swing gives me control characters
+        unknown?   (and (nil? action)
+                        (not (char? key)))
+        character? (and (nil? action)
+                        (char? key))]
+    (cond
+      ;      control?   ()
+      unknown?   (e/event e/ignore)
+      character? (e/event e/character key)
+      :else      (e/event action))))
 
 (defn move! [terminal x y]                            ;; FIXME: Find a way to make these implementations
   ((:move! terminal) x y))
@@ -103,18 +130,11 @@
 (defn refresh! [terminal]
   ((:refresh! terminal)))
 
-(defn get-key! [terminal]
-  ((:get-key! terminal)))
+(defn get-event! [terminal]
+  ((:get-event! terminal)))
 
 (defn size [terminal]
   ((:size terminal)))
-
-(defn- match-key [^KeyStroke pressed]
-  (let [event (-> pressed (.getKeyType) (key-events))]
-    {:key   (if (= :character event) (.getCharacter pressed) event)
-     :ctrl  (.isCtrlDown pressed)
-     :alt   (.isAltDown  pressed)
-     :shift (.isShiftDown pressed)}))
 
 (defn- pos [x y]
   (TerminalPosition. x y))
@@ -144,24 +164,24 @@
                      (.setTerminalEmulatorFontConfiguration (derive-font config))
                      (.createTerminalEmulator)
                      (TerminalScreen.))]
-    {:size     (fn []
-                 (-> terminal (.getTerminalSize) (.getRows)))
+    {:size       (fn []
+                   (-> terminal (.getTerminalSize) (.getRows)))
 
-     :move!    (fn [x y]
-                 (.setCursorPosition terminal (pos x y)))
+     :move!      (fn [x y]
+                   (.setCursorPosition terminal (pos x y)))
 
-     :put!     (fn [^Character ch x y fg bg stls]
-                 (.setCharacter terminal x y (text-char ch fg bg stls)))
+     :put!       (fn [^Character ch x y fg bg stls]
+                   (.setCharacter terminal x y (text-char ch fg bg stls)))
 
-     :clear!   (fn [] (.clear terminal))
+     :clear!     (fn [] (.clear terminal))
 
-     :refresh! (fn [] (.refresh terminal))
+     :refresh!   (fn [] (.refresh terminal))
 
-     :stop!    (fn []
-                 (.stopScreen terminal true))
+     :stop!      (fn []
+                   (.stopScreen terminal true))
 
-     :start!   (fn []
-                 (.startScreen terminal))
+     :start!     (fn []
+                   (.startScreen terminal))
 
-     :get-key! (fn []
-                 (-> terminal (.readInput) (match-key)))}))
+     :get-event! (fn []
+                   (->> terminal (.readInput) (to-key-binding) (to-event config)))}))
