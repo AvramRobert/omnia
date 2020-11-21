@@ -356,7 +356,7 @@
 ;; IV. Clearing
 
 (defn clear-remember-persist [ctx]
-  (let [expected-persisted (h/init-hud (:terminal ctx) (:repl ctx))
+  (let [expected-persisted (r/init-hud (:terminal ctx) (:repl ctx))
         expected-complete  (update expected-persisted :seeker #(i/conjoin % (:seeker ctx)))]
     (-> ctx
         (process clear)

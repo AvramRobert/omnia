@@ -94,7 +94,7 @@
   (->> (gen-seeker-of size)
        (gen/fmap
          (fn [hud-seeker]
-           (let [hud (h/hud fov hud-seeker)]
+           (let [hud (-> (h/hud fov) (h/enrich-with [hud-seeker]))]
              (-> (r/context (c/convert c/default-config)
                             (test-terminal {:size (constantly fov)})
                             (server/repl {:host    ""

@@ -45,14 +45,32 @@
 (def delimiter (i/from-string "------"))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
+(def greeting (i/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
+(def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
+(def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
+
+(defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 (def prelude [(e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")])
+
+(s/defn init-hud :- Hud
+  [terminal :- Terminal,
+   repl     :- REPLServer]
+  (let [fov       (t/size terminal)
+        repl-info (nrepl-info (:host repl) (:port repl))]
+    (-> (h/hud fov)
+        (h/enrich-with [greeting
+                        repl-info
+                        clj-version
+                        java-version
+                        i/empty-line
+                        caret]))))
 
 (s/defn context [config   :- InternalConfig
                  terminal :- Terminal
                  repl     :- REPLServer] :- Context
   (let [seeker        i/empty-line
         previous-hud  (h/hud (t/size terminal))
-        persisted-hud (h/init-hud terminal repl)
+        persisted-hud (init-hud terminal repl)
         complete-hud  (h/enrich-with persisted-hud [seeker])]
     {:config        config
      :terminal      terminal
@@ -289,7 +307,7 @@
   [ctx :- Context]
   (let [terminal    (terminal ctx)
         repl-server (server ctx)
-        new-hud     (h/init-hud terminal repl-server)]
+        new-hud     (init-hud terminal repl-server)]
     (with-hud ctx new-hud)))
 
 (defn exit [ctx]

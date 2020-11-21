@@ -7,12 +7,9 @@
             [omnia.terminal :refer [Terminal]]
             [omnia.server :refer [REPLServer]]))
 
-(def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
-(def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
-(def greeting (i/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
 (def caret (i/from-string "Ω =>"))
-(defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 (def continuation (i/from-string "..."))
+(def delimiter (i/from-string "------"))
 
 (def Hud
   {:seeker  Seeker
@@ -22,7 +19,7 @@
    :scroll? s/Bool})
 
 (s/defn hud :- Hud
-  [fov & prelude]
+  [fov :- s/Int]
   "lor = line of reference
      indicates the amount of lines that have been viewed so far
      when going through the history. (seeker + hud)
@@ -35,27 +32,13 @@
      Conceptually it is the same as the `lor`, but only on input seeker level.
    scroll? = scrolling flag
      indicates if there should be scrolled currently"
-  {:seeker  (i/conjoined prelude)
+  {:seeker  i/empty-seeker
    :fov     fov
    :lor     fov
    :ov      0
    :scroll? false})
 
-(def empty-hud
-  (hud i/empty-seeker))
-
-(s/defn init-hud :- Hud
-  [terminal :- Terminal,
-   repl :- REPLServer]
-  (let [fov       (t/size terminal)
-        repl-info (nrepl-info (:host repl) (:port repl))]
-    (hud fov
-         greeting
-         repl-info
-         clj-version
-         java-version
-         i/empty-line
-         caret)))
+(def empty-hud (s/without-fn-validation (hud 0)))
 
 (s/defn bottom-y :- s/Int
   [hud :- Hud]
@@ -144,7 +127,6 @@
         over-lower? (> y lower-y)
         at-lower?   (= y lower-y)
         smaller?    (< h ph)
-        smaller?    (< h ph)
         larger?     (> h ph)
         unpaged?    (and (<= h fov)
                          (<= ph fov))
@@ -180,18 +162,21 @@
           (project-hud)
           (i/indent 1)))))
 
+(s/defn enrich-with :- Hud
+  [hud :- Hud, seekers :- [Seeker]]
+  (update hud :seeker #(apply i/conjoin % seekers)))
+
 (s/defn window :- Hud
   [seeker :- Seeker
    size :- s/Int]
-  (->> seeker (i/start) (i/end-x) (hud size) (corrected)))
+  (let [content (->> seeker (i/start) (i/end-x))]
+    (-> (hud size) (enrich-with [content]) (corrected))))
 
 (s/defn riffle [hud :- Hud] :- Hud
   (let [[_ y] (-> hud :seeker :cursor)
         height (-> hud :seeker :height)
         y'     (mod* (inc y) height)]
     (-> hud (update :seeker #(i/reset-y % y')) (corrected))))
-
-;; === Screen scrolling ===
 
 (s/defn nowards :- s/Int
   [hud :- Hud]
@@ -235,10 +220,6 @@
   [hud :- Hud]
   (-> hud :seeker :lines empty?))
 
-(s/defn enrich-with :- Hud
-  [hud :- Hud, seekers :- [Seeker]]
-  (update hud :seeker #(apply i/conjoin % seekers)))
-
 (s/defn view :- String
   [hud :- Hud]
   (-> hud (:seeker) (i/debug-string)))
@@ -250,3 +231,14 @@
 (s/defn deselect :- Seeker
   [hud :- Hud]
   (update hud :seeker i/deselect))
+
+(s/defn pop-up :- Hud
+  [main :- Hud, embedded :- Hud]
+  (let [paginated (-> embedded (paginate) (:seeker))
+        _ (i/stringify paginated)
+        ph        (-> main :seeker :height)
+        top       (-> main (:seeker) (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> main (:seeker) (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (assoc hud :seeker (-> (i/conjoin top delimiter paginated)
+                           (i/end-x)
+                           (i/adjoin delimiter bottom)))))
