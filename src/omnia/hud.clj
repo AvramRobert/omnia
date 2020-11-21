@@ -1,7 +1,6 @@
 (ns omnia.hud
   (:require [schema.core :as s]
             [omnia.input :as i]
-            [omnia.terminal :as t]
             [omnia.more :refer [Point Region omnia-version ++ -- mod* inc< dec<]]
             [omnia.input :refer [Seeker]]
             [omnia.terminal :refer [Terminal]]
@@ -38,7 +37,8 @@
    :ov      0
    :scroll? false})
 
-(def empty-hud (s/without-fn-validation (hud 0)))
+(s/def empty-hud :- Hud
+  (hud 0))
 
 (s/defn bottom-y :- s/Int
   [hud :- Hud]
@@ -234,11 +234,10 @@
 
 (s/defn pop-up :- Hud
   [main :- Hud, embedded :- Hud]
-  (let [paginated (-> embedded (paginate) (:seeker))
-        _ (i/stringify paginated)
+  (let [paginated (paginate embedded)
         ph        (-> main :seeker :height)
         top       (-> main (:seeker) (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> main (:seeker) (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (assoc hud :seeker (-> (i/conjoin top delimiter paginated)
-                           (i/end-x)
-                           (i/adjoin delimiter bottom)))))
+    (assoc main :seeker (-> (i/conjoin top delimiter paginated)
+                            (i/end-x)
+                            (i/adjoin delimiter bottom)))))

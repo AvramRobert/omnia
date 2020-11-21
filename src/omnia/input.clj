@@ -9,15 +9,16 @@
 
 ;; Instead of changing the history constantly, I can use a cursor over the history as a timeline
 ;; Bump the cursor back and forth over the timeline when I undo or redo
+;; Perhaps the histories don't necessarily need to be seekers
 (def Seeker
   {:lines     [[Character]]
    :cursor    Point
    :height    s/Int
    :expansion (s/enum :word :expr)
-   :history   [Seeker]
-   :rhistory  [Seeker]
+   :history   [(s/recursive #'Seeker)]
+   :rhistory  [(s/recursive #'Seeker)]
    :selection (s/maybe Point)
-   :clipboard (s/maybe Seeker)})
+   :clipboard (s/maybe (s/recursive #'Seeker))})
 
 (def empty-map {})
 (def empty-vec [])
