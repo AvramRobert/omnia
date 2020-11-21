@@ -38,15 +38,14 @@
    :complete-hud  Hud
    :seeker        Seeker
    :suggestions   Hud
-   :docs          s/Any
+   :docs          Hud
    :highlights    Highlights
    :garbage       Highlights})
 
 (def delimiter (i/from-string "------"))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
-(def prelude [(e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")
-              (e/event e/clear)])
+(def prelude [(e/event e/inject "(require '[omnia.resolution :refer [retrieve retrieve-from]])")])
 
 (s/defn context [config   :- InternalConfig
                  terminal :- Terminal
@@ -167,17 +166,20 @@
         bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (rebase ctx (i/adjoin top delimiter paginated delimiter bottom))))
 
-(defn track-suggest [ctx suggestions]
+(s/defn with-suggestions :- Context
+  [ctx :- Context, suggestions :- Hud]
   (assoc ctx :suggestions suggestions))
 
-(defn track-docs [ctx docs]
+(s/defn with-docs :- Context
+  [ctx :- Context, docs :- Hud]
   (assoc ctx :docs docs))
 
-(defn un-suggest [ctx]
+(s/defn reset-suggestions :- Context
+  [ctx :- Context]
   (assoc ctx :suggestions h/empty-hud))
 
-(defn un-docs [ctx]
-  (assoc ctx :docs i/empty-seeker))
+(defn reset-docs [ctx]
+  (assoc ctx :docs h/empty-hud))
 
 (s/defn auto-complete [ctx :- Context] :- Context
   (let [{seeker      :seeker
@@ -360,7 +362,7 @@
                       (-> (r/complete! repl seeker) (h/window 10))
                       (h/riffle suggestions))]
     (-> (remember ctx)
-        (track-suggest suggestions)
+        (with-suggestions suggestions)
         (auto-complete)
         (pop-up-riffle suggestions))))
 
@@ -378,7 +380,7 @@
                            (or i/empty-seeker)
                            (h/window 10))))))
 
-(s/defn document :- Context
+(s/defn documentation :- Context
   [ctx :- Context]
   (let [{repl   :repl
          seeker :seeker
@@ -392,7 +394,7 @@
                         (h/window 15))
                     (h/riffle docs))]
     (-> (remember ctx)
-        (track-docs doc-lines)
+        (with-docs doc-lines)
         (pop-up-riffle doc-lines))))
 
 ;; === Input ===
@@ -420,30 +422,30 @@
    event :- e/Event]
   (case (:action event)
     :inject (-> ctx (inject event) (diff-render) (continue))
-    :docs (-> ctx (gc) (un-suggest) (scroll-stop) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
-    :signature (-> ctx (gc) (un-suggest) (un-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (reset-suggestions) (scroll-stop) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (reset-suggestions) (reset-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    :suggest (-> ctx (gc) (un-docs) (scroll-stop) (suggest) (deselect) (auto-match) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (reset-docs) (scroll-stop) (suggest) (deselect) (auto-match) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (un-suggest) (un-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :indent (-> ctx (gc) (un-suggest) (un-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (un-suggest) (un-docs) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
-    :evaluate (-> ctx (gc) (un-suggest) (un-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (reset-suggestions) (reset-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (reset-suggestions) (reset-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :indent (-> ctx (gc) (reset-suggestions) (reset-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (reset-suggestions) (reset-docs) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
+    :evaluate (-> ctx (gc) (reset-suggestions) (reset-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     :ignore (continue ctx)
-    (-> ctx (gc) (un-suggest) (un-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
+    (-> ctx (gc) (reset-suggestions) (reset-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
-(s/defn read-with :- Context
-  [ctx :- Context,
-   event-stream :- [e/Event]]
-  (let [step   (process ctx (first event-stream))
+(s/defn consume :- Context
+  [ctx    :- Context,
+   events :- [e/Event]]
+  (let [step   (process ctx (first events))
         status (:status step)
         ctx'   (:ctx step)
         _      (render! ctx')]
     (case status
-      :continue (recur ctx' (rest event-stream))
+      :continue (recur ctx' (rest events))
       :terminate ctx')))
 
 (s/defn events-from :- [e/Event]
@@ -453,6 +455,6 @@
 (defn read-eval-print [config terminal repl]
   (let [events          (concat prelude (events-from terminal))
         initial-context (context config terminal repl)]
-    (-> (tsk/task (read-with initial-context events))
+    (-> (tsk/task (consume initial-context events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))
