@@ -527,6 +527,16 @@
         (assoc :rhistory (rest rhistory))
         (assoc :history (-> seeker (forget) (cons history))))))
 
+(s/defn auto-complete :- Seeker
+  [seeker :- Seeker, input :- [Character]]
+  (if (empty? input)
+    seeker
+    (-> seeker
+        (expand)
+        (delete)
+        (slicer #(concat input %))
+        (move-x #(+ % (count input))))))
+
 (defn stringify [seeker]
   (->> seeker
        (:lines)

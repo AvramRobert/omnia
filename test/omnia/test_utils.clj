@@ -58,7 +58,7 @@
        (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
 
 (defn gen-suggestions [size]
-  (->> (gen/vector gen/string-alphanumeric size)
+  (->> (gen/vector (gen/not-empty gen/string-alphanumeric) size)
        (gen/fmap
          (fn [xs]
            (list {:completions

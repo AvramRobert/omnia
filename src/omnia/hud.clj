@@ -108,7 +108,8 @@
          fov     :fov
          ov      :ov
          scroll? :scroll?} hud
-        take-right (fn [n coll] (lazy-seq (take-last n coll)))]
+        take-right (fn [n coll]
+                     (lazy-seq (take-last n coll)))]
     (if scroll?
       (i/rebase seeker #(->> % (take-right lor) (take fov)))
       (i/rebase seeker #(->> % (drop-last ov) (take-right fov))))))
@@ -228,16 +229,21 @@
   [hud :- Hud]
   (:seeker hud))
 
+(s/defn current-line :- [Character]
+  [hud :- Hud]
+  (-> hud (text) (i/line)))
+
 (s/defn deselect :- Seeker
   [hud :- Hud]
   (update hud :seeker i/deselect))
 
-(s/defn pop-up :- Hud
-  [main :- Hud, embedded :- Hud]
-  (let [paginated (paginate embedded)
-        ph        (-> main :seeker :height)
-        top       (-> main (:seeker) (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> main (:seeker) (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (assoc main :seeker (-> (i/conjoin top delimiter paginated)
-                            (i/end-x)
-                            (i/adjoin delimiter bottom)))))
+(s/defn pop-up :- Seeker
+  [hud :- Hud, embedded :- Hud]
+  (let [text      (:seeker hud)
+        paginated (paginate embedded)
+        ph        (:height text)
+        top       (-> text (i/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> text (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (assoc hud :seeker (-> (i/conjoin top delimiter paginated)
+                           (i/end-x)
+                           (i/adjoin delimiter bottom)))))

@@ -118,12 +118,17 @@
     :previous-hud (:complete-hud ctx)
     :complete-hud (-> ctx (:persisted-hud) (h/enrich-with [(:seeker ctx)]))))
 
-(s/defn with-hud [ctx :- Context, hud :- Hud] :- Context
+(s/defn with-hud :- Context
+  [ctx :- Context, hud :- Hud]
   (-> ctx (assoc :persisted-hud hud) (refresh)))
+
+(s/defn with-highlight :- Context
+  [ctx :- Context, highlights :- Highlights]
+  (assoc ctx :highlights highlights))
 
 (s/defn with-preview [ctx :- Context, hud :- Hud] :- Context
   (assoc ctx
-    :previous-hud (:complete-hud hud)
+    :previous-hud (:complete-hud ctx)
     :complete-hud hud))
 
 (s/defn with-text [ctx :- Context, input :- Seeker] :- Context
@@ -198,19 +203,6 @@
 
 (defn reset-docs [ctx]
   (assoc ctx :docs h/empty-hud))
-
-(s/defn auto-complete [ctx :- Context] :- Context
-  (let [{seeker      :seeker
-         suggestions :suggestions} ctx
-        sgst (-> suggestions (:seeker) (i/line))]
-    (seek ctx
-          (if (h/hollow? suggestions)
-            seeker
-            (-> seeker
-                (i/expand)
-                (i/delete)
-                (i/slicer #(concat sgst %))
-                (i/move-x #(+ % (count sgst))))))))
 
 ;; === Rendering ===
 
@@ -371,18 +363,30 @@
         (with-text i/empty-line)
         (with-hud new-hud))))
 
-(s/defn suggest :- Context
+(s/defn suggestion-window :- Hud
   [ctx :- Context]
   (let [{seeker      :seeker
          repl        :repl
-         suggestions :suggestions} ctx
-        suggestions (if (h/hollow? suggestions)
-                      (-> (r/complete! repl seeker) (h/window 10))
-                      (h/riffle suggestions))]
-    (-> (remember ctx)
+         suggestions :suggestions} ctx]
+    (if (h/hollow? suggestions)
+      (-> (r/complete! repl seeker) (h/window 10))
+      (h/riffle suggestions))))
+
+(s/defn suggest :- Context
+  [ctx :- Context]
+  (let [suggestions (suggestion-window ctx)
+        suggestion  (h/current-line suggestions)
+        text        (-> ctx
+                        (input-area)
+                        (i/auto-complete suggestion))
+        preview     (-> ctx
+                        (persisted-hud)
+                        (h/enrich-with [text])
+                        (h/pop-up suggestions))]
+    (-> ctx
         (with-suggestions suggestions)
-        (auto-complete)
-        (pop-up-riffle suggestions))))
+        (with-text text)
+        (with-preview preview))))
 
 (s/defn sign :- Context
   [ctx :- Context]
@@ -443,7 +447,7 @@
     :docs (-> ctx (gc) (reset-suggestions) (scroll-stop) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (reset-suggestions) (reset-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    :suggest (-> ctx (gc) (reset-docs) (scroll-stop) (suggest) (deselect) (auto-match) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (reset-docs) (scroll-stop) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
     :prev-eval (-> ctx (gc) (reset-suggestions) (reset-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
