@@ -38,7 +38,8 @@
    :complete-hud  Hud
    :seeker        Seeker
    :suggestions   Hud
-   :docs          Hud
+   :documentation Hud
+   :signatures    Hud
    :highlights    Highlights
    :garbage       Highlights})
 
@@ -81,10 +82,10 @@
      :complete-hud  complete-hud
      :seeker        seeker
      :suggestions   h/empty-hud
-     :docs          i/empty-seeker
+     :documentation h/empty-hud
+     :signatures    h/empty-hud
      :highlights    i/empty-map
      :garbage       i/empty-map}))
-
 
 (s/defn preview-hud [ctx :- Context] :- Hud
   (:complete-hud ctx))
@@ -193,16 +194,25 @@
   [ctx :- Context, suggestions :- Hud]
   (assoc ctx :suggestions suggestions))
 
-(s/defn with-docs :- Context
-  [ctx :- Context, docs :- Hud]
-  (assoc ctx :docs docs))
+(s/defn with-documentation :- Context
+  [ctx :- Context, documentation :- Hud]
+  (assoc ctx :documentation documentation))
+
+(s/defn with-signatures :- Context
+  [ctx :- Context, signatures :- Hud]
+  (assoc ctx :signatures signatures))
 
 (s/defn reset-suggestions :- Context
   [ctx :- Context]
-  (assoc ctx :suggestions h/empty-hud))
+  (with-suggestions ctx h/empty-hud))
 
-(defn reset-docs [ctx]
-  (assoc ctx :docs h/empty-hud))
+(s/defn reset-documentation :- Context
+  [ctx :- Context]
+  (with-documentation ctx h/empty-hud))
+
+(s/defn reset-signatures :- Context
+  [ctx :- Context]
+  (with-signatures ctx h/empty-hud))
 
 ;; === Rendering ===
 
@@ -226,7 +236,6 @@
                  :styles []})
       ctx)))
 
-;; Question is: Should this thing actually provide a scheme or should I just pick it from the context?
 (s/defn gc :- Context
   [ctx :- Context]
   (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
@@ -388,36 +397,47 @@
         (with-text text)
         (with-preview preview))))
 
-(s/defn sign :- Context
+(s/defn signature-window :- Hud
   [ctx :- Context]
-  (let [{repl   :repl
-         seeker :seeker} ctx
-        make-lines (fn [{:keys [ns name args]}]
-                     (mapv #(i/from-string (str ns "/" name " " %)) args))
-        info-lines (some->> (r/info! repl seeker)
-                            (make-lines)
-                            (i/conjoined))]
-    (-> (remember ctx)
-        (pop-up-static (-> info-lines
-                           (or i/empty-seeker)
-                           (h/window 10))))))
+  (let [{repl       :repl
+         seeker     :seeker
+         signatures :signatures} ctx]
+    (if (h/hollow? signatures)
+      (-> (r/signature! repl seeker) (h/window 10))
+      (h/riffle signatures))))
 
-(s/defn documentation :- Context
+(s/defn signature :- Context
+  [ctx :- Context]
+  (let [signatures (signature-window ctx)
+        text      (input-area ctx)
+        preview   (-> ctx
+                      (persisted-hud)
+                      (h/enrich-with [text])
+                      (h/pop-up signatures))]
+    (-> ctx
+        (with-signatures signatures)
+        (with-preview preview))))
+
+(s/defn documentation-window :- Hud
   [ctx :- Context]
   (let [{repl   :repl
          seeker :seeker
-         docs   :docs} ctx
-        empty-docs {:doc ""}
-        doc-lines (if (empty? (:lines docs))
-                    (-> (r/info! repl seeker)
-                        (or empty-docs)
-                        (:doc)
-                        (i/from-string)
-                        (h/window 15))
-                    (h/riffle docs))]
-    (-> (remember ctx)
-        (with-docs doc-lines)
-        (pop-up-riffle doc-lines))))
+         docs   :documentation} ctx]
+    (if (h/hollow? docs)
+      (-> (r/docs! repl seeker) (h/window 15))
+      (h/riffle docs))))
+
+(s/defn documentation :- Context
+  [ctx :- Context]
+  (let [documentation (documentation-window ctx)
+        text          (input-area ctx)
+        preview       (-> ctx
+                          (persisted-hud)
+                          (h/enrich-with [text])
+                          (h/pop-up documentation))]
+    (-> ctx
+        (with-documentation documentation)
+        (with-preview preview))))
 
 ;; === Input ===
 
@@ -444,20 +464,20 @@
    event :- e/Event]
   (case (:action event)
     :inject (-> ctx (inject event) (diff-render) (continue))
-    :docs (-> ctx (gc) (reset-suggestions) (scroll-stop) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
-    :signature (-> ctx (gc) (reset-suggestions) (reset-docs) (scroll-stop) (deselect) (sign) (auto-match) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (reset-suggestions) (reset-signatures) (scroll-stop) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (reset-suggestions) (reset-documentation) (scroll-stop) (deselect) (signature) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    :suggest (-> ctx (gc) (reset-docs) (scroll-stop) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (reset-documentation) (reset-signatures) (scroll-stop) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (reset-suggestions) (reset-docs) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (reset-suggestions) (reset-docs) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :indent (-> ctx (gc) (reset-suggestions) (reset-docs) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (reset-suggestions) (reset-docs) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
-    :evaluate (-> ctx (gc) (reset-suggestions) (reset-docs) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :indent (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
+    :evaluate (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     :ignore (continue ctx)
-    (-> ctx (gc) (reset-suggestions) (reset-docs) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
+    (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
 (s/defn consume :- Context
   [ctx    :- Context,

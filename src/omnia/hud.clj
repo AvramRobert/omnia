@@ -151,17 +151,14 @@
 
 (s/defn paginate :- Seeker
   [hud :- Hud]
-  (let [cursor (project-cursor hud)]
-    (if (not (zero? (:ov hud)))
-      (-> hud
-          (update :seeker #(i/reset-to % cursor))
-          (project-hud)
-          (i/adjoin continuation)
-          (i/indent 1))
-      (-> hud
-          (update :seeker #(i/reset-to % cursor))
-          (project-hud)
-          (i/indent 1)))))
+  (let [cursor     (project-cursor hud)
+        truncated? (-> hud (:ov) (zero?) (not))
+        extend     #(if truncated? (i/adjoin % continuation) %)]
+    (-> hud
+        (update :seeker #(i/reset-to % cursor))
+        (project-hud)
+        (extend)
+        (i/indent 1))))
 
 (s/defn enrich-with :- Hud
   [hud :- Hud, seekers :- [Seeker]]

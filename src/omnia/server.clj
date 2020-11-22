@@ -3,6 +3,7 @@
             [clojure.tools.nrepl :as nrepl]
             [omnia.more :refer [dec< inc< gulp-or-else]]
             [clojure.string :refer [split trim-newline join]]
+            [omnia.input :refer [Seeker]]
             [halfling.task :refer [task]]
             [omnia.input :as i]
             [omnia.format :as f]
@@ -28,6 +29,8 @@
          cider.nrepl.middleware.out/wrap-out]
        (map resolve)
        (apply server/default-handler)))
+
+(def ^:private empty-docs {:doc ""})
 
 (defn read-history [path]
   (task
@@ -153,8 +156,19 @@
        :ns   ns
        :doc  (if (empty? doc) "" doc)})))
 
-(defn out-subscribe! [repl]
-  (send! repl out-sub-msg))
+(s/defn docs! :- Seeker
+  [repl   :- REPLServer
+   seeker :- Seeker]
+  (or (some-> (info! repl seeker) (:doc) (i/from-string))
+      i/empty-seeker))
+
+(s/defn signature! :- Seeker
+  [repl :- REPLServer
+   seeker :- Seeker]
+  (let [candidates (fn [{:keys [ns name args]}]
+                     (mapv #(i/from-string (str ns "/" name " " %)) args))]
+    (or (some-> (info! repl seeker) (candidates) (i/conjoined))
+        i/empty-seeker)))
 
 (defn read-out! [repl]
   (send! repl read-out-msg))
