@@ -615,98 +615,57 @@
 ;; XI. Pop-ups
 
 (defn pop-up-with-calibration [ctx content]
-  (let [window  (->> content (:height) (h/window content))
+  (let [window  (->> content (:height) (h/riffle-window content))
         context (-> ctx (move-top-fov) (process up 2))]
-    (is (= 2 (-> context (r/pop-up-static window) (ov))))
-    (is (= 2 (-> context (process down 2) (r/pop-up-static window) (ov))))
-    (is (= 2 (-> context (move-bottom-fov) (r/pop-up-static window) (ov))))
-    (is (= 1 (-> context (move-bottom-fov) (process down) (r/pop-up-static window) (ov))))))
+    (is (= 2 (-> context (pop-up window) (:ov))))
+    (is (= 2 (-> context (process down 2) (pop-up window) (h/overview))))
+    (is (= 2 (-> context (move-bottom-fov) (pop-up window) (h/overview))))
+    (is (= 1 (-> context (move-bottom-fov) (process down) (pop-up window) (h/overview))))))
 
-(defn empty-pop-up-window [ctx]
-  (let [window   (h/window i/empty-seeker 10)
-        expected (i/conjoin r/delimiter i/empty-seeker r/delimiter)
-        actual   (-> ctx
-                     (move-end-fov)
-                     (r/pop-up-static window)
-                     (:complete-hud)
-                     (:seeker)
-                     (i/rebase #(take-last 2 %)))]
-    (<=>seeker expected actual)))
 
 (defn pop-up-window [ctx content]
-  (let [size     (:height content)
-        expected (i/conjoin r/delimiter (i/indent content 1) r/delimiter)
-        actual   (-> ctx
-                     (move-end-fov)
-                     (r/pop-up-static (h/window content size))
-                     (:complete-hud)
-                     (:seeker)
-                     (i/rebase #(take-last (+ size 2) %)))]
+  (let [content-size (:height content)
+        window       (h/riffle-window content content-size)
+        text         (r/input-area ctx)
+        pop-up-size  (+ content-size 2)
+        expected     (-> (i/conjoin text r/delimiter (i/indent content 1) r/delimiter)
+                         (i/rebase #(take-last pop-up-size %)))
+        actual       (-> ctx
+                         (move-end-fov)
+                         (pop-up window)
+                         (h/text)
+                         (i/rebase #(take-last pop-up-size %)))]
+    (is (= (-> actual (i/start) (i/line)) (i/line r/delimiter)))
+    (is (= (-> actual (i/end) (i/line)) (i/line r/delimiter)))
     (<=>seeker expected actual)))
 
-(defn pop-up-statically [ctx content]
-  (let [window          (h/window content (:height content))
-        expected-cursor (-> ctx :complete-hud :seeker :cursor)]
-    (is (= expected-cursor
-           (-> ctx
-               (r/pop-up-static window)
-               (:complete-hud)
-               (:seeker)
-               (:cursor))))
-    (is (= expected-cursor
-           (->> window
-                (h/riffle)
-                (r/pop-up-static ctx)
-                (:complete-hud)
-                (:seeker)
-                (:cursor))))))
+(defn empty-pop-up-window [ctx]
+  (pop-up-window ctx i/empty-seeker))
+
+(defn framed-pop-up [ctx]
+  (pop-up-window ctx (one (gen-seeker-of 5))))
 
 (defn pop-up-riffled [ctx content]
-  (let [window (h/window content (- (:height content) 2))
-        [x _] (-> content (i/start) (i/end-x) (:cursor))
-        [_ y] (-> ctx :complete-hud :seeker :cursor)
-        line   #(-> window (:seeker) (i/reset-y %) (i/indent 1) (i/line))]
-    (is (= [(+ x 1) (+ y 2)]                                ;; + x 1 because indentation
-           (-> ctx
-               (r/pop-up-riffle window)
-               (:complete-hud)
-               (:seeker)
-               (:cursor))))
-    (is (= (line 1)
-           (->> window
-                (h/riffle)
-                (r/pop-up-riffle ctx)
-                (:complete-hud)
-                (:seeker)
-                (i/line))))
-    (is (= (line 4)
-           (->> window
-                (h/riffle)
-                (h/riffle)
-                (h/riffle)
-                (h/riffle)
-                (r/pop-up-riffle ctx)
-                (:complete-hud)
-                (:seeker)
-                (i/line))))
-    (is (= (line 0)
-           (->> window
-                (h/riffle)
-                (h/riffle)
-                (h/riffle)
-                (h/riffle)
-                (h/riffle)
-                (r/pop-up-riffle ctx)
-                (:complete-hud)
-                (:seeker)
-                (i/line))))))
-
+  (let [content-size (:height content)
+        window       (h/riffle-window content content-size)
+        preview      (r/preview-hud ctx)
+        line         #(-> window (h/text) (i/reset-y %) (i/indent 1) (i/line))
+        riffled-line #(->> window
+                           (iterate h/riffle)
+                           (take (inc %))
+                           (last)
+                           (h/pop-up preview)
+                           (h/text)
+                           (i/line))]
+    (is (= (line 0) (riffled-line 0)))
+    (is (= (line 1) (riffled-line 1)))
+    (is (= (line 4) (riffled-line 4)))
+    (is (= (line 0) (riffled-line 5)))))
 
 (defn pop-ups [ctx]
   (empty-pop-up-window ctx)
-  (pop-up-window ctx (one (gen-seeker-of 5)))
+  (framed-pop-up ctx)
   (pop-up-with-calibration ctx (one (gen-seeker-of 5)))
-  (pop-up-statically ctx (one (gen-seeker-of 5)))
   (pop-up-riffled ctx (one (gen-seeker-of 5))))
 
 (defspec pop-up-test

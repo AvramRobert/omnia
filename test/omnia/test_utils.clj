@@ -3,6 +3,8 @@
             omnia.input
             [clojure.test.check.generators :as gen]
             [clojure.test :refer [is]]
+            [omnia.hud :refer [Hud]]
+            [omnia.repl :refer [Context]]
             [schema.core :as s]
             [omnia.more :refer [--]]
             [omnia.config :as c]
@@ -25,9 +27,6 @@
 
 (defmacro <=>hud [this-hud that-hud]
   `(<=>seeker (:seeker ~this-hud) (:seeker ~that-hud)))
-
-(s/defn has-seeker [hud :- h/Hud seeker :- i/Seeker]
-  (is (= (:seeker hud) seeker)))
 
 (defmacro can-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -94,17 +93,14 @@
   (->> (gen-seeker-of size)
        (gen/fmap
          (fn [hud-seeker]
-           (let [hud (-> (h/hud fov) (h/enrich-with [hud-seeker]))]
-             (-> (r/context (c/convert c/default-config)
-                            (test-terminal {:size (constantly fov)})
-                            (server/repl {:host    ""
-                                          :port    0
-                                          :history history
-                                          :client  (constantly receive)}))
-                 (r/seek seeker)
-                 (r/persist hud)
-                 (r/rebase)
-                 (r/remember)))))))
+           (-> (r/context (c/convert c/default-config)
+                          (test-terminal {:size (constantly fov)})
+                          (server/repl {:host    ""
+                                        :port    0
+                                        :history history
+                                        :client  (constantly receive)}))
+               (r/with-text seeker)
+               (r/with-hud (h/hud hud-seeker fov)))))))
 
 (def up (e/event e/up))
 (def down (e/event e/down))
@@ -248,3 +244,7 @@
       (update :seeker i/end-x)
       (r/rebase)
       (r/remember)))
+
+(s/defn pop-up :- Hud
+  [ctx :- Context, window :- Hud]
+  (-> ctx (r/preview-hud) (h/pop-up window)))

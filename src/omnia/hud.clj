@@ -18,27 +18,37 @@
    :scroll? s/Bool})
 
 (s/defn hud :- Hud
-  [fov :- s/Int]
-  "lor = line of reference
-     indicates the amount of lines that have been viewed so far
-     when going through the history. (seeker + hud)
+  "A hud is a structure enclosing some form of text that supports
+   projecting that text within a bounded view.
+   It uses the following attributes to keep track of the projection.
    fov = field of view
-     indicates the amount of lines that can be viewed at one time
-     in the terminal screen
+       -> the size of the projected view. Amount of lines that can be viewed at one time.
+
+   lor = line of reference
+       -> the offset of scrolling. How many lines left when scrolling upwards.
+
    ov  = overview
-     indicates the amount of lines that have been viewed so far
-     when going back just through the input seeker itself. (seeker)
-     Conceptually it is the same as the `lor`, but only on input seeker level.
+       -> offset withing the bounded view.
+       -> Even though the view is bounded by `fov`, the cursor can still navigate the entire text.
+          To move the view properly, this offset keeps track of when the cursor has moved beyond the bounds
+          of `fov` and by how many lines
+
    scroll? = scrolling flag
-     indicates if there should be scrolled currently"
-  {:seeker  i/empty-seeker
-   :fov     fov
-   :lor     fov
-   :ov      0
+       -> indicates if it's currently being scrolled"
+  [seeker :- Seeker
+   fov    :- s/Int]
+  {:seeker seeker
+   :fov    fov
+   :lor    fov
+   :ov     0
    :scroll? false})
 
+(s/defn hud-of :- Hud
+  [fov :- s/Int]
+  (hud i/empty-seeker fov))
+
 (s/def empty-hud :- Hud
-  (hud 0))
+  (hud-of 0))
 
 (s/defn bottom-y :- s/Int
   [hud :- Hud]
@@ -164,11 +174,11 @@
   [hud :- Hud, seekers :- [Seeker]]
   (update hud :seeker #(apply i/conjoin % seekers)))
 
-(s/defn window :- Hud
+(s/defn riffle-window :- Hud
   [seeker :- Seeker
    size :- s/Int]
   (let [content (->> seeker (i/start) (i/end-x))]
-    (-> (hud size) (enrich-with [content]) (corrected))))
+    (-> (hud-of size) (enrich-with [content]) (corrected))))
 
 (s/defn riffle [hud :- Hud] :- Hud
   (let [[_ y] (-> hud :seeker :cursor)
@@ -233,6 +243,14 @@
 (s/defn deselect :- Seeker
   [hud :- Hud]
   (update hud :seeker i/deselect))
+
+(s/defn reset-overview :- Hud
+  [hud :- Hud]
+  (assoc hud :ov 0))
+
+(s/defn overview :- s/Int
+  [hud :- Hud]
+  (:ov hud))
 
 (s/defn pop-up :- Seeker
   [hud :- Hud, embedded :- Hud]

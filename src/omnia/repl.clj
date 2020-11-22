@@ -12,7 +12,7 @@
             [omnia.input :refer [Seeker]]
             [omnia.server :refer [REPLServer]]
             [omnia.render :refer [render!]]
-            [omnia.more :refer [=> -- ++ inc< dec< mod* omnia-version map-vals Point Region]]
+            [omnia.more :refer [=> omnia-version map-vals Region]]
             [omnia.config :refer [InternalConfig InternalSyntax]]))
 
 (def Render
@@ -58,7 +58,7 @@
    repl     :- REPLServer]
   (let [fov       (t/size terminal)
         repl-info (nrepl-info (:host repl) (:port repl))]
-    (-> (h/hud fov)
+    (-> (h/hud-of fov)
         (h/enrich-with [greeting
                         repl-info
                         clj-version
@@ -70,7 +70,7 @@
                  terminal :- Terminal
                  repl     :- REPLServer] :- Context
   (let [seeker        i/empty-line
-        previous-hud  (h/hud (t/size terminal))
+        previous-hud  (h/hud-of (t/size terminal))
         persisted-hud (init-hud terminal repl)
         complete-hud  (h/enrich-with persisted-hud [seeker])]
     {:config        config
@@ -153,42 +153,8 @@
 (s/defn preserve [ctx & seekers] :- Context
   (update-in ctx [:complete-hud :seeker] #(reduce i/conjoin % seekers)))
 
-(s/defn persist
-  ([ctx :- Context] :- Context
-   (persist ctx (:complete-hud ctx)))
-  ([ctx :- Context
-    hud :- Hud] :- Context
-   (assoc ctx :persisted-hud hud)))
-
 (s/defn remember [ctx :- Context] :- Context
   (assoc ctx :previous-hud (:complete-hud ctx)))
-
-(s/defn seek [ctx    :- Context
-              seeker :- Seeker] :- Context
-  (->> (get-in ctx [:seeker :clipboard])
-       (or (:clipboard seeker))
-       (assoc seeker :clipboard)
-       (assoc ctx :seeker)))
-
-(s/defn pop-up-riffle [ctx :- Context
-                       hud :- Hud] :- Context
-  (let [seeker    (:seeker ctx)
-        paginated (h/paginate hud)
-        ph        (-> hud :seeker :height)
-        top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (rebase ctx (-> (i/conjoin top delimiter paginated)
-                    (i/end-x)
-                    (i/adjoin delimiter bottom)))))
-
-(s/defn pop-up-static [ctx :- Context
-                       hud :- Hud] :- Context
-  (let [seeker    (:seeker ctx)
-        paginated (h/paginate hud)
-        ph        (-> hud :seeker :height)
-        top       (-> seeker (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> seeker (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (rebase ctx (i/adjoin top delimiter paginated delimiter bottom))))
 
 (s/defn with-suggestions :- Context
   [ctx :- Context, suggestions :- Hud]
@@ -311,12 +277,16 @@
         new-hud     (init-hud terminal repl-server)]
     (with-hud ctx new-hud)))
 
-(defn exit [ctx]
-  (-> (preserve ctx goodbye)
-      (assoc-in [:persisted-hud :ov] 0)
-      (assoc-in [:complete-hud :ov] 0)))
+(s/defn exit :- Context
+  [ctx :- Context]
+  (let [preview (-> ctx
+                    (preview-hud)
+                    (h/enrich-with [goodbye])
+                    (h/reset-overview))]
+    (with-preview ctx preview)))
 
-(defn deselect [ctx]
+(s/defn deselect :- Context
+  [ctx :- Context]
   (let [preview   (-> ctx (preview-hud) (h/deselect))
         persisted (-> ctx (persisted-hud) (h/deselect))
         input     (-> ctx (input-area) (i/deselect))]
@@ -325,15 +295,18 @@
         (reset-persisted persisted)
         (reset-input input))))
 
-(defn scroll-up [ctx]
+(s/defn scroll-up :- Context
+  [ctx :- Context]
   (let [preview (-> ctx (preview-hud) (h/scroll-up))]
     (with-preview ctx preview)))
 
-(defn scroll-down [ctx]
+(s/defn scroll-down :- Context
+  [ctx :- Context]
   (let [preview (-> ctx (preview-hud) (h/scroll-down))]
     (with-preview ctx preview)))
 
-(defn scroll-stop [ctx]
+(s/defn scroll-stop :- Context
+  [ctx :- Context]
   (let [preview   (-> ctx (preview-hud) (h/scroll-stop))
         persisted (-> ctx (persisted-hud) (h/scroll-stop))]
     (-> ctx
@@ -378,7 +351,7 @@
          repl        :repl
          suggestions :suggestions} ctx]
     (if (h/hollow? suggestions)
-      (-> (r/complete! repl seeker) (h/window 10))
+      (-> (r/complete! repl seeker) (h/riffle-window 10))
       (h/riffle suggestions))))
 
 (s/defn suggest :- Context
@@ -403,7 +376,7 @@
          seeker     :seeker
          signatures :signatures} ctx]
     (if (h/hollow? signatures)
-      (-> (r/signature! repl seeker) (h/window 10))
+      (-> (r/signature! repl seeker) (h/riffle-window 10))
       (h/riffle signatures))))
 
 (s/defn signature :- Context
@@ -424,7 +397,7 @@
          seeker :seeker
          docs   :documentation} ctx]
     (if (h/hollow? docs)
-      (-> (r/docs! repl seeker) (h/window 15))
+      (-> (r/docs! repl seeker) (h/riffle-window 15))
       (h/riffle docs))))
 
 (s/defn documentation :- Context
@@ -447,12 +420,15 @@
   (let [new-input (-> ctx (input-area) (i/process event))]
     (-> ctx (with-text new-input) (refresh))))
 
-(defn reformat [ctx]
+(s/defn reformat :- Context
+  [ctx :- Context]
   (let [formatted (-> ctx (input-area) (f/format-seeker))]
     (-> ctx (with-text formatted) (refresh))))
 
-(defn inject [ctx event]
-  (let [repl (:repl ctx)
+(s/defn inject :- Context
+  [ctx   :- Context
+   event :- e/Event]
+  (let [repl (server ctx)
         _    (->> event (:value) (i/from-string) (r/evaluate! repl))
         _    (r/read-out! repl)]
     ctx))
