@@ -58,24 +58,24 @@
 ;; I. Calibrating
 
 (defn exceed-upper-bound [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (can-be #(-> % (process up) (ov) (= 1))
               #(-> % (process up 2) (ov) (= 2))
               #(-> % (process up 3) (ov) (= 2)))))
 
 (defn exceed-lower-bound [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (process up 2)
-      (move-bottom-fov)
+      (at-view-bottom)
       (can-be #(= (ov %) 2)
               #(-> % (process down) (ov) (= 1))
               #(-> % (process down 2) (ov) (= 0))
               #(-> % (process down 3) (ov) (= 0)))))
 
 (defn exceed-lower-bound-non-incrementally [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (process up 2)
-      (move-bottom-fov)
+      (at-view-bottom)
       (update :seeker #(i/move % (fn [[x y]] [x (+ 2 y)])))
       (r/preserve)
       (r/rebase)
@@ -83,7 +83,7 @@
       (can-be #(= (ov %) 0))))
 
 (defn exceed-upper-bound-non-incrementally [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (update :seeker #(i/move % (fn [[x y]] [x (- 2 y)])))
       (r/preserve)
       (r/rebase)
@@ -91,39 +91,40 @@
       (can-be #(= (ov %) 2))))
 
 (defn scroll-upper-bound [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (process up)
       (process down 6)
       (can-be #(= (ov %) 1))))
 
 (defn scroll-lower-bound [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (process up)
-      (move-bottom-fov)
+      (at-view-bottom)
       (process up 6)
       (can-be #(= (ov %) 1))))
 
 
 (defn correct-under-deletion-top [ctx]
   (-> (from-start ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
       (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
               #(-> % (process select-down 2) (process backspace) (ov) (= 0))
               #(-> % (process select-down 3) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-end [ctx]
-  (-> (from-start ctx)
-      (move-end-fov)
+  (-> ctx
+      (at-input-end)
+      (at-line-start)
       (can-be #(= (ov %) 0)
               #(-> % (process up) (process select-down) (process backspace) (ov) (= 0))
               #(-> % (process up 2) (process select-down) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-bottom [ctx]
   (-> (from-start ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
-      (move-bottom-fov)
+      (at-view-bottom)
       (can-be #(= (ov %) 2)
               #(-> % (process up) (process select-down) (process backspace) (ov) (= 1))
               #(-> % (process select-up) (process backspace) (ov) (= 1))
@@ -132,32 +133,34 @@
 
 (defn correct-under-deletion-in-multi-line [ctx]
   (-> (from-start ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
       (process down 4)
       (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
               #(-> % (process select-down 2) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-insertion-top [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (can-be #(-> % (process enter) (ov) (= 1))
               #(-> % (process enter) (process enter) (ov) (= 2)))))
 
 (defn correct-under-insertion-bottom [ctx]
   (-> (from-end ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
-      (move-bottom-fov)
+      (at-view-bottom)
       (process enter 10)
       (can-be #(= (ov %) 2))))
 
 (defn correct-under-insertion-end [ctx]
-  (-> (move-end-fov ctx)
+  (-> ctx
+      (at-input-end)
+      (at-line-start)
       (process enter 10)
       (can-be #(= (ov %) 0))))
 
 (defn correct-under-insertion-in-multi-line [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (process up 2)
       (process down 3)
       (can-be #(= (ov %) 2)
@@ -166,9 +169,9 @@
 
 (defn correct-under-multi-copied-insertion [ctx]
   (-> (from-end ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
-      (move-bottom-fov)
+      (at-view-bottom)
       (process select-up 2)
       (process copy)
       (can-be #(-> % (process paste) (ov) (= 4))
@@ -176,7 +179,7 @@
 
 (defn correct-under-multi-selected-deletion [ctx]
   (-> (from-start ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
       (process down 3)
       (process select-up 2)
@@ -185,7 +188,7 @@
 
 (defn correct-under-change-variance [ctx]
   (-> (from-end ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
       (process down 3)
       (process enter)
@@ -199,7 +202,7 @@
 
 (defn correct-under-rebounded-deletion [ctx]
   (-> (from-end ctx)
-      (move-top-fov)
+      (at-main-view-start)
       (process up 2)
       (process select-down 10)
       (process backspace)
@@ -207,21 +210,21 @@
 
 
 (defn correct-under-hud-enlargement [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
 
       (can-be #(-> % (process up 2) (enlarge-by 1) (process down) (ov) (= 1))
               #(-> % (process up 2) (enlarge-by 2) (process down) (ov) (= 0))
               #(-> % (process select-all) (process backspace) (enlarge-by 2) (process down) (ov) (= 0)))))
 
 (defn correct-under-hud-shrinking [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (can-be #(-> % (process up 2) (shrink-by 1) (process down) (ov) (= 3))
               #(-> % (process up 2) (shrink-by 2) (process down) (ov) (= 4))
               #(-> % (process up 2) (shrink-by 3) (process down) (ov) (= 5))
               #(-> % (process select-all) (process backspace) (shrink-by 3) (process down) (ov) (= 0)))))
 
 (defn correct-under-hud-size-variance [ctx]
-  (-> (move-top-fov ctx)
+  (-> (at-main-view-start ctx)
       (can-be #(-> % (process up 2) (enlarge-by 2) (shrink-by 2) (ov) (= 2))
               #(-> % (process up 2) (enlarge-by 2) (shrink-by 1) (process down) (ov) (= 1))
               #(-> % (process up 2) (shrink-by 2) (enlarge-by 1) (process down) (ov) (= 3))
@@ -289,7 +292,7 @@
       (is)))
 
 (defn scroll-ending-with-ov [ctx]
-  (let [offset (-> (move-top-fov ctx) (process up 2))
+  (let [offset (-> (at-main-view-start ctx) (process up 2))
         ov     (get-in offset [:complete-hud :ov])
         fov    (get-in offset [:complete-hud :fov])]
     (-> offset
@@ -300,17 +303,18 @@
         (is))))
 
 (defn scroll-reset [ctx]
-  (let [lor' (get-in ctx [:complete-hud :lor])]
-    (-> (move-end-fov ctx)
-        (process scroll-up 5)
-        (process (char-key \a))
-        (lor)
-        (= lor')
-        (is))))
+  (let [expected-lor (get-in ctx [:complete-hud :lor])
+        actual-lor (-> ctx
+                       (at-input-end)
+                       (at-line-start)
+                       (process scroll-up 5)
+                       (process (char-key \a))
+                       (lor))]
+    (is (= expected-lor actual-lor))))
 
 (defn scroll-reset-with-ov [ctx]
   (let [fov (get-in ctx [:complete-hud :fov])]
-    (-> (move-top-fov ctx)
+    (-> (at-main-view-start ctx)
         (process up)
         (process scroll-up 5)
         (process (char-key \a))
@@ -337,7 +341,9 @@
 ;; III. Capturing
 
 (defn capture-and-remember [ctx]
-  (-> (move-end-fov ctx)
+  (-> ctx
+      (at-input-end)
+      (at-line-start)
       (process (char-key \a))
       (can-be #(-> (:complete-hud %) (:seeker) (i/left) (= \a))
               #(-> (:seeker %) (i/left) (= \a))
@@ -465,7 +471,7 @@
 (defn suggestion-override [ctx]
   (let [suggestions    (suggestions ctx)
         suggestion-at  (fn [th] (-> (i/reset-y suggestions th) (i/line)))
-        end            (move-end-fov ctx)
+        end            (-> ctx (at-input-end) (at-line-start))
         replaced-point (cursor end)]
     (can-be end
             #(-> % (process suggest) (:complete-hud) (:seeker) (i/reset-to replaced-point) (i/line) (= (suggestion-at 0)))
@@ -486,7 +492,7 @@
            (suggesting tctx)))
 
 (defn no-override [ctx]
-  (let [end            (move-end-fov ctx)
+  (let [end            (-> ctx (at-input-end) (at-line-start))
         current-line   (-> end (:complete-hud) (:seeker) (i/line))
         current-cursor (-> end (:complete-hud) (:seeker) (:cursor))]
     (-> end
@@ -511,8 +517,8 @@
 ;; IX. Highlighting
 
 (defn queue-highlights [ctx]
-  (let [top    (-> (from-start ctx) (move-top-fov))
-        bottom (-> (from-start ctx) (move-top-fov) (move-bottom-fov))
+  (let [top    (-> (from-start ctx) (at-main-view-start))
+        bottom (-> (from-start ctx) (at-main-view-start) (at-view-bottom))
         [xt yt] (get-in top [:complete-hud :seeker :cursor])
         [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
     (can-be top
@@ -521,7 +527,7 @@
                  (:selection)
                  (highlights? {:start [xt yt]
                                :end   [xt (+ yt 4)]}))
-            #(-> (move-bottom-fov %)
+            #(-> (at-view-bottom %)
                  (process select-up 4)
                  (:highlights)
                  (:selection)
@@ -529,8 +535,8 @@
                                :end   [xb yb]})))))
 
 (defn garbage-collect-highlights [ctx]
-  (let [top    (-> (from-start ctx) (move-top-fov))
-        bottom (-> (from-start ctx) (move-top-fov) (move-bottom-fov))
+  (let [top    (-> (from-start ctx) (at-main-view-start))
+        bottom (-> (from-start ctx) (at-main-view-start) (at-view-bottom))
         [xt yt] (get-in top [:complete-hud :seeker :cursor])
         [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
     (can-be top
@@ -540,7 +546,7 @@
                  (:selection)
                  (highlights? {:start [xt yt]
                                :end   [xt (+ yt 4)]}))
-            #(-> (move-bottom-fov %)
+            #(-> (at-view-bottom %)
                  (process select-up 4)
                  (process enter)
                  (:garbage)
@@ -551,7 +557,7 @@
                  (process enter)
                  (:highlights)
                  (= i/empty-map))
-            #(-> (move-bottom-fov %)
+            #(-> (at-view-bottom %)
                  (process select-up 4)
                  (process enter)
                  (:highlights)
@@ -616,11 +622,11 @@
 
 (defn pop-up-with-calibration [ctx content]
   (let [window  (->> content (:height) (h/riffle-window content))
-        context (-> ctx (move-top-fov) (process up 2))]
+        context (-> ctx (at-main-view-start) (process up 2))]
     (is (= 2 (-> context (pop-up window) (:ov))))
     (is (= 2 (-> context (process down 2) (pop-up window) (h/overview))))
-    (is (= 2 (-> context (move-bottom-fov) (pop-up window) (h/overview))))
-    (is (= 1 (-> context (move-bottom-fov) (process down) (pop-up window) (h/overview))))))
+    (is (= 2 (-> context (at-view-bottom) (pop-up window) (h/overview))))
+    (is (= 1 (-> context (at-view-bottom) (process down) (pop-up window) (h/overview))))))
 
 
 (defn pop-up-window [ctx content]
@@ -631,7 +637,8 @@
         expected     (-> (i/conjoin text r/delimiter (i/indent content 1) r/delimiter)
                          (i/rebase #(take-last pop-up-size %)))
         actual       (-> ctx
-                         (move-end-fov)
+                         (at-input-end)
+                         (at-line-start)
                          (pop-up window)
                          (h/text)
                          (i/rebase #(take-last pop-up-size %)))]
@@ -686,22 +693,22 @@
 
 (defn unchanged-selection [ctx]
   (-> ctx
-      (move-start-fov)
+      (at-input-start)
       (process select-right 12)
       (process ignore)
       (:highlights)
       (can-be #(not (nil? (:selection %))))))
 
 (defn unchanged-scrolling [ctx]
-  (let [offset      2
-        initial-lor (-> ctx (:complete-hud) (:lor))]
-    (-> ctx
-        (move-end-fov)
-        (process scroll-up offset)
-        (process ignore)
-        (lor)
-        (= (+ offset initial-lor))
-        (is))))
+  (let [offset       2
+        initial-lor  (-> ctx (:complete-hud) (:lor))
+        expected-lor (+ offset initial-lor)
+        actual-lor   (-> ctx
+                         (at-input-end)
+                         (process scroll-up offset)
+                         (process ignore)
+                         (lor))]
+    (is (= expected-lor actual-lor))))
 
 (defn ignores [ctx]
   (unchanged-highlights ctx)

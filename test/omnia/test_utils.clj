@@ -206,30 +206,47 @@
 (defn empty-garbage [ctx]
   (assoc ctx :garbage i/empty-vec))
 
-(defn move-start-fov [ctx]
-  (->> (update ctx :seeker (comp i/start-x i/start-y))
-       (r/rebase)
-       (r/remember)))
+(s/defn at-input-start :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/start))]
+    (-> ctx (r/with-text text) (r/refresh))))
 
-(defn move-end-fov [ctx]
-  (->> (update ctx :seeker (comp i/start-x i/end))
-       (r/rebase)
-       (r/remember)))
+(s/defn at-input-end :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/end))]
+    (-> ctx (r/with-text text) (r/refresh))))
 
-(defn move-top-fov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
-        top #(-- % (dec fov))]                              ;; (dec) because you want to land on the fov'th line
-    (-> (move-end-fov ctx)
-        (update :seeker #(i/move-y % top))
-        (r/rebase)
-        (r/remember))))
+(s/defn at-line-start :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/start-x))]
+    (-> ctx (r/with-text text) (r/refresh))))
 
-(defn move-bottom-fov [ctx]
-  (let [fov    (get-in ctx [:complete-hud :fov])
-        bottom #(+ % (dec fov))]
-    (-> (update ctx :seeker #(i/move-y % bottom))
-        (r/rebase)
-        (r/remember))))
+(s/defn at-line-end :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/end-x))]
+    (-> ctx (r/with-text text) (r/refresh))))
+
+(s/defn at-view-top :- Context
+  [ctx :- Context]
+  (let [fov       (-> ctx (r/preview-hud) (h/field-of-view))
+        top-line #(-- % (dec fov)) ;; (dec) because we want to land on the fov'th line
+        text      (-> ctx (r/input-area) (i/move-y top-line))]
+    (-> ctx (r/with-text text) (r/refresh))))
+
+(s/defn at-view-bottom :- Context
+  [ctx :- Context]
+  (let [fov         (-> ctx (r/preview-hud) (h/field-of-view))
+        bottom-line #(+ % (dec fov))                        ;; (dec) because we want to land on the last fov'th line
+        text        (-> ctx (r/input-area) (i/move-y bottom-line))]
+    (-> ctx (r/with-text text) (r/refresh))))
+
+(s/defn at-main-view-start :- Context
+  [ctx :- Context]
+  (-> ctx (at-input-end) (at-line-start) (at-view-top)))
+
+(s/defn at-main-view-end :- Context
+  [ctx :- Context]
+  (-> ctx (at-input-end) (at-view-bottom)))
 
 (defn from-start [ctx]
   (-> ctx

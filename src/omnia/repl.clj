@@ -151,7 +151,7 @@
      (assoc ctx :complete-hud rebased))))
 
 (s/defn preserve [ctx & seekers] :- Context
-  (update-in ctx [:complete-hud :seeker] #(reduce i/conjoin % seekers)))
+  (update-in ctx [:complete-hud :seeker] #(reduce  i/conjoin % seekers)))
 
 (s/defn remember [ctx :- Context] :- Context
   (assoc ctx :previous-hud (:complete-hud ctx)))

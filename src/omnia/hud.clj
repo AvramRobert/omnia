@@ -252,6 +252,10 @@
   [hud :- Hud]
   (:ov hud))
 
+(s/defn field-of-view :- s/Int
+  [hud :- Hud]
+  (:fov hud))
+
 (s/defn pop-up :- Seeker
   [hud :- Hud, embedded :- Hud]
   (let [text      (:seeker hud)

@@ -11,7 +11,7 @@
                                      (process left off)))
         suggestion (fn [ctx am] (-> ctx (process suggest am)))
         selection  (fn [ctx am] (-> ctx
-                                    (move-start-fov)
+                                    (at-input-start)
                                     (process select-right am)
                                     (process select-down am)))
         selection* (fn [ctx] (-> ctx (process select-all)))
