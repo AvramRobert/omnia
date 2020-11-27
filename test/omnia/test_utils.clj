@@ -4,9 +4,9 @@
             [clojure.test.check.generators :as gen]
             [clojure.test :refer [is]]
             [omnia.hud :refer [Hud]]
-            [omnia.repl :refer [Context]]
+            [omnia.repl :refer [Context HighlightType]]
             [schema.core :as s]
-            [omnia.more :refer [--]]
+            [omnia.more :refer [-- Region]]
             [omnia.config :as c]
             [omnia.input :as i]
             [omnia.hud :as h]
@@ -127,6 +127,7 @@
 (def suggest (e/event e/suggest))
 (def ignore (e/event e/ignore))
 (def backspace (e/event e/backspace))
+(def refresh (e/event e/refresh))
 
 (defn process
   ([ctx event]
@@ -158,36 +159,11 @@
 (defn project-cursor [ctx]
   (h/project-cursor (:complete-hud ctx)))
 
-(defn project-highlight [ctx h-key]
-  (let [complete  (:complete-hud ctx)
-        selection (-> (:highlights ctx) (get h-key) (:region))]
-    (h/project-selection complete selection)))
-
-(defn no-projection [ctx]
-  (let [complete (:complete-hud ctx)]
-    {:start [0 (h/bottom-y complete)]
-     :end   [0 (h/bottom-y complete)]}))
-
-(defn shrink-by [ctx n]
-  (update ctx :terminal (fn [term] (assoc term :size (constantly (-- (t/size term) n))))))
-
-(defn enlarge-by [ctx n]
-  (update ctx :terminal (fn [term] (assoc term :size (constantly (+ (t/size term) n))))))
-
-(defn make-total [ctx]
-  (let [h (get-in ctx [:complete-hud :seeker :height])]
-    (-> ctx
-        (assoc :terminal (test-terminal {:size (fn [] h)}))
-        (assoc-in [:persisted-hud :fov] h)
-        (assoc-in [:persisted-hud :lor] h)
-        (r/rebase)
-        (r/remember))))
-
 (defn cursor [ctx]
-  (get-in ctx [:complete-hud :seeker :cursor]))
+  (-> ctx (r/preview-hud) (h/text) (:cursor)))
 
 (defn suggestions [ctx]
-  (-> (:repl ctx) (server/complete! i/empty-seeker)))
+  (-> ctx (r/server) (server/complete! i/empty-seeker)))
 
 (defn evaluation [seeker]
   {:value (i/stringify seeker)})
@@ -205,6 +181,22 @@
 
 (defn empty-garbage [ctx]
   (assoc ctx :garbage i/empty-vec))
+
+(s/defn no-projection :- Region
+  [ctx :- Context]
+  (let [preview (r/preview-hud ctx)]
+    {:start [0 (h/bottom-y preview)]
+     :end   [0 (h/bottom-y preview)]}))
+
+(s/defn project-highlight :- Region
+  [ctx :- Context, h-key :- HighlightType]
+  (let [preview   (r/preview-hud ctx)
+        selection (-> ctx (r/highlights) (get h-key) (:region))]
+    (h/project-selection preview selection)))
+
+(s/defn pop-up :- Hud
+  [ctx :- Context, window :- Hud]
+  (-> ctx (r/preview-hud) (h/pop-up window)))
 
 (s/defn at-input-start :- Context
   [ctx :- Context]
@@ -248,6 +240,23 @@
   [ctx :- Context]
   (-> ctx (at-input-end) (at-view-bottom)))
 
-(s/defn pop-up :- Hud
-  [ctx :- Context, window :- Hud]
-  (-> ctx (r/preview-hud) (h/pop-up window)))
+(defn shrink-view [ctx n]
+  (let [new-size (-> ctx (r/terminal) (t/size) (-- n))
+        terminal (test-terminal {:size (constantly new-size)})]
+    (-> ctx
+        (r/with-terminal terminal)
+        (process refresh))))
+
+(defn enlarge-view [ctx n]
+  (let [new-size (-> ctx (r/terminal) (t/size) (+ n))
+        terminal (test-terminal {:size (constantly new-size)})]
+    (-> ctx
+        (r/with-terminal terminal)
+        (process refresh))))
+
+(defn maximise-view [ctx]
+  (let [height   (-> ctx (r/preview-hud) (h/text) (:height))
+        terminal (test-terminal {:size (constantly height)})]
+    (-> ctx
+        (r/with-terminal terminal)
+        (process refresh))))

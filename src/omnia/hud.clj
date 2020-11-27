@@ -256,6 +256,10 @@
   [hud :- Hud]
   (:fov hud))
 
+(s/defn reset-view :- Hud
+  [hud :- Hud, size :- s/Int]
+  (assoc hud :fov size :lor size))
+
 (s/defn pop-up :- Hud
   [hud :- Hud, embedded :- Hud]
   (let [text      (:seeker hud)

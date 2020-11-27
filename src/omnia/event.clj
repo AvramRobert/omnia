@@ -39,7 +39,7 @@
 (def evaluate :evaluate)                                    ;; replaces eval
 (def exit :exit)
 (def ignore :ignore)
-
+(def refresh :refresh)
 
 (def input-actions
   #{select-all
@@ -78,7 +78,8 @@
     clear
     evaluate
     exit
-    ignore})
+    ignore
+    refresh})
 
 (defn action? [action]
   (fn [event]

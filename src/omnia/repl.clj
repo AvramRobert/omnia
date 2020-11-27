@@ -23,10 +23,9 @@
    :scheme InternalSyntax
    :styles [s/Keyword]})
 
-(def Highlights
-  {(s/optional-key :selection)    Highlight
-   (s/optional-key :open-paren)   Highlight
-   (s/optional-key :closed-paren) Highlight})
+(def HighlightType (s/enum :selection :open-paren :closed-paren))
+
+(def Highlights {(s/optional-key HighlightType) Highlight})
 
 (def Context
   {:terminal      Terminal
@@ -96,14 +95,21 @@
 (s/defn previous-hud [ctx :- Context] :- Hud
   (:previous-hud ctx))
 
-(s/defn input-area [ctx :- Context] :- Hud
+(s/defn input-area :- Hud
+  [ctx :- Context]
   (:seeker ctx))
 
-(s/defn server [ctx :- Context] :- REPLServer
+(s/defn server :- REPLServer
+  [ctx :- Context]
   (:repl ctx))
 
-(s/defn terminal [ctx :- Context] :- Terminal
+(s/defn terminal :- Terminal
+  [ctx :- Context]
   (:terminal ctx))
+
+(s/defn highlights :- Highlights
+  [ctx :- Context]
+  (:highlights ctx))
 
 (s/defn reset-preview [ctx :- Context, hud :- Hud] :- Context
   (assoc ctx :complete-hud hud))
@@ -123,7 +129,7 @@
   [ctx :- Context, hud :- Hud]
   (-> ctx (assoc :persisted-hud hud) (refresh)))
 
-(s/defn with-highlight :- Context
+(s/defn with-highlights :- Context
   [ctx :- Context, highlights :- Highlights]
   (assoc ctx :highlights highlights))
 
@@ -138,8 +144,13 @@
         new-text  (assoc input :clipboard clipboard)]
     (assoc ctx :seeker new-text)))
 
-(s/defn with-server [ctx :- Context, repl :- REPLServer] :- Context
+(s/defn with-server :- Context
+  [ctx :- Context, repl :- REPLServer]
   (assoc ctx :repl repl))
+
+(s/defn with-terminal :- Context
+  [ctx :- Context, terminal :- Terminal]
+  (assoc ctx :terminal terminal))
 
 (s/defn rebase
   ([ctx :- Context] :- Context
@@ -446,12 +457,13 @@
     :suggest (-> ctx (gc) (reset-documentation) (reset-signatures) (scroll-stop) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
-    :prev-eval (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-back) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :next-eval (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-forward) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :indent (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))
-    :clear (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
-    :evaluate (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (scroll-stop) (diff-render) (resize) (continue))
+    :prev-eval (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-back) (highlight) (auto-match) (diff-render) (resize) (continue))
+    :next-eval (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-forward) (highlight) (auto-match) (diff-render) (resize) (continue))
+    :indent (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (auto-match) (diff-render) (resize) (continue))
+    :clear (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (auto-match) (clear-render) (resize) (continue))
+    :evaluate (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight)  (diff-render) (resize) (continue))
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
+    :refresh (-> ctx (gc) (scroll-stop) (deselect) (re-render) (resize) (continue))
     :ignore (continue ctx)
     (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 

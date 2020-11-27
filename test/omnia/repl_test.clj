@@ -58,13 +58,15 @@
 ;; I. Calibrating
 
 (defn exceed-upper-bound [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (can-be #(-> % (process up) (ov) (= 1))
               #(-> % (process up 2) (ov) (= 2))
               #(-> % (process up 3) (ov) (= 2)))))
 
 (defn exceed-lower-bound [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (process up 2)
       (at-view-bottom)
       (can-be #(= (ov %) 2)
@@ -73,7 +75,8 @@
               #(-> % (process down 3) (ov) (= 0)))))
 
 (defn exceed-lower-bound-non-incrementally [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (process up 2)
       (at-view-bottom)
       (update :seeker #(i/move % (fn [[x y]] [x (+ 2 y)])))
@@ -83,7 +86,8 @@
       (can-be #(= (ov %) 0))))
 
 (defn exceed-upper-bound-non-incrementally [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (update :seeker #(i/move % (fn [[x y]] [x (- 2 y)])))
       (r/preserve)
       (r/rebase)
@@ -91,13 +95,15 @@
       (can-be #(= (ov %) 2))))
 
 (defn scroll-upper-bound [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (process up)
       (process down 6)
       (can-be #(= (ov %) 1))))
 
 (defn scroll-lower-bound [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (process up)
       (at-view-bottom)
       (process up 6)
@@ -161,7 +167,8 @@
       (can-be #(= (ov %) 0))))
 
 (defn correct-under-insertion-in-multi-line [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (process up 2)
       (process down 3)
       (can-be #(= (ov %) 2)
@@ -213,25 +220,25 @@
 (defn correct-under-hud-enlargement [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up 2) (enlarge-by 1) (process down) (ov) (= 1))
-              #(-> % (process up 2) (enlarge-by 2) (process down) (ov) (= 0))
-              #(-> % (process select-all) (process backspace) (enlarge-by 2) (process down) (ov) (= 0)))))
+      (can-be #(-> % (process up 2) (enlarge-view 1) (ov) (= 1))
+              #(-> % (process up 2) (enlarge-view 2) (ov) (= 0))
+              #(-> % (process select-all) (process backspace) (enlarge-view 2) (ov) (= 0)))))
 
 (defn correct-under-hud-shrinking [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up 2) (shrink-by 1) (process down) (ov) (= 3))
-              #(-> % (process up 2) (shrink-by 2) (process down) (ov) (= 4))
-              #(-> % (process up 2) (shrink-by 3) (process down) (ov) (= 5))
-              #(-> % (process select-all) (process backspace) (shrink-by 3) (process down) (ov) (= 0)))))
+      (can-be #(-> % (process up 2) (shrink-view 1) (ov) (= 3))
+              #(-> % (process up 2) (shrink-view 2) (ov) (= 4))
+              #(-> % (process up 2) (shrink-view 3) (ov) (= 5))
+              #(-> % (process select-all) (process backspace) (shrink-view 3) (ov) (= 0)))))
 
 (defn correct-under-hud-size-variance [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up 2) (enlarge-by 2) (shrink-by 2) (ov) (= 2))
-              #(-> % (process up 2) (enlarge-by 2) (shrink-by 1) (process down) (ov) (= 1))
-              #(-> % (process up 2) (shrink-by 2) (enlarge-by 1) (process down) (ov) (= 3))
-              #(-> % (process up 2) (shrink-by 4) (enlarge-by 2) (process down) (ov) (= 4)))))
+      (can-be #(-> % (process up 2) (enlarge-view 2) (shrink-view 2) (ov) (= 2))
+              #(-> % (process up 2) (enlarge-view 2) (shrink-view 1) (ov) (= 1))
+              #(-> % (process up 2) (shrink-view 2) (enlarge-view 1) (ov) (= 3))
+              #(-> % (process up 2) (shrink-view 4) (enlarge-view 2) (ov) (= 4)))))
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)
@@ -295,7 +302,7 @@
       (is)))
 
 (defn scroll-ending-with-ov [ctx]
-  (let [offset (-> (at-main-view-start ctx) (process up 2))
+  (let [offset (-> ctx (at-main-view-start) (process up 2))
         ov     (get-in offset [:complete-hud :ov])
         fov    (get-in offset [:complete-hud :fov])]
     (-> offset
