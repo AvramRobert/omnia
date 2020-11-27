@@ -478,7 +478,6 @@
 (defn paged-cursor-projection [ctx]
   (let [end-y (dec (fov ctx))]                              ;; starts from 0
     (-> (at-main-view-start ctx)
-        (from-start)
         (can-be
           #(-> % (process up) (project-cursor) (= [0 0]))
           #(-> % (process up 2) (project-cursor) (= [0 0]))

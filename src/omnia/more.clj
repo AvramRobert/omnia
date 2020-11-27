@@ -11,7 +11,7 @@
    :end   Point})
 
 (defn => [input-schema output-schema]
-  (s/->FnSchema input-schema output-schema))
+  (s/->FnSchema output-schema input-schema))
 
 (defn inc< [value max]
   (let [x (inc value)]

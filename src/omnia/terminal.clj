@@ -83,8 +83,10 @@
   {:size       (=> Terminal s/Int)
    :move!      (=> Terminal nil)
    :clear!     (=> Terminal nil)
+   :refresh!   (=> Terminal nil)
    :stop!      (=> Terminal nil)
    :start!     (=> Terminal nil)
+   :put!       (=> s/Any    nil)                            ;; fix this
    :get-event! (=> Terminal e/Event)})
 
 (s/defn to-key-binding :- c/InternalKeyBinding

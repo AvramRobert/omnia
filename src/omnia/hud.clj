@@ -240,7 +240,7 @@
   [hud :- Hud]
   (-> hud (text) (i/line)))
 
-(s/defn deselect :- Seeker
+(s/defn deselect :- Hud
   [hud :- Hud]
   (update hud :seeker i/deselect))
 
