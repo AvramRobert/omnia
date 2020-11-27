@@ -139,8 +139,9 @@
 (defn fov [ctx]
   (get-in ctx [:complete-hud :fov]))
 
-(defn ov [ctx]
-  (get-in ctx [:complete-hud :ov]))
+(s/defn overview :- s/Int
+  [ctx :- Context]
+  (-> ctx (r/preview-hud) (h/overview)))
 
 (defn lor [ctx]
   (get-in ctx [:complete-hud :lor]))

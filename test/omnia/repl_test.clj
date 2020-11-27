@@ -60,46 +60,47 @@
 (defn exceed-upper-bound [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up) (ov) (= 1))
-              #(-> % (process up 2) (ov) (= 2))
-              #(-> % (process up 3) (ov) (= 2)))))
+      (can-be #(-> % (process up) (overview) (= 1))
+              #(-> % (process up 2) (overview) (= 2))
+              #(-> % (process up 3) (overview) (= 2)))))
 
 (defn exceed-lower-bound [ctx]
   (-> ctx
       (at-main-view-start)
       (process up 2)
       (at-view-bottom)
-      (can-be #(= (ov %) 2)
-              #(-> % (process down) (ov) (= 1))
-              #(-> % (process down 2) (ov) (= 0))
-              #(-> % (process down 3) (ov) (= 0)))))
+      (can-be #(= (overview %) 2)
+              #(-> % (process down) (overview) (= 1))
+              #(-> % (process down 2) (overview) (= 0))
+              #(-> % (process down 3) (overview) (= 0)))))
 
 (defn exceed-lower-bound-non-incrementally [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process up 2)
-      (at-view-bottom)
-      (update :seeker #(i/move % (fn [[x y]] [x (+ 2 y)])))
-      (r/preserve)
-      (r/rebase)
-      (r/calibrate)
-      (can-be #(= (ov %) 0))))
+  (let [initial-view (-> ctx
+                         (at-main-view-start)
+                         (process up 2)
+                         (at-view-bottom))
+        new-text     (-> initial-view (r/input-area) (i/move-y #(+ % 2)))
+        new-view     (-> initial-view
+                         (r/with-text new-text)
+                         (r/refresh)
+                         (r/calibrate))]
+    (is (= 0 (overview new-view)))))
 
 (defn exceed-upper-bound-non-incrementally [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (update :seeker #(i/move % (fn [[x y]] [x (- 2 y)])))
-      (r/preserve)
-      (r/rebase)
-      (r/calibrate)
-      (can-be #(= (ov %) 2))))
+  (let [initial-view (-> ctx (at-main-view-start))
+        new-text     (-> initial-view (r/input-area) (i/move-y #(- % 2)))
+        new-view     (-> initial-view
+                         (r/with-text new-text)
+                         (r/refresh)
+                         (r/calibrate))]
+    (is (= 2 (overview new-view)))))
 
 (defn scroll-upper-bound [ctx]
   (-> ctx
       (at-main-view-start)
       (process up)
       (process down 6)
-      (can-be #(= (ov %) 1))))
+      (can-be #(= (overview %) 1))))
 
 (defn scroll-lower-bound [ctx]
   (-> ctx
@@ -107,49 +108,49 @@
       (process up)
       (at-view-bottom)
       (process up 6)
-      (can-be #(= (ov %) 1))))
+      (can-be #(= (overview %) 1))))
 
 
 (defn correct-under-deletion-top [ctx]
   (-> ctx
       (at-main-view-start)
       (process up 2)
-      (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
-              #(-> % (process select-down 2) (process backspace) (ov) (= 0))
-              #(-> % (process select-down 3) (process backspace) (ov) (= 0)))))
+      (can-be #(-> % (process select-down) (process backspace) (overview) (= 1))
+              #(-> % (process select-down 2) (process backspace) (overview) (= 0))
+              #(-> % (process select-down 3) (process backspace) (overview) (= 0)))))
 
 (defn correct-under-deletion-end [ctx]
   (-> ctx
       (at-input-end)
       (at-line-start)
-      (can-be #(= (ov %) 0)
-              #(-> % (process up) (process select-down) (process backspace) (ov) (= 0))
-              #(-> % (process up 2) (process select-down) (process backspace) (ov) (= 0)))))
+      (can-be #(= (overview %) 0)
+              #(-> % (process up) (process select-down) (process backspace) (overview) (= 0))
+              #(-> % (process up 2) (process select-down) (process backspace) (overview) (= 0)))))
 
 (defn correct-under-deletion-bottom [ctx]
   (-> ctx
       (at-main-view-start)
       (process up 2)
       (at-view-bottom)
-      (can-be #(= (ov %) 2)
-              #(-> % (process up) (process select-down) (process backspace) (ov) (= 1))
-              #(-> % (process select-up) (process backspace) (ov) (= 1))
-              #(-> % (process up 2) (process select-down 2) (process backspace) (ov) (= 0))
-              #(-> % (process select-down) (process backspace) (ov) (= 0)))))
+      (can-be #(= (overview %) 2)
+              #(-> % (process up) (process select-down) (process backspace) (overview) (= 1))
+              #(-> % (process select-up) (process backspace) (overview) (= 1))
+              #(-> % (process up 2) (process select-down 2) (process backspace) (overview) (= 0))
+              #(-> % (process select-down) (process backspace) (overview) (= 0)))))
 
 (defn correct-under-deletion-in-multi-line [ctx]
   (-> ctx
       (at-main-view-start)
       (process up 2)
       (process down 4)
-      (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
-              #(-> % (process select-down 2) (process backspace) (ov) (= 0)))))
+      (can-be #(-> % (process select-down) (process backspace) (overview) (= 1))
+              #(-> % (process select-down 2) (process backspace) (overview) (= 0)))))
 
 (defn correct-under-insertion-top [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process enter) (ov) (= 1))
-              #(-> % (process enter) (process enter) (ov) (= 2)))))
+      (can-be #(-> % (process enter) (overview) (= 1))
+              #(-> % (process enter) (process enter) (overview) (= 2)))))
 
 (defn correct-under-insertion-bottom [ctx]
   (-> ctx
@@ -157,23 +158,23 @@
       (process up 2)
       (at-view-bottom)
       (process enter 10)
-      (can-be #(= (ov %) 2))))
+      (can-be #(= (overview %) 2))))
 
 (defn correct-under-insertion-end [ctx]
   (-> ctx
       (at-input-end)
       (at-line-start)
       (process enter 10)
-      (can-be #(= (ov %) 0))))
+      (can-be #(= (overview %) 0))))
 
 (defn correct-under-insertion-in-multi-line [ctx]
   (-> ctx
       (at-main-view-start)
       (process up 2)
       (process down 3)
-      (can-be #(= (ov %) 2)
-              #(-> % (process enter) (ov) (= 3))
-              #(-> % (process enter 2) (ov) (= 4)))))
+      (can-be #(= (overview %) 2)
+              #(-> % (process enter) (overview) (= 3))
+              #(-> % (process enter 2) (overview) (= 4)))))
 
 (defn correct-under-multi-copied-insertion [ctx]
   (-> ctx
@@ -182,8 +183,8 @@
       (at-view-bottom)
       (process select-up 2)
       (process copy)
-      (can-be #(-> % (process paste) (ov) (= 4))
-              #(-> % (process down 2) (process paste) (ov) (= 2)))))
+      (can-be #(-> % (process paste) (overview) (= 4))
+              #(-> % (process down 2) (process paste) (overview) (= 2)))))
 
 (defn correct-under-multi-selected-deletion [ctx]
   (-> ctx
@@ -192,7 +193,7 @@
       (process down 3)
       (process select-up 2)
       (process backspace)
-      (can-be #(= (ov %) 0))))
+      (can-be #(= (overview %) 0))))
 
 (defn correct-under-change-variance [ctx]
   (-> ctx
@@ -202,11 +203,11 @@
       (process enter)
       (process select-down 2)
       (process backspace)
-      (can-be #(= (ov %) 1)
-              #(-> % (process enter 3) (process select-up 3) (process backspace) (ov) (= 1))
-              #(-> % (process select-down 2) (process backspace) (ov) (= 0))
-              #(-> % (process select-up 2) (process backspace) (ov) (= 0))
-              #(-> % (process enter) (process select-up) (process backspace) (ov) (= 1)))))
+      (can-be #(= (overview %) 1)
+              #(-> % (process enter 3) (process select-up 3) (process backspace) (overview) (= 1))
+              #(-> % (process select-down 2) (process backspace) (overview) (= 0))
+              #(-> % (process select-up 2) (process backspace) (overview) (= 0))
+              #(-> % (process enter) (process select-up) (process backspace) (overview) (= 1)))))
 
 (defn correct-under-rebounded-deletion [ctx]
   (-> ctx
@@ -214,31 +215,31 @@
       (process up 2)
       (process select-down 10)
       (process backspace)
-      (can-be #(= (ov %) 0))))
+      (can-be #(= (overview %) 0))))
 
 
 (defn correct-under-hud-enlargement [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up 2) (enlarge-view 1) (ov) (= 1))
-              #(-> % (process up 2) (enlarge-view 2) (ov) (= 0))
-              #(-> % (process select-all) (process backspace) (enlarge-view 2) (ov) (= 0)))))
+      (can-be #(-> % (process up 2) (enlarge-view 1) (overview) (= 1))
+              #(-> % (process up 2) (enlarge-view 2) (overview) (= 0))
+              #(-> % (process select-all) (process backspace) (enlarge-view 2) (overview) (= 0)))))
 
 (defn correct-under-hud-shrinking [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up 2) (shrink-view 1) (ov) (= 3))
-              #(-> % (process up 2) (shrink-view 2) (ov) (= 4))
-              #(-> % (process up 2) (shrink-view 3) (ov) (= 5))
-              #(-> % (process select-all) (process backspace) (shrink-view 3) (ov) (= 0)))))
+      (can-be #(-> % (process up 2) (shrink-view 1) (overview) (= 3))
+              #(-> % (process up 2) (shrink-view 2) (overview) (= 4))
+              #(-> % (process up 2) (shrink-view 3) (overview) (= 5))
+              #(-> % (process select-all) (process backspace) (shrink-view 3) (overview) (= 0)))))
 
 (defn correct-under-hud-size-variance [ctx]
   (-> ctx
       (at-main-view-start)
-      (can-be #(-> % (process up 2) (enlarge-view 2) (shrink-view 2) (ov) (= 2))
-              #(-> % (process up 2) (enlarge-view 2) (shrink-view 1) (ov) (= 1))
-              #(-> % (process up 2) (shrink-view 2) (enlarge-view 1) (ov) (= 3))
-              #(-> % (process up 2) (shrink-view 4) (enlarge-view 2) (ov) (= 4)))))
+      (can-be #(-> % (process up 2) (enlarge-view 2) (shrink-view 2) (overview) (= 2))
+              #(-> % (process up 2) (enlarge-view 2) (shrink-view 1) (overview) (= 1))
+              #(-> % (process up 2) (shrink-view 2) (enlarge-view 1) (overview) (= 3))
+              #(-> % (process up 2) (shrink-view 4) (enlarge-view 2) (overview) (= 4)))))
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)

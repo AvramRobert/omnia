@@ -462,7 +462,7 @@
   (paged-selection-upper-clip ctx))
 
 (defspec selection-projection-test
-         1
+         100
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
                                      :seeker (one (gen-seeker-of 10))})]

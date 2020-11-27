@@ -111,32 +111,29 @@
   [ctx :- Context]
   (:highlights ctx))
 
-(s/defn reset-preview [ctx :- Context, hud :- Hud] :- Context
-  (assoc ctx :complete-hud hud))
-
-(s/defn reset-persisted [ctx :- Context, hud :- Hud] :- Context
-  (assoc ctx :persisted-hud hud))
-
-(s/defn reset-input [ctx :- Context, input :- Seeker] :- Context
-  (assoc ctx :seeker input))
-
 (s/defn refresh [ctx :- Context] :- Context
   (assoc ctx
     :previous-hud (:complete-hud ctx)
     :complete-hud (-> ctx (:persisted-hud) (h/enrich-with [(:seeker ctx)]))))
 
-(s/defn with-hud :- Context
-  [ctx :- Context, hud :- Hud]
-  (-> ctx (assoc :persisted-hud hud) (refresh)))
-
-(s/defn with-highlights :- Context
-  [ctx :- Context, highlights :- Highlights]
-  (assoc ctx :highlights highlights))
-
 (s/defn with-preview [ctx :- Context, hud :- Hud] :- Context
   (assoc ctx
     :previous-hud (:complete-hud ctx)
     :complete-hud hud))
+
+(s/defn with-persisted [ctx :- Context, hud :- Hud] :- Context
+  (assoc ctx :persisted-hud hud))
+
+(s/defn with-hud :- Context
+  [ctx :- Context, hud :- Hud]
+  (-> ctx (assoc :persisted-hud hud) (refresh)))
+
+(s/defn with-unkept-preview [ctx :- Context, hud :- Hud] :- Context
+  (assoc ctx :complete-hud hud))
+
+(s/defn with-highlights :- Context
+  [ctx :- Context, highlights :- Highlights]
+  (assoc ctx :highlights highlights))
 
 (s/defn with-text [ctx :- Context, input :- Seeker] :- Context
   (let [clipboard (or (:clipboard input)
@@ -151,21 +148,6 @@
 (s/defn with-terminal :- Context
   [ctx :- Context, terminal :- Terminal]
   (assoc ctx :terminal terminal))
-
-(s/defn rebase
-  ([ctx :- Context] :- Context
-   (rebase ctx (:seeker ctx)))
-  ([ctx    :- Context
-    seeker :- Seeker] :- Context
-   (let [persisted (:persisted-hud ctx)
-         rebased   (update persisted :seeker #(i/conjoin % seeker))]
-     (assoc ctx :complete-hud rebased))))
-
-(s/defn preserve [ctx & seekers] :- Context
-  (update-in ctx [:complete-hud :seeker] #(reduce  i/conjoin % seekers)))
-
-(s/defn remember [ctx :- Context] :- Context
-  (assoc ctx :previous-hud (:complete-hud ctx)))
 
 (s/defn with-suggestions :- Context
   [ctx :- Context, suggestions :- Hud]
@@ -268,15 +250,14 @@
         (assoc-in [:persisted-hud :ov] nov)
         (assoc-in [:complete-hud :ov] nov))))
 
-(defn resize [ctx]
-  (let [new-fov  (-> ctx (:terminal) (t/size))
-        fov      (-> ctx (:persisted-hud) (:fov))]
-    (if (not= new-fov fov)
-      (-> (remember ctx)
-          (assoc-in [:persisted-hud :lor] new-fov)
-          (assoc-in [:persisted-hud :fov] new-fov)
-          (assoc-in [:complete-hud :lor] new-fov)
-          (assoc-in [:complete-hud :fov] new-fov)
+(s/defn resize :- Context
+  [ctx :- Context]
+  (let [current-fov (-> ctx (persisted-hud) (h/field-of-view))
+        new-fov     (-> ctx (terminal) (t/size))]
+    (if (not= new-fov current-fov)
+      (-> ctx
+          (with-persisted (-> ctx (persisted-hud) (h/reset-view new-fov)))
+          (refresh)
           (calibrate)
           (re-render))
       ctx)))
@@ -302,9 +283,9 @@
         persisted (-> ctx (persisted-hud) (h/deselect))
         input     (-> ctx (input-area) (i/deselect))]
     (-> ctx
-        (reset-preview preview)
-        (reset-persisted persisted)
-        (reset-input input))))
+        (with-unkept-preview preview)
+        (with-persisted persisted)
+        (with-text input))))
 
 (s/defn scroll-up :- Context
   [ctx :- Context]
@@ -321,8 +302,8 @@
   (let [preview   (-> ctx (preview-hud) (h/scroll-stop))
         persisted (-> ctx (persisted-hud) (h/scroll-stop))]
     (-> ctx
-        (reset-preview preview)
-        (reset-persisted persisted))))
+        (with-unkept-preview preview)
+        (with-persisted persisted))))
 
 ;; === REPL ===
 
@@ -451,10 +432,10 @@
    event :- e/Event]
   (case (:action event)
     :inject (-> ctx (inject event) (diff-render) (continue))
-    :docs (-> ctx (gc) (reset-suggestions) (reset-signatures) (scroll-stop) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
-    :signature (-> ctx (gc) (reset-suggestions) (reset-documentation) (scroll-stop) (deselect) (signature) (auto-match) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
+    :signature (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    :suggest (-> ctx (gc) (reset-documentation) (reset-signatures) (scroll-stop) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))
+    :suggest (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))
     :scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     :scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
     :prev-eval (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-back) (highlight) (auto-match) (diff-render) (resize) (continue))
@@ -465,6 +446,7 @@
     :exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
     :refresh (-> ctx (gc) (scroll-stop) (deselect) (re-render) (resize) (continue))
     :ignore (continue ctx)
+    ;; Why does putting `scroll-stop` after `gc` make a difference in the `hud-projection-test` here?
     (-> ctx (gc) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (scroll-stop) (auto-match) (diff-render) (resize) (continue))))
 
 (s/defn consume :- Context
