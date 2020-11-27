@@ -105,7 +105,7 @@
 
 
 (defn correct-under-deletion-top [ctx]
-  (-> (from-start ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (can-be #(-> % (process select-down) (process backspace) (ov) (= 1))
@@ -121,7 +121,7 @@
               #(-> % (process up 2) (process select-down) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-bottom [ctx]
-  (-> (from-start ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (at-view-bottom)
@@ -132,7 +132,7 @@
               #(-> % (process select-down) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-deletion-in-multi-line [ctx]
-  (-> (from-start ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (process down 4)
@@ -140,12 +140,13 @@
               #(-> % (process select-down 2) (process backspace) (ov) (= 0)))))
 
 (defn correct-under-insertion-top [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (can-be #(-> % (process enter) (ov) (= 1))
               #(-> % (process enter) (process enter) (ov) (= 2)))))
 
 (defn correct-under-insertion-bottom [ctx]
-  (-> (from-end ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (at-view-bottom)
@@ -168,7 +169,7 @@
               #(-> % (process enter 2) (ov) (= 4)))))
 
 (defn correct-under-multi-copied-insertion [ctx]
-  (-> (from-end ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (at-view-bottom)
@@ -178,7 +179,7 @@
               #(-> % (process down 2) (process paste) (ov) (= 2)))))
 
 (defn correct-under-multi-selected-deletion [ctx]
-  (-> (from-start ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (process down 3)
@@ -187,7 +188,7 @@
       (can-be #(= (ov %) 0))))
 
 (defn correct-under-change-variance [ctx]
-  (-> (from-end ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (process down 3)
@@ -201,7 +202,7 @@
               #(-> % (process enter) (process select-up) (process backspace) (ov) (= 1)))))
 
 (defn correct-under-rebounded-deletion [ctx]
-  (-> (from-end ctx)
+  (-> ctx
       (at-main-view-start)
       (process up 2)
       (process select-down 10)
@@ -210,21 +211,23 @@
 
 
 (defn correct-under-hud-enlargement [ctx]
-  (-> (at-main-view-start ctx)
-
+  (-> ctx
+      (at-main-view-start)
       (can-be #(-> % (process up 2) (enlarge-by 1) (process down) (ov) (= 1))
               #(-> % (process up 2) (enlarge-by 2) (process down) (ov) (= 0))
               #(-> % (process select-all) (process backspace) (enlarge-by 2) (process down) (ov) (= 0)))))
 
 (defn correct-under-hud-shrinking [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (can-be #(-> % (process up 2) (shrink-by 1) (process down) (ov) (= 3))
               #(-> % (process up 2) (shrink-by 2) (process down) (ov) (= 4))
               #(-> % (process up 2) (shrink-by 3) (process down) (ov) (= 5))
               #(-> % (process select-all) (process backspace) (shrink-by 3) (process down) (ov) (= 0)))))
 
 (defn correct-under-hud-size-variance [ctx]
-  (-> (at-main-view-start ctx)
+  (-> ctx
+      (at-main-view-start)
       (can-be #(-> % (process up 2) (enlarge-by 2) (shrink-by 2) (ov) (= 2))
               #(-> % (process up 2) (enlarge-by 2) (shrink-by 1) (process down) (ov) (= 1))
               #(-> % (process up 2) (shrink-by 2) (enlarge-by 1) (process down) (ov) (= 3))
@@ -517,8 +520,8 @@
 ;; IX. Highlighting
 
 (defn queue-highlights [ctx]
-  (let [top    (-> (from-start ctx) (at-main-view-start))
-        bottom (-> (from-start ctx) (at-main-view-start) (at-view-bottom))
+  (let [top    (-> ctx (at-main-view-start))
+        bottom (-> ctx (at-main-view-end) (at-line-start))
         [xt yt] (get-in top [:complete-hud :seeker :cursor])
         [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
     (can-be top
@@ -535,8 +538,8 @@
                                :end   [xb yb]})))))
 
 (defn garbage-collect-highlights [ctx]
-  (let [top    (-> (from-start ctx) (at-main-view-start))
-        bottom (-> (from-start ctx) (at-main-view-start) (at-view-bottom))
+  (let [top    (-> ctx (at-main-view-start))
+        bottom (-> ctx (at-main-view-end) (at-line-start))
         [xt yt] (get-in top [:complete-hud :seeker :cursor])
         [xb yb] (get-in bottom [:complete-hud :seeker :cursor])]
     (can-be top

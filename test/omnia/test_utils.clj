@@ -248,20 +248,6 @@
   [ctx :- Context]
   (-> ctx (at-input-end) (at-view-bottom)))
 
-(defn from-start [ctx]
-  (-> ctx
-      (update-in [:persisted-hud :seeker] i/start-x)
-      (update :seeker i/start-x)
-      (r/rebase)
-      (r/remember)))
-
-(defn from-end [ctx]
-  (-> ctx
-      (update-in [:persisted-hud :seeker] i/end-x)
-      (update :seeker i/end-x)
-      (r/rebase)
-      (r/remember)))
-
 (s/defn pop-up :- Hud
   [ctx :- Context, window :- Hud]
   (-> ctx (r/preview-hud) (h/pop-up window)))

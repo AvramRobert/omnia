@@ -256,7 +256,7 @@
   [hud :- Hud]
   (:fov hud))
 
-(s/defn pop-up :- Seeker
+(s/defn pop-up :- Hud
   [hud :- Hud, embedded :- Hud]
   (let [text      (:seeker hud)
         paginated (paginate embedded)
