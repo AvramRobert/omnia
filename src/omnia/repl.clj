@@ -256,9 +256,11 @@
   (let [garbage (->> ctx
                      (highlights)
                      (map-vals #(->> % (:region) (make-garbage ctx))))]
-    (-> ctx
-        (reset-highlights)
-        (with-garbage garbage))))
+    (if (empty? garbage)
+      ctx
+      (-> ctx
+          (reset-highlights)
+          (with-garbage garbage)))))
 
 (s/defn match :- Context
   [ctx :- Context]
