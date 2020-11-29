@@ -65,9 +65,10 @@
                         i/empty-line
                         caret]))))
 
-(s/defn context [config   :- InternalConfig
-                 terminal :- Terminal
-                 repl     :- REPLServer] :- Context
+(s/defn context :- Context
+  [config   :- InternalConfig
+   terminal :- Terminal
+   repl     :- REPLServer]
   (let [seeker        i/empty-line
         previous-hud  (h/hud-of (t/size terminal))
         persisted-hud (init-hud terminal repl)
@@ -86,13 +87,20 @@
      :highlights    i/empty-map
      :garbage       i/empty-map}))
 
-(s/defn preview-hud [ctx :- Context] :- Hud
+(s/defn configuration :- InternalConfig
+  [ctx :- Context]
+  (:config ctx))
+
+(s/defn preview-hud :- Hud
+  [ctx :- Context]
   (:complete-hud ctx))
 
-(s/defn persisted-hud [ctx :- Context] :- Hud
+(s/defn persisted-hud :- Hud
+  [ctx :- Context]
   (:persisted-hud ctx))
 
-(s/defn previous-hud [ctx :- Context] :- Hud
+(s/defn previous-hud :- Hud
+  [ctx :- Context]
   (:previous-hud ctx))
 
 (s/defn input-area :- Hud
@@ -103,6 +111,18 @@
   [ctx :- Context]
   (:repl ctx))
 
+(s/defn suggestions :- Hud
+  [ctx :- Context]
+  (:suggestions ctx))
+
+(s/defn signatures :- Hud
+  [ctx :- Context]
+  (:signatures ctx))
+
+(s/defn documentation :- Hud
+  [ctx :- Context]
+  (:documentation ctx))
+
 (s/defn terminal :- Terminal
   [ctx :- Context]
   (:terminal ctx))
@@ -111,29 +131,68 @@
   [ctx :- Context]
   (:highlights ctx))
 
-(s/defn refresh [ctx :- Context] :- Context
+(s/defn refresh :- Context
+  [ctx :- Context]
   (assoc ctx
     :previous-hud (:complete-hud ctx)
     :complete-hud (-> ctx (:persisted-hud) (h/enrich-with [(:seeker ctx)]))))
 
-(s/defn with-preview [ctx :- Context, hud :- Hud] :- Context
+(s/defn with-preview :- Context
+  [ctx :- Context, hud :- Hud]
   (assoc ctx
     :previous-hud (:complete-hud ctx)
     :complete-hud hud))
 
-(s/defn with-persisted [ctx :- Context, hud :- Hud] :- Context
+(s/defn with-persisted :- Context
+  [ctx :- Context, hud :- Hud]
   (assoc ctx :persisted-hud hud))
 
 (s/defn with-hud :- Context
   [ctx :- Context, hud :- Hud]
-  (-> ctx (assoc :persisted-hud hud) (refresh)))
+  (-> ctx (with-persisted hud) (refresh)))
 
-(s/defn with-unkept-preview [ctx :- Context, hud :- Hud] :- Context
+(s/defn with-unkept-preview :- Context
+  [ctx :- Context, hud :- Hud]
   (assoc ctx :complete-hud hud))
 
-(s/defn with-highlights :- Context
+(s/defn reset-highlights :- Context
+  [ctx :- Context]
+  (assoc ctx :highlights i/empty-map))
+
+(s/defn with-garbage :- Context
   [ctx :- Context, highlights :- Highlights]
-  (assoc ctx :highlights highlights))
+  (assoc ctx :garbage highlights))
+
+(s/defn with-selection :- Context
+  [ctx :- Context, highlight :- Highlight]
+  (assoc-in ctx [:highlights :selection] highlight))
+
+(s/defn with-parens :- Context
+  [ctx :- Context, open :- Highlight, closed :- Highlight]
+  (-> ctx
+      (assoc-in [:highlights :open-paren] open)
+      (assoc-in [:highlights :closed-paren] closed)))
+
+(s/defn make-selection :- Highlight
+  [ctx :- Context, region :- Region]
+  (let [scheme (-> ctx (configuration) (:syntax) (:selection))]
+    {:region region
+     :scheme scheme
+     :styles []}))
+
+(s/defn make-paren :- Highlight
+  [ctx :- Context, region :- Region]
+  (let [scheme (-> ctx (configuration) (:syntax) (:clean-up))]
+    {:region region
+     :scheme scheme
+     :styles [:underline]}))
+
+(s/defn make-garbage :- Highlight
+  [ctx :- Context, region :- Region]
+  (let [scheme (-> ctx (configuration) (:syntax) (:clean-up))]
+    {:region region
+     :scheme scheme
+     :styles []}))
 
 (s/defn with-text [ctx :- Context, input :- Seeker] :- Context
   (let [clipboard (or (:clipboard input)
@@ -173,57 +232,52 @@
   [ctx :- Context]
   (with-signatures ctx h/empty-hud))
 
-;; === Rendering ===
-
-(defn re-render [ctx]
+(s/defn re-render :- Context
+  [ctx :- Context]
   (assoc ctx :render :total))
 
-(defn diff-render [ctx]
+(s/defn diff-render :- Context
+  [ctx :- Context]
   (assoc ctx :render :diff))
 
-(defn clear-render [ctx]
+(s/defn clear-render :- Context
+  [ctx :- Context]
   (assoc ctx :render :clear))
 
 (s/defn highlight :- Context
   [ctx :- Context]
-  (let [seeker    (-> ctx :complete-hud :seeker)
-        scheme    (-> ctx :config :syntax :selection)]
-    (if (i/selection? seeker)
-      (assoc-in ctx [:highlights :selection]
-                {:region (i/selection seeker)
-                 :scheme  scheme
-                 :styles []})
+  (let [text   (-> ctx (preview-hud) (h/text))]
+    (if (i/selected? text)
+      (with-selection ctx (make-selection ctx (i/selection text)))
       ctx)))
 
 (s/defn gc :- Context
   [ctx :- Context]
-  (let [scheme (-> ctx (:config) (:syntax) (:clean-up))]
-    (assoc ctx :highlights i/empty-map
-               :garbage (->> (:highlights ctx)
-                             (map-vals (fn [selection]
-                                         {:region (:region selection)
-                                          :scheme scheme
-                                          :styles []}))))))
+  (let [garbage (->> ctx
+                     (highlights)
+                     (map-vals #(->> % (:region) (make-garbage ctx))))]
+    (-> ctx
+        (reset-highlights)
+        (with-garbage garbage))))
 
 (s/defn match :- Context
   [ctx :- Context]
-  (if-let [{[xs ys] :start
-            [xe ye] :end} (-> ctx (:complete-hud) (:seeker) (i/find-pair))]
-    (let [scheme (fn [region]
-                   {:region region
-                    :scheme (-> ctx (:config) (:syntax) (:clean-up))
-                    :styles [:underline]})]
-      (-> ctx
-          (assoc-in [:highlights :open-paren] (scheme {:start [xs ys] :end [(inc xs) ys]}))
-          (assoc-in [:highlights :closed-paren] (scheme {:start [xe ye] :end [(inc xe) ye]}))))
+  (if-let [pair (-> ctx (preview-hud) (h/text) (i/find-pair))]
+    (let [[xs ys] (:start pair)
+          [xe ye] (:end pair)
+          open   (make-paren ctx {:start [xs ys]
+                                  :end   [(inc xs) ys]})
+          closed (make-paren ctx {:start [xe ye]
+                                  :end   [(inc xe) ye]})]
+      (with-parens ctx open closed))
     ctx))
 
 (s/defn auto-match :- Context
   [ctx :- Context]
-  (let [seeker (-> ctx :complete-hud :seeker)]
+  (let [text (-> ctx (preview-hud) (h/text))]
     (cond
-      (i/open-pairs (i/right seeker)) (match ctx)
-      (i/closed-pairs (i/left seeker)) (match ctx)
+      (i/open-pairs (i/right text)) (match ctx)
+      (i/closed-pairs (i/left text)) (match ctx)
       :else ctx)))
 
 ;; === Control ===
@@ -309,7 +363,7 @@
 
 (s/defn roll :- Context
   [ctx :- Context, f :- (=> REPLServer REPLServer)]
-  (let [clipboard   (get-in ctx [:seeker :clipboard])
+  (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (server) f)
         then-seeker (-> (r/then then-server)
                         (i/end)
@@ -339,12 +393,12 @@
 
 (s/defn suggestion-window :- Hud
   [ctx :- Context]
-  (let [{seeker      :seeker
-         repl        :repl
-         suggestions :suggestions} ctx]
-    (if (h/hollow? suggestions)
-      (-> (r/complete! repl seeker) (h/riffle-window 10))
-      (h/riffle suggestions))))
+  (let [text  (input-area ctx)
+        repl  (server ctx)
+        suggs (suggestions ctx)]
+    (if (h/hollow? suggs)
+      (-> (r/complete! repl text) (h/riffle-window 10))
+      (h/riffle suggs))))
 
 (s/defn suggest :- Context
   [ctx :- Context]
@@ -364,18 +418,18 @@
 
 (s/defn signature-window :- Hud
   [ctx :- Context]
-  (let [{repl       :repl
-         seeker     :seeker
-         signatures :signatures} ctx]
-    (if (h/hollow? signatures)
-      (-> (r/signature! repl seeker) (h/riffle-window 10))
-      (h/riffle signatures))))
+  (let [text (input-area ctx)
+        repl (server ctx)
+        sigs (signatures ctx)]
+    (if (h/hollow? sigs)
+      (-> (r/signature! repl text) (h/riffle-window 10))
+      (h/riffle sigs))))
 
 (s/defn signature :- Context
   [ctx :- Context]
   (let [signatures (signature-window ctx)
-        text      (input-area ctx)
-        preview   (-> ctx
+        text       (input-area ctx)
+        preview    (-> ctx
                       (persisted-hud)
                       (h/enrich-with [text])
                       (h/pop-up signatures))]
@@ -385,14 +439,14 @@
 
 (s/defn documentation-window :- Hud
   [ctx :- Context]
-  (let [{repl   :repl
-         seeker :seeker
-         docs   :documentation} ctx]
+  (let [text (input-area ctx)
+        repl (server ctx)
+        docs (documentation ctx)]
     (if (h/hollow? docs)
-      (-> (r/docs! repl seeker) (h/riffle-window 15))
+      (-> (r/docs! repl text) (h/riffle-window 15))
       (h/riffle docs))))
 
-(s/defn documentation :- Context
+(s/defn document :- Context
   [ctx :- Context]
   (let [documentation (documentation-window ctx)
         text          (input-area ctx)
@@ -432,7 +486,7 @@
    event :- e/Event]
   (case (:action event)
     :inject (-> ctx (inject event) (diff-render) (continue))
-    :docs (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (documentation) (auto-match) (diff-render) (resize) (continue))
+    :docs (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (auto-match) (diff-render) (resize) (continue))
     :signature (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (auto-match) (diff-render) (resize) (continue))
     :match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
     :suggest (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (deselect) (suggest) (auto-match) (diff-render) (resize) (continue))

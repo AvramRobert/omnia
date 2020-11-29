@@ -209,7 +209,7 @@
 (defn right [seeker]
   (sym-at seeker))
 
-(defn selection? [seeker]
+(defn selected? [seeker]
   (-> seeker :selection nil? not))
 
 (defn reselect
@@ -318,7 +318,7 @@
 
 (defn delete [seeker]
   (cond
-    (selection? seeker) (chunk-delete seeker)
+    (selected? seeker) (chunk-delete seeker)
     (pair? seeker) (pair-delete seeker)
     (tokens (left seeker)) (regress seeker)
     :else (simple-delete seeker)))
@@ -331,7 +331,7 @@
 
 (defn- overwrite [seeker]
   (cond-> seeker
-          (selection? seeker) delete))
+          (selected? seeker) delete))
 
 (defn insert [seeker input]
   (m/match [input (right (overwrite seeker))]
@@ -401,7 +401,7 @@
 
 (defn cut [seeker]
   (cond-> (copy seeker)
-          (selection? seeker) (delete)))
+          (selected? seeker) (delete)))
 
 (defn paste [seeker]
   (let [copied (some-> seeker :clipboard (end))
