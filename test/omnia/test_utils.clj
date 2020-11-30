@@ -152,13 +152,11 @@
   [ctx :- Context]
   (-> ctx (r/preview-hud) (h/field-of-view)))
 
-(defn y [ctx]
-  (get-in ctx [:complete-hud :seeker :cursor 1]))
-
-(defn project-y [ctx]
-  (let [complete (:complete-hud ctx)
-        [_ y] (-> complete :seeker :cursor)]
-    (h/project-y complete y)))
+(s/defn project-y :- s/Int
+  [ctx :- Context]
+  (let [view  (r/preview-hud ctx)
+        [_ y] (-> view (h/text) (:cursor))]
+    (h/project-y view y)))
 
 (s/defn project-preview :- Seeker
   [ctx :- Context]
