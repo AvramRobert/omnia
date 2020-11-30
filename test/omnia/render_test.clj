@@ -42,7 +42,7 @@
   ctx)
 
 (defn index [ctx]
-  (-> (project-complete ctx)
+  (-> (project-preview ctx)
       (i/rebase #(map-indexed
                    (fn [y line]
                      (map-indexed
@@ -348,35 +348,63 @@
 (defn move-with [ctx {:keys [scroll ov]
                       :or   {scroll 0
                              ov     0}}]
-  (let [fov    (-> ctx (r/preview-hud) (h/field-of-view))
-        seeker (-> ctx (r/preview-hud) (h/text))]
-    (i/rebase seeker #(->> (take-last (+ fov scroll ov) %) (take fov)))))
+  (let [fov  (-> ctx (r/preview-hud) (h/field-of-view))
+        text (-> ctx (r/preview-hud) (h/text))]
+    (i/rebase text #(->> % (take-last (+ fov scroll ov)) (take fov)))))
 
 (defn total-hud-projection [ctx]
   (let [complete-view       (maximise-view ctx)
         expected-projection (-> ctx (r/preview-hud) (h/text))]
     (-> complete-view
         (process scroll-up 10)
-        (project-complete)
+        (project-preview)
         (<=>seeker expected-projection))))
+
+(defn fov-hud-projection [ctx]
+  (let [fov      (field-of-view ctx)
+        actual   (-> ctx
+                     (at-main-view-end)
+                     (r/preview-hud)
+                     (h/project-hud))
+        expected (-> ctx
+                     (r/preview-hud)
+                     (h/text)
+                     (i/rebase #(take-last fov %)))]
+    (<=>seeker expected actual)))
+
+(defn fov-with-overview-hud-projection [ctx]
+  (let [offset   2
+        fov      (field-of-view ctx)
+        actual   (-> ctx
+                     (at-main-view-start)
+                     (process up offset)
+                     (r/preview-hud)
+                     (h/project-hud))
+        expected (-> ctx
+                     (r/preview-hud)
+                     (h/text)
+                     (i/rebase #(->> % (drop-last offset) (take-last fov))))]
+    (<=>seeker expected actual)))
 
 (defn scrolled-hud-projection [ctx]
   (can-be ctx
-          #(-> % (process scroll-up 1) (project-complete) (<=>seeker (move-with % {:scroll 1})))
-          #(-> % (process scroll-up 4) (project-complete) (<=>seeker (move-with % {:scroll 4})))
-          #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=>seeker (move-with % {:scroll 3})))))
+          #(-> % (process scroll-up 1) (project-preview) (<=>seeker (move-with % {:scroll 1})))
+          #(-> % (process scroll-up 4) (project-preview) (<=>seeker (move-with % {:scroll 4})))
+          #(-> % (process scroll-up 4) (process scroll-down) (project-preview) (<=>seeker (move-with % {:scroll 3})))))
 
 (defn paged-hud-projection [ctx]
   (-> ctx
       (at-main-view-start)
       (process up 2)
       (can-be
-        #(-> % (process scroll-up 1) (project-complete) (<=>seeker (move-with % {:scroll 1 :ov 2})))
-        #(-> % (process scroll-up 4) (project-complete) (<=>seeker (move-with % {:scroll 4 :ov 2})))
-        #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=>seeker (move-with % {:scroll 3 :ov 2}))))))
+        #(-> % (process scroll-up 1) (project-preview) (<=>seeker (move-with % {:scroll 1 :ov 2})))
+        #(-> % (process scroll-up 4) (project-preview) (<=>seeker (move-with % {:scroll 4 :ov 2})))
+        #(-> % (process scroll-up 4) (process scroll-down) (project-preview) (<=>seeker (move-with % {:scroll 3 :ov 2}))))))
 
 (defn hud-projection [ctx]
   (total-hud-projection ctx)
+  (fov-hud-projection ctx)
+  (fov-with-overview-hud-projection ctx)
   (scrolled-hud-projection ctx)
   (paged-hud-projection ctx))
 

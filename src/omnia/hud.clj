@@ -11,21 +11,18 @@
 (def delimiter (i/from-string "------"))
 
 (def Hud
-  {:seeker  Seeker
-   :lor     s/Int
-   :fov     s/Int
-   :ov      s/Int
-   :scroll? s/Bool})
+  {:seeker        Seeker
+   :fov           s/Int
+   :scroll-offset s/Int
+   :ov            s/Int})
 
 (s/defn hud :- Hud
   "A hud is a structure enclosing some form of text that supports
    projecting that text within a bounded view.
    It uses the following attributes to keep track of the projection.
+
    fov = field of view
        -> the size of the projected view. Amount of lines that can be viewed at one time.
-
-   lor = line of reference
-       -> the offset of scrolling. How many lines left when scrolling upwards.
 
    ov  = overview
        -> offset withing the bounded view.
@@ -33,15 +30,13 @@
           To move the view properly, this offset keeps track of when the cursor has moved beyond the bounds
           of `fov` and by how many lines
 
-   scroll? = scrolling flag
-       -> indicates if it's currently being scrolled"
+   scroll-offset = how much has been scrolled (in lines)"
   [seeker :- Seeker
    fov    :- s/Int]
   {:seeker seeker
    :fov    fov
-   :lor    fov
    :ov     0
-   :scroll? false})
+   :scroll-offset 0})
 
 (s/defn hud-of :- Hud
   [fov :- s/Int]
@@ -49,6 +44,41 @@
 
 (s/def empty-hud :- Hud
   (hud-of 0))
+
+(s/defn overview :- s/Int
+  [hud :- Hud]
+  (:ov hud))
+
+(s/defn field-of-view :- s/Int
+  [hud :- Hud]
+  (:fov hud))
+
+(s/defn scroll-offset :- s/Int
+  [hud :- Hud]
+  (:scroll-offset hud))
+
+(s/defn text :- Seeker
+  [hud :- Hud]
+  (:seeker hud))
+
+(s/defn scrolling? :- s/Bool
+  [hud :- Hud]
+  (-> hud (:scroll-offset) (> 0)))
+
+(s/defn hollow? :- s/Bool
+  [hud :- Hud]
+  (-> hud :seeker :lines empty?))
+
+(s/defn current-line :- [Character]
+  [hud :- Hud]
+  (-> hud (text) (i/line)))
+
+(s/defn engulfed-size :- s/Int
+  [hud :- Hud]
+  (let [fov       (field-of-view hud)
+        offset    (scroll-offset hud)
+        ov        (overview hud)]
+    (+ fov ov offset)))
 
 (s/defn bottom-y :- s/Int
   [hud :- Hud]
@@ -83,13 +113,25 @@
         y (project-y hud hy)]
     [x y]))
 
+;; todo: consider using subvectors. would be faster
+;; ultimately you could also try adding the cursor projection directly to this
+;; and then simply returning the hud
+(s/defn project-hud :- Seeker
+  [hud :- Hud]
+  (let [text           (text hud)
+        fov            (field-of-view hud)
+        ov             (overview hud)
+        scroll         (scroll-offset hud)
+        viewable-chunk (+ fov ov scroll)]
+    (i/rebase text #(->> % (take-last viewable-chunk) (take fov)))))
+
 (s/defn project-selection :- Region
   [hud :- Hud
    selection :- Region]
   (let [fov             (:fov hud)
         h               (-> hud (:seeker) (:height))
-        [xs ys] (:start selection)
-        [xe ye] (:end selection)
+        [xs ys]         (:start selection)
+        [xe ye]         (:end selection)
         top             (top-y hud)
         bottom          (bottom-y hud)
         unpaged?        (< h fov)
@@ -111,20 +153,7 @@
       :else {:start [0 bottom]
              :end   [0 bottom]})))
 
-(s/defn project-hud :- Seeker
-  [hud :- Hud]
-  (let [{seeker  :seeker
-         lor     :lor
-         fov     :fov
-         ov      :ov
-         scroll? :scroll?} hud
-        take-right (fn [n coll]
-                     (lazy-seq (take-last n coll)))]
-    (if scroll?
-      (i/rebase seeker #(->> % (take-right lor) (take fov)))
-      (i/rebase seeker #(->> % (drop-last ov) (take-right fov))))))
-
-(s/defn correct-ov :- s/Int
+(s/defn correct-between :- s/Int
   [hud :- Hud
    previous-hud :- Hud]
   (let [{fov                       :fov
@@ -157,18 +186,7 @@
    (corrected hud hud))
   ([hud :- Hud,
     previous-hud :- Hud]
-   (assoc hud :ov (correct-ov hud previous-hud))))
-
-(s/defn paginate :- Seeker
-  [hud :- Hud]
-  (let [cursor     (project-cursor hud)
-        truncated? (-> hud (:ov) (zero?) (not))
-        extend     #(if truncated? (i/adjoin % continuation) %)]
-    (-> hud
-        (update :seeker #(i/reset-to % cursor))
-        (project-hud)
-        (extend)
-        (i/indent 1))))
+   (assoc hud :ov (correct-between hud previous-hud))))
 
 (s/defn enrich-with :- Hud
   [hud :- Hud, seekers :- [Seeker]]
@@ -181,84 +199,57 @@
     (-> (hud-of size) (enrich-with [content]) (corrected))))
 
 (s/defn riffle [hud :- Hud] :- Hud
-  (let [[_ y] (-> hud :seeker :cursor)
+  (let [[_ y]  (-> hud :seeker :cursor)
         height (-> hud :seeker :height)
         y'     (mod* (inc y) height)]
     (-> hud (update :seeker #(i/reset-y % y')) (corrected))))
 
-(s/defn nowards :- s/Int
-  [hud :- Hud]
-  (let [fov    (:fov hud)
-        ov     (:ov hud)
-        height (-> hud :seeker :height)]
-    (if (> height fov) (+ fov ov) height)))
-
-(s/defn upwards :- s/Int
-  [hud :- Hud]
-  (let [lor    (:lor hud)
-        height (-> hud :seeker :height)]
-    (inc< lor height)))
-
-(s/defn downwards :- s/Int
-  [hud :- Hud]
-  (let [lor (:lor hud)]
-    (dec< lor (nowards hud))))
-
-(s/defn scroll :- Hud
-  [hud :- Hud f]
-  (-> hud
-      (assoc :scroll? true)
-      (assoc :lor (f hud))))
-
-(s/defn scroll-stop :- Hud
-  [hud :- Hud]
-  (-> hud
-      (scroll nowards)
-      (assoc :scroll? false)))
-
 (s/defn scroll-up :- Hud
   [hud :- Hud]
-  (scroll hud upwards))
+  (let [offset     (scroll-offset hud)
+        chunk-size (engulfed-size hud)
+        text-size  (-> hud (text) (:height))
+        result     (if (>= chunk-size text-size) text-size (inc offset))]
+    (assoc hud :scroll-offset result)))
 
 (s/defn scroll-down :- Hud
   [hud :- Hud]
-  (scroll hud downwards))
+  (let [offset (:scroll-offset hud)
+        result (if (zero? offset) offset (dec offset))]
+    (assoc hud :scroll-offset result)))
 
-(s/defn hollow? :- s/Bool
+(s/defn scroll-stop :- Hud
   [hud :- Hud]
-  (-> hud :seeker :lines empty?))
+  (assoc hud :scroll-offset 0))
 
 (s/defn view :- String
   [hud :- Hud]
   (-> hud (:seeker) (i/debug-string)))
-
-(s/defn text :- Seeker
-  [hud :- Hud]
-  (:seeker hud))
-
-(s/defn current-line :- [Character]
-  [hud :- Hud]
-  (-> hud (text) (i/line)))
 
 (s/defn deselect :- Hud
   [hud :- Hud]
   (update hud :seeker i/deselect))
 
 (s/defn reset-overview :- Hud
-  [hud :- Hud]
-  (assoc hud :ov 0))
+  ([hud :- Hud]
+   (reset-overview hud 0))
+  ([hud :- Hud, overview :- s/Int]
+   (assoc hud :ov overview)))
 
-(s/defn overview :- s/Int
-  [hud :- Hud]
-  (:ov hud))
-
-(s/defn field-of-view :- s/Int
-  [hud :- Hud]
-  (:fov hud))
-
-(s/defn reset-view :- Hud
+(s/defn resize :- Hud
   [hud :- Hud, size :- s/Int]
-  (assoc hud :fov size :lor size))
+  (assoc hud :fov size :scroll-offset 0))
+
+(s/defn paginate :- Seeker
+  [hud :- Hud]
+  (let [cursor     (project-cursor hud)
+        truncated? (-> hud (:ov) (zero?) (not))
+        extend     #(if truncated? (i/adjoin % continuation) %)]
+    (-> hud
+        (update :seeker #(i/reset-to % cursor))
+        (project-hud)
+        (extend)
+        (i/indent 1))))
 
 (s/defn pop-up :- Hud
   [hud :- Hud, embedded :- Hud]

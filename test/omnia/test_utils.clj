@@ -5,6 +5,7 @@
             [clojure.test :refer [is]]
             [omnia.hud :refer [Hud]]
             [omnia.repl :refer [Context HighlightType]]
+            [omnia.input :refer [Seeker]]
             [schema.core :as s]
             [omnia.more :refer [-- Region]]
             [omnia.config :as c]
@@ -143,8 +144,13 @@
   [ctx :- Context]
   (-> ctx (r/preview-hud) (h/overview)))
 
-(defn lor [ctx]
-  (get-in ctx [:complete-hud :lor]))
+(s/defn scroll-offset :- s/Int
+  [ctx :- Context]
+  (-> ctx (r/preview-hud) (h/scroll-offset)))
+
+(s/defn field-of-view :- s/Int
+  [ctx :- Context]
+  (-> ctx (r/preview-hud) (h/field-of-view)))
 
 (defn y [ctx]
   (get-in ctx [:complete-hud :seeker :cursor 1]))
@@ -154,11 +160,18 @@
         [_ y] (-> complete :seeker :cursor)]
     (h/project-y complete y)))
 
-(defn project-complete [ctx]
-  (h/project-hud (:complete-hud ctx)))
+(s/defn project-preview :- Seeker
+  [ctx :- Context]
+  (h/project-hud (r/preview-hud ctx)))
 
 (defn project-cursor [ctx]
   (h/project-cursor (:complete-hud ctx)))
+
+(s/defn project-preview2 :- Hud
+  [ctx :- Context]
+  (let [view   (h/project-hud (r/preview-hud ctx))
+        cursor (h/project-cursor (r/preview-hud ctx))]
+    (assoc view :cursor cursor)))
 
 (defn cursor [ctx]
   (-> ctx (r/preview-hud) (h/text) (:cursor)))

@@ -273,74 +273,44 @@
 ;; II. Scrolling
 
 (defn scroll-upwards [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])]
-    (-> ctx
-        (process scroll-up 4)
-        (lor)
-        (= (+ fov 4))
-        (is))))
+  (let [offset 4
+        actual-offset (-> ctx (process scroll-up offset) (scroll-offset))]
+    (is (= offset actual-offset))))
 
-(defn scroll-downwards [ctx n]
-  (-> ctx
-      (process scroll-up n)
-      (process scroll-down n)
-      (can-be #(= (lor %) (lor ctx)))))
+(defn scroll-downwards [ctx]
+  (let [actual-offset (-> ctx
+                          (process scroll-up 5)
+                          (process scroll-down 5)
+                          (scroll-offset))]
+    (is (= 0 actual-offset))))
 
 (defn stop-upward-scroll [ctx]
-  (let [h (get-in ctx [:complete-hud :seeker :height])]
-    (-> ctx
-        (process scroll-up 100)
-        (lor)
-        (= h)
-        (is))))
+  (let [text-size (-> ctx (r/preview-hud) (h/text) (:height))
+        offset    (-> ctx (process scroll-up 1000) (scroll-offset))]
+    (is (= text-size offset))))
 
 (defn stop-downward-scroll [ctx]
-  (-> ctx
-      (process scroll-up 10)
-      (process scroll-down 100)
-      (lor)
-      (= (lor ctx))
-      (is)))
-
-(defn scroll-ending-with-ov [ctx]
-  (let [offset (-> ctx (at-main-view-start) (process up 2))
-        ov     (get-in offset [:complete-hud :ov])
-        fov    (get-in offset [:complete-hud :fov])]
-    (-> offset
-        (process scroll-up 3)
-        (process scroll-down 5)
-        (lor)
-        (= (+ ov fov))
-        (is))))
+  (let [offset (-> ctx
+                   (process scroll-up 10)
+                   (process scroll-down 1000)
+                   (scroll-offset))]
+    (is (= 0 offset))))
 
 (defn scroll-reset [ctx]
-  (let [expected-lor (get-in ctx [:complete-hud :lor])
-        actual-lor (-> ctx
-                       (at-input-end)
-                       (at-line-start)
-                       (process scroll-up 5)
-                       (process (char-key \a))
-                       (lor))]
-    (is (= expected-lor actual-lor))))
-
-(defn scroll-reset-with-ov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])]
-    (-> (at-main-view-start ctx)
-        (process up)
-        (process scroll-up 5)
-        (process (char-key \a))
-        (lor)
-        (= (+ fov 1))
-        (is))))
+  (let [scroll-offset (-> ctx
+                          (at-input-end)
+                          (at-line-start)
+                          (process scroll-up 5)
+                          (process (char-key \a))
+                          (scroll-offset))]
+    (is (= 0 scroll-offset))))
 
 (defn scrolling [ctx]
   (scroll-upwards ctx)
-  (scroll-downwards ctx (one gen/pos-int))
+  (scroll-downwards ctx)
   (stop-upward-scroll ctx)
   (stop-downward-scroll ctx)
-  (scroll-ending-with-ov ctx)
-  (scroll-reset ctx)
-  (scroll-reset-with-ov ctx))
+  (scroll-reset ctx))
 
 (defspec scrolling-test
          100
@@ -711,15 +681,13 @@
       (can-be #(not (nil? (:selection %))))))
 
 (defn unchanged-scrolling [ctx]
-  (let [offset       2
-        initial-lor  (-> ctx (:complete-hud) (:lor))
-        expected-lor (+ offset initial-lor)
-        actual-lor   (-> ctx
-                         (at-input-end)
-                         (process scroll-up offset)
-                         (process ignore)
-                         (lor))]
-    (is (= expected-lor actual-lor))))
+  (let [offset        2
+        actual-offset (-> ctx
+                          (at-input-end)
+                          (process scroll-up offset)
+                          (process ignore)
+                          (scroll-offset))]
+    (is (= offset actual-offset))))
 
 (defn ignores [ctx]
   (unchanged-highlights ctx)
