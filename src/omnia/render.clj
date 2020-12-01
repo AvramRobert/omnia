@@ -103,21 +103,21 @@
                                       :sub-region [x (+ x (count line))]})
                         0) ys xs))))))))
 
-(defn collect! [{:keys [garbage
-                        highlights
-                        previous-hud] :as ctx}]
+(defn clean-highlights! [{:keys [garbage
+                                 highlights
+                                 previous-hud] :as ctx}]
   (highlight! ctx {:current garbage
                    :former  highlights
                    :hud     previous-hud}))
 
-(defn selections! [{:keys [highlights
-                           garbage
-                           complete-hud] :as ctx}]
+(defn render-highlights! [{:keys [highlights
+                                  garbage
+                                  complete-hud] :as ctx}]
   (highlight! ctx {:current highlights
                    :former  garbage
                    :hud     complete-hud}))
 
-(defn position! [{:keys [terminal complete-hud]}]
+(defn set-position! [{:keys [terminal complete-hud]}]
   (let [[x y] (h/project-cursor complete-hud)]
     (t/move! terminal x y)))
 
@@ -145,7 +145,7 @@
            :scheme   scheme
            :styles  []})))))
 
-(defn diff! [ctx]
+(defn render-diff! [ctx]
   (let [{terminal     :terminal
          complete     :complete-hud
          previous     :previous-hud
@@ -181,7 +181,7 @@
 
 (defn render! [ctx]
   (case (:render ctx)
-    :diff (doto ctx (collect!) (diff!) (selections!) (position!) (refresh!))
-    :clear (doto ctx (clear!) (total!) (position!) (refresh!))
-    :nothing (doto ctx (collect!) (nothing!) (selections!) (position!) (refresh!))
-    (doto ctx (total!) (selections!) (position!) (refresh!))))
+    :diff (doto ctx (clean-highlights!) (render-diff!) (render-highlights!) (set-position!) (refresh!))
+    :clear (doto ctx (clear!) (total!) (set-position!) (refresh!))
+    :nothing (doto ctx (clean-highlights!) (nothing!) (render-highlights!) (set-position!) (refresh!))
+    (doto ctx (total!) (render-highlights!) (set-position!) (refresh!))))

@@ -5,7 +5,7 @@
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
-            [omnia.repl :as r]
+            [omnia.context :as r]
             [omnia.input :as i]
             [schema.core :as s]))
 

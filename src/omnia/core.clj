@@ -1,8 +1,8 @@
 (ns omnia.core
   (:gen-class)
   (:require [omnia.terminal :as t]
-            [omnia.server :as r]
-            [omnia.repl :as h]
+            [omnia.nrepl :as n]
+            [omnia.repl :as r]
             [omnia.config :as c]
             [clojure.string :as s]
             [halfling.task :as tsk])
@@ -48,7 +48,7 @@
       {:dir (or (read "path=") ".")})))
 
 (defn hooks! [{:keys [repl]} {:keys [dir]}]
-  (-> (tsk/task (r/write-history (history-path dir) repl))
+  (-> (tsk/task (n/write-history (history-path dir) repl))
       (tsk/recover (fn [_] ()))))
 
 (defn succeed! [_]
@@ -67,20 +67,20 @@
 (defn -main [& args]
   (-> (tsk/do-tasks
         [argmap       (read-args! args)
-         config       (-> (:dir argmap) (config-path) (c/read-config))
-         history      (-> (:dir argmap) (history-path) (r/read-history))
+         config       (-> argmap (:dir) (config-path) (c/read-config))
+         history      (-> argmap (:dir) (history-path) (n/read-history))
          terminal     (t/terminal config)
          repl-config  {:history history
                        :host    repl-host
                        :port    (rand-port)
                        :ns      repl-ns}
-         server       (r/start-server! repl-config)
-         repl         (r/repl repl-config)
+         server       (n/start-server! repl-config)
+         repl         (n/client repl-config)
          _            (t/start! terminal)
-         ctx          (h/read-eval-print config terminal repl)
+         ctx          (r/read-eval-print config terminal repl)
          _            (hooks! ctx argmap)
          _            (t/stop! terminal)
-         _            (r/stop-server! server)])
+         _            (n/stop-server! server)])
       (tsk/recover fail!)
       (tsk/then succeed!)
       (tsk/run)))

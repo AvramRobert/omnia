@@ -1,4 +1,4 @@
-(ns omnia.server
+(ns omnia.nrepl
   (:require [clojure.tools.nrepl.server :as server]
             [clojure.tools.nrepl :as nrepl]
             [omnia.more :refer [dec< inc< gulp-or-else]]
@@ -14,7 +14,7 @@
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
-(def REPLServer
+(def REPLClient
   {:ns       s/Symbol
    :host     s/Str
    :port     s/Int
@@ -62,7 +62,6 @@
   (contains? response :value))
 
 (def read-out-msg {:op :read-out})
-(def out-sub-msg {:op :out-subscribe})
 
 (defn- response->seeker [response]
   (cond
@@ -157,13 +156,13 @@
        :doc  (if (empty? doc) "" doc)})))
 
 (s/defn docs! :- Seeker
-  [repl   :- REPLServer
+  [repl   :- REPLClient
    seeker :- Seeker]
   (or (some-> (info! repl seeker) (:doc) (i/from-string))
       i/empty-seeker))
 
 (s/defn signature! :- Seeker
-  [repl :- REPLServer
+  [repl :- REPLClient
    seeker :- Seeker]
   (let [candidates (fn [{:keys [ns name args]}]
                      (mapv #(i/from-string (str ns "/" name " " %)) args))]
@@ -186,7 +185,7 @@
         client    (nrepl/client transport timeout)]
     (fn [msg] (-> client (nrepl/message msg) (vec)))))
 
-(s/defn repl :- REPLServer
+(s/defn client :- REPLClient
   [{:as   params
     :keys [ns port host client timeout history]
     :or   {timeout 10000

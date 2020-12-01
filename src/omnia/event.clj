@@ -112,10 +112,14 @@
     (action? inject)    InjectEvent
     :else               (ControlEvent (concat input-actions hud-actions))))
 
-(s/defn event
-  ([action :- s/Keyword] :- Event
+(s/defn event :- Event
+  ([action :- s/Keyword]
    {:action action})
   ([action :- s/Keyword
-    value  :- s/Any] :- Event
+    value  :- s/Any]
    {:action action
     :value  value}))
+
+(s/defn inject-event :- InjectEvent
+  [clojure :- s/Str]
+  (event :inject clojure))

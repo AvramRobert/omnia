@@ -1,20 +1,19 @@
 (ns omnia.test-utils
-  (:require omnia.hud
-            omnia.input
-            [clojure.test.check.generators :as gen]
-            [clojure.test :refer [is]]
+  (:require [clojure.test :refer [is]]
             [omnia.hud :refer [Hud]]
-            [omnia.repl :refer [Context HighlightType]]
+            [omnia.context :refer [Context HighlightType]]
             [omnia.input :refer [Seeker]]
-            [schema.core :as s]
+            [omnia.event :refer [Event]]
             [omnia.more :refer [-- Region]]
             [omnia.config :as c]
             [omnia.input :as i]
             [omnia.hud :as h]
-            [omnia.repl :as r]
-            [omnia.server :as server]
+            [omnia.context :as r]
+            [omnia.nrepl :as server]
             [omnia.terminal :as t]
-            [omnia.event :as e]))
+            [omnia.event :as e]
+            [schema.core :as s]
+            [clojure.test.check.generators :as gen]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
@@ -96,10 +95,10 @@
          (fn [hud-seeker]
            (-> (r/context (c/convert c/default-config)
                           (test-terminal {:size (constantly fov)})
-                          (server/repl {:host    ""
-                                        :port    0
-                                        :history history
-                                        :client  (constantly receive)}))
+                          (server/client {:host    ""
+                                          :port    0
+                                          :history history
+                                          :client  (constantly receive)}))
                (r/with-text seeker)
                (r/with-hud (h/hud hud-seeker fov)))))))
 
@@ -130,15 +129,14 @@
 (def backspace (e/event e/backspace))
 (def refresh (e/event e/refresh))
 
-(defn process
-  ([ctx event]
+(s/defn process :- Context
+  ([ctx :- Context event :- Event]
    (process ctx event 1))
-  ([ctx event n]
+  ([ctx   :- Context
+    event :- Event
+    n     :- s/Int]
    (->> (range 0 n)
         (reduce (fn [nctx _] (-> nctx (r/process event) (:ctx))) ctx))))
-
-(defn fov [ctx]
-  (get-in ctx [:complete-hud :fov]))
 
 (s/defn overview :- s/Int
   [ctx :- Context]
@@ -163,25 +161,19 @@
   (h/project-hud (r/preview-hud ctx)))
 
 (defn project-cursor [ctx]
-  (h/project-cursor (:complete-hud ctx)))
-
-(s/defn project-preview2 :- Hud
-  [ctx :- Context]
-  (let [view   (h/project-hud (r/preview-hud ctx))
-        cursor (h/project-cursor (r/preview-hud ctx))]
-    (assoc view :cursor cursor)))
+  (-> ctx (r/preview-hud) (h/project-cursor)))
 
 (defn cursor [ctx]
   (-> ctx (r/preview-hud) (h/text) (:cursor)))
 
 (defn suggestions [ctx]
-  (-> ctx (r/server) (server/complete! i/empty-seeker)))
+  (-> ctx (r/client) (server/complete! i/empty-seeker)))
 
 (defn evaluation [seeker]
   {:value (i/stringify seeker)})
 
 (defn history [ctx]
-  (get-in ctx [:repl :history]))
+  (-> ctx (r/client) (:history)))
 
 (defn highlights? [highlited region]
   (let [{expected-start :start
@@ -190,9 +182,6 @@
          actual-end   :end} (:region highlited)]
     (and (= expected-start actual-start)
          (= expected-end actual-end))))
-
-(defn empty-garbage [ctx]
-  (assoc ctx :garbage i/empty-vec))
 
 (s/defn no-projection :- Region
   [ctx :- Context]
@@ -252,21 +241,24 @@
   [ctx :- Context]
   (-> ctx (at-input-end) (at-view-bottom)))
 
-(defn shrink-view [ctx n]
+(s/defn shrink-view :- Context
+   [ctx :- Context, n :- s/Int]
   (let [new-size (-> ctx (r/terminal) (t/size) (-- n))
         terminal (test-terminal {:size (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
         (process refresh))))
 
-(defn enlarge-view [ctx n]
+(s/defn enlarge-view :- Context
+   [ctx :- Context, n :- s/Int]
   (let [new-size (-> ctx (r/terminal) (t/size) (+ n))
         terminal (test-terminal {:size (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
         (process refresh))))
 
-(defn maximise-view [ctx]
+(s/defn maximise-view :- Context
+    [ctx :- Context]
   (let [height   (-> ctx (r/preview-hud) (h/text) (:height))
         terminal (test-terminal {:size (constantly height)})]
     (-> ctx

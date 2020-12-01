@@ -6,7 +6,7 @@
             [omnia.test-utils :refer :all]
             [omnia.render :refer :all]
             [omnia.more :refer [map-vals reduce-idx]]
-            [omnia.repl :as r]
+            [omnia.context :as r]
             [omnia.hud :as h]
             [omnia.terminal :as t]
             [omnia.input :as i]))
@@ -95,7 +95,7 @@
                               (:cursors)
                               (take-last n-last))]
     (-> (stateful processed)
-        (execute diff!)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -115,7 +115,7 @@
         expected-chars   (take-last last-n chars)
         expected-cursors (take-last last-n cursors)]
     (-> (stateful processed)
-        (execute diff!)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -130,7 +130,7 @@
       (at-line-start)
       (process up)
       (stateful)
-      (execute diff!)
+      (execute render-diff!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? chars))
@@ -149,7 +149,7 @@
          expected-cursors :cursors} (discretise processed)]
     (-> processed
         (stateful)
-        (execute diff!)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors _ _ _ _]}]
             (->> (map vector chars cursors)
@@ -223,7 +223,7 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute selections!)
+        (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -241,7 +241,7 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute selections!)
+        (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -255,7 +255,7 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute selections!)
+        (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -269,7 +269,7 @@
         {expected-chars :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute selections!)
+        (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -284,12 +284,11 @@
                       (process (char-key \a))
                       (process left)
                       (process left)
-                      (process expand)
-                      (empty-garbage))
+                      (process expand))
         {expected-chars :chars
          expected-cursors :cursors} (discretise-h processed)]
     (-> (stateful processed)
-        (execute selections!)
+        (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -324,7 +323,7 @@
     (-> selected
         (process left)
         (stateful)
-        (execute collect!)
+        (execute clean-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (flatten expected-chars) chars))
@@ -510,7 +509,7 @@
             #(-> % (process down 100) (project-cursor) (= [x (dec hc)]))))) ;; starts with 0
 
 (defn paged-cursor-projection [ctx]
-  (let [end-y (dec (fov ctx))]                              ;; starts from 0
+  (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
         (can-be
@@ -535,7 +534,7 @@
 ;; VIII. Y Projection
 
 (defn- bounded? [ctx y]
-  (<= 0 y (fov ctx)))
+  (<= 0 y (field-of-view ctx)))
 
 (defn top-bounded-y-projection [ctx]
   (-> ctx
@@ -546,7 +545,7 @@
               #(= 0 (-> % (process up 100) (project-y))))))
 
 (defn bottom-bounded-y-projection [ctx]
-  (let [end-y (dec (fov ctx))]                              ;; starts from 0
+  (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
         (process up 5)

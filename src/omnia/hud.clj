@@ -4,7 +4,7 @@
             [omnia.more :refer [Point Region omnia-version ++ -- mod* inc< dec<]]
             [omnia.input :refer [Seeker]]
             [omnia.terminal :refer [Terminal]]
-            [omnia.server :refer [REPLServer]]))
+            [omnia.nrepl :refer [REPLClient]]))
 
 (def caret (i/from-string "Ω =>"))
 (def continuation (i/from-string "..."))
@@ -109,7 +109,7 @@
 
 (s/defn project-cursor :- Point
   [hud :- Hud]
-  (let [[x hy] (-> hud :seeker :cursor)
+  (let [[x hy] (-> hud (text) (:cursor))
         y (project-y hud hy)]
     [x y]))
 
@@ -122,8 +122,11 @@
         fov            (field-of-view hud)
         ov             (overview hud)
         scroll         (scroll-offset hud)
-        viewable-chunk (+ fov ov scroll)]
-    (i/rebase text #(->> % (take-last viewable-chunk) (take fov)))))
+        viewable-chunk (+ fov ov scroll)
+        cursor         (project-cursor hud)]
+    (-> text
+        (i/rebase #(->> % (take-last viewable-chunk) (take fov)))
+        (i/reset-to cursor))))
 
 (s/defn project-selection :- Region
   [hud :- Hud
@@ -141,7 +144,7 @@
         visible-bottom? (<= top ye bottom)
         end-bottom      (-> hud (:seeker) (i/reset-y bottom) (i/end-x) (:cursor))]
     (cond
-      unpaged? selection
+      unpaged?              selection
       (and visible-top?
            visible-bottom?) selection
       (and visible-top?
@@ -242,11 +245,9 @@
 
 (s/defn paginate :- Seeker
   [hud :- Hud]
-  (let [cursor     (project-cursor hud)
-        truncated? (-> hud (:ov) (zero?) (not))
+  (let [truncated? (-> hud (:ov) (zero?) (not))
         extend     #(if truncated? (i/adjoin % continuation) %)]
     (-> hud
-        (update :seeker #(i/reset-to % cursor))
         (project-hud)
         (extend)
         (i/indent 1))))
