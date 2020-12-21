@@ -9,9 +9,23 @@
             [omnia.context :as r]
             [omnia.hud :as h]
             [omnia.terminal :as t]
-            [omnia.input :as i]))
+            [omnia.input :as i]
+            [schema.core :as s])
+  (:import (clojure.lang Atom)))
 
-(defn stateful [ctx]
+(def State
+  {:chars   Atom
+   :cursors Atom
+   :bgs     Atom
+   :fgs     Atom
+   :stls    Atom})
+
+(def Accumulate
+  {:ctx r/Context
+   :state State})
+
+(s/defn accumulative :- Accumulate
+  [ctx :- r/Context]
   (let [chars   (atom [])
         cursors (atom [])
         bgs     (atom [])
@@ -19,27 +33,28 @@
         stls    (atom [])
         acc     (fn [atm val] (swap! atm #(conj % val)))
         size    (t/size (:terminal ctx))]
-    (assoc ctx
-      :terminal (test-terminal {:put! (fn [ch x y fg bg stl]
-                                        (acc bgs bg)
-                                        (acc fgs fg)
-                                        (run! #(acc stls %) stl)
-                                        (acc chars ch)
-                                        (acc cursors [x y]))
-                                :size (fn [] size)})
-      :state {:chars   chars
-              :cursors cursors
-              :bgs     bgs
-              :fgs     fgs
-              :stls    stls})))
+    {:ctx (assoc ctx
+            :terminal (test-terminal {:put! (fn [ch x y fg bg stl]
+                                              (acc bgs bg)
+                                              (acc fgs fg)
+                                              (run! #(acc stls %) stl)
+                                              (acc chars ch)
+                                              (acc cursors [x y]))
+                                      :size (fn [] size)}))
+     :state {:chars   chars
+             :cursors cursors
+             :bgs     bgs
+             :fgs     fgs
+             :stls    stls}}))
 
-(defn inspect [ctx p]
-  (when-let [state (:state ctx)]
-    (p (map-vals deref state))))
+(s/defn inspect
+  [acc :- Accumulate p]
+  (->> acc (:state) (map-vals deref) (p)))
 
-(defn execute [ctx f]
-  (f ctx)
-  ctx)
+(s/defn execute :- Accumulate
+  [acc :- Accumulate f]
+  (f (:ctx acc))
+  acc)
 
 (defn index [ctx]
   (-> (project-preview ctx)
@@ -94,7 +109,8 @@
         expected-cursors (->> (discretise selected)
                               (:cursors)
                               (take-last n-last))]
-    (-> (stateful processed)
+    (-> processed
+        (accumulative)
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -114,7 +130,7 @@
          cursors :cursors} (discretise processed)
         expected-chars   (take-last last-n chars)
         expected-cursors (take-last last-n cursors)]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -129,7 +145,7 @@
       (at-input-end)
       (at-line-start)
       (process up)
-      (stateful)
+      (accumulative)
       (execute render-diff!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -148,7 +164,7 @@
         {expected-chars   :chars
          expected-cursors :cursors} (discretise processed)]
     (-> processed
-        (stateful)
+        (accumulative)
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors _ _ _ _]}]
@@ -178,7 +194,7 @@
 ;; II. No rendering
 
 (defn projected-no-render [ctx]
-  (-> (stateful ctx)
+  (-> (accumulative ctx)
       (execute nothing!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -192,7 +208,7 @@
   (let [processed (-> ctx
                       (at-main-view-start)
                       (process up))]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute nothing!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -222,7 +238,7 @@
                       (process select-right))
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -240,7 +256,7 @@
                       (process select-left))
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -254,7 +270,7 @@
   (let [processed (process ctx select-all)
         {expected-chars   :chars
          expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -268,7 +284,7 @@
   (let [processed (-> ctx (process (char-key \()) (process left))
         {expected-chars :chars
          expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -287,7 +303,7 @@
                       (process expand))
         {expected-chars :chars
          expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
+    (-> (accumulative processed)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -322,7 +338,7 @@
          expected-cursors :cursors} (discretise-h selected)]
     (-> selected
         (process left)
-        (stateful)
+        (accumulative)
         (execute clean-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]

@@ -61,10 +61,6 @@
   [hud :- Hud]
   (:seeker hud))
 
-(s/defn scrolling? :- s/Bool
-  [hud :- Hud]
-  (-> hud (:scroll-offset) (> 0)))
-
 (s/defn hollow? :- s/Bool
   [hud :- Hud]
   (-> hud :seeker :lines empty?))
@@ -85,25 +81,25 @@
   "The lower y bound of a page (exclusive)
   bottom-y = height - ov - 1
   Subtract 1 because we count from 0"
-  (let [ov     (:ov hud)
-        height (-> hud (:seeker) (:height))]
+  (let [ov     (overview hud)
+        height (-> hud (text) (:height))]
     (-- height ov 1)))
 
 (s/defn top-y :- s/Int
   [hud :- Hud]
   "The upper y bound of a page (inclusive)
   top-y = (height - fov - ov)"
-  (let [fov    (:fov hud)
-        ov     (:ov hud)
-        height (-> hud (:seeker) (:height))]
+  (let [fov    (field-of-view hud)
+        ov     (overview hud)
+        height (-> hud (text) (:height))]
     (-- height fov ov)))
 
 (s/defn project-y :- s/Int
   [hud :- Hud, y :- s/Int]
   "given hud-y, screen-y = hud-y - top-y
    given screen-y, hud-y = screen-y + top-y"
-  (let [fov (:fov hud)
-        h   (-> hud (:seeker) (:height))
+  (let [fov (field-of-view hud)
+        h   (-> hud (text) (:height))
         ys  (top-y hud)]
     (if (> h fov) (- y ys) y)))
 
@@ -131,8 +127,8 @@
 (s/defn project-selection :- Region
   [hud :- Hud
    selection :- Region]
-  (let [fov             (:fov hud)
-        h               (-> hud (:seeker) (:height))
+  (let [fov             (field-of-view hud)
+        h               (-> hud (text) (:height))
         [xs ys]         (:start selection)
         [xe ye]         (:end selection)
         top             (top-y hud)
@@ -159,11 +155,12 @@
 (s/defn correct-between :- s/Int
   [hud :- Hud
    previous-hud :- Hud]
-  (let [{fov                       :fov
-         ov                        :ov
-         {h :height [_ y] :cursor} :seeker} hud
-        {pfov         :fov
-         {ph :height} :seeker} previous-hud
+  (let [fov         (field-of-view hud)
+        ov          (overview hud)
+        h           (-> hud (text) (:height))
+        [_ y]       (-> hud (text) (:cursor))
+        pfov        (field-of-view previous-hud)
+        ph          (-> previous-hud (text) (:height))
         upper-y     (top-y hud)                             ;; the top viewable y
         lower-y     (bottom-y hud)                          ;; the lower viewable y
         over-upper? (< y upper-y)

@@ -80,14 +80,14 @@
    KeyType/EOF            :eof})
 
 (def Terminal
-  {:size       (=> Terminal s/Int)
-   :move!      (=> Terminal nil)
-   :clear!     (=> Terminal nil)
-   :refresh!   (=> Terminal nil)
-   :stop!      (=> Terminal nil)
-   :start!     (=> Terminal nil)
-   :put!       (=> s/Any    nil)                            ;; fix this
-   :get-event! (=> Terminal e/Event)})
+  {:size       s/Any #_(=> Terminal s/Int)
+   :move!      s/Any #_(=> Terminal nil)
+   :clear!     s/Any #_(=> Terminal nil)
+   :refresh!   s/Any #_(=> Terminal nil)
+   :stop!      s/Any #_(=> Terminal nil)
+   :start!     s/Any #_(=> Terminal nil)
+   :put!       s/Any #_(=> s/Any    nil)                            ;; fix this
+   :get-event! s/Any #_(=> Terminal e/Event)})
 
 (s/defn to-key-binding :- c/InternalKeyBinding
   [pressed :- KeyStroke]

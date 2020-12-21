@@ -25,7 +25,9 @@
 
 (def HighlightType (s/enum :selection :open-paren :closed-paren))
 
-(def Highlights {(s/optional-key HighlightType) Highlight})
+(def Highlights {(s/optional-key :selection) Highlight
+                 (s/optional-key :open-paren) Highlight
+                 (s/optional-key :closed-paren) Highlight})
 
 (def Context
   {:terminal      Terminal
@@ -101,7 +103,7 @@
   [ctx :- Context]
   (:previous-hud ctx))
 
-(s/defn input-area :- Hud
+(s/defn input-area :- Seeker
   [ctx :- Context]
   (:seeker ctx))
 

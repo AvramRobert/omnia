@@ -7,8 +7,8 @@
   (s/constrained [s/Int] #(= 2 (count %))))
 
 (def Region
-  {:start Point
-   :end   Point})
+  {:start s/Any
+   :end   s/Any})
 
 (defn => [input-schema output-schema]
   (s/->FnSchema output-schema input-schema))
