@@ -10,7 +10,8 @@
             [omnia.hud :as h]
             [omnia.terminal :as t]
             [omnia.input :as i]
-            [schema.core :as s])
+            [schema.core :as s]
+            [omnia.context :as c])
   (:import (clojure.lang Atom)))
 
 (def State
@@ -74,27 +75,31 @@
                (update :chars #(conj % (:char item))))) {:cursors [] :chars []})))
 
 (defn discretise [ctx]
-  "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
+  "Discretises the preview into a vector of chars and a vector of cursors,
    each being the ones the `terminal` prints to the screen."
   (-> (index ctx)
       (aggregate)))
 
-(defn discretise-h [{:keys [complete-hud highlights] :as ctx}]
-  "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
+(defn discretise-h [ctx]
+  "Discretises the preview into a vector of chars and a vector of cursors,
    each being the ones the `terminal` highlights on the screen."
-  (->> (prioritise highlights)
-       (vals)
-       (mapv #(let [{start :start
-                     end   :end} (-> complete-hud
-                                   (h/project-selection (:region %))
-                                   (update :start (fn [[x y]] [x (h/project-y complete-hud y)]))
-                                   (update :end (fn [[x y]] [x (h/project-y complete-hud y)])))]
-                (-> (index ctx)
-                    (assoc :cursor start
-                           :selection end)
-                    (i/extract)
-                    (aggregate))))
-       (apply (partial merge-with concat))))
+  (let [preview    (c/preview-hud ctx)
+        highlights (c/highlights ctx)]
+    (->> highlights
+         (prioritise)
+         (vals)
+         (mapv #(let [{start :start
+                       end   :end} (-> preview
+                                       (h/project-selection (:region %))
+                                       (update :start (fn [[x y]] [x (h/project-y preview y)]))
+                                       (update :end (fn [[x y]] [x (h/project-y preview y)])))]
+                  (-> (index ctx)
+                      (assoc :cursor start
+                             :selection end)
+                      (i/extract)
+                      (aggregate))))
+         (apply (partial merge-with concat))))
+  )
 
 ;; I. Diffed rendering
 
@@ -111,7 +116,7 @@
                               (take-last n-last))]
     (-> processed
         (accumulative)
-        (execute render-diff!)
+        (execute diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -128,10 +133,10 @@
         last-n           (-> processed (r/preview-hud) (h/text) (:lines) (last) (count))
         {chars   :chars
          cursors :cursors} (discretise processed)
-        expected-chars   (take-last last-n chars)
+        expected-chars     (take-last last-n chars)
         expected-cursors (take-last last-n cursors)]
     (-> (accumulative processed)
-        (execute render-diff!)
+        (execute diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -146,7 +151,7 @@
       (at-line-start)
       (process up)
       (accumulative)
-      (execute render-diff!)
+      (execute diff!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? chars))
@@ -165,7 +170,7 @@
          expected-cursors :cursors} (discretise processed)]
     (-> processed
         (accumulative)
-        (execute render-diff!)
+        (execute diff!)
         (inspect
           (fn [{:keys [chars cursors _ _ _ _]}]
             (->> (map vector chars cursors)
@@ -280,7 +285,7 @@
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
-(defn projected-stylelised-render [ctx]
+(defn projected-stylised-render [ctx]
   (let [processed (-> ctx (process (char-key \()) (process left))
         {expected-chars :chars
          expected-cursors :cursors} (discretise-h processed)]
@@ -317,7 +322,7 @@
   (total-selection-render-right ctx)
   (total-selection-render-left ctx)
   (projected-selection-render ctx)
-  (projected-stylelised-render ctx)
+  (projected-stylised-render ctx)
   (projected-prioritised-render ctx))
 
 (defspec selection-render-test
@@ -494,9 +499,6 @@
                       {:start [xs (- ys fov)]
                        :end   [xe (- ye fov)]}))
         (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
-
-; selection is currently reset when scrolling
-;(defn scrolled-selection-projection [ctx] true)
 
 (defn selection-projection [ctx]
   (total-selection-projection ctx)

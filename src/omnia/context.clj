@@ -11,7 +11,6 @@
             [omnia.terminal :refer [Terminal]]
             [omnia.input :refer [Seeker]]
             [omnia.nrepl :refer [REPLClient]]
-            [omnia.render :refer [render!]]
             [omnia.more :refer [=> omnia-version map-vals Region]]
             [omnia.config :refer [InternalConfig InternalSyntax]]))
 
@@ -130,6 +129,14 @@
 (s/defn highlights :- Highlights
   [ctx :- Context]
   (:highlights ctx))
+
+(s/defn garbage :- Highlights
+  [ctx :- Context]
+  (:garbage ctx))
+
+(s/defn rendering :- Render
+  [ctx :- Context]
+  (:render ctx))
 
 (s/defn refresh :- Context
   [ctx :- Context]

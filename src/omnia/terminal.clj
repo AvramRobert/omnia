@@ -2,7 +2,7 @@
   (:require [schema.core :as s]
             [omnia.config :as c]
             [omnia.event :as e]
-            [omnia.more :refer [=>]])
+            [omnia.more :refer [=> omnia-version]])
   (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -16,6 +16,8 @@
 ;; terminal gray   (TextColor$Indexed/fromRGB (int 51) (int 51) (int 51))
 ;; terminal yellow (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6))
 ;; terminal white  (TextColor$Indexed/fromRGB (int 51) (int 51) (int 51))
+
+(def title (str "omnia-" (omnia-version)))
 
 (def colours                                                ;; FIXME Customize for screen
   {:black   TextColor$ANSI/BLACK
@@ -80,14 +82,14 @@
    KeyType/EOF            :eof})
 
 (def Terminal
-  {:size       s/Any #_(=> Terminal s/Int)
-   :move!      s/Any #_(=> Terminal nil)
-   :clear!     s/Any #_(=> Terminal nil)
-   :refresh!   s/Any #_(=> Terminal nil)
-   :stop!      s/Any #_(=> Terminal nil)
-   :start!     s/Any #_(=> Terminal nil)
-   :put!       s/Any #_(=> s/Any    nil)                            ;; fix this
-   :get-event! s/Any #_(=> Terminal e/Event)})
+  {:size       s/Any
+   :move!      s/Any
+   :clear!     s/Any
+   :refresh!   s/Any
+   :stop!      s/Any
+   :start!     s/Any
+   :put!       s/Any
+   :get-event! s/Any})
 
 (s/defn to-key-binding :- c/InternalKeyBinding
   [pressed :- KeyStroke]
@@ -164,6 +166,7 @@
   (let [terminal (-> (DefaultTerminalFactory.)
                      (.setTerminalEmulatorColorConfiguration (derive-palette config))
                      (.setTerminalEmulatorFontConfiguration (derive-font config))
+                     (.setTerminalEmulatorTitle title)
                      (.createTerminalEmulator)
                      (TerminalScreen.))]
     {:size       (fn []

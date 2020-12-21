@@ -110,8 +110,6 @@
     [x y]))
 
 ;; todo: consider using subvectors. would be faster
-;; ultimately you could also try adding the cursor projection directly to this
-;; and then simply returning the hud
 (s/defn project-hud :- Seeker
   [hud :- Hud]
   (let [text           (text hud)

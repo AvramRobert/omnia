@@ -1,4 +1,4 @@
-(defproject omnia "0.2.1"
+(defproject omnia "1.0.0"
   :description "A Clojure REPL for prototyping and experimenting"
   :url "https://github.com/AvramRobert/omnia"
   :license {:name "Apache-2.0 License"
