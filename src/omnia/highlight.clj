@@ -23,8 +23,6 @@
 
 (def ^:const diff-nodes :diff-nodes)
 
-(def ^:const empty-vec [])
-
 (def ^:const numbers #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9})
 
 (def ^:const words #{[\n \i \l]
@@ -324,7 +322,7 @@
 
 ;; If -text sits higher in the node list than -word, words will be processed as text
 (defn foldl [f b stream]
-  (let [init {:store    empty-vec
+  (let [init {:store    []
               :state    ->break
               :fallback ->text
               :result   b}]

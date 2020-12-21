@@ -994,7 +994,7 @@
   (-> (i/expand i/empty-seeker)
       (i/extract)
       (i/line)
-      (= i/empty-vec)
+      (= [])
       (is)))
 
 (defn extract-bounded [seeker]

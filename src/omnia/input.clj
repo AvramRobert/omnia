@@ -20,18 +20,15 @@
    :selection (s/maybe Point)
    :clipboard (s/maybe (s/recursive #'Seeker))})
 
-(def empty-map {})
-(def empty-vec [])
-(def empty-list '())
 (def empty-seeker
-  {:lines     empty-vec
+  {:lines     []
    :cursor    [0 0]
    :height    0
    :expansion :word
    :selection nil
    :clipboard nil
-   :history   empty-list
-   :rhistory  empty-list})
+   :history   '()
+   :rhistory  '()})
 
 (def open-pairs {\( \) \[ \] \{ \}})
 (def closed-pairs (map-invert open-pairs))
@@ -47,7 +44,7 @@
   ([] (seeker []))
   ([lines] (-> empty-seeker (assoc :lines lines) (resize))))
 
-(def empty-line (seeker [empty-vec]))
+(def empty-line (seeker [[]]))
 
 (defn from-string [string]
   (letfn [(char-vec [xs] (vec (.toCharArray xs)))
@@ -496,8 +493,7 @@
       :else (-> seeker (near-expand) (choose)))))
 
 (defn forget [seeker]
-  (assoc seeker :history empty-list
-                :rhistory empty-list))
+  (assoc seeker :history '() :rhistory '()))
 
 (defn remember
   ([seeker]
