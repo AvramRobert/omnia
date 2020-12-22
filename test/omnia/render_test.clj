@@ -64,24 +64,22 @@
                           (fn [x c]
                             {:cursor [x y] :char c}) line)) %)))
 
-(defn index [ctx]
-  (-> (project-preview ctx)
-      (index-seeker)))
+(s/defn index-highlights
+  [hud :- h/Hud
+   highlights :- r/Highlights]
+  (map-vals
+    #(-> hud (h/text) (index-seeker) (i/extract-for (:region %)) (:lines) (flatten)) highlights))
 
-(defn aggregate [traversal]
-  (->> (:lines traversal)
-       (reduce concat)
-       (reduce
-         (fn [res item]
-           (-> res
-               (update :cursors #(conj % (:cursor item)))
-               (update :chars #(conj % (:char item))))) {:cursors [] :chars []})))
-
-(defn discretise [ctx]
+(s/defn discretise
+  [hud :- h/Hud]
   "Discretises the preview into a vector of chars and a vector of cursors,
    each being the ones the `terminal` prints to the screen."
-  (-> (index ctx)
-      (aggregate)))
+  (->> hud
+       (h/project-hud)
+       (index-seeker)
+       (:lines)
+       (flatten)
+       (reduce (partial merge-with conj) {:cursor [] :char []})))
 
 ;; I. Diffed rendering
 
@@ -93,8 +91,10 @@
         processed        (process selected backspace)
         n-last           (-> ctx (r/preview-hud) (h/text) (:lines) (last) (count))
         expected-chars   (repeat n-last \space)
-        expected-cursors (->> (discretise selected)
-                              (:cursors)
+        expected-cursors (->> selected
+                              (r/preview-hud)
+                              (discretise)
+                              (:cursor)
                               (take-last n-last))]
     (-> processed
         (accumulative)
@@ -113,9 +113,9 @@
                              (at-line-start)
                              (process (char-key k) 10))
         last-n           (-> processed (r/preview-hud) (h/text) (:lines) (last) (count))
-        {chars   :chars
-         cursors :cursors} (discretise processed)
-        expected-chars     (take-last last-n chars)
+        {chars   :char
+         cursors :cursor} (-> processed (r/preview-hud) (discretise))
+        expected-chars   (take-last last-n chars)
         expected-cursors (take-last last-n cursors)]
     (-> (accumulative processed)
         (execute diff!)
@@ -148,8 +148,8 @@
                       (process down)
                       (process select-up 3)
                       (process backspace))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise processed)]
+        {expected-chars   :char
+         expected-cursors :cursor} (-> processed (r/preview-hud) (discretise))]
     (-> processed
         (accumulative)
         (execute diff!)
@@ -258,6 +258,16 @@
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
+(comment
+
+  "I do feel there are some projection laws here that I don't adhere to properly:
+
+  For some hud, where size (hud) > fov (hud) :
+
+  1. extract (project-selection (select-all (hud))) == project-hud (hud)
+
+  2. project-selection (select-something (hud) = map project-cursor (selection ( select-something (hud)))  ")
+
 (defn projected-selection-render [ctx]
   (let [processed        (process ctx select-all)
         projected        (-> processed (c/preview-hud) (h/project-hud))
@@ -332,9 +342,6 @@
 
 ;; IV. Clean-up highlighting
 
-(defn indexed-text [hud highlight]
-  (-> hud (h/text) (index-seeker) (i/extract-for (:region highlight)) (:lines) (flatten)))
-
 (defn arbitrary-line-clean-up [ctx]
   (let [adapted        (-> ctx
                            (at-main-view-start)
@@ -343,8 +350,8 @@
                            (process up))
         expected-chars (->> adapted
                             (r/garbage)
+                            (index-highlights (r/preview-hud adapted))
                             (:selection)
-                            (indexed-text (r/preview-hud adapted))
                             (mapv :char))]
     (-> adapted
         (accumulative)
