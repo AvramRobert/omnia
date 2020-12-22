@@ -6,14 +6,20 @@
             [schema.core :as s]
             [omnia.highlight :refer [foldl -back ->text]]
             [omnia.context :refer [Context]]
-            [omnia.more :refer [Point Region lmerge-with map-vals reduce-idx --]]))
+            [omnia.more :refer [Point Region merge-common-with map-vals reduce-idx --]]))
 
 (def HighlightPattern
   {:current c/Highlights
    :former  c/Highlights
    :hud     h/Hud})
 
-(defn additive-diff [current former]
+(s/def highlight-priority :- {c/HighlightType s/Int}
+  {:selection    3
+   :closed-paren 2
+   :open-paren   1})
+
+(s/defn additive-diff :- (s/maybe Region)
+  [current :- c/Highlight, former :- c/Highlight]
   (let [{[xs ys]   :start
          [xe ye]   :end} (:region current)
         {[xs' ys'] :start
@@ -85,31 +91,27 @@
     (select-keys highlights [:selection])
     highlights))
 
-;; there's something fairly odd about this
-;; highlight "priority" is done by means of selecting the one with highest priority
-;; not by sorting the list in order of their priority
-;; that's a bit confusing
-;; upon glancing at the code many would think that other highlights would go a-miss
-;; and they'd be right. diffable region highlights would go, but because the only one of that kind
-;; is `selection`.. and that's why this always works.. which is idiotic
-(s/defn prioritised
+(s/defn prioritise' :- [c/Highlight]
+  [highlights :- c/Highlights]
+  (->> highlights (sort-by (comp highlight-priority key)) (map second)))
+
+(s/defn prioritised :- [c/Highlight]
   [ctx :- Context, pattern :- HighlightPattern]
   (let [current     (:current pattern)
         former      (:former pattern)
         preview-ov  (-> ctx (c/preview-hud) (h/overview))
         previous-ov (-> ctx (c/previous-hud) (h/overview))]
     (if (= preview-ov previous-ov)
-      (lmerge-with additive-diff (prioritise current) (prioritise former))
-      (prioritise current))))
+      ;; the additive diff immediately nils highlights that don't need rendering
+      (->> (merge-common-with additive-diff current former) (prioritise') (remove nil?))
+      (prioritise' current))))
 
 (s/defn highlight!
   [ctx :- Context, pattern :- HighlightPattern]
-  (let [highlights (prioritised ctx pattern)
-        hud        (:hud pattern)
+  (let [hud        (:hud pattern)
         terminal   (c/terminal ctx)]
-    (->> highlights
-         (vals)
-         (remove nil?)
+    (->> pattern
+         (prioritised ctx)
          (run!
            (fn [{region :region scheme :scheme styles :styles}]
              (let [selection (h/project-selection hud region)

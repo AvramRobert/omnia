@@ -206,6 +206,9 @@
 (defn right [seeker]
   (sym-at seeker))
 
+(defn current-char [seeker]
+  (right seeker))
+
 (defn selected? [seeker]
   (-> seeker :selection nil? not))
 

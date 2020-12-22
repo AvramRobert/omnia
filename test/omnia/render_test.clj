@@ -57,13 +57,16 @@
   (f (:ctx acc))
   acc)
 
+(defn index-seeker [seeker]
+  (i/rebase seeker #(map-indexed
+                      (fn [y line]
+                        (map-indexed
+                          (fn [x c]
+                            {:cursor [x y] :char c}) line)) %)))
+
 (defn index [ctx]
   (-> (project-preview ctx)
-      (i/rebase #(map-indexed
-                   (fn [y line]
-                     (map-indexed
-                       (fn [x c]
-                         {:cursor [x y] :char c}) line)) %))))
+      (index-seeker)))
 
 (defn aggregate [traversal]
   (->> (:lines traversal)
@@ -79,27 +82,6 @@
    each being the ones the `terminal` prints to the screen."
   (-> (index ctx)
       (aggregate)))
-
-(defn discretise-h [ctx]
-  "Discretises the preview into a vector of chars and a vector of cursors,
-   each being the ones the `terminal` highlights on the screen."
-  (let [preview    (c/preview-hud ctx)
-        highlights (c/highlights ctx)]
-    (->> highlights
-         (prioritise)
-         (vals)
-         (mapv #(let [{start :start
-                       end   :end} (-> preview
-                                       (h/project-selection (:region %))
-                                       (update :start (fn [[x y]] [x (h/project-y preview y)]))
-                                       (update :end (fn [[x y]] [x (h/project-y preview y)])))]
-                  (-> (index ctx)
-                      (assoc :cursor start
-                             :selection end)
-                      (i/extract)
-                      (aggregate))))
-         (apply (partial merge-with concat))))
-  )
 
 ;; I. Diffed rendering
 
@@ -237,13 +219,15 @@
 ;; III. Selection highlighting
 
 (defn total-selection-render-right [ctx]
-  (let [processed (-> ctx
-                      (at-input-end)
-                      (at-line-start)
-                      (process select-right))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (accumulative processed)
+  (let [adapted          (-> ctx
+                             (at-input-end)
+                             (at-line-start))
+        text             (-> adapted (r/preview-hud) (h/project-hud))
+        expected-chars   [(i/current-char text)]
+        expected-cursors [(:cursor text)]]
+    (-> adapted
+        (process select-right)
+        (accumulative)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -254,14 +238,17 @@
             (is (= cursors expected-cursors)))))))
 
 (defn total-selection-render-left [ctx]
-  (let [processed (-> ctx
-                      (at-input-end)
-                      (at-line-start)
-                      (process right)
-                      (process select-left))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (accumulative processed)
+  (let [adapted          (-> ctx
+                             (at-input-end)
+                             (at-line-start))
+        text             (-> adapted (c/preview-hud) (h/project-hud))
+        cursor           (:cursor text)
+        expected-chars   [(i/current-char text)]
+        expected-cursors [cursor]]
+    (-> adapted
+        (process right)
+        (process select-left)
+        (accumulative)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -272,10 +259,12 @@
             (is (= cursors expected-cursors)))))))
 
 (defn projected-selection-render [ctx]
-  (let [processed (process ctx select-all)
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (accumulative processed)
+  (let [processed        (process ctx select-all)
+        projected        (-> processed (c/preview-hud) (h/project-hud))
+        expected-chars   (->> projected (:lines) (flatten))
+        expected-cursors (->> projected (index-seeker) (:lines) (flatten) (map :cursor))]
+    (-> processed
+        (accumulative)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -286,29 +275,38 @@
             (is (= expected-cursors cursors)))))))
 
 (defn projected-stylised-render [ctx]
-  (let [processed (-> ctx (process (char-key \()) (process left))
-        {expected-chars :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (accumulative processed)
+  (let [processed (-> ctx
+                      (process (char-key \())
+                      (process (char-key \a))
+                      (process left)
+                      (process left))
+        [x y]     (-> processed (r/preview-hud) (h/project-cursor))
+        expected-chars   [\( \)]
+        expected-cursors [[x y] [(+ x 2) y]]
+        expected-styles  [:underline :underline]]
+    (-> processed
+        (accumulative)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
-            (is (not (empty? stls)))
+            (is (= expected-styles stls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
 (defn projected-prioritised-render [ctx]
-  (let [processed (-> ctx
+  (let [adapted (-> ctx
                       (process (char-key \())
                       (process (char-key \a))
                       (process left)
-                      (process left)
-                      (process expand))
-        {expected-chars :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (accumulative processed)
+                      (process left))
+        [x y]     (-> adapted (r/preview-hud) (h/project-cursor))
+        expected-chars   [\( \a \)]
+        expected-cursors [[x y] [(+ x 1), y] [(+ x 2) y]]]
+    (-> adapted
+        (process expand)
+        (accumulative)
         (execute render-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
@@ -334,21 +332,26 @@
 
 ;; IV. Clean-up highlighting
 
+(defn indexed-text [hud highlight]
+  (-> hud (h/text) (index-seeker) (i/extract-for (:region highlight)) (:lines) (flatten)))
+
 (defn arbitrary-line-clean-up [ctx]
-  (let [selected  (-> ctx
-                      (at-main-view-start)
-                      (process right)
-                      (process select-right 2))
-        {expected-chars :chars
-         expected-cursors :cursors} (discretise-h selected)]
-    (-> selected
-        (process left)
+  (let [adapted        (-> ctx
+                           (at-main-view-start)
+                           (process right)
+                           (process select-right 2)
+                           (process up))
+        expected-chars (->> adapted
+                            (r/garbage)
+                            (:selection)
+                            (indexed-text (r/preview-hud adapted))
+                            (mapv :char))]
+    (-> adapted
         (accumulative)
         (execute clean-highlights!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs]}]
-            (is (= (flatten expected-chars) chars))
-            (is (= expected-cursors cursors))
+          (fn [{:keys [chars bgs fgs]}]
+            (is (= expected-chars chars))
             (is (= :default (first (distinct bgs))))
             (is (not (empty? bgs)))
             (is (not (empty? fgs))))))))

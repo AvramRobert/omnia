@@ -29,17 +29,9 @@
   (let [r (apply + values)]
     (if (neg? r) 0 r)))
 
-(defn lmerge-with [f pm & maps]
-  (reduce
-    (fn [m [k v]]
-      (if (every? #(contains? % k) maps)
-        (->> maps
-             (map #(get % k))
-             (concat [v])
-             (apply f)
-             (assoc m k))
-        (assoc m k v)))
-    {} pm))
+(defn merge-common-with [f m1 m2]
+  (-> (merge-with f m1 m2)
+      (select-keys (keys m1))))
 
 (defn reduce-idx
   ([f seed coll]
