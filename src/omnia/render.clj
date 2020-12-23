@@ -106,7 +106,7 @@
       (prioritise' current))))
 
 (s/defn highlight!
-  [ctx :- Context, pattern :- HighlightPattern, type :- s/Str]
+  [ctx :- Context, pattern :- HighlightPattern]
   (let [hud        (:hud pattern)
         terminal   (c/terminal ctx)]
     (->> pattern
@@ -135,7 +135,7 @@
         previous   (c/previous-hud ctx)]
     (highlight! ctx {:current garbage
                      :former  highlights
-                     :hud     previous} "garbage")))
+                     :hud     previous})))
 
 (s/defn render-highlights!
   [ctx :- Context]
@@ -144,7 +144,7 @@
         preview    (c/preview-hud ctx)]
     (highlight! ctx {:current highlights
                      :former  garbage
-                     :hud     preview} "highlight")))
+                     :hud     preview})))
 
 (s/defn set-position!
   [ctx :- Context]
