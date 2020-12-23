@@ -102,12 +102,11 @@
         preview-ov  (-> ctx (c/preview-hud) (h/overview))
         previous-ov (-> ctx (c/previous-hud) (h/overview))]
     (if (= preview-ov previous-ov)
-      ;; the additive diff immediately nils highlights that don't need rendering
       (->> (merge-common-with additive-diff current former) (prioritise') (remove nil?))
       (prioritise' current))))
 
 (s/defn highlight!
-  [ctx :- Context, pattern :- HighlightPattern]
+  [ctx :- Context, pattern :- HighlightPattern, type :- s/Str]
   (let [hud        (:hud pattern)
         terminal   (c/terminal ctx)]
     (->> pattern
@@ -136,7 +135,7 @@
         previous   (c/previous-hud ctx)]
     (highlight! ctx {:current garbage
                      :former  highlights
-                     :hud     previous})))
+                     :hud     previous} "garbage")))
 
 (s/defn render-highlights!
   [ctx :- Context]
@@ -145,7 +144,7 @@
         preview    (c/preview-hud ctx)]
     (highlight! ctx {:current highlights
                      :former  garbage
-                     :hud     preview})))
+                     :hud     preview} "highlight")))
 
 (s/defn set-position!
   [ctx :- Context]

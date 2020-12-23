@@ -265,11 +265,7 @@
   (let [garbage (->> ctx
                      (highlights)
                      (map-vals #(->> % (:region) (make-garbage ctx))))]
-    (if (empty? garbage)
-      ctx
-      (-> ctx
-          (reset-highlights)
-          (with-garbage garbage)))))
+    (-> ctx (with-garbage garbage) (reset-highlights))))
 
 (s/defn match :- Context
   [ctx :- Context]
@@ -494,6 +490,8 @@
         _    (r/read-out! repl)]
     ctx))
 
+;; Apparently, when i expand in the middle->beginning of a word `(defn)` (at f or e or d)
+;; the selection works, the highlight is enqueued but apparently isn't getting rendered (IS IT THE BLOODY ADDITIVE DIFF!?!)
 (s/defn process :- Step
   [ctx :- Context
    event :- Event]

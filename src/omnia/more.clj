@@ -74,3 +74,7 @@
 
 (defmacro debug [body]
   `(spit "debug" ~body))
+
+(defn inspect [f a]
+  (f a)
+  a)

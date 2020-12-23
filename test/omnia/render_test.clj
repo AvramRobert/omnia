@@ -326,7 +326,26 @@
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
+(defn expansive-render [ctx]
+  (let [processed (-> ctx
+                      (at-input-end)
+                      (at-line-start)
+                      (process (char-key \())
+                      (process (char-key \d))
+                      (process (char-key \e))
+                      (process (char-key \f))
+                      (process (char-key \n))
+                      (process left 2))]
+    (-> processed
+        (process expand)
+        (accumulative)
+        (execute render-highlights!)
+        (inspect
+          (fn [{:keys [chars bgs fgs]}]
+            (is true))))))
+
 (defn selection-render [ctx]
+  #_(expansive-render ctx)
   (total-selection-render-right ctx)
   (total-selection-render-left ctx)
   (projected-selection-render ctx)
@@ -334,7 +353,7 @@
   (projected-prioritised-render ctx))
 
 (defspec selection-render-test
-         100
+         1
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
                                      :seeker (one (gen-seeker-of 29))})]
