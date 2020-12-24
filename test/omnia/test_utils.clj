@@ -118,7 +118,7 @@
 (def enter (e/event e/break))
 (def scroll-up (e/event e/scroll-up))
 (def scroll-down (e/event e/scroll-down))
-(defn char-key [k] (e/event e/character k))
+(defn character [k] (e/event e/character k))
 (def clear (e/event e/clear))
 (def evaluate (e/event e/evaluate))
 (def prev-eval (e/event e/prev-eval))
@@ -130,8 +130,12 @@
 (def refresh (e/event e/refresh))
 
 (s/defn process :- Context
+  [ctx :- Context, events :- [Event]]
+  (reduce (comp :ctx r/process) ctx events))
+
+(s/defn process-one :- Context
   ([ctx :- Context event :- Event]
-   (process ctx event 1))
+   (process-one ctx event 1))
   ([ctx   :- Context
     event :- Event
     n     :- s/Int]
@@ -161,7 +165,7 @@
   (h/project-hud (r/preview-hud ctx)))
 
 (defn project-cursor [ctx]
-  (-> ctx (r/preview-hud) (h/project-cursor)))
+  (-> ctx (r/preview-hud) (h/project-hud-cursor)))
 
 (defn cursor [ctx]
   (-> ctx (r/preview-hud) (h/text) (:cursor)))
@@ -247,7 +251,7 @@
         terminal (test-terminal {:size (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
-        (process refresh))))
+        (process-one refresh))))
 
 (s/defn enlarge-view :- Context
    [ctx :- Context, n :- s/Int]
@@ -255,7 +259,7 @@
         terminal (test-terminal {:size (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
-        (process refresh))))
+        (process-one refresh))))
 
 (s/defn maximise-view :- Context
     [ctx :- Context]
@@ -263,4 +267,4 @@
         terminal (test-terminal {:size (constantly height)})]
     (-> ctx
         (r/with-terminal terminal)
-        (process refresh))))
+        (process-one refresh))))

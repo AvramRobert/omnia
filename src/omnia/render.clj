@@ -85,13 +85,7 @@
         (foldl 0 line)
         (pad!))))
 
-(s/defn prioritise :- c/Highlights
-  [highlights :- c/Highlights]
-  (if (:selection highlights)
-    (select-keys highlights [:selection])
-    highlights))
-
-(s/defn prioritise' :- [c/Highlight]
+(s/defn prioritise :- [c/Highlight]
   [highlights :- c/Highlights]
   (->> highlights (sort-by (comp highlight-priority key)) (map second)))
 
@@ -102,31 +96,31 @@
         preview-ov  (-> ctx (c/preview-hud) (h/overview))
         previous-ov (-> ctx (c/previous-hud) (h/overview))]
     (if (= preview-ov previous-ov)
-      (->> (merge-common-with additive-diff current former) (prioritise') (remove nil?))
-      (prioritise' current))))
+      (->> (merge-common-with additive-diff current former) (prioritise) (remove nil?))
+      (prioritise current))))
 
 (s/defn highlight!
   [ctx :- Context, pattern :- HighlightPattern]
   (let [hud        (:hud pattern)
-        terminal   (c/terminal ctx)]
-    (->> pattern
-         (prioritised ctx)
-         (run!
-           (fn [{region :region scheme :scheme styles :styles}]
-             (let [selection (h/project-selection hud region)
-                   seeker    (h/text hud)
-                   [xs ys]   (:start selection)]
-               (->> (i/extract-for seeker selection)
-                    (:lines)
-                    (reduce-idx
-                      (fn [y x line]
-                        (print-line! {:at         (h/project-y hud y)
-                                      :line       (i/line seeker [x y])
-                                      :terminal   terminal
-                                      :scheme     scheme
-                                      :styles     styles
-                                      :sub-region [x (+ x (count line))]})
-                        0) ys xs))))))))
+        terminal   (c/terminal ctx)
+        highlights (prioritised ctx pattern)]
+    (doseq [{region :region
+             scheme :scheme
+             styles :styles} highlights]
+      (let [selection (h/project-selection hud region)
+            seeker    (h/text hud)
+            [xs ys]   (:start selection)]
+        (->> (i/extract-for seeker selection)
+             (:lines)
+             (reduce-idx
+               (fn [y x line]
+                 (print-line! {:at         (h/project-y hud y)
+                               :line       (i/line seeker [x y])
+                               :terminal   terminal
+                               :scheme     scheme
+                               :styles     styles
+                               :sub-region [x (+ x (count line))]})
+                 0) ys xs))))))
 
 (s/defn clean-highlights!
   [ctx :- Context]
@@ -150,7 +144,7 @@
   [ctx :- Context]
   (let [terminal (c/terminal ctx)
         preview  (c/preview-hud ctx)
-        [x y]    (h/project-cursor preview)]
+        [x y]    (h/project-hud-cursor preview)]
     (t/move! terminal x y)))
 
 ;; === Rendering strategies ===

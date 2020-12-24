@@ -104,10 +104,12 @@
     (if (> h fov) (- y ys) y)))
 
 (s/defn project-cursor :- Point
+  [hud :- Hud, [x hy] :- Point]
+  [x (project-y hud hy)])
+
+(s/defn project-hud-cursor :- Point
   [hud :- Hud]
-  (let [[x hy] (-> hud (text) (:cursor))
-        y (project-y hud hy)]
-    [x y]))
+  (project-cursor hud (-> hud (text) (:cursor))))
 
 ;; todo: consider using subvectors. would be faster
 (s/defn project-hud :- Seeker
@@ -117,7 +119,7 @@
         ov             (overview hud)
         scroll         (scroll-offset hud)
         viewable-chunk (+ fov ov scroll)
-        cursor         (project-cursor hud)]
+        cursor         (project-hud-cursor hud)]
     (-> text
         (i/rebase #(->> % (take-last viewable-chunk) (take fov)))
         (i/reset-to cursor))))

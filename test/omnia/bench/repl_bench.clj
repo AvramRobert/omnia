@@ -3,20 +3,20 @@
             [omnia.test-utils :refer :all]))
 
 (defn repl-actions [ctx]
-  (let [insertion  (fn [ctx s] (reduce #(process %1 (char-key %2)) ctx s))
+  (let [insertion  (fn [ctx s] (reduce #(process-one %1 (character %2)) ctx s))
         navigation (fn [ctx off] (-> ctx
-                                     (process down off)
-                                     (process up off)
-                                     (process right off)
-                                     (process left off)))
-        suggestion (fn [ctx am] (-> ctx (process suggest am)))
+                                     (process-one down off)
+                                     (process-one up off)
+                                     (process-one right off)
+                                     (process-one left off)))
+        suggestion (fn [ctx am] (-> ctx (process-one suggest am)))
         selection  (fn [ctx am] (-> ctx
                                     (at-input-start)
-                                    (process select-right am)
-                                    (process select-down am)))
-        selection* (fn [ctx] (-> ctx (process select-all)))
-        deletion   (fn [ctx] (-> ctx (process backspace)))
-        evaluation (fn [ctx] (-> ctx (process evaluate)))]
+                                    (process-one select-right am)
+                                    (process-one select-down am)))
+        selection* (fn [ctx] (-> ctx (process-one select-all)))
+        deletion   (fn [ctx] (-> ctx (process-one backspace)))
+        evaluation (fn [ctx] (-> ctx (process-one evaluate)))]
     (-> ctx
         (insertion "(hello")
         (insertion "[WORLD]")
