@@ -124,7 +124,12 @@
         (i/rebase #(->> % (take-last viewable-chunk) (take fov)))
         (i/reset-to cursor))))
 
-(s/defn project-selection :- Region
+(comment
+  "Project selection doesn't project the selection within the current view.
+   It clips it to the current view.
+   It maintains its cursors if clipping isn't necessary.
+   This is dumb.")
+(s/defn clip-selection :- Region
   [hud :- Hud
    selection :- Region]
   (let [fov             (field-of-view hud)
@@ -138,7 +143,7 @@
         clipped-bottom? (> ye bottom)
         visible-top?    (<= top ys bottom)
         visible-bottom? (<= top ye bottom)
-        end-bottom      (-> hud (:seeker) (i/reset-y bottom) (i/end-x) (:cursor))]
+        end-bottom      (-> hud (text) (i/reset-y bottom) (i/end-x) (:cursor))]
     (cond
       unpaged?              selection
       (and visible-top?
@@ -151,6 +156,16 @@
                           :end   [xe ye]}
       :else {:start [0 bottom]
              :end   [0 bottom]})))
+
+(s/defn project-selection :- Region
+  "projecting y outside the bounds leads to:
+   a) -n when upper bound is exceeded by n
+   b) fov + n numbers, when lower bound exceeded by n"
+  [hud :- Hud
+   region :- Region]
+  (-> (clip-selection hud region)
+      (update :start (partial project-cursor hud))
+      (update :end (partial project-cursor hud))))
 
 (s/defn correct-between :- s/Int
   [hud :- Hud

@@ -29,9 +29,16 @@
   (let [r (apply + values)]
     (if (neg? r) 0 r)))
 
-(defn merge-common-with [f m1 m2]
-  (-> (merge-with f m1 m2)
-      (select-keys (keys m1))))
+(defn merge-culling [f m1 m2]
+  "Merges two maps. Keep just the common elements.
+   Removes any element that is `nil` either by itself
+   or as a result of applying `f`."
+  (reduce
+    (fn [nm [k a]]
+      (if-let [b (get m2 k)]
+        (or (some->> b (f a) (assoc nm k))
+            nm)
+        (assoc nm k a))) {} m1))
 
 (defn reduce-idx
   ([f seed coll]

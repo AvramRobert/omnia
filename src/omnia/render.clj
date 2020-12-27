@@ -6,7 +6,7 @@
             [schema.core :as s]
             [omnia.highlight :refer [foldl -back ->text]]
             [omnia.context :refer [Context]]
-            [omnia.more :refer [Point Region merge-common-with map-vals reduce-idx --]]))
+            [omnia.more :refer [Point Region merge-culling map-vals reduce-idx --]]))
 
 (def HighlightPattern
   {:current c/Highlights
@@ -18,7 +18,7 @@
    :closed-paren 2
    :open-paren   1})
 
-(s/defn additive-diff :- (s/maybe Region)
+(s/defn additive-diff :- (s/maybe c/Highlight)
   [current :- c/Highlight, former :- c/Highlight]
   (let [{[xs ys]   :start
          [xe ye]   :end} (:region current)
@@ -96,10 +96,13 @@
         preview-ov  (-> ctx (c/preview-hud) (h/overview))
         previous-ov (-> ctx (c/previous-hud) (h/overview))]
     (if (= preview-ov previous-ov)
-      (->> (merge-common-with additive-diff current former) (prioritise) (remove nil?))
+      ;; additive-diff nils highlights that don't have a diff
+      (->> (merge-culling additive-diff current former) (prioritise))
       (prioritise current))))
 
 (s/defn highlight!
+  "This thing should not do any selection extraction
+   It should purely just do lookups and recursion over indexes"
   [ctx :- Context, pattern :- HighlightPattern]
   (let [hud        (:hud pattern)
         terminal   (c/terminal ctx)
@@ -107,10 +110,11 @@
     (doseq [{region :region
              scheme :scheme
              styles :styles} highlights]
-      (let [selection (h/project-selection hud region)
+      (let [selection (h/clip-selection hud region)
             seeker    (h/text hud)
             [xs ys]   (:start selection)]
-        (->> (i/extract-for seeker selection)
+        (->> selection
+             (i/extract-for seeker)
              (:lines)
              (reduce-idx
                (fn [y x line]
@@ -119,7 +123,7 @@
                                :terminal   terminal
                                :scheme     scheme
                                :styles     styles
-                               :sub-region [x (+ x (count line))]})
+                               :sub-region [x (-> line (count) (+ x))]})
                  0) ys xs))))))
 
 (s/defn clean-highlights!

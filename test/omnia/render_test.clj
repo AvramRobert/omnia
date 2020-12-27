@@ -11,8 +11,16 @@
             [omnia.terminal :as t]
             [omnia.input :as i]
             [schema.core :as s]
-            [omnia.context :as c])
+            [omnia.context :as c]
+            [omnia.more :as m])
   (:import (clojure.lang Atom)))
+
+(def IndexedCharacter
+  {:char   Character
+   :cursor m/Point})
+
+(def IndexedSeeker
+  (assoc i/Seeker :lines [[IndexedCharacter]]))
 
 (def State
   {:chars   Atom
@@ -57,29 +65,29 @@
   (f (:ctx acc))
   acc)
 
-(defn index-seeker [seeker]
+(s/defn index-seeker :- IndexedSeeker
+  [seeker :- i/Seeker]
   (i/rebase seeker #(map-indexed
                       (fn [y line]
                         (map-indexed
                           (fn [x c]
                             {:cursor [x y] :char c}) line)) %)))
 
-(s/defn index-highlights
-  [hud :- h/Hud
-   highlights :- r/Highlights]
-  (map-vals
-    #(-> hud (h/text) (index-seeker) (i/extract-for (:region %)) (:lines) (flatten)) highlights))
+(s/defn index :- [IndexedCharacter]
+  ([hud :- h/Hud]
+   (->> hud
+        (h/project-hud)
+        (index-seeker)
+        (:lines)
+        (flatten))))
 
-(s/defn discretise
-  [hud :- h/Hud]
-  "Discretises the preview into a vector of chars and a vector of cursors,
-   each being the ones the `terminal` prints to the screen."
-  (->> hud
-       (h/project-hud)
-       (index-seeker)
-       (:lines)
-       (flatten)
-       (reduce (partial merge-with conj) {:cursor [] :char []})))
+(s/defn index-at :- [IndexedCharacter]
+  ([hud :- h/Hud, region :- m/Region]
+   (let [indexed (->> hud (h/project-hud) (index-seeker))]
+     (->> (h/project-selection hud region)
+          (i/extract-for indexed)
+          (:lines)
+          (flatten)))))
 
 ;; I. Diffed rendering
 
@@ -93,9 +101,9 @@
         expected-chars   (repeat n-last \space)
         expected-cursors (->> selected
                               (r/preview-hud)
-                              (discretise)
-                              (:cursor)
-                              (take-last n-last))]
+                              (index)
+                              (take-last n-last)
+                              (map :cursor))]
     (-> processed
         (accumulative)
         (execute diff!)
@@ -112,11 +120,8 @@
                              (at-input-end)
                              (at-line-start)
                              (process-one (character k) 10))
-        last-n           (-> processed (r/preview-hud) (h/text) (:lines) (last) (count))
-        {chars   :char
-         cursors :cursor} (-> processed (r/preview-hud) (discretise))
-        expected-chars   (take-last last-n chars)
-        expected-cursors (take-last last-n cursors)]
+        last-n           (->> processed (r/preview-hud) (h/text) (:lines) (last) (count))
+        expectation      (->> processed (r/preview-hud) (index) (take-last last-n))]
     (-> (accumulative processed)
         (execute diff!)
         (inspect
@@ -124,8 +129,8 @@
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (= expected-cursors cursors))
-            (is (= expected-chars chars)))))))
+            (is (= (map :cursor expectation) cursors))
+            (is (= (map :char expectation) chars)))))))
 
 (defn no-change-diff-render [ctx]
   (-> ctx
@@ -143,13 +148,14 @@
           (is (empty? stls))))))
 
 (defn reset-diff-render [ctx]
-  (let [processed (-> ctx
-                      (at-main-view-start)
-                      (process-one down)
-                      (process-one select-up 3)
-                      (process-one backspace))
-        {expected-chars   :char
-         expected-cursors :cursor} (-> processed (r/preview-hud) (discretise))]
+  (let [processed        (-> ctx
+                             (at-main-view-start)
+                             (process-one down)
+                             (process-one select-up 3)
+                             (process-one backspace))
+        expectation      (-> processed (r/preview-hud) (index))
+        expected-chars   (map :char expectation)
+        expected-cursors (map :cursor expectation)]
     (-> processed
         (accumulative)
         (execute diff!)
@@ -346,45 +352,27 @@
                                      :seeker (one (gen-seeker-of 29))})]
                   (selection-render ctx)))
 
-
-
-(comment
-  "I do feel there are some projection laws here that I don't adhere to properly:
-
-  For some hud, where size (hud) > fov (hud) :
-
-  1. extract (project-selection (select-all (hud))) == project-hud (hud)
-
-  2. project-selection (select-something (hud)) = map project-cursor (selection ( select-something (hud)))
-
-  3. project-cursor [x, y] = [x, project y]
-
-  4. extract(project-selection(select-something(hud))) == let selection = project-selection(select-something(hud))
-                                                              extract selection (project hud)
-
-  5. extract(index(project-selection(select-something(hud)))) == map project-cursor (extract(index(select-something(hud))))
-  ")
-
 ;; IV. Clean-up highlighting
 
 (defn arbitrary-line-clean-up [ctx]
-  (let [adapted        (-> ctx
-                           (at-main-view-start)
-                           (process [right
-                                     select-right
-                                     select-right
-                                     up]))
-        expected-chars (->> adapted
-                            (r/garbage)
-                            (index-highlights (r/preview-hud adapted))
-                            (:selection)
-                            (mapv :char))]
+  (let [adapted     (-> ctx
+                        (at-main-view-start)
+                        (process [right
+                                  select-right
+                                  select-right
+                                  left]))
+        expectation (->> adapted
+                         (r/garbage)
+                         (vals)
+                         (map :region)
+                         (mapcat #(index-at (r/preview-hud adapted) %)))]
     (-> adapted
         (accumulative)
         (execute clean-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
-            (is (= expected-chars chars))
+            (is (= (map :char expectation) chars))
+            (is (= (map :cursor expectation) cursors))
             (is (= :default (first (distinct bgs))))
             (is (not (empty? bgs)))
             (is (not (empty? fgs))))))))
@@ -393,7 +381,7 @@
   (arbitrary-line-clean-up ctx))
 
 (defspec clean-up-render-test
-         1
+         100
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
                                      :seeker (one (gen-seeker-of 29))})]
@@ -612,7 +600,7 @@
   (bottom-bounded-y-projection ctx))
 
 (defspec y-projection-test
-         100
+         1
          (for-all [ctx (gen-context {:size   30
                                      :fov    10
                                      :seeker (one (gen-seeker-of 20))})]
@@ -622,10 +610,10 @@
 ;; IX. Region diff
 
 (defn- check-diff [{:keys [now then expected]}]
-  (let [current {:region now}
-        former {:region then}
-        result  (if expected {:region expected} expected)]
-    (is (= result (additive-diff current former)))))
+  (let [current (highlight-from now)
+        former  (highlight-from then)
+        result  (additive-diff current former)]
+    (is (= expected (:region result)))))
 
 (defn upper-x-diff []
   (let [a {:start [4 1] :end [4 3]}
@@ -692,3 +680,22 @@
   (scissor-lower-y)
   (keep-diff)
   (no-diff))
+
+
+(defn total-selection-law [ctx]
+  "extract (clip-sel (select-all (hud))) == project-hud (hud)"
+  (is true))
+
+(defn distributive-projection-law [ctx]
+  "project-sel (select (hud)) = map project-cursor (select (hud))"
+  (is true))
+
+(defn projection-containment-law [ctx]
+  "extract (select (hud)) `contains` extract (project-hud (hud)) (project-sel (select (hud))"
+  (is true))
+
+;; FIXME
+(defn projection-laws [ctx]
+  (total-selection-law ctx)
+  (distributive-projection-law ctx)
+  (projection-containment-law ctx))

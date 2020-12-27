@@ -197,7 +197,7 @@
   [ctx :- Context, h-key :- HighlightType]
   (let [preview   (r/preview-hud ctx)
         selection (-> ctx (r/highlights) (get h-key) (:region))]
-    (h/project-selection preview selection)))
+    (h/clip-selection preview selection)))
 
 (s/defn pop-up :- Hud
   [ctx :- Context, window :- Hud]
@@ -268,3 +268,9 @@
     (-> ctx
         (r/with-terminal terminal)
         (process-one refresh))))
+
+(s/defn highlight-from :- r/Highlight
+  [region :- Region]
+  {:region region
+   :scheme (c/normalise-palette c/default-syntax)
+   :styles []})
