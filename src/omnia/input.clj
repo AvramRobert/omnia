@@ -396,21 +396,6 @@
         (reset-x xe)
         (extract))))
 
-;; I could optimise this
-(s/defn extract-block :- Seeker
-  [seeker :- Seeker
-   region :- Region]
-  (let [[_ ys] (:start region)
-        [_ ye] (:end region)
-        end-y (if (= ys ye) identity #(reset-y % ye))]
-    (-> seeker
-        (reset-y ys)
-        (reset-x 0)
-        (select)
-        (end-y)
-        (end-x)
-        (extract))))
-
 (defn copy [seeker]
   (->> seeker (extract) (assoc seeker :clipboard)))
 

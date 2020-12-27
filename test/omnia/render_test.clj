@@ -15,6 +15,8 @@
             [omnia.more :as m])
   (:import (clojure.lang Atom)))
 
+(def ^:const NR-OF-TESTS 100)
+
 (def IndexedCharacter
   {:char   Character
    :cursor m/Point})
@@ -178,7 +180,7 @@
   (reset-diff-render ctx))
 
 (defspec diff-render-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
                                      :seeker (one (gen-seeker-of 29))})]
@@ -216,7 +218,7 @@
   (nothing-to-diff-render ctx))
 
 (defspec no-render-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
                                      :seeker (one (gen-seeker-of 29))})]
@@ -346,7 +348,7 @@
   (additive-exclusion-render ctx))
 
 (defspec selection-render-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
                                      :seeker (one (gen-seeker-of 29))})]
@@ -381,7 +383,7 @@
   (arbitrary-line-clean-up ctx))
 
 (defspec clean-up-render-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
                                      :seeker (one (gen-seeker-of 29))})]
@@ -453,7 +455,7 @@
   (paged-hud-projection ctx))
 
 (defspec hud-projection-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
                                      :seeker (one (gen-seeker-of 10))})]
@@ -531,7 +533,7 @@
   (paged-selection-upper-clip ctx))
 
 (defspec selection-projection-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
                                      :seeker (one (gen-seeker-of 10))})]
@@ -567,7 +569,7 @@
   (paged-cursor-projection ctx))
 
 (defspec cursor-projection-test
-         100
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
                                      :seeker (one (gen-seeker-of 10))})]
@@ -600,7 +602,7 @@
   (bottom-bounded-y-projection ctx))
 
 (defspec y-projection-test
-         1
+         NR-OF-TESTS
          (for-all [ctx (gen-context {:size   30
                                      :fov    10
                                      :seeker (one (gen-seeker-of 20))})]

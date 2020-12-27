@@ -124,11 +124,6 @@
         (i/rebase #(->> % (take-last viewable-chunk) (take fov)))
         (i/reset-to cursor))))
 
-(comment
-  "Project selection doesn't project the selection within the current view.
-   It clips it to the current view.
-   It maintains its cursors if clipping isn't necessary.
-   This is dumb.")
 (s/defn clip-selection :- Region
   [hud :- Hud
    selection :- Region]

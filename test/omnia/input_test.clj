@@ -7,6 +7,8 @@
             [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]))
 
+(def ^:const NR-OF-TESTS 100)
+
 (def ^:dynamic *benchmarks* [])
 
 (defn bench [f n]
@@ -168,7 +170,7 @@
   (split-creating-line-when-empty seeker))
 
 (defspec splitting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (splitting seeker)))
 
@@ -253,7 +255,7 @@
   (unbound-movement seeker (one gen-line)))
 
 (defspec moving-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (moving seeker)))
 
@@ -282,7 +284,7 @@
   (get-current-char seeker))
 
 (defspec retrieving-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (retrieving seeker)))
 
@@ -311,7 +313,7 @@
   (wrap-when-line-ends seeker (one gen-text)))
 
 (defspec progressing-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (progressing seeker)))
 
@@ -342,7 +344,7 @@
   (wrap-when-line-starts seeker (one gen-text)))
 
 (defspec regressing-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (regressing seeker)))
 
@@ -368,7 +370,7 @@
   (ascent-to-end-of-line seeker))
 
 (defspec climbing-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (climbing seeker)))
 
@@ -394,7 +396,7 @@
   (descent-to-end-of-line seeker))
 
 (defspec falling-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (falling seeker)))
 
@@ -456,7 +458,7 @@
   (delete-selections seeker))
 
 (defspec deleting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (deleting seeker)))
 
@@ -508,7 +510,7 @@
                               (one gen/char-alphanumeric)))
 
 (defspec inserting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (inserting seeker)))
 
@@ -571,7 +573,7 @@
                     (one gen-line)))
 
 (defspec jumping-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (jumping seeker)))
 
@@ -619,7 +621,7 @@
   (select-blocks seeker))
 
 (defspec selecting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (selecting seeker)))
 
@@ -646,7 +648,7 @@
     (join-texts-with-selections seeker1 seeker2)))
 
 (defspec joining-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (joining seeker)))
 
@@ -747,7 +749,7 @@
   (expand-over-all-expr seeker (one gen-line)))
 
 (defspec expanding-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (expanding seeker)))
 
@@ -779,7 +781,7 @@
   (copy-lines seeker (one gen-text)))
 
 (defspec copying-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (copying seeker)))
 
@@ -812,7 +814,7 @@
   (cut-lines seeker (one gen-text)))
 
 (defspec cutting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (cutting seeker)))
 
@@ -879,7 +881,7 @@
                              (one gen-line)))
 
 (defspec pasting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (pasting seeker)))
 
@@ -933,7 +935,7 @@
   (dont-pair-unbalanced-parens seeker))
 
 (defspec pairing-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (pairing seeker)))
 
@@ -1019,7 +1021,7 @@
   (extract-selected seeker))
 
 (defspec extracting-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (extracting seeker)))
 
@@ -1085,7 +1087,7 @@
   (keep-clipboard-between-undos-redos seeker))
 
 (defspec undoing-redoing-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (undo-redo seeker)))
 

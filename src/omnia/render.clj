@@ -4,6 +4,7 @@
             [omnia.hud :as h]
             [omnia.context :as c]
             [schema.core :as s]
+            [omnia.config :as co]
             [omnia.highlight :refer [foldl -back ->text]]
             [omnia.context :refer [Context]]
             [omnia.more :refer [Point Region merge-culling map-vals reduce-idx --]]))
@@ -17,6 +18,15 @@
   {:selection    3
    :closed-paren 2
    :open-paren   1})
+
+(s/def PrintInstruction
+  {:line                        [Character]
+   :at                          s/Int
+   :terminal                    t/Terminal
+   :scheme                      co/InternalSyntax
+   :styles                      [s/Keyword]
+   (s/optional-key :sub-region) Point
+   (s/optional-key :padding)    s/Int})
 
 (s/defn additive-diff :- (s/maybe c/Highlight)
   [current :- c/Highlight, former :- c/Highlight]
@@ -50,35 +60,36 @@
           (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
       :else current)))
 
-(defn print-line! [{line     :line
-                    y        :at
-                    padding  :padding
-                    terminal :terminal
-                    [xs xe]  :sub-region
-                    cs       :scheme
-                    styles   :styles}]
-  (letfn [(do-print! [ch x y state]
+(s/defn print-line!
+  [{line     :line
+    y        :at
+    padding  :padding
+    terminal :terminal
+    [xs xe]  :sub-region
+    cs       :scheme
+    styles   :styles} :- PrintInstruction]
+  (letfn [(put! [ch x y state]
             (let [fg (cs (:id state))
                   bg (cs -back)]
               (t/put! terminal ch x y fg bg styles)))
           (pad! [x]
             (when padding
               (dotimes [offset padding]
-                (do-print! \space (+ x offset) y ->text))))
-          (show! [x emission state]
+                (put! \space (+ x offset) y ->text))))
+          (print-from! [x emission state]
             (reduce-idx
               (fn [x' _ input]
-                (do-print! input x' y state)) x nil emission))
+                (put! input x' y state)) x nil emission))
           (print! [x [emission state]]
-            (show! x emission state)
+            (print-from! x emission state)
             (+ x (count emission)))
           (print-sub! [x [emission state]]
             (let [x' (+ x (count emission))]
               (cond
-                (and (<= x xs) (>= x' xe)) (show! xs (->> emission (drop (- xs x)) (take (- xe xs))) state)
-                (and (<= x xs) (> x' xs))  (show! xs (drop (- xs x) emission) state)
-                (>= x' xe)                 (show! x (take (- xe x) emission) state)
-                (> x' xs)                  (show! x emission state)
+                (and (<= x xs) (>= x' xe)) (print-from! xs (->> emission (drop (- xs x)) (take (- xe xs))) state)
+                (and (<= x xs) (> x' xs))  (print-from! xs (drop (- xs x) emission) state)
+                (>= x' xe)                 (print-from! x (take (- xe x) emission) state)
+                (> x' xs)                  (print-from! x emission state)
                 :else nil)
               x'))]
     (-> (if (and xs xe) print-sub! print!)
@@ -97,7 +108,7 @@
         previous-ov (-> ctx (c/previous-hud) (h/overview))]
     (if (= preview-ov previous-ov)
       ;; additive-diff nils highlights that don't have a diff
-      (->> (merge-culling additive-diff current former) (prioritise))
+      (prioritise (merge-culling additive-diff current former))
       (prioritise current))))
 
 (s/defn highlight!
@@ -153,10 +164,12 @@
 
 ;; === Rendering strategies ===
 
-(defn- pad [current-line former-line]
+(s/defn padding :- s/Int
+  [current-line :- [Character]
+   former-line  :- [Character]]
   (let [c (count current-line)
         f (count former-line)]
-    (when (> f c) (- f c))))
+    (if (> f c) (- f c) 0)))
 
 (s/defn total!
   [ctx :- Context]
@@ -171,7 +184,7 @@
         (print-line!
           {:at       y
            :line     a
-           :padding  (pad a b)
+           :padding  (padding a b)
            :terminal terminal
            :scheme   scheme
            :styles  []})))))
@@ -194,7 +207,7 @@
           (when (not= a b)
             (print-line! {:at       y
                           :line     a
-                          :padding  (pad a b)
+                          :padding  (padding a b)
                           :terminal terminal
                           :scheme   scheme
                           :styles   []})))))))

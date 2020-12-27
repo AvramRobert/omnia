@@ -7,11 +7,13 @@
             [omnia.config :as c]
             [halfling.task :as t]))
 
+(def ^:const NR-OF-TESTS 100)
+
 (def gen-keybind (gen/elements c/default-keymap))
 (defn gen-keybind-unlike [k] (gen/such-that (fn [[ik _]] (not= k ik)) gen-keybind))
 
 (defspec detect-duplicate-bindings
-         100
+         NR-OF-TESTS
          (for-all [[ik v] gen-keybind]
                   (let [[k _] (one (gen-keybind-unlike ik))]
                     (-> (assoc-in c/default-config [:keymap k] v)

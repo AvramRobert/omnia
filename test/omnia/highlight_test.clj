@@ -6,6 +6,8 @@
             [clojure.string :as s]
             [omnia.highlight :as h]))
 
+(def ^:const NR-OF-TESTS 100)
+
 (def state-chars
   {h/-list [\( \)]
    h/-vector [\[ \]]
@@ -124,7 +126,7 @@
     (= (:id (h/transition state c)) (get disallowed id id))))
 
 (defspec detect-lists
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-list-token)]
                   (let [gens (grouped-gens tokens [\( \)])
                         detections (-> (in-vector tokens)
@@ -132,7 +134,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-vectors
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-vector-token)]
                   (let [gens (grouped-gens tokens [\[ \]])
                         detections (-> (in-vector tokens)
@@ -140,7 +142,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-maps
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-map-token)]
                   (let [gens (grouped-gens tokens [\{ \}])
                         detections (-> (in-vector tokens)
@@ -148,7 +150,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-breaks
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-break-token)]
                   (let [gens (grouped-gens tokens [\newline])
                         detections (-> (in-vector tokens)
@@ -156,7 +158,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-spaces
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-space-token)]
                   (let [gens (grouped-gens tokens [\space])
                         detections (-> (in-vector tokens)
@@ -164,7 +166,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-comments
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-comment-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\;])
@@ -174,7 +176,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-functions
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-with-token gen-list-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\(])
@@ -184,7 +186,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-chars
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-with-token gen-char-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\\])
@@ -194,7 +196,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-keywords
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-with-token gen-space-token gen-keyword-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\:])
@@ -205,7 +207,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-numbers
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-with-token gen-space-token gen-number-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? h/numbers)
@@ -216,7 +218,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-signed-numbers
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-with-token gen-space-token gen-number-token gen-sign-token)]
                   (let [valid-number? #(-> (comp not (in? [\+ \-]))
                                            (filter %)
@@ -229,7 +231,7 @@
                       (is true)))))
 
 (defspec detect-strings
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-alpha-num-with-token gen-string-token)]
                   (let [gens (pred-gens tokens
                                         {:detect? (in? [\"])
@@ -242,7 +244,7 @@
                     (is (= (apply concat gens) processed)))))
 
 (defspec detect-text
-         100
+         NR-OF-TESTS
          (for-all [tokens (gen-with-token gen-space-token gen/char-alpha)]
                   (let [gens (pred-gens tokens
                                         {:detect? #(Character/isAlphabetic (int %))
@@ -254,7 +256,7 @@
                     (is (= gens detections)))))
 
 (defspec detect-words
-         100
+         NR-OF-TESTS
          (letfn [(words [tokens]
                    (-> (apply str tokens)
                        (s/split #" ")

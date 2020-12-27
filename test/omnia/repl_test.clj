@@ -7,7 +7,10 @@
             [omnia.hud :as h]
             [omnia.context :as r]
             [omnia.input :as i]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [omnia.context :as c]))
+
+(def ^:const NR-OF-TESTS 100)
 
 ;; 0. Manipulation
 
@@ -48,7 +51,8 @@
   (clipboard-propagation ctx seeker)
   (clipboard-preservation ctx seeker))
 
-(defspec manipulating-test 100
+(defspec manipulating-test
+         NR-OF-TESTS
   (for-all [seeker  (gen-seeker-of 10)
             context (gen-context {:size   0
                                   :fov    7
@@ -264,7 +268,8 @@
   (correct-under-hud-shrinking ctx)
   (correct-under-hud-size-variance ctx))
 
-(defspec calibrating-test 100
+(defspec calibrating-test
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   5
                                :fov    27
                                :seeker (one (gen-seeker-of 29))})]
@@ -313,7 +318,7 @@
   (scroll-reset ctx))
 
 (defspec scrolling-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   20
                                :fov    7
                                :seeker (one (gen-seeker-of 10))})]
@@ -334,7 +339,7 @@
   (capture-and-remember ctx))
 
 (defspec capturing-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   20
                                :fov    7
                                :seeker (one (gen-seeker-of 10))})]
@@ -355,7 +360,7 @@
   (clear-remember-persist ctx))
 
 (defspec clearing-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   20
                                :fov    7
                                :seeker (one (gen-seeker-of 10))})]
@@ -373,7 +378,7 @@
         expected-complete  (-> expected-persisted (i/conjoin i/empty-line))]
     (-> ctx
         (process-one evaluate)
-        (can-be #(-> % (h/text) (= i/empty-line))
+        (can-be #(-> % (c/input-area) (= i/empty-line))
                 #(-> % (r/previous-hud) (h/text) (= expected-previous))
                 #(-> % (r/persisted-hud) (h/text) (= expected-persisted))
                 #(-> % (r/preview-hud) (h/text) (= expected-complete))))))
@@ -382,7 +387,7 @@
   (remember-preserve-persist ctx))
 
 (defspec evaluating-test
-         100
+         NR-OF-TESTS
   (let [seeker (one (gen-seeker-of 10))]
     (for-all [tctx (gen-context {:size    20
                                  :fov     7
@@ -417,7 +422,7 @@
   (roll-rebase-remember-back ctx))
 
 (defspec rolling-back-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size    5
                                :fov     27
                                :history [(one (gen-seeker-of 32))]
@@ -440,7 +445,7 @@
   (roll-rebase-remember-forward ctx))
 
 (defspec rolling-forward-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size    5
                                :fov     27
                                :history [(one (gen-seeker-of 32))]
@@ -465,7 +470,7 @@
   (suggestion-override ctx))
 
 (defspec suggesting-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size    20
                                :fov     15
                                :receive (one (gen-suggestions 12))
@@ -488,7 +493,7 @@
   (no-override ctx))
 
 (defspec empty-suggesting-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size    20
                                :fov     15
                                :receive i/empty-seeker
@@ -549,7 +554,7 @@
   (garbage-collect-highlights ctx))
 
 (defspec highlighting-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   20
                                :fov    7
                                :seeker (one (gen-seeker-of 10))})]
@@ -593,7 +598,7 @@
   (dont-highlight-unmatched ctx))
 
 (defspec parens-matching-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   20
                                :fov    7
                                :seeker (one (gen-seeker-of 10))})]
@@ -657,7 +662,7 @@
   (pop-up-riffled ctx (one (gen-seeker-of 5))))
 
 (defspec pop-up-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:size   20
                                :fov    15
                                :seeker (one (gen-seeker-of 17))})]
@@ -695,7 +700,7 @@
   (unchanged-scrolling ctx))
 
 (defspec ignoring-test
-         100
+         NR-OF-TESTS
   (for-all [tctx (gen-context {:fov    10
                                :seeker (one (gen-seeker-of 17))})]
            (ignores tctx)))
