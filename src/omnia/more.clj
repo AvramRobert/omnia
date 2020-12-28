@@ -10,8 +10,11 @@
   {:start Point
    :end   Point})
 
-(defn => [input-schema output-schema]
-  (s/->FnSchema output-schema input-schema))
+(defn =>
+  ([in out]
+   (s/->FnSchema out in))
+  ([in1 in2 out]
+   (s/->FnSchema out [in1 in2])))
 
 (defn inc< [value max]
   (let [x (inc value)]
@@ -81,7 +84,3 @@
 
 (defmacro debug [body]
   `(spit "debug" ~body))
-
-(defn inspect [f a]
-  (f a)
-  a)

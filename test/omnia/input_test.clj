@@ -108,7 +108,7 @@
   (peer-creating-line-when-empty seeker))
 
 (defspec peering-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (peering seeker)))
 
@@ -227,7 +227,7 @@
   (slice-creating-line-when-empty seeker))
 
 (defspec slicing-test
-         100
+         NR-OF-TESTS
          (for-all [seeker gen-seeker]
                   (slicing seeker)))
 
@@ -269,7 +269,7 @@
         (i/peer (fn [a b] (concat a text b)))
         (i/start-x)
         (i/move-y inc)
-        (can-be #(-> (i/regress %) (i/left) (= (last line1)))
+        (can-be #(-> (i/go-back %) (i/left) (= (last line1)))
                 #(-> (i/move-y % dec) (i/move-x inc) (i/left) (= (first line1)))))))
 
 (defn get-current-char [seeker]
@@ -295,17 +295,17 @@
 (defn simple-progress [seeker line]
   (-> (i/start seeker)
       (i/split (fn [a b] [line a b]))
-      (can-be #(-> % (i/progress) (after? %)))))
+      (can-be #(-> % (i/go-forward) (after? %)))))
 
 (defn stop-progress-when-text-ends [seeker]
   (-> (i/end seeker)
-      (can-be #(-> % (i/progress) (there? %)))))
+      (can-be #(-> % (i/go-forward) (there? %)))))
 
 (defn wrap-when-line-ends [seeker text]
   (-> (i/start seeker)
       (i/peer (fn [a b] (concat text a b)))
       (i/end-x)
-      (can-be #(-> % (i/progress) (after? %)))))
+      (can-be #(-> % (i/go-forward) (after? %)))))
 
 (defn progressing [seeker]
   (simple-progress seeker (one gen-line))
@@ -324,11 +324,11 @@
 (defn simple-regress [seeker line]
   (-> seeker
       (i/split (fn [a b] [a line b]))
-      (can-be #(-> % (i/progress) (i/regress) (there? %)))))
+      (can-be #(-> % (i/go-forward) (i/go-back) (there? %)))))
 
 (defn stop-regress-when-start [seeker]
   (-> (i/start-x seeker)
-      (i/regress)
+      (i/go-back)
       (there? seeker)))
 
 (defn wrap-when-line-starts [seeker text]
@@ -336,7 +336,7 @@
       (i/peer (fn [a b] (concat a b text)))
       (i/end)
       (i/start-x)
-      (can-be #(-> % (i/regress) (before? %)))))
+      (can-be #(-> % (i/go-back) (before? %)))))
 
 (defn regressing [seeker]
   (simple-regress seeker (one gen-line))
@@ -356,14 +356,14 @@
   (-> seeker
       (i/peer (fn [a b] (concat a text b)))
       (i/move-y inc)
-      (can-be #(-> (i/climb %) (before? %)))))
+      (can-be #(-> (i/go-up %) (before? %)))))
 
 (defn ascent-to-end-of-line [seeker]
   "explicit data, because second line has to be larger than the first"
   (let [some-text [[\a \b] [\a \b \c]]]
     (-> seeker
         (i/peer (fn [a b] (concat a some-text b)))
-        (can-be #(-> (i/move-y % inc) (i/end-x) (i/climb) (there? (i/end-x %)))))))
+        (can-be #(-> (i/move-y % inc) (i/end-x) (i/go-up) (there? (i/end-x %)))))))
 
 (defn climbing [seeker]
   (simple-ascent seeker (one gen-text))
@@ -381,7 +381,7 @@
 (defn simple-descent [seeker text]
   (-> seeker
       (i/peer (fn [a b] (concat a text b)))
-      (can-be #(-> % (i/fall) (after? %)))))
+      (can-be #(-> % (i/go-down) (after? %)))))
 
 (defn descent-to-end-of-line [seeker]
   "explicit data, because first line has to be larger than the second"
@@ -389,7 +389,7 @@
     (-> seeker
         (i/peer (fn [a b] (concat a some-text b)))
         (i/move-y inc)
-        (can-be #(-> (i/move-y % dec) (i/end-x) (i/fall) (there? (i/end-x %)))))))
+        (can-be #(-> (i/move-y % dec) (i/end-x) (i/go-down) (there? (i/end-x %)))))))
 
 (defn falling [seeker]
   (simple-descent seeker (one gen-text))
@@ -409,21 +409,21 @@
     (-> seeker
         (i/peer (fn [a b] (concat a b some-text)))
         (i/end)
-        (can-be #(-> % (i/delete) (i/left) (= \a))
-                #(-> % (i/delete) (i/delete) (i/left) (nil?))
-                #(-> % (i/delete) (i/delete) (i/delete) (<=>seeker seeker))))))
+        (can-be #(-> % (i/backspace) (i/left) (= \a))
+                #(-> % (i/backspace) (i/backspace) (i/left) (nil?))
+                #(-> % (i/backspace) (i/backspace) (i/backspace) (<=>seeker seeker))))))
 
 (defn delete-next [seeker]
   (let [some-text [[\a \b]]]
     (-> seeker
         (i/peer (fn [a b] (concat some-text a b)))
         (i/start)
-        (can-be #(-> % (i/munch) (i/right) (= \b))
-                #(-> % (i/munch) (i/munch) (i/right) (nil?))
-                #(-> % (i/munch) (i/munch) (i/munch) (<=>seeker seeker))))))
+        (can-be #(-> % (i/delete) (i/right) (= \b))
+                #(-> % (i/delete) (i/delete) (i/right) (nil?))
+                #(-> % (i/delete) (i/delete) (i/delete) (<=>seeker seeker))))))
 
 (defn delete-pairs [seeker]
-  (let [remove-line #(-> % (i/delete) (i/delete) (i/delete))
+  (let [remove-line #(-> % (i/backspace) (i/backspace) (i/backspace))
         round       [[\( \)]]
         brackets    [[\[ \]]]
         squiggly    [[\{ \}]]
@@ -439,15 +439,15 @@
 (defn delete-omitting-single-parens [seeker]
   (letfn [(f [s c] (i/slicel s #(conj % c)))]
     (-> (i/end seeker)
-        (can-be #(-> (f % \)) (i/progress) (i/delete) (<=>seeker (f % \))))
-                #(-> (f % \]) (i/progress) (i/delete) (<=>seeker (f % \])))
-                #(-> (f % \}) (i/progress) (i/delete) (<=>seeker (f % \})))
-                #(-> (f % \") (i/progress) (i/delete) (<=>seeker (f % \")))))))
+        (can-be #(-> (f % \)) (i/go-forward) (i/backspace) (<=>seeker (f % \))))
+                #(-> (f % \]) (i/go-forward) (i/backspace) (<=>seeker (f % \])))
+                #(-> (f % \}) (i/go-forward) (i/backspace) (<=>seeker (f % \})))
+                #(-> (f % \") (i/go-forward) (i/backspace) (<=>seeker (f % \")))))))
 
 (defn delete-selections [seeker]
   (-> seeker
       (i/select-all)
-      (i/delete)
+      (i/backspace)
       (<=>seeker (i/seeker [[]]))))
 
 (defn deleting [seeker]
@@ -604,8 +604,8 @@
       (i/peer (fn [a b] (concat a text b)))
       (i/start-x)
       (i/select)
-      (i/fall)
-      (can-be #(-> (i/selection %) (:start) (= (:cursor (i/climb %))))
+      (i/go-down)
+      (can-be #(-> (i/selection %) (:start) (= (:cursor (i/go-up %))))
               #(-> (i/selection %) (:end) (= (:cursor %))))))
 
 (defn select-blocks [seeker]
@@ -678,7 +678,7 @@
                          (i/jump-right)
                          (i/jump-right)
                          (i/jump-right)
-                         (i/progress)
+                         (i/go-forward)
                          (i/expand)
                          (i/expand)
                          (i/extract)
@@ -797,7 +797,7 @@
         (i/select)
         (i/jump-right)
         (can-be #(-> (i/cut %) (:clipboard) (<=>seeker (i/seeker [line1])))
-                #(<=>seeker (i/cut %) (i/delete %))))))
+                #(<=>seeker (i/cut %) (i/backspace %))))))
 
 (defn cut-lines [seeker some-text]
   (-> seeker
@@ -807,7 +807,7 @@
       (i/move-y #(-> (count some-text) (dec) (+ %)))
       (i/end-x)
       (can-be #(-> (i/cut %) (:clipboard) (<=>seeker (i/seeker some-text)))
-              #(<=>seeker (i/cut %) (i/delete %)))))
+              #(<=>seeker (i/cut %) (i/backspace %)))))
 
 (defn cutting [seeker]
   (cut-within-line seeker (one gen-line) (one gen-line))
@@ -850,12 +850,12 @@
       (i/peer (fn [a b] (concat a [line1 line2 line3] b)))
       (i/start-x)
       (i/select)
-      (i/fall)
+      (i/go-down)
       (i/end-x)
       (i/copy)
       (i/deselect)
       (can-be #(-> % (i/paste) (i/line) (= line2))
-              #(-> % (i/paste) (i/climb) (i/line) (= (concat line2 line1))))))
+              #(-> % (i/paste) (i/go-up) (i/line) (= (concat line2 line1))))))
 
 (defn paste-overriding-selection [seeker some-text line2]
   (let [expected (i/peer seeker (fn [a b] (concat a [line2] b)))]
@@ -902,7 +902,7 @@
         (-> seeker
             (i/slice (fn [a b] (concat [l] a b [r])))
             (can-be #(->> (i/start-x %) (i/find-pair) (chars-at %) (= [l r]))
-                    #(->> (i/end-x %) (i/regress) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
+                    #(->> (i/end-x %) (i/go-back) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
 
 (defn pair-inner-parens [seeker line]
   (let [parens [[\( \)] [\[ \]] [\{ \}]]]
@@ -914,7 +914,7 @@
                 (i/peer (fn [a b] (concat a [(concat [ol] [il] line [ir] [or])] b)))
                 (i/start-x)
                 (can-be #(->> (i/find-pair %) (chars-at %) (= [ol or]))
-                        #(->> (i/progress %) (i/find-pair) (chars-at %) (= [il ir])))))
+                        #(->> (i/go-forward %) (i/find-pair) (chars-at %) (= [il ir])))))
           nil parens))
       nil parens)))
 
@@ -926,8 +926,8 @@
             (i/slice (fn [a b] (concat [l l l] a b [r r])))
             (i/start-x)
             (can-be #(->> (i/find-pair %) (nil?))
-                    #(->> (i/progress %) (i/find-pair) (chars-at %) (= [l r]))
-                    #(->> (i/progress %) (i/progress) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
+                    #(->> (i/go-forward %) (i/find-pair) (chars-at %) (= [l r]))
+                    #(->> (i/go-forward %) (i/go-forward) (i/find-pair) (chars-at %) (= [l r]))))) nil parens)))
 
 (defn pairing [seeker]
   (pair-outer-parens seeker)
@@ -951,44 +951,44 @@
     ;; s1
     (is (= :unmatched (-> (i/open-expand s1) (first))))
     (is (= :matched   (-> (i/end-x s1) (i/closed-expand) (first))))
-    (is (= :matched (-> (i/progress s1) (i/open-expand) (first))))
-    (is (= :matched   (-> (i/end-x s1) (i/regress) (i/closed-expand) (first))))
-    (is (= :matched (-> (i/progress s1) (i/progress) (i/open-expand) (first))))
-    (is (= :unmatched (-> (i/progress s1) (i/progress) (i/progress) (i/open-expand) (first))))
+    (is (= :matched (-> (i/go-forward s1) (i/open-expand) (first))))
+    (is (= :matched (-> (i/end-x s1) (i/go-back) (i/closed-expand) (first))))
+    (is (= :matched (-> (i/go-forward s1) (i/go-forward) (i/open-expand) (first))))
+    (is (= :unmatched (-> (i/go-forward s1) (i/go-forward) (i/go-forward) (i/open-expand) (first))))
     (is (= :unmatched (-> (i/end-x s1) (i/open-expand) (first))))
-    (is (= :unmatched (-> (i/progress s1) (i/closed-expand) (first))))
+    (is (= :unmatched (-> (i/go-forward s1) (i/closed-expand) (first))))
     (is (= :unmatched (-> (i/start s1) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/progress s1) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/go-forward s1) (i/near-expand) (first))))
     (is (= :unmatched (-> (i/end-x s1) (i/near-expand) (first))))
-    (is (= :matched (-> (i/progress s1) (i/progress) (i/near-expand) (first))))
-    (is (= :matched   (-> (i/end-x s1) (i/regress) (i/near-expand) (first))))
+    (is (= :matched (-> (i/go-forward s1) (i/go-forward) (i/near-expand) (first))))
+    (is (= :matched (-> (i/end-x s1) (i/go-back) (i/near-expand) (first))))
     ;;;; s2
     (is (= :matched (-> (i/open-expand s2) (first))))
     (is (= :matched (-> (i/end-x s2) (i/closed-expand) (first))))
-    (is (= :matched (-> (i/progress s2) (i/open-expand) (first))))
-    (is (= :matched (-> (i/progress s2) (i/progress) (i/near-expand) (first))))
-    (is (= :matched (-> (i/progress s2) (i/progress) (i/progress) (i/near-expand) (first))))
-    (is (= :matched (-> (i/end-x s2) (i/regress) (i/near-expand) (first))))
-    (is (= :matched (-> (i/end-x s2) (i/regress) (i/regress) (i/near-expand) (first))))
+    (is (= :matched (-> (i/go-forward s2) (i/open-expand) (first))))
+    (is (= :matched (-> (i/go-forward s2) (i/go-forward) (i/near-expand) (first))))
+    (is (= :matched (-> (i/go-forward s2) (i/go-forward) (i/go-forward) (i/near-expand) (first))))
+    (is (= :matched (-> (i/end-x s2) (i/go-back) (i/near-expand) (first))))
+    (is (= :matched (-> (i/end-x s2) (i/go-back) (i/go-back) (i/near-expand) (first))))
     ;;;;; s3
     (is (= :matched (-> (i/open-expand s3) (first))))
-    (is (= :matched (-> (i/progress s3) (i/open-expand) (first))))
-    (is (= :matched (-> (i/progress s3) (i/progress) (i/open-expand) (first))))
-    (is (= :matched (-> (i/progress s3) (i/progress) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/progress s3) (i/progress) (i/progress) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/progress s3) (i/progress) (i/progress) (i/closed-expand) (first))))
-    (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/regress) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/end-x s3) (i/regress) (i/regress) (i/regress) (i/open-expand) (first))))
+    (is (= :matched (-> (i/go-forward s3) (i/open-expand) (first))))
+    (is (= :matched (-> (i/go-forward s3) (i/go-forward) (i/open-expand) (first))))
+    (is (= :matched (-> (i/go-forward s3) (i/go-forward) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/go-forward s3) (i/go-forward) (i/go-forward) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/go-forward s3) (i/go-forward) (i/go-forward) (i/closed-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s3) (i/go-back) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s3) (i/go-back) (i/go-back) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s3) (i/go-back) (i/go-back) (i/go-back) (i/open-expand) (first))))
     ;;;; s4
     (is (= :unmatched (-> (i/open-expand s4) (first))))
     (is (= :unmatched (-> (i/closed-expand s4) (first))))
-    (is (= :unmatched (-> (i/progress s4) (i/open-expand) (first))))
-    (is (= :unmatched (-> (i/progress s4) (i/progress) (i/open-expand) (first))))
-    (is (= :matched (-> (i/progress s4) (i/progress) (i/progress) (i/open-expand) (first))))
-    (is (= :matched (-> (i/end-x s4) (i/regress) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/end-x s4) (i/regress) (i/regress) (i/near-expand) (first))))
-    (is (= :unmatched (-> (i/end-x s4) (i/regress) (i/regress) (i/regress) (i/near-expand) (first))))))
+    (is (= :unmatched (-> (i/go-forward s4) (i/open-expand) (first))))
+    (is (= :unmatched (-> (i/go-forward s4) (i/go-forward) (i/open-expand) (first))))
+    (is (= :matched (-> (i/go-forward s4) (i/go-forward) (i/go-forward) (i/open-expand) (first))))
+    (is (= :matched (-> (i/end-x s4) (i/go-back) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s4) (i/go-back) (i/go-back) (i/near-expand) (first))))
+    (is (= :unmatched (-> (i/end-x s4) (i/go-back) (i/go-back) (i/go-back) (i/near-expand) (first))))))
 
 ;; XX1. Extracting
 

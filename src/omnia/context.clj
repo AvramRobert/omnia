@@ -287,8 +287,6 @@
       (i/closed-pairs (i/left text)) (match ctx)
       :else ctx)))
 
-;; === Control ===
-
 (s/def Step
   {:status (s/enum :continue :terminate)
    :ctx    Context})
@@ -372,10 +370,9 @@
         (with-unrefreshed-preview preview)
         (with-persisted persisted))))
 
-;; === REPL ===
-
 (s/defn roll :- Context
-  [ctx :- Context, f :- (=> REPLClient REPLClient)]
+  [ctx :- Context,
+   f   :- (=> REPLClient REPLClient)]
   (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (client) f)
         then-seeker (-> (r/then then-server)
@@ -490,8 +487,6 @@
         _    (r/read-out! repl)]
     ctx))
 
-;; Apparently, when i expand in the middle->beginning of a word `(defn)` (at f or e or d)
-;; the selection works, the highlight is enqueued but apparently isn't getting rendered (IS IT THE BLOODY ADDITIVE DIFF!?!)
 (s/defn process :- Step
   [ctx :- Context
    event :- Event]
