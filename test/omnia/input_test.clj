@@ -37,7 +37,7 @@
 (defn bench-all! [n]
   (run!
     (fn [[f desc]]
-      (let [_ (println "Benchmarking `" desc "`")
+      (let [_             (println "Benchmarking `" desc "`")
             result-string (bench f n)]
         (println result-string)
         (println))) *benchmarks*))
@@ -109,8 +109,8 @@
 
 (defspec peering-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (peering seeker)))
+  (for-all [seeker gen-seeker]
+           (peering seeker)))
 
 (defbench peering-bench peering)
 
@@ -171,8 +171,8 @@
 
 (defspec splitting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (splitting seeker)))
+  (for-all [seeker gen-seeker]
+           (splitting seeker)))
 
 (defbench splitting-bench splitting)
 
@@ -197,7 +197,7 @@
         (is))))
 
 (defn slice-enhancing-line [seeker line]
-  (let [expected  (->> seeker (i/line) (concat line))]
+  (let [expected (->> seeker (i/line) (concat line))]
     (-> seeker
         (i/slice (fn [a b] (concat line a b)))
         (i/line)
@@ -228,8 +228,8 @@
 
 (defspec slicing-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (slicing seeker)))
+  (for-all [seeker gen-seeker]
+           (slicing seeker)))
 
 (defbench slicing-bench slicing)
 
@@ -256,8 +256,8 @@
 
 (defspec moving-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (moving seeker)))
+  (for-all [seeker gen-seeker]
+           (moving seeker)))
 
 (defbench moving-bench moving)
 
@@ -285,8 +285,8 @@
 
 (defspec retrieving-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (retrieving seeker)))
+  (for-all [seeker gen-seeker]
+           (retrieving seeker)))
 
 (defbench retrieving-bench retrieving)
 
@@ -314,8 +314,8 @@
 
 (defspec progressing-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (progressing seeker)))
+  (for-all [seeker gen-seeker]
+           (progressing seeker)))
 
 (defbench progressing-bench progressing)
 
@@ -345,8 +345,8 @@
 
 (defspec regressing-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (regressing seeker)))
+  (for-all [seeker gen-seeker]
+           (regressing seeker)))
 
 (defbench regressing-bench regressing)
 
@@ -371,8 +371,8 @@
 
 (defspec climbing-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (climbing seeker)))
+  (for-all [seeker gen-seeker]
+           (climbing seeker)))
 
 (defbench climbing-bench climbing)
 
@@ -397,8 +397,8 @@
 
 (defspec falling-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (falling seeker)))
+  (for-all [seeker gen-seeker]
+           (falling seeker)))
 
 (defbench falling-bench falling)
 
@@ -459,8 +459,8 @@
 
 (defspec deleting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (deleting seeker)))
+  (for-all [seeker gen-seeker]
+           (deleting seeker)))
 
 (defbench deleting-bench deleting)
 
@@ -511,8 +511,8 @@
 
 (defspec inserting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (inserting seeker)))
+  (for-all [seeker gen-seeker]
+           (inserting seeker)))
 
 (defbench inserting-bench inserting)
 
@@ -574,8 +574,8 @@
 
 (defspec jumping-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (jumping seeker)))
+  (for-all [seeker gen-seeker]
+           (jumping seeker)))
 
 (defbench jumping-bench jumping)
 
@@ -622,8 +622,8 @@
 
 (defspec selecting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (selecting seeker)))
+  (for-all [seeker gen-seeker]
+           (selecting seeker)))
 
 
 (defbench selecting-bench selecting)
@@ -649,8 +649,8 @@
 
 (defspec joining-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (joining seeker)))
+  (for-all [seeker gen-seeker]
+           (joining seeker)))
 
 (defbench joining-bench joining)
 
@@ -707,7 +707,7 @@
         (reduce
           (fn [_ [il ir]]
             (let [inner-expr (concat [il] line1 [ir])
-                  some-line (concat [ol] line2 inner-expr line3 [or])]
+                  some-line  (concat [ol] line2 inner-expr line3 [or])]
               (-> seeker
                   (i/peer (fn [a b] (concat a [some-line] b)))
                   (i/start-x)
@@ -725,16 +725,16 @@
 (defn expand-over-all-expr [seeker line]
   (reduce
     (fn [_ [l r]]
-      (let [expr (concat [l] line [r])
+      (let [expr     (concat [l] line [r])
             expected (-> seeker
                          (i/slice (fn [a b] (concat [l] a b [r])))
                          (i/end)
                          (i/peer (fn [a b] (concat a b [expr]))))
-            actual (-> expected
-                       (i/expand)
-                       (i/expand)
-                       (i/expand)
-                       (i/extract))]
+            actual   (-> expected
+                         (i/expand)
+                         (i/expand)
+                         (i/expand)
+                         (i/extract))]
         (is (<=>seeker expected actual))))
     [[\( \)] [\[ \]] [\{ \}]]))
 
@@ -750,8 +750,8 @@
 
 (defspec expanding-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (expanding seeker)))
+  (for-all [seeker gen-seeker]
+           (expanding seeker)))
 
 
 (defbench expanding-bench expanding)
@@ -782,8 +782,8 @@
 
 (defspec copying-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (copying seeker)))
+  (for-all [seeker gen-seeker]
+           (copying seeker)))
 
 (defbench copying-bench copying)
 
@@ -815,8 +815,8 @@
 
 (defspec cutting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (cutting seeker)))
+  (for-all [seeker gen-seeker]
+           (cutting seeker)))
 
 (defbench cutting-bench cutting)
 
@@ -882,8 +882,8 @@
 
 (defspec pasting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (pasting seeker)))
+  (for-all [seeker gen-seeker]
+           (pasting seeker)))
 
 (defbench pasting-bench pasting)
 
@@ -936,8 +936,8 @@
 
 (defspec pairing-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (pairing seeker)))
+  (for-all [seeker gen-seeker]
+           (pairing seeker)))
 
 (defbench pairing-bench pairing)
 
@@ -950,7 +950,7 @@
         s4 (i/seeker [[\a \b \4 \( \)]])]
     ;; s1
     (is (= :unmatched (-> (i/open-expand s1) (first))))
-    (is (= :matched   (-> (i/end-x s1) (i/closed-expand) (first))))
+    (is (= :matched (-> (i/end-x s1) (i/closed-expand) (first))))
     (is (= :matched (-> (i/go-forward s1) (i/open-expand) (first))))
     (is (= :matched (-> (i/end-x s1) (i/go-back) (i/closed-expand) (first))))
     (is (= :matched (-> (i/go-forward s1) (i/go-forward) (i/open-expand) (first))))
@@ -1022,8 +1022,8 @@
 
 (defspec extracting-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (extracting seeker)))
+  (for-all [seeker gen-seeker]
+           (extracting seeker)))
 
 (defbench extracting-bench extracting)
 
@@ -1088,7 +1088,30 @@
 
 (defspec undoing-redoing-test
          NR-OF-TESTS
-         (for-all [seeker gen-seeker]
-                  (undo-redo seeker)))
+  (for-all [seeker gen-seeker]
+           (undo-redo seeker)))
 
 (defbench undoing-redoing-bench undo-redo)
+
+(defn preserve-history [seeker]
+  (let [changed (process' seeker [(character \a) (character \b)])]
+    (is (not (equivalent changed seeker)))
+    (is (not (equivalent (process' changed [undo]) seeker)))
+    (is (equivalent (process' changed [undo undo]) seeker))))
+
+(defn traverse-history [seeker]
+  (let [changed (process' seeker [(character \a) (character \b)])]
+    (is (not (equivalent (process' changed [undo undo redo]) changed)))
+    (is (equivalent (process' changed [undo undo redo redo]) changed))
+    (is (equivalent (process' changed [undo (character \k) undo redo redo]) changed))))
+
+(defn history [seeker]
+  (preserve-history seeker)
+  (traverse-history seeker))
+
+(defspec history-test
+         NR-OF-TESTS
+  (for-all [seeker gen-seeker]
+           (history seeker)))
+
+(defbench history-test history)

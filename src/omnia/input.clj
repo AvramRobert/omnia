@@ -8,9 +8,13 @@
 
 (def Line [Character])
 
-;; Instead of changing the history constantly, I can use a cursor over the history as a timeline
-;; Bump the cursor back and forth over the timeline when I undo or redo
-;; Perhaps the histories don't necessarily need to be seekers
+;; Instead of changing the history constantly, I can accumulate either :
+;; a) seekers
+;; b) events
+;; And use a cursor over the history as a "historical" timeline
+;; in case b, I would just replay the events or invert replay them
+;; The problem with a timeline is that new changes would pe added to the beginning of the list
+;; which then makes undoing from that point difficult, as the regression in time would not be linear anymore
 (def Seeker
   {:lines     [Line]
    :cursor    Point
@@ -665,5 +669,5 @@
     e/break             (-> seeker (remember) (break) (deselect))
     e/undo              (-> seeker (undo) (deselect))
     e/redo              (-> seeker (redo) (deselect))
-    e/character         (-> seeker (insert (:value event)) (deselect))
+    e/character         (-> seeker (remember) (insert (:value event)) (deselect))
     seeker))

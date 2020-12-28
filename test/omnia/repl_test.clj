@@ -398,7 +398,7 @@
 ;; VI. Rolling back
 
 (defn roll-rebase-remember-back [ctx]
-  (let [hist (history ctx)]
+  (let [hist (server-history ctx)]
     (-> ctx
         (process-one prev-eval)
         (can-be #(<=>hud (:previous-hud %) (:complete-hud ctx))

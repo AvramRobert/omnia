@@ -3,7 +3,7 @@
             [omnia.hud :refer [Hud]]
             [omnia.context :refer [Context HighlightType]]
             [omnia.input :refer [Seeker]]
-            [omnia.event :refer [Event]]
+            [omnia.event :refer [Event InputEvent]]
             [omnia.more :refer [-- Region]]
             [omnia.config :as c]
             [omnia.input :as i]
@@ -20,6 +20,10 @@
 (defn many
   ([generator] (many generator (rand-int 100)))
   ([generator n] (vec (repeatedly n #(one generator)))))
+
+(s/defn equivalent :- s/Bool
+  [this :- Seeker that :- Seeker]
+  (= (:lines this) (:lines that)))
 
 (defmacro <=>seeker [this-seeker that-seeker]
   `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
@@ -116,6 +120,8 @@
 (def paste (e/event e/paste))
 (def backspace (e/event e/backspace))
 (def enter (e/event e/break))
+(def undo (e/event e/undo))
+(def redo (e/event e/redo))
 (def scroll-up (e/event e/scroll-up))
 (def scroll-down (e/event e/scroll-down))
 (defn character [k] (e/event e/character k))
@@ -132,6 +138,10 @@
 (s/defn process :- Context
   [ctx :- Context, events :- [Event]]
   (reduce (comp :ctx r/process) ctx events))
+
+(s/defn process' :- Seeker
+  [seeker :- Seeker, events :- [InputEvent]]
+  (reduce i/process seeker events))
 
 (s/defn process-one :- Context
   ([ctx :- Context event :- Event]
@@ -176,7 +186,7 @@
 (defn evaluation [seeker]
   {:value (i/stringify seeker)})
 
-(defn history [ctx]
+(defn server-history [ctx]
   (-> ctx (r/client) (:history)))
 
 (defn highlights? [highlited region]
