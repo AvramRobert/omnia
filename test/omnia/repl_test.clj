@@ -392,7 +392,7 @@
     (for-all [tctx (gen-context {:size    20
                                  :fov     7
                                  :seeker  seeker
-                                 :receive (evaluation seeker)})]
+                                 :receive (eval-result seeker)})]
              (evaluating tctx))))
 
 ;; VI. Rolling back

@@ -183,7 +183,8 @@
 (defn suggestions [ctx]
   (-> ctx (r/client) (server/complete! i/empty-seeker)))
 
-(defn evaluation [seeker]
+;; FIXME: this will need patching
+(defn eval-result [seeker]
   {:value (i/stringify seeker)})
 
 (defn server-history [ctx]

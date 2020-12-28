@@ -483,8 +483,7 @@
   [ctx   :- Context
    event :- e/Event]
   (let [repl (client ctx)
-        _    (->> event (:value) (i/from-string) (r/evaluate! repl))
-        _    (r/read-out! repl)]
+        _    (->> event (:value) (i/from-string) (r/evaluate! repl))]
     ctx))
 
 (s/defn process :- Step

@@ -1,8 +1,8 @@
 (ns omnia.nrepl
   (:require [clojure.tools.nrepl.server :as server]
             [clojure.tools.nrepl :as nrepl]
-            [omnia.more :refer [dec< inc< gulp-or-else]]
-            [clojure.string :refer [split trim-newline join]]
+            [omnia.more :refer [dec< inc< gulp-or-else => StringUUID StringBool]]
+            [clojure.string :refer [split-lines trim-newline join]]
             [omnia.input :refer [Seeker]]
             [halfling.task :refer [task]]
             [omnia.input :as i]
@@ -14,14 +14,130 @@
 
 ;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
 
+(def EvalRequest
+  {:op  (s/eq :eval)
+   :code s/Str})
+
+(def InfoRequest
+  {:op     s/Keyword
+   :symbol s/Str
+   :ns     s/Symbol})
+
+(def ResponseHeader
+  {:id      StringUUID
+   :session StringUUID})
+
+(def ResponseNamespace
+  {:ns s/Str})
+
+(def ResponseStatus
+  {:status [s/Str]})
+
+(def Completion
+  {:candidate s/Str
+   :ns        s/Str
+   :type      s/Str})
+
+(defn- out? [response]
+  (contains? response :out))
+
+(defn- err? [response]
+  (contains? response :err))
+
+(defn- exc? [response]
+  (contains? response :ex))
+
+(defn- val? [response]
+  (contains? response :value))
+
+(def ValueResponse
+  (merge ResponseHeader
+         ResponseNamespace
+         {:value s/Str}))
+
+(def OutResponse
+  (merge ResponseHeader
+         {:out s/Str}))
+
+(def ExceptionResponse
+  (merge ResponseHeader
+         ResponseStatus
+         {:ex      s/Str
+          :root-ex s/Str}))
+
+(def ErrorResponse
+  (merge ResponseHeader
+         {:err s/Str}))
+
+(def TerminatingResponse
+  (merge ResponseHeader
+         ResponseStatus))
+
+(def EvalResponse
+  (s/conditional
+    val? ValueResponse
+    out? OutResponse
+    err? ErrorResponse
+    exc? ExceptionResponse
+    :else TerminatingResponse))
+
+(def CompletionResponse
+  (merge ResponseHeader
+         ResponseStatus
+         {:completions [Completion]}))
+
+(def InfoResponse
+  (merge ResponseHeader
+         ResponseStatus
+         ResponseNamespace
+         {:name         s/Str
+          :doc          s/Str
+          :arglists-str s/Str
+          :resource     s/Str
+          :added        s/Str
+          :see-also     [s/Str]
+          :static       StringBool
+          :file         s/Str}))
+
+(def NReplResponse
+  (let [eval?       #(contains? % :value)
+        completion? #(contains? % :completions)
+        info?       #(contains? % :doc)]
+    (s/conditional
+      eval?       EvalResponse
+      info?       InfoResponse
+      completion? CompletionResponse)))
+
+(def NReplRequest
+  (let [eval? #(-> % (:op) (= :eval))]
+    (s/conditional
+      eval? EvalRequest
+      :else InfoRequest)))
+
+(def InternalClient (=> NReplRequest [NReplResponse]))
+
+(def REPLResponse
+  {:name s/Str
+   :ns   s/Str
+   :doc  s/Str
+   :args [s/Str]})
+
+(def REPLConfig
+  {:host                     s/Str
+   :port                     s/Int
+   (s/optional-key :client)  InternalClient
+   (s/optional-key :ns)      s/Symbol
+   (s/optional-key :history) [Seeker]
+   (s/optional-key :timeout) s/Int})
+
 (def REPLClient
   {:ns       s/Symbol
    :host     s/Str
    :port     s/Int
-   :client   s/Any
-   :history  s/Any
-   :timeline s/Any
-   :result   s/Any})
+   :client   InternalClient
+   :history  [Seeker]
+   :timeline s/Int
+   :result   Seeker})
 
 (def handler
   (->> '[cider.nrepl.middleware.complete/wrap-complete
@@ -29,8 +145,6 @@
          cider.nrepl.middleware.out/wrap-out]
        (map resolve)
        (apply server/default-handler)))
-
-(def ^:private empty-docs {:doc ""})
 
 (defn read-history [path]
   (task
@@ -45,62 +159,49 @@
              (vec)
              (spit path))))
 
-(defn- out? [response]
-  (contains? response :out))
-
-(defn- err? [response]
-  (contains? response :err))
-
-(defn- ex? [response]
-  (contains? response :ex))
-
-(defn- eff? [response]
-  (and (contains? response :value)
-       (nil? (:value response))))
-
-(defn- val? [response]
-  (contains? response :value))
-
-(def read-out-msg {:op :read-out})
-
 (defn- response->seeker [response]
   (cond
     (out? response) (-> response (:out) (f/format-str) (i/from-string))
     (err? response) (-> response (:err) (i/from-string))
-    (eff? response) [[\n \i \l]]
     (val? response) (-> response (:value) (str) (f/format-str) (i/from-string))
     :else i/empty-seeker))
 
-(defn- send! [repl msg]
-  (let [client (:client repl)]
-    (client msg)))
+(s/defn send! :- [NReplResponse]
+  [repl :- REPLClient
+   req  :- NReplRequest]
+  ((:client repl) req))
 
-(defn- eval-msg [seeker]
+(s/defn eval-msg :- EvalRequest
+  [seeker :- Seeker]
   {:op   :eval
    :code (i/stringify seeker)})
 
-(defn- complete-msg [seeker ns]
+(s/defn complete-msg :- InfoRequest
+  [seeker :- Seeker
+   ns     :- s/Symbol]
   {:op     :complete
+   :ns     ns
    :symbol (-> seeker
                (i/expand)
                (i/extract)
                (i/stringify)
-               (trim-newline))
-   :ns     ns})
+               (trim-newline))})
 
-(defn- info-msg [seeker ns]
+(s/defn info-msg :- InfoRequest
+  [seeker :- Seeker
+   ns     :- s/Symbol]
   {:op      :info
+   :ns      ns
    :symbol  (-> seeker
                 (i/expand)
                 (i/extract)
                 (i/stringify)
-                (trim-newline))
-   :ns      ns})
+                (trim-newline))})
 
 (defn- hsize [repl] (count (:history repl)))
 
 (defn- cache-result [repl result]
-  (update repl :result (fn [_] result)))
+  (assoc repl :result result))
 
 (defn- remember [repl seeker]
   (let [lines (:lines seeker)]
@@ -123,7 +224,9 @@
 
 (defn last-eval [repl] (:result repl))
 
-(defn complete! [repl seeker]
+(s/defn complete! :- Seeker
+  [repl :- REPLClient
+   seeker :- Seeker]
   (->> (:ns repl)
        (complete-msg seeker)
        (send! repl)
@@ -132,7 +235,9 @@
        (mapv (comp i/from-string :candidate))
        (i/conjoined)))
 
-(defn evaluate! [repl seeker]
+(s/defn evaluate! :- Seeker
+  [repl   :- REPLClient
+   seeker :- Seeker]
   (let [new-line #(conj % i/empty-line)
         result    (->> (eval-msg seeker)
                        (send! repl)
@@ -143,61 +248,57 @@
         (cache-result result)
         (reset-timeline))))
 
-(defn info! [repl seeker]
-  (let [{arg-list    :arglists-str
-         ns          :ns
-         doc         :doc
-         name        :name
-         [status]    :status} (->> (:ns repl) (info-msg seeker) (send! repl) (first))]
-    (when (= "done" status)
-      {:name name
-       :args (-> arg-list (or "") (split #"\n"))
-       :ns   ns
-       :doc  (if (empty? doc) "" doc)})))
+(s/defn info! :- REPLResponse
+  [repl   :- REPLClient
+   seeker :- Seeker]
+  (let [result (->> (:ns repl) (info-msg seeker) (send! repl) (first))]
+    {:name (:name result)
+     :ns   (:ns result)
+     :doc  (:doc result "")
+     :args (-> result (:arglists-str "") (split-lines))}))
 
 (s/defn docs! :- Seeker
   [repl   :- REPLClient
    seeker :- Seeker]
-  (or (some-> (info! repl seeker) (:doc) (i/from-string))
-      i/empty-seeker))
+  (->> seeker (info! repl) (:doc) (i/from-string)))
 
 (s/defn signature! :- Seeker
   [repl :- REPLClient
    seeker :- Seeker]
   (let [candidates (fn [{:keys [ns name args]}]
                      (mapv #(i/from-string (str ns "/" name " " %)) args))]
-    (or (some-> (info! repl seeker) (candidates) (i/conjoined))
-        i/empty-seeker)))
+    (->> seeker (info! repl) (candidates) (i/conjoined))))
 
-(defn read-out! [repl]
-  (send! repl read-out-msg))
-
-(defn start-server! [{:keys [host port]}]
-  (server/start-server :host host
-                       :port port
-                       :handler handler))
+(s/defn start-server!
+  [config :- REPLConfig]
+  (server/start-server
+    :host (:host config)
+    :port (:port config)
+    :handler handler))
 
 (defn stop-server! [server]
   (server/stop-server server))
 
-(defn connect [host port timeout]
-  (let [transport (nrepl/connect :port port :host host)
+(s/defn connect :- InternalClient
+  [config :- REPLConfig]
+  (let [host      (:host config)
+        port      (:port config)
+        timeout   (:timeout config 10000)
+        transport (nrepl/connect :port port :host host)
         client    (nrepl/client transport timeout)]
-    (fn [msg] (-> client (nrepl/message msg) (vec)))))
+    (fn [msg] (nrepl/message client msg))))
 
 (s/defn client :- REPLClient
-  [{:as   params
-    :keys [ns port host client timeout history]
-    :or   {timeout 10000
-           history [i/empty-seeker]
-           ns      (ns-name *ns*)}}]
-  (assert (map? params) "Input to `repl` must be a map.")
-  (assert (and (not (nil? port))
-               (not (nil? host))) "`repl` must receive a host and a port")
-  {:ns       ns
-   :host     host
-   :port     port
-   :client   (or client (connect host port timeout))
-   :history  history
-   :timeline (count history)
-   :result   i/empty-seeker})
+  [config :- REPLConfig]
+  (let [ns      (:ns config (ns-name *ns*))
+        port    (:port config)
+        host    (:host config)
+        history (:history config [i/empty-seeker])
+        client  (:client config)]
+    {:ns       ns
+     :host     host
+     :port     port
+     :client   (or client (connect config))
+     :history  history
+     :timeline (count history)
+     :result   i/empty-seeker}))

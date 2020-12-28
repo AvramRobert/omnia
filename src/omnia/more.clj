@@ -1,7 +1,8 @@
 (ns omnia.more
   (:require [clojure.java.io :as io]
             [clojure.edn :as edn]
-            [schema.core :as s]))
+            [schema.core :as s])
+  (:import (java.util UUID)))
 
 (def Point
   (s/constrained [s/Int] #(= 2 (count %))))
@@ -9,6 +10,11 @@
 (def Region
   {:start Point
    :end   Point})
+
+(def StringUUID
+  (s/pred #(try (UUID/fromString %) true (catch Exception _ false))))
+
+(def StringBool (s/enum "true" "false"))
 
 (defn =>
   ([in out]

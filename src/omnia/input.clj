@@ -61,11 +61,13 @@
                                 (char-vec)
                                 (mapv (fn [_] [])))
                            xs))]
-    (->> string
-         (split-lines)
-         (mapv char-vec)
-         (newlines)
-         (seeker))))
+    (if (clojure.string/blank? string)
+      empty-seeker
+      (->> string
+           (split-lines)
+           (mapv char-vec)
+           (newlines)
+           (seeker)))))
 
 (s/defn blank? :- s/Bool
   [character :- Character]
