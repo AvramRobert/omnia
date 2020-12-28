@@ -392,7 +392,7 @@
   [ctx :- Context]
   (let [current-input (input-area ctx)
         server'       (-> ctx (client) (r/evaluate! current-input))
-        result        (r/last-eval server')
+        result        (r/result server')
         new-hud       (-> ctx
                           (persisted-hud)
                           (h/enrich-with [current-input result caret]))]

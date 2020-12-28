@@ -25,7 +25,8 @@
 
 (def ResponseHeader
   {:id      StringUUID
-   :session StringUUID})
+   :session StringUUID
+   s/Any    s/Any})
 
 (def ResponseNamespace
   {:ns s/Str})
@@ -76,7 +77,6 @@
 (def EvalResponse
   (s/conditional
     val? ValueResponse
-    out? OutResponse
     err? ErrorResponse
     exc? ExceptionResponse
     :else TerminatingResponse))
@@ -100,13 +100,15 @@
           :file         s/Str}))
 
 (def NReplResponse
-  (let [eval?       #(contains? % :value)
+  (let [value?      #(contains? % :value)
         completion? #(contains? % :completions)
         info?       #(contains? % :doc)]
     (s/conditional
-      eval?       EvalResponse
+      value?      EvalResponse
+      out?        OutResponse
       info?       InfoResponse
-      completion? CompletionResponse)))
+      completion? CompletionResponse
+      :else       TerminatingResponse)))
 
 (def NReplRequest
   (let [eval? #(-> % (:op) (= :eval))]
@@ -115,12 +117,6 @@
       :else InfoRequest)))
 
 (def InternalClient (=> NReplRequest [NReplResponse]))
-
-(def REPLResponse
-  {:name s/Str
-   :ns   s/Str
-   :doc  s/Str
-   :args [s/Str]})
 
 (def REPLConfig
   {:host                     s/Str
@@ -169,7 +165,7 @@
 (s/defn send! :- [NReplResponse]
   [repl :- REPLClient
    req  :- NReplRequest]
-  ((:client repl) req))
+   ((:client repl) req))
 
 (s/defn eval-msg :- EvalRequest
   [seeker :- Seeker]
@@ -211,7 +207,7 @@
       (update repl :history #(conj % seeker)))))
 
 (defn- reset-timeline [repl]
-  (update repl :timeline (fn [_] (hsize repl))))
+  (assoc repl :timeline (hsize repl)))
 
 (defn travel-back [repl]
   (update repl :timeline #(dec< % 0)))
@@ -222,7 +218,7 @@
 (defn then [repl]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
 
-(defn last-eval [repl] (:result repl))
+(defn result [repl] (:result repl))
 
 (s/defn complete! :- Seeker
   [repl :- REPLClient
@@ -235,7 +231,7 @@
        (mapv (comp i/from-string :candidate))
        (i/conjoined)))
 
-(s/defn evaluate! :- Seeker
+(s/defn evaluate! :- REPLClient
   [repl   :- REPLClient
    seeker :- Seeker]
   (let [new-line #(conj % i/empty-line)
@@ -248,26 +244,37 @@
         (cache-result result)
         (reset-timeline))))
 
-(s/defn info! :- REPLResponse
+;; FIXME: The NoInfo responses aren't directly considered here.
+;; They sort-of break the standard behaviour
+;; I know they're always in the second position of the `status` field
+;; But this isn't really a principled way to approach this
+;; I should weigh the status' and weed out the one that is most important to me
+(s/defn info! :- (s/maybe NReplResponse)
   [repl   :- REPLClient
    seeker :- Seeker]
-  (let [result (->> (:ns repl) (info-msg seeker) (send! repl) (first))]
-    {:name (:name result)
-     :ns   (:ns result)
-     :doc  (:doc result "")
-     :args (-> result (:arglists-str "") (split-lines))}))
+  (let [result      (->> (:ns repl) (info-msg seeker) (send! repl) (first))
+        [_ no-info] (:status result)]
+    (when (nil? no-info) result)))
 
 (s/defn docs! :- Seeker
   [repl   :- REPLClient
    seeker :- Seeker]
-  (->> seeker (info! repl) (:doc) (i/from-string)))
+  (or (some-> repl (info! seeker) (:doc "") (i/from-string))
+      i/empty-seeker))
+
+(s/defn make-candidates :- [Seeker]
+  [response :- NReplResponse]
+  (let [name      (:name response)
+        ns        (:ns response)
+        args      (:arglists-str response)
+        candidate #(i/from-string (str ns "/" name " " %))]
+    (->> args (split-lines) (mapv candidate))))
 
 (s/defn signature! :- Seeker
   [repl :- REPLClient
    seeker :- Seeker]
-  (let [candidates (fn [{:keys [ns name args]}]
-                     (mapv #(i/from-string (str ns "/" name " " %)) args))]
-    (->> seeker (info! repl) (candidates) (i/conjoined))))
+  (or (some-> repl (info! seeker) (make-candidates) (i/conjoined))
+      i/empty-seeker))
 
 (s/defn start-server!
   [config :- REPLConfig]

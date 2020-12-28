@@ -45,7 +45,7 @@
 
 (defn spaces [seeker]
   (->> (i/line seeker)
-       (take-while i/blank?)
+       (take-while i/space?)
        (count)))
 
 (defn reselect [original formatted]
@@ -72,7 +72,7 @@
         select-onset (some->> seeker (:selection) (constantly) (i/move seeker) (spaces))]
     (-> seeker
         (i/rebase (fn [lines]
-                    (mapv #(->> % (drop-while i/blank?) (vec)) lines)))
+                    (mapv #(->> % (drop-while i/space?) (vec)) lines)))
         (i/move-x #(-- % cursor-onset))
         (i/reselect (fn [[x y]] [(-- x select-onset) y])))))
 

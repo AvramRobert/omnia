@@ -54,22 +54,25 @@
   (seeker [[]]))
 
 (s/defn from-string :- Seeker
+  "This has to create empty vectors from new lines.
+   E.g: '1\n\n' => [[\1] []]"
   [string :- s/Str]
-  (letfn [(char-vec [xs] (vec (.toCharArray xs)))
-          (newlines [xs] (if (empty? xs)
-                           (->> string
-                                (char-vec)
-                                (mapv (fn [_] [])))
-                           xs))]
-    (if (clojure.string/blank? string)
+  (let [division  #(if (= \newline %) :newline :other)
+        aggregate #(let [[a _] (first %)]
+                     (m/match [a (count %)]
+                              [:newline 1] []
+                              [:newline _] (vec (repeat (dec (count %)) []))
+                              :else        (vector (mapv second %))))]
+    (if (empty? string)
       empty-seeker
       (->> string
-           (split-lines)
-           (mapv char-vec)
-           (newlines)
+           (mapv (juxt division identity))
+           (partition-by first)
+           (mapcat aggregate)
+           (vec)
            (seeker)))))
 
-(s/defn blank? :- s/Bool
+(s/defn space? :- s/Bool
   [character :- Character]
   (= \space character))
 
@@ -419,7 +422,7 @@
   [seeker :- Seeker
    f      :- (=> Seeker Seeker)
    look   :- (=> Seeker (s/maybe Character))]
-  (letfn [(blanks? [s] (some-> s (look) (blank?)))
+  (letfn [(blanks? [s] (some-> s (look) (space?)))
           (lits? [s]   (not (blanks? s)))
           (tokens? [s] (tokens (look s)))
           (bounds? [s] (or (-> s (:cursor) (first) (zero?))
