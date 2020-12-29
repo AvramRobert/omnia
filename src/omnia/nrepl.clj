@@ -34,6 +34,9 @@
 (def ResponseStatus
   {:status [s/Str]})
 
+(def ResponseInfo
+  {:name   s/Str})
+
 (def Completion
   {:candidate s/Str
    :ns        s/Str
@@ -50,6 +53,15 @@
 
 (defn- val? [response]
   (contains? response :value))
+
+(defn- com? [response]
+  (contains? response :completions))
+
+(defn- doc? [response]
+  (contains? response :doc))
+
+(defn- arg? [response]
+  (contains? response :arglists-str))
 
 (def ValueResponse
   (merge ResponseHeader
@@ -74,41 +86,35 @@
   (merge ResponseHeader
          ResponseStatus))
 
-(def EvalResponse
-  (s/conditional
-    val? ValueResponse
-    err? ErrorResponse
-    exc? ExceptionResponse
-    :else TerminatingResponse))
-
 (def CompletionResponse
   (merge ResponseHeader
          ResponseStatus
          {:completions [Completion]}))
 
-(def InfoResponse
+(def ArgumentResponse
   (merge ResponseHeader
          ResponseStatus
          ResponseNamespace
-         {:name         s/Str
-          :doc          s/Str
-          :arglists-str s/Str
-          :resource     s/Str
-          :added        s/Str
-          :see-also     [s/Str]
-          :static       StringBool
-          :file         s/Str}))
+         ResponseInfo
+         {:arglists-str s/Str}))
+
+(def DocResponse
+  (merge ResponseHeader
+         ResponseStatus
+         ResponseNamespace
+         ResponseInfo
+         {:doc s/Str}))
 
 (def NReplResponse
-  (let [value?      #(contains? % :value)
-        completion? #(contains? % :completions)
-        info?       #(contains? % :doc)]
-    (s/conditional
-      value?      EvalResponse
-      out?        OutResponse
-      info?       InfoResponse
-      completion? CompletionResponse
-      :else       TerminatingResponse)))
+  (s/conditional
+    val?        ValueResponse
+    out?        OutResponse
+    err?        ErrorResponse
+    exc?        ExceptionResponse
+    com?        CompletionResponse
+    arg?        ArgumentResponse
+    doc?        DocResponse
+    :else       TerminatingResponse))
 
 (def NReplRequest
   (let [eval? #(-> % (:op) (= :eval))]
@@ -164,8 +170,8 @@
 
 (s/defn send! :- [NReplResponse]
   [repl :- REPLClient
-   req  :- NReplRequest]
-   ((:client repl) req))
+   req :- NReplRequest]
+  ((:client repl) req))
 
 (s/defn eval-msg :- EvalRequest
   [seeker :- Seeker]
@@ -262,13 +268,13 @@
   (or (some-> repl (info! seeker) (:doc "") (i/from-string))
       i/empty-seeker))
 
-(s/defn make-candidates :- [Seeker]
+(s/defn make-candidates :- (s/maybe [Seeker])
   [response :- NReplResponse]
   (let [name      (:name response)
         ns        (:ns response)
         args      (:arglists-str response)
         candidate #(i/from-string (str ns "/" name " " %))]
-    (->> args (split-lines) (mapv candidate))))
+    (some->> args (split-lines) (mapv candidate))))
 
 (s/defn signature! :- Seeker
   [repl :- REPLClient
@@ -300,7 +306,7 @@
   (let [ns      (:ns config (ns-name *ns*))
         port    (:port config)
         host    (:host config)
-        history (:history config [i/empty-seeker])
+        history (:history config [])
         client  (:client config)]
     {:ns       ns
      :host     host

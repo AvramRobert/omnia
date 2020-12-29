@@ -1,7 +1,8 @@
 (ns omnia.nrepl-test
   (:require [clojure.test :refer [deftest is]]
-            [schema.core :as s]
             [omnia.more :refer [=>]]
+            [clojure.string :refer [includes?]]
+            [schema.core :as s]
             [omnia.nrepl :as r]
             [omnia.test-utils :refer :all]
             [omnia.input :as i]))
@@ -50,8 +51,9 @@
 
 (defn missing-signature [client]
   (let [expected i/empty-seeker
-        client' (->> "(def a 1)" (i/from-string) (r/evaluate! client))]
-    (->> (i/from-string "a")
+        client'  (->> "(def a 1)" (i/from-string) (r/evaluate! client))]
+    (->> "a"
+         (i/from-string)
          (r/signature! client')
          (equivalent expected)
          (is))))
@@ -117,16 +119,30 @@
          (equivalent expected)
          (is))))
 
-(defn exception-evaluation [client])
+(defn exception-evaluation [client]
+  (let [expected   "Exception bla"
+        evaluation (->> '(throw (Exception. "bla"))
+                        (str)
+                        (i/from-string)
+                        (r/evaluate! client)
+                        (r/result)
+                        (i/stringify))]
+    (-> evaluation (includes? expected) (is))))
 
-(defn empty-evaluation [client])
+(defn empty-evaluation [client]
+  (let [expected i/empty-line]
+    (->> ""
+         (i/from-string)
+         (r/evaluate! client)
+         (r/result)
+         (equivalent expected)
+         (is))))
 
 (defn evaluation [client]
   (value-evaluation client)
   (out-evaluation client)
   (exception-evaluation client)
   (empty-evaluation client))
-
 
 (deftest nrepl-test
   (with-server
