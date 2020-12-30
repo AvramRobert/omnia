@@ -2,7 +2,6 @@
   (:require [clojure.test :refer [is]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
-            [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
             [omnia.hud :as h]
             [omnia.context :as r]
@@ -368,13 +367,17 @@
 
 ;; V. Evaluating
 
-(defn remember-preserve-persist [ctx]
+(defn remember-preserve-persist [ctx eval-result]
   (let [current-input      (r/input-area ctx)
+        result             (i/from-string eval-result)
         expected-previous  (-> ctx (r/preview-hud) (h/text))
         expected-persisted (-> ctx
                                (r/persisted-hud)
                                (h/text)
-                               (i/conjoin current-input i/empty-line h/caret))
+                               (i/conjoin current-input
+                                          result
+                                          i/empty-line
+                                          h/caret))
         expected-complete  (-> expected-persisted (i/conjoin i/empty-line))]
     (-> ctx
         (process-one evaluate)
@@ -383,17 +386,17 @@
                 #(-> % (r/persisted-hud) (h/text) (= expected-persisted))
                 #(-> % (r/preview-hud) (h/text) (= expected-complete))))))
 
-(s/defn evaluating [ctx :- r/Context]
-  (remember-preserve-persist ctx))
+(defn evaluating [ctx eval-result]
+  (remember-preserve-persist ctx eval-result))
 
 (defspec evaluating-test
          NR-OF-TESTS
-  (let [seeker (one (gen-seeker-of 10))]
+  (let [eval-result "result"]
     (for-all [tctx (gen-context {:size    20
                                  :fov     7
-                                 :seeker  seeker
-                                 :receive (eval-result seeker)})]
-             (evaluating tctx))))
+                                 :seeker  (one (gen-seeker-of 10))
+                                 :receive (gen-evaluation eval-result)})]
+             (evaluating tctx eval-result))))
 
 ;; VI. Rolling back
 
@@ -473,7 +476,7 @@
          NR-OF-TESTS
   (for-all [tctx (gen-context {:size    20
                                :fov     15
-                               :receive (one (gen-suggestions 12))
+                               :receive (gen-completion 12)
                                :seeker  (one (gen-seeker-of 17))})]
            (suggesting tctx)))
 
@@ -496,7 +499,6 @@
          NR-OF-TESTS
   (for-all [tctx (gen-context {:size    20
                                :fov     15
-                               :receive i/empty-seeker
                                :seeker  (one (gen-seeker-of 17))})]
            (empty-suggesting tctx)))
 

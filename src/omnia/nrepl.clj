@@ -200,42 +200,52 @@
                 (i/stringify)
                 (trim-newline))})
 
-(defn- hsize [repl] (count (:history repl)))
-
-(defn- cache-result [repl result]
+(s/defn with-result :- REPLClient
+  [repl   :- REPLClient
+   result :- Seeker]
   (assoc repl :result result))
 
-(defn- remember [repl seeker]
-  (let [lines (:lines seeker)]
-    (if (or (empty? lines)
-            (-> lines first empty?))
-      repl
-      (update repl :history #(conj % seeker)))))
-
-(defn- reset-timeline [repl]
-  (assoc repl :timeline (hsize repl)))
-
-(defn travel-back [repl]
-  (update repl :timeline #(dec< % 0)))
-
-(defn travel-forward [repl]
-  (update repl :timeline #(inc< % (hsize repl))))
-
-(defn then [repl]
-  (nth (:history repl) (:timeline repl) i/empty-seeker))
-
-(defn result [repl] (:result repl))
-
-(s/defn complete! :- Seeker
+(s/defn remember :- REPLClient
   [repl :- REPLClient
    seeker :- Seeker]
-  (->> (:ns repl)
-       (complete-msg seeker)
-       (send! repl)
-       (first)
-       (:completions)
-       (mapv (comp i/from-string :candidate))
-       (i/conjoined)))
+  (if (or (i/equivalent? seeker i/empty-seeker)
+          (i/equivalent? seeker i/empty-line))
+    repl
+    (update repl :history #(conj % seeker))))
+
+(s/defn reset-timeline :- REPLClient
+  [repl :- REPLClient]
+  (let [current (-> repl (:history) (count))]
+    (assoc repl :timeline current)))
+
+(s/defn travel-back :- REPLClient
+  [repl :- REPLClient]
+  (update repl :timeline #(dec< % 0)))
+
+(s/defn travel-forward [repl] :- REPLClient
+  [repl :- REPLClient]
+  (let [max (-> repl (:history) (count))]
+    (update repl :timeline #(inc< % max))))
+
+(s/defn then :- Seeker
+  [repl :- REPLClient]
+  (nth (:history repl) (:timeline repl) i/empty-seeker))
+
+(s/defn result :- Seeker
+  [repl :- REPLClient]
+  (:result repl))
+
+(s/defn complete! :- REPLClient
+  [repl :- REPLClient
+   seeker :- Seeker]
+  (let [result (->> (:ns repl)
+                    (complete-msg seeker)
+                    (send! repl)
+                    (first)
+                    (:completions)
+                    (mapv (comp i/from-string :candidate))
+                    (i/conjoined))]
+    (-> repl (with-result result) (reset-timeline))))
 
 (s/defn evaluate! :- REPLClient
   [repl   :- REPLClient
@@ -246,15 +256,11 @@
                        (mapv response->seeker)
                        (new-line)
                        (i/conjoined))]
-    (-> (remember repl seeker)
-        (cache-result result)
+    (-> repl
+        (remember seeker)
+        (with-result result)
         (reset-timeline))))
 
-;; FIXME: The NoInfo responses aren't directly considered here.
-;; They sort-of break the standard behaviour
-;; I know they're always in the second position of the `status` field
-;; But this isn't really a principled way to approach this
-;; I should weigh the status' and weed out the one that is most important to me
 (s/defn info! :- (s/maybe NReplResponse)
   [repl   :- REPLClient
    seeker :- Seeker]
@@ -262,25 +268,26 @@
         [_ no-info] (:status result)]
     (when (nil? no-info) result)))
 
-(s/defn docs! :- Seeker
+(s/defn docs! :- REPLClient
   [repl   :- REPLClient
    seeker :- Seeker]
-  (or (some-> repl (info! seeker) (:doc "") (i/from-string))
-      i/empty-seeker))
+  (let [result (or (some-> repl (info! seeker) (:doc) (i/from-string))
+                   i/empty-seeker)]
+    (-> repl (with-result result) (reset-timeline))))
 
 (s/defn make-candidates :- (s/maybe [Seeker])
   [response :- NReplResponse]
   (let [name      (:name response)
         ns        (:ns response)
-        args      (:arglists-str response)
         candidate #(i/from-string (str ns "/" name " " %))]
-    (some->> args (split-lines) (mapv candidate))))
+    (some->> response (:arglists-str) (split-lines) (mapv candidate))))
 
-(s/defn signature! :- Seeker
+(s/defn signature! :- REPLClient
   [repl :- REPLClient
    seeker :- Seeker]
-  (or (some-> repl (info! seeker) (make-candidates) (i/conjoined))
-      i/empty-seeker))
+  (let [result (or (some-> repl (info! seeker) (make-candidates) (i/conjoined))
+                   i/empty-seeker)]
+    (-> repl (with-result result) (reset-timeline))))
 
 (s/defn start-server!
   [config :- REPLConfig]

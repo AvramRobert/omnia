@@ -370,9 +370,9 @@
         (with-unrefreshed-preview preview)
         (with-persisted persisted))))
 
-(s/defn roll :- Context
+(s/defn eval-at :- Context
   [ctx :- Context,
-   f   :- (=> REPLClient REPLClient)]
+   f :- (=> REPLClient REPLClient)]
   (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (client) f)
         then-seeker (-> (r/then then-server)
@@ -380,13 +380,13 @@
                         (assoc :clipboard clipboard))]
     (-> ctx (with-server then-server) (with-text then-seeker) (refresh))))
 
-(s/defn roll-back :- Context
+(s/defn prev-eval :- Context
   [ctx :- Context]
-  (roll ctx r/travel-back))
+  (eval-at ctx r/travel-back))
 
-(s/defn roll-forward :- Context
+(s/defn next-eval :- Context
   [ctx :- Context]
-  (roll ctx r/travel-forward))
+  (eval-at ctx r/travel-forward))
 
 (s/defn evaluate :- Context
   [ctx :- Context]
@@ -407,7 +407,7 @@
         repl  (client ctx)
         suggs (suggestions ctx)]
     (if (h/hollow? suggs)
-      (-> (r/complete! repl text) (h/riffle-window 10))
+      (-> repl (r/complete! text) (r/result) (h/riffle-window 10))
       (h/riffle suggs))))
 
 (s/defn suggest :- Context
@@ -432,7 +432,7 @@
         repl (client ctx)
         sigs (signatures ctx)]
     (if (h/hollow? sigs)
-      (-> (r/signature! repl text) (h/riffle-window 10))
+      (-> repl (r/signature! text) (r/result) (h/riffle-window 10))
       (h/riffle sigs))))
 
 (s/defn signature :- Context
@@ -453,7 +453,7 @@
         repl (client ctx)
         docs (documentation ctx)]
     (if (h/hollow? docs)
-      (-> (r/docs! repl text) (h/riffle-window 15))
+      (-> repl (r/docs! text) (r/result) (h/riffle-window 15))
       (h/riffle docs))))
 
 (s/defn document :- Context
@@ -497,8 +497,8 @@
     e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (deselect) (suggest) (match-parens) (diff-render) (resize) (continue))
     e/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
-    e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-back) (highlight) (match-parens) (diff-render) (resize) (continue))
-    e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (roll-forward) (highlight) (match-parens) (diff-render) (resize) (continue))
+    e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (resize) (continue))
+    e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (resize) (continue))
     e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (match-parens) (diff-render) (resize) (continue))
     e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (resize) (continue))
     e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight)  (diff-render) (resize) (continue))

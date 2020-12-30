@@ -26,7 +26,8 @@
     (->> "println"
          (i/from-string)
          (r/complete! client)
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn empty-completion [client]
@@ -34,7 +35,8 @@
     (->> "nonesense-this"
          (i/from-string)
          (r/complete! client)
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn completion [client]
@@ -46,7 +48,8 @@
     (->> "println"
          (i/from-string)
          (r/signature! client)
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn missing-signature [client]
@@ -55,7 +58,8 @@
     (->> "a"
          (i/from-string)
          (r/signature! client')
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn empty-signature [client]
@@ -63,7 +67,8 @@
     (->> "nonesense-this"
          (i/from-string)
          (r/signature! client)
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn signature [client]
@@ -76,7 +81,8 @@
     (->> "println"
          (i/from-string)
          (r/docs! client)
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn missing-docs [client]
@@ -85,7 +91,8 @@
     (->> "bla"
          (i/from-string)
          (r/docs! client')
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn empty-documentation [client]
@@ -93,7 +100,8 @@
     (->> "nonesense-this"
          (i/from-string)
          (r/docs! client)
-         (equivalent expected)
+         (r/result)
+         (i/equivalent? expected)
          (is))))
 
 (defn documentation [client]
@@ -107,7 +115,7 @@
          (i/from-string)
          (r/evaluate! client)
          (r/result)
-         (equivalent expected)
+         (i/equivalent? expected)
          (is))))
 
 (defn out-evaluation [client]
@@ -116,7 +124,7 @@
          (i/from-string)
          (r/evaluate! client)
          (r/result)
-         (equivalent expected)
+         (i/equivalent? expected)
          (is))))
 
 (defn exception-evaluation [client]
@@ -135,7 +143,7 @@
          (i/from-string)
          (r/evaluate! client)
          (r/result)
-         (equivalent expected)
+         (i/equivalent? expected)
          (is))))
 
 (defn evaluation [client]

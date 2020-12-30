@@ -636,17 +636,18 @@
 
 (s/defn debug-string :- String
   [seeker :- Seeker]
-  (-> seeker (slicel #(conj % "|")) (stringify)))
-
-(s/defn print-seeker
-  [seeker :- Seeker]
-  (->> seeker (stringify) (println)))
+  (-> seeker (slicel #(conj % \|)) (stringify)))
 
 (s/defn indent :- Seeker
   [seeker :- Seeker
    amount :- s/Int]
   (let [padding (repeat amount \space)]
     (rebase seeker (fn [lines] (mapv #(vec (concat padding %)) lines)))))
+
+(s/defn equivalent? :- s/Bool
+  [this :- Seeker
+   that :- Seeker]
+  (= (:lines this) (:lines that)))
 
 (s/defn process :- Seeker
   [seeker :- Seeker

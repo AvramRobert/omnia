@@ -4,7 +4,7 @@
             [omnia.context :refer [Context HighlightType]]
             [omnia.input :refer [Seeker]]
             [omnia.event :refer [Event InputEvent]]
-            [omnia.more :refer [-- Region]]
+            [omnia.more :refer [-- Region do-gen]]
             [omnia.config :as c]
             [omnia.input :as i]
             [omnia.hud :as h]
@@ -13,17 +13,14 @@
             [omnia.terminal :as t]
             [omnia.event :as e]
             [schema.core :as s]
-            [clojure.test.check.generators :as gen]))
+            [clojure.test.check.generators :as gen])
+  (:import (java.util UUID)))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
 (defn many
   ([generator] (many generator (rand-int 100)))
   ([generator n] (vec (repeatedly n #(one generator)))))
-
-(s/defn equivalent :- s/Bool
-  [this :- Seeker that :- Seeker]
-  (= (:lines this) (:lines that)))
 
 (defmacro <=>seeker [this-seeker that-seeker]
   `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
@@ -34,6 +31,15 @@
 
 (defmacro can-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
+
+(defn random-uuid []
+  (str (UUID/randomUUID)))
+
+(defn nrepl-result [map]
+  (assoc map :id (random-uuid)
+             :session (random-uuid)
+             :ns "ns"
+             :status ["done"]))
 
 (defn rand-cursor [seeker]
   (let [y (-> seeker (:height) (rand-int))
@@ -60,14 +66,28 @@
        (gen/fmap i/seeker)
        (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
 
-(defn gen-suggestions [size]
-  (->> (gen/vector (gen/not-empty gen/string-alphanumeric) size)
-       (gen/fmap
-         (fn [xs]
-           (list {:completions
-                  (map (fn [s] {:candidate s
-                                :ns        ""
-                                :type      ""}) xs)})))))
+(defn gen-completion [size]
+  (letfn [(candidate [s]
+            {:candidate s
+             :ns        ""
+             :type      ""})]
+    (->> (gen/vector (gen/not-empty gen/string-alphanumeric) size)
+         (gen/fmap (fn [ss] {:completions (map candidate ss)})))))
+
+(defn gen-evaluation [string]
+  (gen/return {:value string}))
+
+(defn gen-nrepl-result [gen-response]
+  (do-gen [id       gen/uuid
+           session  gen/uuid
+           ns       gen/string-alphanumeric
+           response gen-response]
+    (-> response
+        (assoc :id (str id)
+               :session (str session)
+               :ns ns
+               :status ["done"])
+        (list))))
 
 (defn test-terminal [{:keys [refresh!
                              clear!
@@ -89,22 +109,23 @@
      :start!     (or start! unit)
      :get-event! (or get-event! unit)}))
 
+;; FIXME: provide a seeker generator for :seeker
 (defn gen-context [{:keys [size fov seeker receive history]
                     :or   {size    0
                            fov     10
+                           receive (gen/return {})
                            seeker  i/empty-seeker
                            history []}}]
-  (->> (gen-seeker-of size)
-       (gen/fmap
-         (fn [hud-seeker]
-           (-> (r/context (c/convert c/default-config)
-                          (test-terminal {:size (constantly fov)})
-                          (server/client {:host    ""
-                                          :port    0
-                                          :history history
-                                          :client  (constantly receive)}))
-               (r/with-text seeker)
-               (r/with-hud (h/hud hud-seeker fov)))))))
+  (do-gen [hud-seeker (gen-seeker-of size)
+           response   (gen-nrepl-result receive)]
+    (-> (r/context (c/convert c/default-config)
+                   (test-terminal {:size (constantly fov)})
+                   (server/client {:host    ""
+                                   :port    0
+                                   :history history
+                                   :client  (constantly response)}))
+        (r/with-text seeker)
+        (r/with-hud (h/hud hud-seeker fov)))))
 
 (def up (e/event e/up))
 (def down (e/event e/down))
@@ -181,11 +202,7 @@
   (-> ctx (r/preview-hud) (h/text) (:cursor)))
 
 (defn suggestions [ctx]
-  (-> ctx (r/client) (server/complete! i/empty-seeker)))
-
-;; FIXME: this will need patching
-(defn eval-result [seeker]
-  {:value (i/stringify seeker)})
+  (-> ctx (r/client) (server/complete! i/empty-seeker) (server/result)))
 
 (defn server-history [ctx]
   (-> ctx (r/client) (:history)))

@@ -1095,15 +1095,15 @@
 
 (defn preserve-history [seeker]
   (let [changed (process' seeker [(character \a) (character \b)])]
-    (is (not (equivalent changed seeker)))
-    (is (not (equivalent (process' changed [undo]) seeker)))
-    (is (equivalent (process' changed [undo undo]) seeker))))
+    (is (not (i/equivalent? changed seeker)))
+    (is (not (i/equivalent? (process' changed [undo]) seeker)))
+    (is (i/equivalent? (process' changed [undo undo]) seeker))))
 
 (defn traverse-history [seeker]
   (let [changed (process' seeker [(character \a) (character \b)])]
-    (is (not (equivalent (process' changed [undo undo redo]) changed)))
-    (is (equivalent (process' changed [undo undo redo redo]) changed))
-    (is (equivalent (process' changed [undo (character \k) undo redo redo]) changed))))
+    (is (not (i/equivalent? (process' changed [undo undo redo]) changed)))
+    (is (i/equivalent? (process' changed [undo undo redo redo]) changed))
+    (is (i/equivalent? (process' changed [undo (character \k) undo redo redo]) changed))))
 
 (defn history [seeker]
   (preserve-history seeker)
