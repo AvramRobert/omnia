@@ -148,24 +148,28 @@
        (map resolve)
        (apply server/default-handler)))
 
-(defn read-history [path]
-  (task
-    (->> [""]
-         (gulp-or-else path)
-         (mapv i/from-string))))
+(s/defn read-history :- Seeker
+  [path :- s/Str]
+  (->> [""]
+       (gulp-or-else path)
+       (mapv i/from-string)))
 
-(defn write-history [path repl]
-  (task (->> (:history repl)
-             (mapv i/stringify)
-             (take-last 1000)
-             (vec)
-             (spit path))))
+(s/defn write-history
+  [repl :- REPLClient
+   path :- s/Str]
+  (->> repl
+       (:history)
+       (mapv i/stringify)
+       (take-last 20)
+       (vec)
+       (spit path)))
 
-(defn- response->seeker [response]
+(s/defn response->seeker :- Seeker
+  [response :- NReplResponse]
   (cond
     (out? response) (-> response (:out) (f/format-str) (i/from-string))
     (err? response) (-> response (:err) (i/from-string))
-    (val? response) (-> response (:value) (str) (f/format-str) (i/from-string))
+    (val? response) (-> response (:value) (f/format-str) (i/from-string))
     :else i/empty-seeker))
 
 (s/defn send! :- [NReplResponse]
