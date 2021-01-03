@@ -11,6 +11,7 @@
 (def ^:const -close-map :close-map)
 (def ^:const -char :character)
 (def ^:const -number :number)
+(def ^:const -signed-number :signed-number)
 (def ^:const -open-string :open-string)
 (def ^:const -close-string :close-string)
 (def ^:const -keyword :keyword)
@@ -24,12 +25,17 @@
 (def ^:const -select :selection)
 (def ^:const -back :background)
 
-(def Node (s/enum -open-list -close-list
-                  -open-vector -close-vector
-                  -open-map -close-map
-                  -open-string -close-string
+(def Node (s/enum -open-list
+                  -close-list
+                  -open-vector
+                  -close-vector
+                  -open-map
+                  -close-map
+                  -open-string
+                  -close-string
                   -char
                   -number
+                  -signed-number
                   -keyword
                   -function
                   -comment
@@ -37,203 +43,371 @@
                   -text
                   -break
                   -space))
-;
-(def Transition (=> Character Node))
-(def Validation (=> [Character] s/Bool))
 
 (def State
   {:node       Node
-   :fallback   Node
-   :validation Validation
-   :transition Transition})
+   :emission   (=> [Character] s/Keyword)
+   :transition (=> Character (s/maybe Node))})
 
 (def triggers
-  {\space   #{-space},
-   \(       #{-open-list},
-   \)       #{-close-list},
-   \[       #{-open-vector},
-   \]       #{-close-vector},
-   \{       #{-open-map},
-   \}       #{-close-map}
-   \newline #{-break},
-   \0       #{-number},
-   \1       #{-number},
-   \2       #{-number},
-   \3       #{-number},
-   \4       #{-number},
-   \5       #{-number},
-   \6       #{-number},
-   \7       #{-number},
-   \8       #{-number},
-   \9       #{-number},
-   \:       #{-keyword},
-   \\       #{-comment}
-   \"       #{-open-string -close-string}
-   \n       #{-word}
-   \t       #{-word}
-   \f       #{-word}})
+  {-space         #{\space},
+   -close-string  #{\"},
+   -open-string   #{\"}
+   -number        #{\0 \1 \2 \3 \4 \5 \6 \7 \8 \9},
+   -signed-number #{\+ \- \0 \1 \2 \3 \4 \5 \6 \7 \8 \9},
+   -close-map     #{\}},
+   -close-list    #{\)},
+   -close-vector  #{\]},
+   -break         #{\newline},
+   -open-vector   #{\[},
+   -keyword       #{\:},
+   -char          #{\\},
+   -word          #{\f \n \t},
+   -comment       #{\;},
+   -open-map      #{\{},
+   -open-list     #{\(}})
 
-(def emissions
-  {-open-list    :list
-   -close-list   :list
-   -open-vector  :vector
-   -close-vector :vector
-   -function     :function})
+(def words
+  #{[\n \i \l]
+    [\t \r \u \e]
+    [\f \a \l \s \e]})
 
-(s/defn transition-to
-  [nodes :- #{Node}
-   fallback :- Node]
-  (fn [char]
-    (or (some->> char (get triggers) (intersection nodes) (first))
-        fallback)))
+(s/defn transitions :- {Character Node}
+  [& nodes :- [Node]]
+  (letfn [(define [node]
+            (->> node (triggers) (map #(vector % node))))]
+    (->> nodes (mapcat define) (into {}))))
 
 (s/def function :- State
-  (let [fallback -function
-        nodes    #{-open-list
-                   -close-list
-                   -open-vector
-                   -close-vector
-                   -open-map
-                   -close-map
-                   -break
-                   -space
-                   -comment
-                   -char
-                   -open-string}]
+  (let [lookup (transitions
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -break
+                 -space
+                 -comment
+                 -char)]
     {:node       -function
-     :fallback   fallback
-     :validation (constantly true)
-     :transition (transition-to nodes fallback)}))
+     :emission   (constantly :function)
+     :transition #(lookup % -function)}))
 
 (s/def open-list :- State
-  (let [fallback -function
-        nodes    #{-break
-                   -space
-                   -open-list
-                   -close-list
-                   -open-vector
-                   -close-vector
-                   -open-map
-                   -close-map
-                   -number
-                   -char
-                   -open-string
-                   -close-string
-                   -comment
-                   -keyword}]
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -char
+                 -open-string
+                 -comment
+                 -keyword)]
     {:node       -open-list
-     :fallback   fallback
-     :validation (constantly true)
-     :transition (transition-to nodes fallback)}))
+     :emission   (constantly :list)
+     :transition #(lookup % -function)}))
 
 (s/def close-list :- State
-  (let [fallback -text
-        nodes    #{-break
-                   -space
-                   -word
-                   -open-list
-                   -close-list
-                   -open-vector
-                   -close-vector
-                   -open-map
-                   -close-map
-                   -number
-                   -char
-                   -open-string
-                   -close-string
-                   -comment
-                   -keyword}]
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -number
+                 -signed-number
+                 -char
+                 -open-string
+                 -comment
+                 -keyword)]
     {:node       -close-list
-     :fallback   fallback
-     :validation (constantly true)
-     :transition (transition-to nodes fallback)}))
+     :emission   (constantly :list)
+     :transition #(lookup % -text)}))
 
 (s/def text :- State
-  (let [fallback -text
-        nodes    #{-break
-                   -space
-                   -open-list
-                   -close-list
-                   -open-vector
-                   -close-vector
-                   -open-map
-                   -close-map
-                   -char
-                   -open-string
-                   -close-string
-                   -comment}]
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -char
+                 -open-string
+                 -comment)]
     {:node       -text
-     :fallback   fallback
-     :validation (constantly true)
-     :transition (transition-to nodes fallback)}))
+     :emission   (constantly :text)
+     :transition #(lookup % -text)}))
 
 (s/def break :- State
-  (let [fallback -text
-        nodes    #{-space
-                   -word
-                   -open-list
-                   -close-list
-                   -open-vector
-                   -close-vector
-                   -open-map
-                   -close-map
-                   -number
-                   -char
-                   -open-string
-                   -close-string
-                   -comment
-                   -keyword}]
+  (let [lookup (transitions
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -number
+                 -signed-number
+                 -char
+                 -open-string
+                 -comment
+                 -keyword)]
     {:node       -break
-     :fallback   fallback
-     :validation (constantly true)
-     :transition (transition-to nodes fallback)}))
+     :emission   (constantly :text)
+     :transition #(lookup % -text)}))
 
 (s/def space :- State
-  (let [fallback -text
-        nodes    #{-break
-                   -word
-                   -open-list
-                   -close-list
-                   -open-vector
-                   -close-vector
-                   -open-map
-                   -close-map
-                   -number
-                   -char
-                   -open-string
-                   -comment
-                   -keyword}]
+  (let [lookup (transitions
+                 -break
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -number
+                 -signed-number
+                 -char
+                 -open-string
+                 -comment
+                 -keyword)]
     {:node       -space
-     :fallback   fallback
-     :validation (constantly true)
-     :transition (transition-to nodes fallback)}))
+     :emission   (constantly :text)
+     :transition #(lookup % -text)}))
 
-(s/defn emission :- s/Keyword
-  [node :- Node]
-  (get emissions node :text))
+(s/def word :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -number
+                 -signed-number
+                 -char
+                 -comment)]
+    {:node       -word
+     :emission   #(if (words %) :word :text)
+     :transition #(lookup % -word)}))
 
-(s/def states :- {Node State}
-  {-function   function
-   -text       text
-   -open-list  open-list
-   -close-list close-list
-   -break      break
-   -space      space})
+(s/def open-vector :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -number
+                 -signed-number
+                 -char
+                 -open-string
+                 -comment
+                 -keyword)]
+    {:node       -open-vector
+     :emission   (constantly :vector)
+     :transition #(lookup % -text)}))
+
+(s/def close-vector :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -number
+                 -signed-number
+                 -char
+                 -comment
+                 -keyword)]
+    {:node       -close-vector
+     :emission   (constantly :vector)
+     :transition #(lookup % -text)}))
+
+(s/def open-map :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -number
+                 -signed-number
+                 -char
+                 -comment
+                 -keyword)]
+    {:node       -open-map
+     :emission   (constantly :map)
+     :transition #(lookup % -text)}))
+
+(s/def close-map :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -number
+                 -signed-number
+                 -char
+                 -comment
+                 -keyword)]
+    {:node       -close-map
+     :emission   (constantly :map)
+     :transition #(lookup % -text)}))
+
+(s/def key-word :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -char
+                 -comment)]
+    {:node       -keyword
+     :emission   (constantly :keyword)
+     :transition #(lookup % -keyword)}))
+
+(s/def number :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -comment
+                 -number)]
+    {:node       -number
+     :emission   (constantly :number)
+     :transition #(lookup % -text)}))
+
+;; I don't think I need "signed number" as a state
+;; can just map these into the number state
+(s/def signed-number :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -open-string
+                 -comment
+                 -signed-number)]
+    {:node       -signed-number
+     :emission   #(if (> (count %) 1) :number :text)
+     :transition #(lookup % -text)}))
+
+(s/def open-string :- State
+  (let [lookup (transitions -close-string)]
+    {:node       -open-string
+     :emission   (constantly :string)
+     :transition #(lookup % -open-string)}))
+
+(s/def close-string :- State
+  (let [lookup (transitions
+                 -break
+                 -space
+                 -word
+                 -open-list
+                 -close-list
+                 -open-vector
+                 -close-vector
+                 -open-map
+                 -close-map
+                 -number
+                 -char
+                 -open-string
+                 -comment
+                 -keyword)]
+    {:node       -close-list
+     :emission   (constantly :string)
+     :transition #(lookup % -text)}))
+
+(s/def node->state :- {Node State}
+  {-function      function
+   -text          text
+   -open-list     open-list
+   -close-list    close-list
+   -open-vector   open-vector
+   -close-vector  close-vector
+   -open-map      open-map
+   -close-map     close-map
+   -break         break
+   -space         space
+   -word          word
+   -keyword       key-word
+   -number        number
+   -signed-number signed-number
+   -open-string   open-string
+   -close-string  close-string})
 
 (defn consume-with [f]
   (fn [[intermediate accumulate state] char]
     (let [node       (:node state)
           transition (:transition state)
-          valid?     (:validation state)
-          fallback   (:fallback state)
+          emission   (:emission state)
           node'      (transition char)
-          state'     (states node')]
-      (cond
-        (= node node')      [intermediate (conj accumulate char) state']
-        (valid? accumulate) [(f intermediate [(emission node) accumulate]) [char] state']
-        :else               [(f intermediate [(emission fallback) accumulate]) [char] state']))))
+          state'     (node->state node')]
+      (if (= node node')
+        [intermediate (conj accumulate char) state']
+        [(f intermediate (emission accumulate) accumulate) [char] state']))))
 
+;; We apply the function one last time to "flush" any accumulation that wasn't processed
 (defn fold [f init chars]
-  (-> (consume-with f)
-      (reduce [init [] break] (conj chars \space))
-      (first)))
+  (let [consumption        (consume-with f)
+        [output acc state] (reduce consumption [init [] break] chars)
+        emission           ((:emission state) acc)]
+    (f output emission acc)))
+
+(defn verify [input]
+  (fold (fn [_ x acc] (println x " :: " acc)) nil (vec input)))
