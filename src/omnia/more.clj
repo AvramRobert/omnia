@@ -27,7 +27,9 @@
   ([in out]
    (s/->FnSchema out in))
   ([in1 in2 out]
-   (s/->FnSchema out [in1 in2])))
+   (s/->FnSchema out [in1 in2]))
+  ([in1 in2 in3 out]
+   (s/->FnSchema out [in1 in2 in3])))
 
 (defn inc< [value max]
   (let [x (inc value)]
