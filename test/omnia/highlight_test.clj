@@ -3,9 +3,11 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.generators :as gen]
-            [clojure.string :as s]
+            [clojure.set :as s]
+            [clojure.string :refer [split]]
             [omnia.highlight :as h]
-            [omnia.highlighting :as h2]))
+            [omnia.highlighting :as h2]
+            [clojure.core.match :as m]))
 
 (def ^:const NR-OF-TESTS 100)
 
@@ -39,21 +41,44 @@
 (defn in-vector [stream]
   (h/foldl (fn [v [e s]] (conj v [e (:id s)])) [] stream))
 
-(defn detect [node-set stream]
-  (->> stream
-       (h2/fold'
-         (fn [vec state emission value]
-           (if (node-set (:node state))
-             (conj vec [emission value])
-             vec)) [])))
+(defn detect [stream]
+  (h2/fold'
+    (fn [vec _ emission value]
+      (conj vec [emission value])) [] stream))
 
 (defn identify [char-set stream]
   (->> stream
        (partition-by #(contains? char-set %))
        (filter #(clojure.set/subset? (set %) char-set))))
 
+(def lower-chars (->> (int \z)
+                      (range (int \a))
+                      (map char)
+                      (set)))
+
+(def upper-chars (->> (int \Z)
+                      (range (int \A))
+                      (map char)
+                      (set)))
+
+(def number-chars (->> 10
+                       (range 0)
+                       (map #(Character/forDigit % 10))
+                       (set)))
+
+(def sign-chars #{\+ \-})
+
+(defn label-with [f stream]
+  (map (fn [x] [(f x) x]) stream))
+
 (defn label-as [label stream]
-  (->> stream (map #(vector label %))))
+  (label-with (constantly label) stream))
+
+;; I should just simply start with break....
+(defn test-emissions [data]
+  (doseq [[chars emissions] data
+          :let [detections (detect chars)]]
+    (is (= emissions (map first detections)))))
 
 (def gen-sign-token (gen-tokens \+ \-))
 (def gen-list-token (gen-tokens \( \)))
@@ -191,89 +216,42 @@
                                (label-as :text))]
              (is (= actual expected)))))
 
-(defspec detect-comments
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-comment-token)]
-           (let [gens       (pred-gens tokens
-                                       {:detect?           (in? [\;])
-                                        :include-detected? true})
-                 detections (-> (in-vector tokens)
-                                (detections h/-comment))]
-             (is (= gens detections)))))
+(deftest detect-comments
+  (test-emissions [[";comment  123"  [:text :comment]]
+                   [";;comment("     [:text :comment]]
+                   [";+13adasd"      [:text :comment]]
+                   ["; \n("          [:text :comment :text :list]]]))
 
-(defspec detect-functions
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-with-token gen-list-token)]
-           (let [gens       (pred-gens tokens
-                                       {:detect? (in? [\(])
-                                        :reset?  (in? [\( \)])})
-                 detections (-> (in-vector tokens)
-                                (detections h/-function))]
-             (is (= gens detections)))))
+(deftest detect-functions
+  (test-emissions [["(hello)" [:text :list :function :list]]
+                   ["()"      [:text :list :list]]
+                   ["(bla"    [:text :list :function]]]))
 
-(defspec detect-chars
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-with-token gen-char-token)]
-           (let [gens       (pred-gens tokens
-                                       {:detect?           (in? [\\])
-                                        :include-detected? true})
-                 detections (-> (in-vector tokens)
-                                (detections h/-char))]
-             (is (= gens detections)))))
+(deftest detect-chars
+  (test-emissions [["\\a"    [:text :character]]
+                   ["\\\\"   [:text :character]]
+                   ["\\abc"  [:text :text]]
+                   ["\\"     [:text :text]]
+                   ["\\\\\\" [:text :text]]]))
 
-(defspec detect-keywords
-         NR-OF-TESTS
-  (for-all [tokens (gen-with-token gen-space-token gen-keyword-token)]
-           (let [gens       (pred-gens tokens
-                                       {:detect?           (in? [\:])
-                                        :reset?            (in? [\space])
-                                        :include-detected? true})
-                 detections (-> (in-vector tokens)
-                                (detections h/-keyword))]
-             (is (= gens detections)))))
+(deftest detect-keywords
+  (test-emissions [[":hello"  [:text :keyword]]
+                   ["a:bello" [:text :text]]
+                   ["::bla"   [:text :keyword]]
+                   [":1:a:b"  [:text :keyword]]
+                   [": "      [:text :keyword :text]]]))
 
-(defspec detect-keywords'
-         NR-OF-TESTS
-  (for-all [tokens (gen-with-token gen-space-token gen-keyword-token)]
-           (let [actual (detect #{h2/keyword-node} tokens)
-                 expected (->> tokens
-                               (identify #{\:})
-                               (label-as :keyword))]
-             (is (= actual expected)))))
-
-(defspec detect-numbers
-         NR-OF-TESTS
-  (for-all [tokens (gen-with-token gen-space-token gen-number-token)]
-           (let [gens       (pred-gens tokens
-                                       {:detect?           (in? h/numbers)
-                                        :reset?            (in? [\space])
-                                        :include-detected? true})
-                 detections (-> (in-vector tokens)
-                                (detections h/-number))]
-             (is (= gens detections)))))
-
-(defspec detect-numbers'
-         NR-OF-TESTS
-  (for-all [tokens (gen-with-token gen-space-token gen-number-token)]
-           (let [numbers (->> (range 0 10) (map #(Character/forDigit % 10)) (set))
-                 expected (->> tokens
-                               (identify numbers)
-                               (label-as :number))
-                 actual  (detect #{h2/number-node} tokens)]
-             (is (= expected actual)))))
-
-(defspec detect-signed-numbers
-         NR-OF-TESTS
-  (for-all [tokens (gen-with-token gen-space-token gen-number-token gen-sign-token)]
-           (let [valid-number? #(-> (comp not (in? [\+ \-]))
-                                    (filter %)
-                                    (s/join)
-                                    (BigInteger.))
-                 processed     (-> (in-vector tokens)
-                                   (detections h/-number))]
-             (if (seq processed)
-               (is (every? valid-number? processed))
-               (is true)))))
+(deftest detect-numbers
+  (test-emissions [["123"  [:text :number]]
+                   ["123a" [:text :number]]
+                   ["+123" [:text :number]]
+                   ["-123" [:text :number]]
+                   ["+-12" [:text :text]]
+                   ["+"    [:text :text]]
+                   ["-"    [:text :text]]
+                   ["a123" [:text :text]]
+                   ["a+1"  [:text :text]]
+                   ["a-1"  [:text :text]]]))
 
 (defspec detect-strings
          NR-OF-TESTS
@@ -304,7 +282,7 @@
          NR-OF-TESTS
   (letfn [(words [tokens]
             (-> (apply str tokens)
-                (s/split #" ")
+                (split #" ")
                 (->> (mapv #(vec (.toCharArray %))))
                 (->> (filter #(contains? h/words %)))))]
     (for-all [tokens (->> (gen-with-token gen-space-token gen-word-token)

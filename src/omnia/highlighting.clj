@@ -412,8 +412,7 @@
         [(f intermediate state (emission accumulate) accumulate) [char] state']))))
 
 ;; We apply the function one last time to "flush" any accumulation that wasn't processed
-(defn fold'
-  [f init chars]
+(defn fold' [f init chars]
   (let [consumption        (consume-with f)
         [output acc state] (reduce consumption [init [] break] chars)
         emission           ((:emission state) acc)]
