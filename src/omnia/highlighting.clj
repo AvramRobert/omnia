@@ -20,23 +20,23 @@
 (def ^:const -select :selection)
 (def ^:const -back :background)
 
-(def ^:const  open-list-node :open-list)
-(def ^:const  closed-list-node :close-list)
-(def ^:const  open-vector-node :open-vector)
-(def ^:const  closed-vector-node :close-vector)
-(def ^:const  open-map-node :open-map)
-(def ^:const  closed-map-node :close-map)
-(def ^:const  character-node :character)
-(def ^:const  number-node :number)
-(def ^:const  open-string-node :open-string)
-(def ^:const  closed-string-node :close-string)
-(def ^:const  keyword-node :keyword)
-(def ^:const  function-node :function)
-(def ^:const  comment-node :comment)
-(def ^:const  word-node :word)
-(def ^:const  text-node :text)
-(def ^:const  break-node :break)
-(def ^:const  space-node :space)
+(def ^:private ^:const  open-list-node :open-list)
+(def ^:private ^:const  closed-list-node :close-list)
+(def ^:private ^:const  open-vector-node :open-vector)
+(def ^:private ^:const  closed-vector-node :close-vector)
+(def ^:private ^:const  open-map-node :open-map)
+(def ^:private ^:const  closed-map-node :close-map)
+(def ^:private ^:const  character-node :character)
+(def ^:private ^:const  number-node :number)
+(def ^:private ^:const  open-string-node :open-string)
+(def ^:private ^:const  closed-string-node :close-string)
+(def ^:private ^:const  keyword-node :keyword)
+(def ^:private ^:const  function-node :function)
+(def ^:private ^:const  comment-node :comment)
+(def ^:private ^:const  word-node :word)
+(def ^:private ^:const  text-node :text)
+(def ^:private ^:const  break-node :break)
+(def ^:private ^:const  space-node :space)
 
 (def Node (s/enum open-list-node
                   closed-list-node
@@ -119,7 +119,8 @@
                  character-node
                  open-string-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 number-node)]
     {:node       open-list-node
      :emission   (constantly -list)
      :transition #(lookup % function-node)}))
@@ -213,7 +214,8 @@
                  open-string-node
                  number-node
                  character-node
-                 comment-node)]
+                 comment-node
+                 keyword-node)]
     {:node       word-node
      :emission   #(if (words %) -word -text)
      :transition #(lookup % word-node)}))
@@ -230,7 +232,6 @@
                  open-map-node
                  closed-map-node
                  number-node
-
                  character-node
                  open-string-node
                  comment-node
@@ -377,7 +378,7 @@
                  open-string-node
                  comment-node
                  keyword-node)]
-    {:node       closed-list-node
+    {:node       closed-string-node
      :emission   (constantly -string)
      :transition #(lookup % text-node)}))
 
@@ -412,6 +413,7 @@
         [(f intermediate state (emission accumulate) accumulate) [char] state']))))
 
 ;; We apply the function one last time to "flush" any accumulation that wasn't processed
+;; Because the initial state is a `break`, the highlighter always emits an initial empty :text
 (defn fold' [f init chars]
   (let [consumption        (consume-with f)
         [output acc state] (reduce consumption [init [] break] chars)

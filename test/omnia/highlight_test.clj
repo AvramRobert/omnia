@@ -1,409 +1,396 @@
 (ns omnia.highlight-test
   (:require [clojure.test :refer [deftest is]]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check.properties :refer [for-all]]
-            [clojure.test.check.generators :as gen]
-            [clojure.set :as s]
             [clojure.string :refer [split]]
-            [omnia.highlight :as h]
-            [omnia.highlighting :as h2]
-            [clojure.core.match :as m]))
+            [clojure.set :refer [difference]]
+            [omnia.more :refer [map-vals]]
+            [omnia.highlighting :as h]))
 
-(def ^:const NR-OF-TESTS 100)
+(def triggers
+  (assoc h/triggers
+    (:node h/function) #{\x \^ \*}
+    (:node h/text) #{\x \^ \*}))
 
-(def state-chars
-  {h/-list     [\( \)]
-   h/-vector   [\[ \]]
-   h/-map      [\{ \}]
-   h/-char     [\\]
-   h/-number   h/numbers
-   h/-string   [\"]
-   h/-string*  [\"]
-   h/-function [\l \a \m \b \d \a]
-   h/-text     [\s \o \m \e]
-   h/-word     [\f \t \n]
-   h/-break    [\newline]
-   h/-space    [\space]
-   h/-comment  [\;]
-   h/-keyword  [\:]})
+(defn node-set [states]
+  (->> states (map :node) (set)))
 
-(def ids (keys state-chars))
-
-(defn chars-for [state]
-  (get state-chars state []))
-
-(defn gen-tokens [& tokens] (gen/elements tokens))
-
-(defn in? [tokens]
-  (let [s (set tokens)]
-    #(contains? s %)))
-
-(defn in-vector [stream]
-  (h/foldl (fn [v [e s]] (conj v [e (:id s)])) [] stream))
-
-(defn detect [stream]
-  (h2/fold'
+(defn catalog-detections [stream]
+  (h/fold'
     (fn [vec _ emission value]
       (conj vec [emission value])) [] stream))
 
-(defn identify [char-set stream]
-  (->> stream
-       (partition-by #(contains? char-set %))
-       (filter #(clojure.set/subset? (set %) char-set))))
-
-(def lower-chars (->> (int \z)
-                      (range (int \a))
-                      (map char)
-                      (set)))
-
-(def upper-chars (->> (int \Z)
-                      (range (int \A))
-                      (map char)
-                      (set)))
-
-(def number-chars (->> 10
-                       (range 0)
-                       (map #(Character/forDigit % 10))
-                       (set)))
-
-(def sign-chars #{\+ \-})
-
-(defn label-with [f stream]
-  (map (fn [x] [(f x) x]) stream))
-
-(defn label-as [label stream]
-  (label-with (constantly label) stream))
-
-;; I should just simply start with break....
 (defn test-emissions [data]
   (doseq [[chars emissions] data
-          :let [detections (detect chars)]]
+          :let [detections (catalog-detections chars)]]
     (is (= emissions (map first detections)))))
 
-(def gen-sign-token (gen-tokens \+ \-))
-(def gen-list-token (gen-tokens \( \)))
-(def gen-vector-token (gen-tokens \[ \]))
-(def gen-map-token (gen-tokens \{ \}))
-(def gen-break-token (gen-tokens \newline))
-(def gen-space-token (gen-tokens \space))
-(def gen-comment-token (gen-tokens \;))
-(def gen-char-token (gen-tokens \\))
-(def gen-keyword-token (gen-tokens \:))
-(def gen-string-token (gen-tokens \"))
-(def gen-number-token (apply gen-tokens h/numbers))
-(def gen-word-token (apply gen-tokens h/words))
+(defn catalog-transitions [f]
+  (for [[t-node chars] triggers
+        char chars
+        :let [next-node (f char)]]
+    (if (= t-node next-node)
+      {:allowed [t-node]}
+      {:disallowed [t-node]})))
 
-(defn- gen-with-token [& gens]
-  (->> (vec gens)
-       (gen/one-of)
-       (gen/vector)))
+(defn transitions [state]
+  (->> state
+       (:transition)
+       (catalog-transitions)
+       (apply merge-with concat)
+       (map-vals set)))
 
-(defn gen-alpha-num-with-token [gen-token]
-  (gen-with-token gen/char-alphanumeric gen-token))
+(defn diffed-message [case expected-set actual-set]
+  (if (> (count expected-set) (count actual-set))
+    (format "In the %s case: `expected` set also contained: %s" case (difference expected-set actual-set))
+    (format "In the %s case: `actual` set also contained: %s" case (difference actual-set expected-set))))
 
-(defn gen-alpha-with-token [gen-token]
-  (gen-with-token gen/char-alpha gen-token))
+(defn test-transitions [{:keys [state allowed disallowed]}]
+  (let [{actual-allowed    :allowed
+         actual-disallowed :disallowed} (transitions state)
+        expected-allowed    (node-set allowed)
+        expected-disallowed (node-set disallowed)]
+    (is (= expected-allowed actual-allowed)
+        (diffed-message "allowed" expected-allowed actual-allowed))
+    (is (= expected-disallowed actual-disallowed)
+        (diffed-message "disallowed" expected-disallowed actual-disallowed))))
 
-(defn detections [emissions & states]
-  "Based on given `states`, extracts the detected tokens from `emissions`
-  produced by the highlighting engine.
-  Returns a collection of vectors of the tokens detected."
-  (let [s (set states)]
-    (->> emissions
-         (filter (fn [[_ type]] (contains? s type)))
-         (map first))))
+(deftest detect-lists
+  (test-emissions [["()" [:text :list :list]]
+                   ["(hello)" [:text :list :function :list]]
+                   [")rest" [:text :list :text]]
+                   [")(" [:text :list :list]]
+                   ["( abc )" [:text :list :text :text :text :list]]
+                   ["a (\n )" [:text :text :text :list :text :text :list]]]))
 
-(defn grouped-gens [generated tokens]
-  "Uses `tokens` to extract either series or individual tokens from
-  the `generated` vector of chars.
-  Returns a collection with vectors of the `tokens` it found in succession.
-  Is equivalent to aggregated state detection"
-  (let [grpd? (in? tokens)]
-    (->> generated
-         (partition-by grpd?)
-         (filter (fn [elms] (some grpd? elms))))))
+(deftest detect-vectors
+  (test-emissions [["[]" [:text :vector :vector]]
+                   ["[hello]" [:text :vector :text :vector]]
+                   ["][" [:text :vector :vector]]
+                   ["]rest" [:text :vector :text]]
+                   ["a [\n ]" [:text :text :text :vector :text :text :vector]]]))
 
-(defn pred-gens [generated {:keys [detect? reset? include-detected? include-reset?]
-                            :or   {reset?            (fn [_] false)
-                                   include-detected? false
-                                   include-reset?    false}}]
-  "Uses the predicates `detect?` and `reset?` to extract either series or
-  individual tokens from the `generated` vector of characters.
-  `detect?` is a predicate applied on the current char stating when an extraction
-            should be started.
-  `reset?` is a predicate applied on the current char stating when an ongoing
-           extraction should be stopped.
-  Both `include-detected?` and `include-reset?` denote if the characters
-  `detect?` and `reset?` initially identified should be added to the extracted tokens.
-  Returns a collection with vectors of the `tokens` it found.
-  Is equivalent to aggregate state detection relative to some other characters."
-  (let [prepend   (fn [item coll] (concat [item] coll))
-        append    (fn [item coll] (concat coll [item]))
-        unviable? (comp not detect?)
-        unreset?  (comp not reset?)]
-    (loop [items []
-           rem   generated]
-      (if (empty? rem)
-        (filter (comp not empty?) items)
-        (let [pre    (drop-while unviable? rem)
-              pro    (->> pre (rest) (take-while unreset?))
-              post   (->> pre (rest) (drop-while unreset?))
-              viable (first pre)
-              reset  (first post)]
-          (recur (cond->> pro
-                          (and include-detected? viable) (prepend viable)
-                          (and include-reset? reset) (append reset)
-                          :always (conj items))
-                 (if include-reset? (rest post) post)))))))
+(deftest detect-maps
+  (test-emissions [["{}" [:text :map :map]]
+                   ["{hello}" [:text :map :text :map]]
+                   ["}{" [:text :map :map]]
+                   ["}rest" [:text :map :text]]
+                   ["a {\n }" [:text :text :text :map :text :text :map]]]))
 
-(defn transition! [state disallowed]
-  "Given a `state`, it forces it through all the available transitions
-  and checks them. Disallowed transitions are specified
-  in `disallowed` as key-value pairs. The key is the disallowed
-  state-identifier, whist the value is the actual state-identifier
-  the transition needs to have should it encounter
-  a character that would lead to the disallowed state."
-  (doseq [id ids
-          c  (chars-for id)]
-    (= (:id (h/transition state c)) (get disallowed id id))))
+(deftest detect-breaks
+  (test-emissions [["\n\n\n" [:text :text :text :text]]
+                   ["a\nb\nc" [:text :text :text :text :text :text]]
+                   [";ab \"" [:text :comment]]
+                   [";ab \n\"" [:text :comment :text :string]]]))
 
-(defspec detect-lists
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-list-token)]
-           (let [gens       (grouped-gens tokens [\( \)])
-                 detections (-> (in-vector tokens)
-                                (detections h/-list))]
-             (is (= gens detections)))))
-
-(defspec detect-vectors
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-vector-token)]
-           (let [gens       (grouped-gens tokens [\[ \]])
-                 detections (-> (in-vector tokens)
-                                (detections h/-vector))]
-             (is (= gens detections)))))
-
-(defspec detect-maps
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-map-token)]
-           (let [gens       (grouped-gens tokens [\{ \}])
-                 detections (-> (in-vector tokens)
-                                (detections h/-map))]
-             (is (= gens detections)))))
-
-(defspec detect-breaks
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-break-token)]
-           (let [gens       (grouped-gens tokens [\newline])
-                 detections (-> (in-vector tokens)
-                                (detections h/-break))]
-             (is (= gens detections)))))
-
-(defspec detect-spaces
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-space-token)]
-           (let [gens       (grouped-gens tokens [\space])
-                 detections (-> (in-vector tokens)
-                                (detections h/-space))]
-             (is (= gens detections)))))
-
-(defspec detect-spaces'
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-space-token)]
-           (let [actual (detect #{h2/space-node} tokens)
-                 expected (->> tokens
-                               (identify #{\space})
-                               (label-as :text))]
-             (is (= actual expected)))))
+(deftest detect-spaces
+  (test-emissions [[" " [:text :text]]
+                   ["a b" [:text :text :text :text]]]))
 
 (deftest detect-comments
-  (test-emissions [[";comment  123"  [:text :comment]]
-                   [";;comment("     [:text :comment]]
-                   [";+13adasd"      [:text :comment]]
-                   ["; \n("          [:text :comment :text :list]]]))
+  (test-emissions [[";comment  123" [:text :comment]]
+                   [";;comment(" [:text :comment]]
+                   [";+13adasd" [:text :comment]]
+                   ["; \n(" [:text :comment :text :list]]]))
 
 (deftest detect-functions
   (test-emissions [["(hello)" [:text :list :function :list]]
-                   ["()"      [:text :list :list]]
-                   ["(bla"    [:text :list :function]]]))
+                   ["()" [:text :list :list]]
+                   ["(bla" [:text :list :function]]]))
 
 (deftest detect-chars
-  (test-emissions [["\\a"    [:text :character]]
-                   ["\\\\"   [:text :character]]
-                   ["\\abc"  [:text :text]]
-                   ["\\"     [:text :text]]
+  (test-emissions [["\\a" [:text :character]]
+                   ["\\\\" [:text :character]]
+                   ["\\abc" [:text :text]]
+                   ["\\" [:text :text]]
                    ["\\\\\\" [:text :text]]]))
 
 (deftest detect-keywords
-  (test-emissions [[":hello"  [:text :keyword]]
+  (test-emissions [[":hello" [:text :keyword]]
                    ["a:bello" [:text :text]]
-                   ["::bla"   [:text :keyword]]
-                   [":1:a:b"  [:text :keyword]]
-                   [": "      [:text :keyword :text]]]))
+                   ["::bla" [:text :keyword]]
+                   [":1:a:b" [:text :keyword]]
+                   [": " [:text :keyword :text]]]))
 
 (deftest detect-numbers
-  (test-emissions [["123"  [:text :number]]
+  (test-emissions [["123" [:text :number]]
                    ["123a" [:text :number]]
                    ["+123" [:text :number]]
                    ["-123" [:text :number]]
                    ["+-12" [:text :text]]
-                   ["+"    [:text :text]]
-                   ["-"    [:text :text]]
+                   ["+" [:text :text]]
+                   ["-" [:text :text]]
                    ["a123" [:text :text]]
-                   ["a+1"  [:text :text]]
-                   ["a-1"  [:text :text]]]))
+                   ["a+1" [:text :text]]
+                   ["a-1" [:text :text]]]))
 
-(defspec detect-strings
-         NR-OF-TESTS
-  (for-all [tokens (gen-alpha-num-with-token gen-string-token)]
-           (let [gens      (pred-gens tokens
-                                      {:detect?           (in? [\"])
-                                       :reset?            (in? [\"])
-                                       :include-detected? true
-                                       :include-reset?    true})
-                 processed (-> (in-vector tokens)
-                               (detections h/-string h/-string*)
-                               (->> (reduce concat)))]
-             (is (= (apply concat gens) processed)))))
+(deftest detect-strings
+  (test-emissions [["\"\"" [:text :string :string]]
+                   ["\"hello\"" [:text :string :string]]
+                   ["\"hello bla bhe\"" [:text :string :string]]
+                   ["\"line" [:text :string]]
+                   ["\"line1\nline2\"" [:text :string :string]]]))
 
-(defspec detect-text
-         NR-OF-TESTS
-  (for-all [tokens (gen-with-token gen-space-token gen/char-alpha)]
-           (let [gens       (pred-gens tokens
-                                       {:detect?           #(Character/isAlphabetic (int %))
-                                        :reset?            (in? [\space])
-                                        :include-detected? true})
-                 detections (-> (in-vector tokens)
-                                (detections h/-text)
-                                (->> (filter (comp not empty?))))] ;; the interpreter always emits an empty text with the first transition
-             (is (= gens detections)))))
 
-(defspec detect-words
-         NR-OF-TESTS
-  (letfn [(words [tokens]
-            (-> (apply str tokens)
-                (split #" ")
-                (->> (mapv #(vec (.toCharArray %))))
-                (->> (filter #(contains? h/words %)))))]
-    (for-all [tokens (->> (gen-with-token gen-space-token gen-word-token)
-                          (gen/fmap (comp vec flatten)))]
-             (let [gens       (words tokens)
-                   detections (-> (in-vector tokens)
-                                  (detections h/-word))]
-               (is (= gens detections))))))
+(deftest detect-text
+  (test-emissions [["abc" [:text :text]]
+                   ["a1+" [:text :text]]]))
 
-(deftest transition-from-lists
-  (transition! h/->open-list {h/-text    h/-function
-                              h/-word    h/-function
-                              h/-string* h/-string})
-  (transition! h/->close-list {h/-function h/-text
-                               h/-string*  h/-string}))
+(deftest detect-words
+  (test-emissions [["true" [:text :word]]
+                   ["false" [:text :word]]
+                   ["nil" [:text :word]]
+                   ["truex" [:text :text]]
+                   ["falsex" [:text :text]]
+                   ["nilx" [:text :text]]]))
 
-(deftest transition-from-vectors
-  (transition! h/->open-vector {h/-function h/-text
-                                h/-string*  h/-string})
-  (transition! h/->close-vector {h/-function h/-text
-                                 h/-string*  h/-string}))
+(deftest open-list-transitions
+  (test-transitions
+    {:state      h/open-list
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/function
+                  h/character]
+     :disallowed [h/close-string
+                  h/word
+                  h/text]}))
 
-(deftest transition-from-maps
-  (transition! h/->open-map {h/-function h/-text
-                             h/-string*  h/-string})
-  (transition! h/->close-map {h/-function h/-text
-                              h/-string*  h/-string}))
+(deftest closed-list-transitions
+  (test-transitions
+    {:state      h/close-string
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character]
+     :disallowed [h/close-string
+                  h/function]}))
 
-(deftest transition-from-words
-  (transition! h/->word {h/-function h/-word
-                         h/-number   h/-word
-                         h/-keyword  h/-word
-                         h/-text     h/-word
-                         h/-string*  h/-string}))
+(deftest open-vector-transitions
+  (test-transitions
+    {:state      h/open-vector
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character]
+     :disallowed [h/close-string
+                  h/function]}))
 
-(deftest transition-from-chars
-  (transition! h/->char {h/-list     h/-char
-                         h/-vector   h/-char
-                         h/-map      h/-char
-                         h/-function h/-char
-                         h/-text     h/-char
-                         h/-word     h/-char
-                         h/-number   h/-char
-                         h/-string   h/-char
-                         h/-string*  h/-char
-                         h/-comment  h/-char
-                         h/-keyword  h/-char}))
+(deftest close-vector-transitions
+  (test-transitions
+    {:state      h/close-vector
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character]
+     :disallowed [h/close-string
+                  h/function]}))
 
-(deftest transition-from-numbers
-  (transition! h/->number {h/-function h/-number
-                           h/-text     h/-number
-                           h/-word     h/-number
-                           h/-keyword  h/-number
-                           h/-char     h/-number
-                           h/-string*  h/-string}))
+(deftest open-map-transitions
+  (test-transitions
+    {:state      h/open-map
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character]
+     :disallowed [h/close-string
+                  h/function]}))
 
-(deftest transition-from-signed-numbers
-  (transition! h/->signed-number {h/-function h/-number
-                                  h/-text     h/-number
-                                  h/-word     h/-number
-                                  h/-keyword  h/-number
-                                  h/-char     h/-number
-                                  h/-string*  h/-string}))
+(deftest close-map-transitions
+  (test-transitions
+    {:state      h/close-map
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character]
+     :disallowed [h/close-string
+                  h/function]}))
 
-(deftest transition-from-strings
-  (transition! h/->open-string {h/-list     h/-string
-                                h/-vector   h/-string
-                                h/-map      h/-string
-                                h/-function h/-string
-                                h/-text     h/-string
-                                h/-word     h/-string
-                                h/-number   h/-string
-                                h/-comment  h/-string
-                                h/-keyword  h/-string
-                                h/-space    h/-string
-                                h/-break    h/-string
-                                h/-char     h/-string
-                                h/-string   h/-string*})
+(deftest open-string-transitions
+  (test-transitions
+    {:state      h/open-string
+     :allowed    [h/close-string]
+     :disallowed [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character
+                  h/function]}))
 
-  (transition! h/->close-string {h/-string*  h/-string
-                                 h/-function h/-text}))
+(deftest close-string-transitions
+  (test-transitions
+    {:state      h/close-string
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/text
+                  h/character]
+     :disallowed [h/close-string
+                  h/function]}))
 
-(deftest transition-from-keywords
-  (transition! h/->keyword {h/-string*  h/-string
-                            h/-function h/-keyword
-                            h/-number   h/-keyword
-                            h/-text     h/-keyword
-                            h/-word     h/-keyword}))
+(deftest keyword-transitions
+  (test-transitions
+    {:state      h/key-word
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/com-ment
+                  h/space
+                  h/break
+                  h/character]
+     :disallowed [h/close-string
+                  h/function
+                  h/word
+                  h/text
+                  h/number]}))
 
-(deftest transition-from-comments
-  (transition! h/->comment {h/-list     h/-comment
-                            h/-vector   h/-comment
-                            h/-map      h/-comment
-                            h/-function h/-comment
-                            h/-text     h/-comment
-                            h/-word     h/-comment
-                            h/-number   h/-comment
-                            h/-keyword  h/-comment
-                            h/-space    h/-comment
-                            h/-char     h/-comment
-                            h/-string   h/-comment
-                            h/-string*  h/-comment}))
+(deftest comment-transitions
+  (test-transitions
+    {:state      h/com-ment
+     :allowed    [h/break
+                  h/com-ment]
+     :disallowed [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/key-word
+                  h/space
+                  h/character
+                  h/open-string
+                  h/close-string
+                  h/function
+                  h/word
+                  h/text
+                  h/number]}))
 
-(deftest transition-from-breaks
-  (transition! h/->break {h/-string*  h/-string
-                          h/-function h/-text}))
+(deftest number-transitions
+  (test-transitions
+    {:state      h/number
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break]
+     :disallowed [h/close-string
+                  h/function
+                  h/word
+                  h/text
+                  h/key-word
+                  h/character]}))
 
-(deftest transition-from-spaces
-  (transition! h/->space {h/-string*  h/-string
-                          h/-function h/-text}))
-
-(deftest transition-from-text
-  (transition! h/->text {h/-string*  h/-string
-                         h/-number   h/-text
-                         h/-keyword  h/-text
-                         h/-word     h/-text
-                         h/-function h/-text}))
-
-(deftest transition-from-functions
-  (transition! h/->function {h/-string* h/-string
-                             h/-word    h/-function
-                             h/-text    h/-function
-                             h/-number  h/-function
-                             h/-keyword h/-function})) 1
+(deftest word-transitions
+  (test-transitions
+    {:state      h/word
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/com-ment
+                  h/number
+                  h/space
+                  h/break
+                  h/word
+                  h/key-word
+                  h/character]
+     :disallowed [h/close-string
+                  h/function
+                  h/text]}))
