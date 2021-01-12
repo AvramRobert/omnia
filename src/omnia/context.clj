@@ -12,14 +12,14 @@
             [omnia.input :refer [Seeker]]
             [omnia.nrepl :refer [REPLClient]]
             [omnia.more :refer [=> omnia-version map-vals Region]]
-            [omnia.config :refer [InternalConfig InternalSyntax]]))
+            [omnia.config :refer [InternalConfig Syntax]]))
 
 (def Render
   (s/enum :diff :total :clear :nothing))
 
 (def Highlight
   {:region Region
-   :scheme InternalSyntax
+   :scheme Syntax
    :styles [s/Keyword]})
 
 (def HighlightType (s/enum :selection :open-paren :closed-paren))

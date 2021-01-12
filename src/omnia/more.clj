@@ -66,6 +66,9 @@
        (reduce [from seed] coll)
        (nth 1))))
 
+(defn merge-from-both [map1 map2]
+  (merge-with (fn [a b] (or a b)) map1 map2))
+
 (defn do-until [elm f p]
   (if (p elm) elm (recur (f elm) f p)))
 

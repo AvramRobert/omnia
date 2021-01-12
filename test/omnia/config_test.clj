@@ -28,4 +28,4 @@
           (is (contains? k :key))
           (is (contains? k :ctrl))
           (is (contains? k :shift))
-          (is (contains? k :alt))) (c/enhance-keymap c/default-keymap)))
+          (is (contains? k :alt))) (c/fix-keymap c/default-keymap)))

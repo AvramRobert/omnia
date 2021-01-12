@@ -163,6 +163,16 @@
      ["nilx"   [h/word h/word h/word h/word]               [h/-text]]
      ["n:/1"   [h/word]                                    [h/-text]]]))
 
+(deftest detect-commas
+  (test-detections
+    [[","       [h/comma]                          [h/-comma]]
+     ["a,b"     [h/text h/comma h/text]            [h/-text h/-comma h/-text]]
+     ["1,2"     [h/number h/comma h/number]        [h/-number h/-comma h/-number]]
+     [":a,1"    [h/key-word h/comma h/number]      [h/-keyword h/-comma h/-number]]
+     ["(,)"     [h/open-list h/comma h/close-list] [h/-list h/-comma h/-list]]
+     ["nil,"    [h/word h/comma]                   [h/-word h/-comma]]
+     ["\\c,\\a" [h/character h/comma h/character]  [h/-char h/-comma h/-char]]]))
+
 (deftest open-list-transitions
   (test-transitions
     {:state      h/open-list
@@ -179,7 +189,8 @@
                   h/space
                   h/break
                   h/function
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/word
                   h/text]}))
@@ -201,7 +212,8 @@
                   h/break
                   h/word
                   h/text
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -222,7 +234,8 @@
                   h/break
                   h/word
                   h/text
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -243,7 +256,8 @@
                   h/break
                   h/word
                   h/text
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -264,7 +278,8 @@
                   h/break
                   h/word
                   h/text
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -285,7 +300,8 @@
                   h/break
                   h/word
                   h/text
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -308,7 +324,8 @@
                   h/word
                   h/text
                   h/character
-                  h/function]}))
+                  h/function
+                  h/comma]}))
 
 (deftest close-string-transitions
   (test-transitions
@@ -327,7 +344,8 @@
                   h/break
                   h/word
                   h/text
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -345,7 +363,8 @@
                   h/com-ment
                   h/space
                   h/break
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/close-string
                   h/function
                   h/word
@@ -372,7 +391,8 @@
                   h/function
                   h/word
                   h/text
-                  h/number]}))
+                  h/number
+                  h/comma]}))
 
 (deftest number-transitions
   (test-transitions
@@ -387,7 +407,8 @@
                   h/com-ment
                   h/number
                   h/space
-                  h/break]
+                  h/break
+                  h/comma]
      :disallowed [h/close-string
                   h/function
                   h/word
@@ -408,7 +429,8 @@
                   h/com-ment
                   h/space
                   h/break
-                  h/word]
+                  h/word
+                  h/comma]
      :disallowed [h/close-string
                   h/function
                   h/text
@@ -433,7 +455,8 @@
                   h/word
                   h/key-word
                   h/character
-                  h/text]
+                  h/text
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -454,7 +477,8 @@
                   h/word
                   h/key-word
                   h/character
-                  h/text]
+                  h/text
+                  h/comma]
      :disallowed [h/close-string
                   h/function]}))
 
@@ -463,7 +487,8 @@
     {:state      h/character
      :allowed    [h/space
                   h/break
-                  h/character]
+                  h/character
+                  h/comma]
      :disallowed [h/open-list
                   h/close-list
                   h/open-vector
@@ -478,3 +503,25 @@
                   h/key-word
                   h/word
                   h/text]}))
+
+(deftest comma-transitions
+  (test-transitions
+    {:state      h/comma
+     :allowed    [h/open-list
+                  h/close-list
+                  h/open-vector
+                  h/close-vector
+                  h/open-map
+                  h/close-map
+                  h/open-string
+                  h/com-ment
+                  h/number
+                  h/key-word
+                  h/word
+                  h/text
+                  h/space
+                  h/break
+                  h/character
+                  h/comma]
+     :disallowed [h/function
+                  h/close-string]}))

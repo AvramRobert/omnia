@@ -696,7 +696,6 @@
   "extract (select (hud)) `contains` extract (project-hud (hud)) (project-sel (select (hud))"
   (is true))
 
-;; FIXME
 (defn projection-laws [ctx]
   (total-selection-law ctx)
   (distributive-projection-law ctx)

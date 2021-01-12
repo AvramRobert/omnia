@@ -5,8 +5,7 @@
             [omnia.context :as c]
             [schema.core :as s]
             [omnia.config :as co]
-            [omnia.highlight :refer [foldl -back ->text]]
-            [omnia.highlighting :as hh]
+            [omnia.highlighting :refer [fold -text -back]]
             [omnia.context :refer [Context]]
             [omnia.more :refer [Point Region merge-culling map-vals reduce-idx --]]))
 
@@ -24,7 +23,7 @@
   {:line                        [Character]
    :at                          s/Int
    :terminal                    t/Terminal
-   :scheme                      co/InternalSyntax
+   :scheme                      co/Syntax
    :styles                      [s/Keyword]
    (s/optional-key :sub-region) Point
    (s/optional-key :padding)    s/Int})
@@ -71,12 +70,12 @@
     styles   :styles} :- PrintInstruction]
   (letfn [(put! [ch x y emission]
             (let [fg (cs emission)
-                  bg (cs hh/-back)]
+                  bg (cs -back)]
               (t/put! terminal ch x y fg bg styles)))
           (pad! [x]
             (when padding
               (dotimes [offset padding]
-                (put! \space (+ x offset) y hh/-text))))
+                (put! \space (+ x offset) y -text))))
           (print-from! [x emission chars]
             (reduce-idx
               (fn [x' _ input]
@@ -102,7 +101,7 @@
                 :else                      nil)
               x'))]
     (-> (if (and xs xe) print-sub! print!)
-        (hh/fold 0 line)
+        (fold 0 line)
         (pad!))))
 
 (s/defn prioritise :- [c/Highlight]

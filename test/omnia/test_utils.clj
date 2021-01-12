@@ -38,7 +38,7 @@
 (defn nrepl-result [map]
   (assoc map :id (random-uuid)
              :session (random-uuid)
-             :ns "ns"
+              :ns "ns"
              :status ["done"]))
 
 (defn rand-cursor [seeker]
@@ -109,7 +109,6 @@
      :start!     (or start! unit)
      :get-event! (or get-event! unit)}))
 
-;; FIXME: provide a seeker generator for :seeker
 (defn gen-context [{:keys [size fov seeker receive history]
                     :or   {size    0
                            fov     10
@@ -300,5 +299,5 @@
 (s/defn highlight-from :- r/Highlight
   [region :- Region]
   {:region region
-   :scheme (c/normalise-palette c/default-syntax)
+   :scheme c/default-syntax
    :styles []})

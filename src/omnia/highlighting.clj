@@ -3,8 +3,6 @@
             [omnia.more :refer [=>]]
             [clojure.set :refer [intersection]]))
 
-;; FIXME: Make library. Name it polychrome
-
 (def ^:const -list :list)
 (def ^:const -vector :vector)
 (def ^:const -map :map)
@@ -17,6 +15,7 @@
 (def ^:const -comment :comment)
 (def ^:const -function :function)
 (def ^:const -word :word)
+(def ^:const -comma :comma)
 (def ^:const -select :selection)
 (def ^:const -back :background)
 
@@ -37,6 +36,7 @@
 (def ^:private ^:const  text-node :text)
 (def ^:private ^:const  break-node :break)
 (def ^:private ^:const  space-node :space)
+(def ^:private ^:const  comma-node :comma)
 
 (def Node (s/enum open-list-node
                   closed-list-node
@@ -54,7 +54,8 @@
                   word-node
                   text-node
                   break-node
-                  space-node))
+                  space-node
+                  comma-node))
 
 (def State
   {:node       Node
@@ -76,7 +77,8 @@
    word-node          #{\f \n \t},
    comment-node       #{\;},
    open-map-node      #{\{},
-   open-list-node     #{\(}})
+   open-list-node     #{\(},
+   comma-node         #{\,}})
 
 (def words
   #{[\n \i \l]
@@ -101,7 +103,8 @@
                  break-node
                  space-node
                  comment-node
-                 character-node)]
+                 character-node
+                 comma-node)]
     {:node       function-node
      :emission   (constantly -function)
      :transition #(lookup % function-node)}))
@@ -120,7 +123,8 @@
                  open-string-node
                  comment-node
                  keyword-node
-                 number-node)]
+                 number-node
+                 comma-node)]
     {:node       open-list-node
      :emission   (constantly -list)
      :transition #(lookup % function-node)}))
@@ -140,7 +144,8 @@
                  character-node
                  open-string-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 comma-node)]
     {:node       closed-list-node
      :emission   (constantly -list)
      :transition #(lookup % text-node)}))
@@ -157,7 +162,8 @@
                  closed-map-node
                  character-node
                  open-string-node
-                 comment-node)]
+                 comment-node
+                 comma-node)]
     {:node       text-node
      :emission   (constantly -text)
      :transition #(lookup % text-node)}))
@@ -177,7 +183,8 @@
                  open-string-node
                  comment-node
                  keyword-node
-                 break-node)]
+                 break-node
+                 comma-node)]
     {:node       break-node
      :emission   (constantly -text)
      :transition #(lookup % text-node)}))
@@ -197,7 +204,8 @@
                  open-string-node
                  comment-node
                  keyword-node
-                 space-node)]
+                 space-node
+                 comma-node)]
     {:node       space-node
      :emission   (constantly -text)
      :transition #(lookup % text-node)}))
@@ -213,7 +221,8 @@
                  open-map-node
                  closed-map-node
                  open-string-node
-                 comment-node)]
+                 comment-node
+                 comma-node)]
     {:node       word-node
      :emission   #(if (words %) -word -text)
      :transition #(lookup % word-node)}))
@@ -233,7 +242,8 @@
                  character-node
                  open-string-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 comma-node)]
     {:node       open-vector-node
      :emission   (constantly -vector)
      :transition #(lookup % text-node)}))
@@ -253,7 +263,8 @@
                  number-node
                  character-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 comma-node)]
     {:node       closed-vector-node
      :emission   (constantly -vector)
      :transition #(lookup % text-node)}))
@@ -273,7 +284,8 @@
                  number-node
                  character-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 comma-node)]
     {:node       open-map-node
      :emission   (constantly -map)
      :transition #(lookup % text-node)}))
@@ -293,7 +305,8 @@
                  number-node
                  character-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 comma-node)]
     {:node       closed-map-node
      :emission   (constantly -map)
      :transition #(lookup % text-node)}))
@@ -310,7 +323,8 @@
                  closed-map-node
                  open-string-node
                  character-node
-                 comment-node)]
+                 comment-node
+                 comma-node)]
     {:node       keyword-node
      :emission   (constantly -keyword)
      :transition #(lookup % keyword-node)}))
@@ -326,7 +340,8 @@
                  open-map-node
                  closed-map-node
                  open-string-node
-                 comment-node)]
+                 comment-node
+                 comma-node)]
     {:node       number-node
      :emission   (fn [[a b & _]]
                    (case [a b]
@@ -350,7 +365,8 @@
   (let [lookup (transitions
                  break-node
                  space-node
-                 character-node)]
+                 character-node
+                 comma-node)]
     {:node       character-node
      :emission   #(if (= (count %) 2) -char -text)
      :transition #(lookup % character-node)}))
@@ -376,9 +392,31 @@
                  character-node
                  open-string-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 comma-node)]
     {:node       closed-string-node
      :emission   (constantly -string)
+     :transition #(lookup % text-node)}))
+
+(s/def comma :- State
+  (let [lookup (transitions
+                 break-node
+                 space-node
+                 word-node
+                 open-list-node
+                 closed-list-node
+                 open-vector-node
+                 closed-vector-node
+                 open-map-node
+                 closed-map-node
+                 number-node
+                 character-node
+                 open-string-node
+                 comment-node
+                 keyword-node
+                 comma-node)]
+    {:node       comma-node
+     :emission   (constantly -comma)
      :transition #(lookup % text-node)}))
 
 (s/def node->state :- {Node State}
@@ -398,7 +436,8 @@
    keyword-node       key-word
    number-node        number
    character-node     character
-   comment-node       com-ment})
+   comment-node       com-ment
+   comma-node         comma})
 
 (defn consume-with [f]
   (fn [[intermediate accumulate state] char]
@@ -411,8 +450,8 @@
         [intermediate (conj accumulate char) state']
         [(f intermediate state (emission accumulate) accumulate) [char] state']))))
 
-;; We apply the function one last time to "flush" any accumulation that wasn't processed
-;; Because the initial state is a `break`, the highlighter always emits an initial empty :text
+;; 1. We apply the function one last time to "flush" any accumulation that wasn't processed.
+;; 2. Because the initial state is a `break`, the highlighter always emits an initial empty :text
 (defn fold' [f init chars]
   (let [consumption        (consume-with f)
         [output acc state] (reduce consumption [init [] break] chars)

@@ -1,10 +1,9 @@
 (ns omnia.config
-  (:require [omnia.more :refer [map-vals gulp-or-else]]
+  (:require [omnia.more :refer [map-vals gulp-or-else merge-from-both]]
             [clojure.string :refer [join]]
             [clojure.set :refer [map-invert]]
             [omnia.event :as e]
-            [halfling.task :as t]
-            [omnia.highlight :as h]
+            [omnia.highlighting :as h]
             [schema.core :as s]))
 
 (def default
@@ -71,18 +70,14 @@
    h/-word       Colour
    h/-function   Colour
    h/-text       Colour
+   h/-comma      Colour
    h/-select     Colour
-   h/-space      Colour
-   h/-break      Colour
    h/-back       Colour})
 
-(def InternalSyntax
-  (merge Syntax {h/-string* Colour}))
-
 (def SyntaxConfig
-  {:standard  InternalSyntax
-   :clean-up  InternalSyntax
-   :selection InternalSyntax})
+  {:standard  Syntax
+   :clean-up  Syntax
+   :selection Syntax})
 
 (def Palette default)
 
@@ -137,7 +132,6 @@
    e/backspace         {:key :backspace}
    e/delete            {:key :delete}
    e/break             {:key :enter}
-   ;; --- HUD KEYMAP ---
    e/match             {:key \p :ctrl true}
    e/suggest           {:key :tab}
    e/scroll-up         {:key :page-up}
@@ -161,10 +155,9 @@
    h/-word       :yellow
    h/-function   :yellow
    h/-text       :white
+   h/-comma      :white
    h/-select     :blue
-   h/-space      :default
-   h/-back       :default
-   h/-break      :default})
+   h/-back       :default})
 
 (s/def default-terminal-config :- TerminalConfig
   {:font      :default
@@ -179,8 +172,8 @@
 (s/defn check-duplicates! [keymap :- KeyMap]
   (letfn [(report! [errs]
             (if (empty? errs)
-              (t/success keymap)
-              (t/failure (str "Duplicate bindings in keymap:" (join "\n" errs)))))]
+              keymap
+              (throw (Exception. (str "Duplicate bindings in keymap:" (join "\n" errs))))))]
     (->> keymap
          (group-by val)
          (vals)
@@ -197,25 +190,22 @@
   (s/validate Syntax (:syntax config))
   (check-duplicates! (:keymap config)))
 
-(s/defn normalise-binding [binding :- KeyBinding] :- InternalKeyBinding
+(s/defn normalise-binding :- InternalKeyBinding
+  [binding :- KeyBinding]
   {:key   (:key binding)
    :ctrl  (:ctrl binding false)
    :alt   (:alt binding false)
    :shift (:shift binding false)})
 
-(s/defn normalise-palette [palette :- Syntax] :- InternalSyntax
-  (assoc palette h/-string* (palette h/-string :green)))
-
-(s/defn enhance-keymap [provided-keymap :- KeyMap] :- KeyMapConfig
-  (->> default-keymap
-       (merge-with (fn [a b] (or a b)) provided-keymap)
+(s/defn fix-keymap :- KeyMapConfig
+  [provided-keymap :- KeyMap]
+  (->> (merge-from-both provided-keymap default-keymap)
        (map-vals normalise-binding)
        (map-invert)))
 
-(s/defn enhance-syntax [provided-syntax :- Syntax] :- InternalSyntax
-  (->> provided-syntax
-       (merge-with (fn [a b] (or a b)) default-syntax)
-       (normalise-palette)))
+(s/defn fix-syntax :- Syntax
+  [provided-syntax :- Syntax]
+  (merge-from-both default-syntax provided-syntax))
 
 (defn- clean-up-palette [syntax-palette]
   (assoc syntax-palette h/-select :default
@@ -229,20 +219,20 @@
         (assoc h/-back   select-colour)
         (assoc h/-select select-colour))))
 
-(s/defn convert [config :- Config] :- InternalConfig
-  (let [syntax   (-> config (:syntax) (enhance-syntax))
+(s/defn convert :- InternalConfig
+  [config :- Config]
+  (let [syntax   (-> config (:syntax) (fix-syntax))
         select   (selection-palette syntax)
         clean-up (clean-up-palette syntax)]
-    {:os      (config :os default-os)
-     :keymap  (-> config (:keymap) (enhance-keymap))
+    {:os      (:os config default-os)
+     :keymap  (-> config (:keymap) (fix-keymap))
      :syntax  {:standard syntax
                :clean-up clean-up
                :selection select}
-     :terminal (config :terminal default-terminal-config)}))
+     :terminal (:terminal config default-terminal-config)}))
 
-(s/defn read-config [path :- String]
-  (t/do-tasks
-    [config (gulp-or-else path default-config)
-     _      (validate! config)
-     result (convert config)]
-    result))
+(s/defn read-config :- InternalConfig
+  [path :- String]
+  (let [config (gulp-or-else path default-config)
+        _      (validate! config)]
+    (convert config)))

@@ -19,7 +19,7 @@
 
 (def title (str "omnia-" (omnia-version)))
 
-(def colours                                                ;; FIXME Customize for screen
+(def colours
   {:black   TextColor$ANSI/BLACK
    :white   (TextColor$Indexed/fromRGB (int 171) (int 174) (int 168)) ;; TextColor$ANSI/WHITE
    :red     TextColor$ANSI/RED
@@ -28,8 +28,7 @@
    :cyan    TextColor$ANSI/CYAN
    :magenta TextColor$ANSI/MAGENTA
    :yellow  (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6)) ;;TextColor$ANSI/YELLOW
-   :default TextColor$ANSI/DEFAULT}
-  )
+   :default TextColor$ANSI/DEFAULT})
 
 (def styles
   {:bold          SGR/BOLD
@@ -41,42 +40,42 @@
    :fraktur       SGR/FRAKTUR})
 
 (def key-events
-  {KeyType/Character  :character
-   KeyType/Escape     :escape
-   KeyType/Backspace  :backspace
-   KeyType/ArrowLeft  :left
-   KeyType/ArrowRight :right
-   KeyType/ArrowUp    :up
-   KeyType/ArrowDown  :down
-   KeyType/Insert     :insert
-   KeyType/Delete     :delete
-   KeyType/Home       :home
-   KeyType/End        :end
-   KeyType/PageUp     :page-up
-   KeyType/PageDown   :page-down
-   KeyType/Tab        :tab
-   KeyType/ReverseTab :reverse-tab
-   KeyType/Enter      :enter
-   KeyType/F1         :f1
-   KeyType/F2         :f2
-   KeyType/F3         :f3
-   KeyType/F4         :f4
-   KeyType/F5         :f5
-   KeyType/F6         :f6
-   KeyType/F7         :f7
-   KeyType/F8         :f8
-   KeyType/F9         :f9
-   KeyType/F10        :f10
-   KeyType/F11        :f11
-   KeyType/F12        :f12
-   KeyType/F13        :f13
-   KeyType/F14        :f14
-   KeyType/F15        :f15
-   KeyType/F16        :f16
-   KeyType/F17        :f17
-   KeyType/F18        :f18
-   KeyType/F19        :f19
-   KeyType/Unknown    :unknown
+  {KeyType/Character      :character
+   KeyType/Escape         :escape
+   KeyType/Backspace      :backspace
+   KeyType/ArrowLeft      :left
+   KeyType/ArrowRight     :right
+   KeyType/ArrowUp        :up
+   KeyType/ArrowDown      :down
+   KeyType/Insert         :insert
+   KeyType/Delete         :delete
+   KeyType/Home           :home
+   KeyType/End            :end
+   KeyType/PageUp         :page-up
+   KeyType/PageDown       :page-down
+   KeyType/Tab            :tab
+   KeyType/ReverseTab     :reverse-tab
+   KeyType/Enter          :enter
+   KeyType/F1             :f1
+   KeyType/F2             :f2
+   KeyType/F3             :f3
+   KeyType/F4             :f4
+   KeyType/F5             :f5
+   KeyType/F6             :f6
+   KeyType/F7             :f7
+   KeyType/F8             :f8
+   KeyType/F9             :f9
+   KeyType/F10            :f10
+   KeyType/F11            :f11
+   KeyType/F12            :f12
+   KeyType/F13            :f13
+   KeyType/F14            :f14
+   KeyType/F15            :f15
+   KeyType/F16            :f16
+   KeyType/F17            :f17
+   KeyType/F18            :f18
+   KeyType/F19            :f19
+   KeyType/Unknown        :unknown
    KeyType/CursorLocation :cursor-location
    KeyType/MouseEvent     :mouse-event
    KeyType/EOF            :eof})
@@ -99,6 +98,7 @@
      :alt   (.isAltDown  pressed)
      :shift (.isShiftDown pressed)}))
 
+;; Can't i actually skip one hop and just read the input directly to an event?
 (s/defn to-event :- e/Event
   [config :- c/Config,
    key-binding :- c/InternalKeyBinding]
@@ -116,7 +116,7 @@
       character? (e/event e/character key)
       :else      (e/event action))))
 
-(defn move! [terminal x y]                            ;; FIXME: Find a way to make these implementations
+(defn move! [terminal x y]
   ((:move! terminal) x y))
 
 (defn put! [terminal ch x y foreground background styles]
