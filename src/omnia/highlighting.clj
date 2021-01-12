@@ -176,7 +176,8 @@
                  character-node
                  open-string-node
                  comment-node
-                 keyword-node)]
+                 keyword-node
+                 break-node)]
     {:node       break-node
      :emission   (constantly -text)
      :transition #(lookup % text-node)}))
@@ -212,10 +213,7 @@
                  open-map-node
                  closed-map-node
                  open-string-node
-                 number-node
-                 character-node
-                 comment-node
-                 keyword-node)]
+                 comment-node)]
     {:node       word-node
      :emission   #(if (words %) -word -text)
      :transition #(lookup % word-node)}))
@@ -332,12 +330,12 @@
     {:node       number-node
      :emission   (fn [[a b & _]]
                    (case [a b]
-                     [\+ \+] -text
-                     [\- \-] -text
-                     [\+ \-] -text
-                     [\- \+] -text
-                     [\+ nil] -text
-                     [\- nil] -text
+                     [\+ \+]   -text
+                     [\- \-]   -text
+                     [\+ \-]   -text
+                     [\- \+]   -text
+                     [\+ nil]  -text
+                     [\- nil]  -text
                      [nil nil] -text
                      -number))
      :transition #(lookup % number-node)}))
@@ -351,7 +349,8 @@
 (s/def character :- State
   (let [lookup (transitions
                  break-node
-                 space-node)]
+                 space-node
+                 character-node)]
     {:node       character-node
      :emission   #(if (= (count %) 2) -char -text)
      :transition #(lookup % character-node)}))
@@ -421,7 +420,7 @@
     (f output state emission acc)))
 
 (defn fold [f init stream]
-  (fold' (fn [output _ emission acc] (f output emission acc)) init stream))
+  (fold' (fn [result _ emission acc] (f result emission acc)) init stream))
 
 (defn consume [f stream]
   (fold (fn [_ emission acc] (f emission acc)) nil stream))

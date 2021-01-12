@@ -6,6 +6,7 @@
             [schema.core :as s]
             [omnia.config :as co]
             [omnia.highlight :refer [foldl -back ->text]]
+            [omnia.highlighting :as hh]
             [omnia.context :refer [Context]]
             [omnia.more :refer [Point Region merge-culling map-vals reduce-idx --]]))
 
@@ -68,32 +69,40 @@
     [xs xe]  :sub-region
     cs       :scheme
     styles   :styles} :- PrintInstruction]
-  (letfn [(put! [ch x y state]
-            (let [fg (cs (:id state))
-                  bg (cs -back)]
+  (letfn [(put! [ch x y emission]
+            (let [fg (cs emission)
+                  bg (cs hh/-back)]
               (t/put! terminal ch x y fg bg styles)))
           (pad! [x]
             (when padding
               (dotimes [offset padding]
-                (put! \space (+ x offset) y ->text))))
-          (print-from! [x emission state]
+                (put! \space (+ x offset) y hh/-text))))
+          (print-from! [x emission chars]
             (reduce-idx
               (fn [x' _ input]
-                (put! input x' y state)) x nil emission))
-          (print! [x [emission state]]
-            (print-from! x emission state)
-            (+ x (count emission)))
-          (print-sub! [x [emission state]]
-            (let [x' (+ x (count emission))]
+                (put! input x' y emission)) x nil chars))
+          (print! [x emission chars]
+            (print-from! x emission chars)
+            (+ x (count chars)))
+          (print-sub! [x emission chars]
+            (let [x' (+ x (count chars))]
               (cond
-                (and (<= x xs) (>= x' xe)) (print-from! xs (->> emission (drop (- xs x)) (take (- xe xs))) state)
-                (and (<= x xs) (> x' xs))  (print-from! xs (drop (- xs x) emission) state)
-                (>= x' xe)                 (print-from! x (take (- xe x) emission) state)
-                (> x' xs)                  (print-from! x emission state)
-                :else nil)
+                (and (<= x xs) (>= x' xe)) (->> chars
+                                                (drop (- xs x)) ;; subvecs
+                                                (take (- xe xs)) ;; subvecs
+                                                (print-from! xs emission))
+                (and (<= x xs) (> x' xs))  (->> chars
+                                                (drop (- xs x)) ;; subvecs
+                                                (print-from! xs emission))
+                (>= x' xe)                 (->> chars
+                                                (take (- xe x)) ;; subvecs
+                                                (print-from! x emission))
+                (> x' xs)                  (->> chars
+                                                (print-from! x emission))
+                :else                      nil)
               x'))]
     (-> (if (and xs xe) print-sub! print!)
-        (foldl 0 line)
+        (hh/fold 0 line)
         (pad!))))
 
 (s/defn prioritise :- [c/Highlight]
