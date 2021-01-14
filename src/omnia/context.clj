@@ -317,10 +317,10 @@
                                      (previous-hud ctx))
         persisted (-> ctx
                       (persisted-hud)
-                      (h/reset-overview nov))
+                      (h/reset-view nov))
         preview   (-> ctx
                       (preview-hud)
-                      (h/reset-overview nov))]
+                      (h/reset-view nov))]
     (-> ctx
         (with-persisted persisted)
         (with-unrefreshed-preview preview))))
@@ -349,7 +349,7 @@
   (let [preview (-> ctx
                     (preview-hud)
                     (h/enrich-with [goodbye])
-                    (h/reset-overview))]
+                    (h/reset-view))]
     (with-preview ctx preview)))
 
 (s/defn deselect :- Context

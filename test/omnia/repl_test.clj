@@ -641,10 +641,10 @@
 (defn pop-up-with-calibration [ctx content]
   (let [window  (->> content (:height) (h/riffle-window content))
         context (-> ctx (at-main-view-start) (process [up up]))]
-    (is (= 2 (-> context (pop-up window) (h/overview))))
-    (is (= 2 (-> context (process [down down]) (pop-up window) (h/overview))))
-    (is (= 2 (-> context (at-view-bottom) (pop-up window) (h/overview))))
-    (is (= 1 (-> context (at-view-bottom) (process [down]) (pop-up window) (h/overview))))))
+    (is (= 2 (-> context (pop-up window) (h/view-offset))))
+    (is (= 2 (-> context (process [down down]) (pop-up window) (h/view-offset))))
+    (is (= 2 (-> context (at-view-bottom) (pop-up window) (h/view-offset))))
+    (is (= 1 (-> context (at-view-bottom) (process [down]) (pop-up window) (h/view-offset))))))
 
 
 (defn pop-up-window [ctx content]

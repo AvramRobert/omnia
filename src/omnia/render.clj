@@ -112,8 +112,8 @@
   [ctx :- Context, pattern :- HighlightPattern]
   (let [current     (:current pattern)
         former      (:former pattern)
-        preview-ov  (-> ctx (c/preview-hud) (h/overview))
-        previous-ov (-> ctx (c/previous-hud) (h/overview))]
+        preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
+        previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (if (= preview-ov previous-ov)
       ;; additive-diff nils highlights that don't have a diff
       (prioritise (merge-culling additive-diff current former))
@@ -207,7 +207,7 @@
         then     (-> previous (h/project-hud) (:lines))
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
-    (if (not= (h/overview preview) (h/overview previous))
+    (if (not= (h/view-offset preview) (h/view-offset previous))
       (total! ctx)
       (dotimes [y limit]
         (let [a (nth now y nil)
@@ -226,8 +226,8 @@
 
 (s/defn nothing!
   [ctx :- Context]
-  (let [preview-ov  (-> ctx (c/preview-hud) (h/overview))
-        previous-ov (-> ctx (c/previous-hud) (h/overview))]
+  (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
+        previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (when (not= preview-ov previous-ov)
       (total! ctx))))
 

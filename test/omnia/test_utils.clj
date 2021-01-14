@@ -157,7 +157,7 @@
 
 (s/defn overview :- s/Int
   [ctx :- Context]
-  (-> ctx (r/preview-hud) (h/overview)))
+  (-> ctx (r/preview-hud) (h/view-offset)))
 
 (s/defn scroll-offset :- s/Int
   [ctx :- Context]
