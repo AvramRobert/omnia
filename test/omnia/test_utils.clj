@@ -4,7 +4,7 @@
             [omnia.context :refer [Context HighlightType]]
             [omnia.input :refer [Seeker]]
             [omnia.event :refer [Event InputEvent]]
-            [omnia.more :refer [-- Region do-gen]]
+            [omnia.more :refer [-- Point Region do-gen]]
             [omnia.config :as c]
             [omnia.input :as i]
             [omnia.hud :as h]
@@ -13,8 +13,7 @@
             [omnia.terminal :as t]
             [omnia.event :as e]
             [schema.core :as s]
-            [clojure.test.check.generators :as gen])
-  (:import (java.util UUID)))
+            [clojure.test.check.generators :as gen]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
@@ -26,20 +25,8 @@
   `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
        (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
 
-(defmacro <=>hud [this-hud that-hud]
-  `(<=>seeker (:seeker ~this-hud) (:seeker ~that-hud)))
-
 (defmacro can-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
-
-(defn random-uuid []
-  (str (UUID/randomUUID)))
-
-(defn nrepl-result [map]
-  (assoc map :id (random-uuid)
-             :session (random-uuid)
-              :ns "ns"
-             :status ["done"]))
 
 (defn rand-cursor [seeker]
   (let [y (-> seeker (:height) (rand-int))
@@ -89,6 +76,9 @@
                :status ["done"])
         (list))))
 
+(defn gen-history [{:keys [size element-size]}]
+  (gen/vector (gen-seeker-of element-size) size))
+
 (defn test-terminal [{:keys [refresh!
                              clear!
                              size
@@ -113,17 +103,19 @@
                     :or   {size    0
                            fov     10
                            receive (gen/return {})
-                           seeker  i/empty-seeker
-                           history []}}]
-  (do-gen [hud-seeker (gen-seeker-of size)
-           response   (gen-nrepl-result receive)]
+                           seeker  (gen/return i/empty-seeker)
+                           history (gen/return [])}}]
+  (do-gen [hud-seeker      (gen-seeker-of size)
+           input-seeker    seeker
+           response        (gen-nrepl-result receive)
+           history-seekers history]
     (-> (r/context (c/convert c/default-config)
                    (test-terminal {:size (constantly fov)})
                    (server/client {:host    ""
                                    :port    0
-                                   :history history
+                                   :history history-seekers
                                    :client  (constantly response)}))
-        (r/with-text seeker)
+        (r/with-text input-seeker)
         (r/with-hud (h/hud hud-seeker fov)))))
 
 (def up (e/event e/up))
@@ -163,15 +155,6 @@
   [seeker :- Seeker, events :- [InputEvent]]
   (reduce i/process seeker events))
 
-(s/defn process-one :- Context
-  ([ctx :- Context event :- Event]
-   (process-one ctx event 1))
-  ([ctx   :- Context
-    event :- Event
-    n     :- s/Int]
-   (->> (range 0 n)
-        (reduce (fn [nctx _] (-> nctx (r/process event) (:ctx))) ctx))))
-
 (s/defn overview :- s/Int
   [ctx :- Context]
   (-> ctx (r/preview-hud) (h/overview)))
@@ -194,7 +177,7 @@
   [ctx :- Context]
   (h/project-hud (r/preview-hud ctx)))
 
-(defn project-cursor [ctx]
+(defn project-preview-cursor [ctx]
   (-> ctx (r/preview-hud) (h/project-hud-cursor)))
 
 (defn cursor [ctx]
@@ -253,7 +236,7 @@
 (s/defn at-view-top :- Context
   [ctx :- Context]
   (let [fov       (-> ctx (r/preview-hud) (h/field-of-view))
-        top-line #(-- % (dec fov)) ;; (dec) because we want to land on the fov'th line
+        top-line #(-- % (dec fov))                          ;; (dec) because we want to land on the fov'th line
         text      (-> ctx (r/input-area) (i/move-y top-line))]
     (-> ctx (r/with-text text) (r/refresh))))
 
@@ -278,7 +261,7 @@
         terminal (test-terminal {:size (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
-        (process-one refresh))))
+        (process [refresh]))))
 
 (s/defn enlarge-view :- Context
    [ctx :- Context, n :- s/Int]
@@ -286,7 +269,7 @@
         terminal (test-terminal {:size (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
-        (process-one refresh))))
+        (process [refresh]))))
 
 (s/defn maximise-view :- Context
     [ctx :- Context]
@@ -294,7 +277,22 @@
         terminal (test-terminal {:size (constantly height)})]
     (-> ctx
         (r/with-terminal terminal)
-        (process-one refresh))))
+        (process [refresh]))))
+
+(s/defn extend-highlight :- Context
+  [ctx         :- Context,
+   h-type      :- HighlightType,
+   [xoff yoff] :- Point]
+  (let [highlight (-> ctx
+                      (r/highlights)
+                      (get h-type)
+                      (update
+                        :region
+                        (fn [{[xs ys] :start
+                              [xe ye] :end}]
+                          {:start [(+ xs xoff) (+ ys yoff)]
+                           :end   [(+ xe xoff) (+ ye yoff)]})))]
+    (r/with-highlight ctx h-type highlight)))
 
 (s/defn highlight-from :- r/Highlight
   [region :- Region]

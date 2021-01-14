@@ -97,8 +97,8 @@
   (let [selected         (-> ctx
                              (at-input-end)
                              (at-line-start)
-                             (process-one select-right 100))
-        processed        (process-one selected backspace)
+                             (process (repeat 100 select-right)))
+        processed        (process selected [backspace])
         n-last           (-> ctx (r/preview-hud) (h/text) (:lines) (last) (count))
         expected-chars   (repeat n-last \space)
         expected-cursors (->> selected
@@ -121,7 +121,7 @@
   (let [processed        (-> ctx
                              (at-input-end)
                              (at-line-start)
-                             (process-one (character k) 10))
+                             (process (repeat 10 (character k))))
         last-n           (->> processed (r/preview-hud) (h/text) (:lines) (last) (count))
         expectation      (->> processed (r/preview-hud) (index) (take-last last-n))]
     (-> (accumulative processed)
@@ -138,7 +138,7 @@
   (-> ctx
       (at-input-end)
       (at-line-start)
-      (process-one up)
+      (process [up])
       (accumulative)
       (execute diff!)
       (inspect
@@ -152,9 +152,7 @@
 (defn reset-diff-render [ctx]
   (let [processed        (-> ctx
                              (at-main-view-start)
-                             (process-one down)
-                             (process-one select-up 3)
-                             (process-one backspace))
+                             (process [down select-up select-up select-up backspace]))
         expectation      (-> processed (r/preview-hud) (index))
         expected-chars   (map :char expectation)
         expected-cursors (map :cursor expectation)]
@@ -183,7 +181,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+                                     :seeker (gen-seeker-of 29)})]
                   (diff-render ctx)))
 
 ;; II. No rendering
@@ -202,7 +200,7 @@
 (defn nothing-to-diff-render [ctx]
   (let [processed (-> ctx
                       (at-main-view-start)
-                      (process-one up))]
+                      (process [up]))]
     (-> (accumulative processed)
         (execute nothing!)
         (inspect
@@ -221,7 +219,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+                                     :seeker (gen-seeker-of 29)})]
                   (no-render ctx)))
 
 ;; III. Selection highlighting
@@ -234,7 +232,7 @@
         expected-chars   [(i/current-char text)]
         expected-cursors [(:cursor text)]]
     (-> adapted
-        (process-one select-right)
+        (process [select-right])
         (accumulative)
         (execute render-highlights!)
         (inspect
@@ -254,8 +252,7 @@
         expected-chars   [(i/current-char text)]
         expected-cursors [cursor]]
     (-> adapted
-        (process-one right)
-        (process-one select-left)
+        (process [right select-left])
         (accumulative)
         (execute render-highlights!)
         (inspect
@@ -267,8 +264,8 @@
             (is (= cursors expected-cursors)))))))
 
 (defn projected-selection-render [ctx]
-  (let [processed        (process-one ctx select-all)
-        projected        (-> processed (c/preview-hud) (h/project-hud))
+  (let [processed        (process ctx [select-all])
+        projected        (project-preview processed)
         expected-chars   (->> projected (:lines) (flatten))
         expected-cursors (->> projected (index-seeker) (:lines) (flatten) (map :cursor))]
     (-> processed
@@ -287,7 +284,7 @@
                                 (character \a)
                                 left
                                 left])
-        [x y]     (-> processed (r/preview-hud) (h/project-hud-cursor))
+        [x y]     (project-preview-cursor processed)
         expected-chars   [\( \)]
         expected-cursors [[x y] [(+ x 2) y]]
         expected-styles  [:underline :underline]]
@@ -307,11 +304,11 @@
                               (character \a)
                               left
                               left])
-        [x y]     (-> adapted (r/preview-hud) (h/project-hud-cursor))
+        [x y]     (project-preview-cursor adapted)
         expected-chars   [\( \a \)]
         expected-cursors [[x y] [(+ x 1) y] [(+ x 2) y]]]
     (-> adapted
-        (process-one expand)
+        (process [expand])
         (accumulative)
         (execute render-highlights!)
         (inspect
@@ -351,7 +348,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+                                     :seeker (gen-seeker-of 29)})]
                   (selection-render ctx)))
 
 ;; IV. Clean-up highlighting
@@ -386,66 +383,100 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   5
                                      :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+                                     :seeker (gen-seeker-of 29)})]
                   (clean-up-render ctx)))
 
 ;; V. Hud projection
 
-(defn move-with [ctx {:keys [scroll ov]
-                      :or   {scroll 0
-                             ov     0}}]
+(defn move-with [ctx {:keys [scroll-offset
+                             view-offset]
+                      :or   {scroll-offset 0
+                             view-offset   0}}]
   (let [fov  (-> ctx (r/preview-hud) (h/field-of-view))
         text (-> ctx (r/preview-hud) (h/text))]
-    (i/rebase text #(->> % (take-last (+ fov scroll ov)) (take fov)))))
+    (i/rebase text #(->> % (take-last (+ fov scroll-offset view-offset)) (take fov)))))
 
 (defn total-hud-projection [ctx]
   (let [complete-view       (maximise-view ctx)
-        expected-projection (-> ctx (r/preview-hud) (h/text))]
-    (-> complete-view
-        (process-one scroll-up 10)
-        (project-preview)
-        (<=>seeker expected-projection))))
+        expected-projection (-> ctx (r/preview-hud) (h/text))
+        projected           (-> complete-view
+                                (process (repeat 10 scroll-up))
+                                (project-preview))]
+    (is (i/equivalent? projected expected-projection))))
 
 (defn fov-hud-projection [ctx]
   (let [fov      (field-of-view ctx)
         actual   (-> ctx
                      (at-main-view-end)
-                     (r/preview-hud)
-                     (h/project-hud))
+                     (project-preview))
         expected (-> ctx
                      (r/preview-hud)
                      (h/text)
                      (i/rebase #(take-last fov %)))]
-    (<=>seeker expected actual)))
+    (is (i/equivalent? actual expected))))
 
 (defn fov-with-overview-hud-projection [ctx]
   (let [offset   2
         fov      (field-of-view ctx)
         actual   (-> ctx
                      (at-main-view-start)
-                     (process-one up offset)
-                     (r/preview-hud)
-                     (h/project-hud))
+                     (process (repeat offset up))
+                     (project-preview))
         expected (-> ctx
                      (r/preview-hud)
                      (h/text)
                      (i/rebase #(->> % (drop-last offset) (take-last fov))))]
-    (<=>seeker expected actual)))
+    (is (i/equivalent? actual expected))))
 
 (defn scrolled-hud-projection [ctx]
   (can-be ctx
-          #(-> % (process-one scroll-up 1) (project-preview) (<=>seeker (move-with % {:scroll 1})))
-          #(-> % (process-one scroll-up 4) (project-preview) (<=>seeker (move-with % {:scroll 4})))
-          #(-> % (process-one scroll-up 4) (process-one scroll-down) (project-preview) (<=>seeker (move-with % {:scroll 3})))))
+          #(-> %
+               (process [scroll-up])
+               (project-preview)
+               (i/equivalent? (move-with % {:scroll-offset 1})))
+          #(-> %
+               (process [scroll-up
+                         scroll-up
+                         scroll-up
+                         scroll-up])
+               (project-preview)
+               (i/equivalent? (move-with % {:scroll-offset 4})))
+          #(-> %
+               (process [scroll-up
+                         scroll-up
+                         scroll-up
+                         scroll-up
+                         scroll-down])
+               (project-preview)
+               (i/equivalent? (move-with % {:scroll-offset 3})))))
 
 (defn paged-hud-projection [ctx]
   (-> ctx
       (at-main-view-start)
-      (process-one up 2)
+      (process [up up])
       (can-be
-        #(-> % (process-one scroll-up 1) (project-preview) (<=>seeker (move-with % {:scroll 1 :ov 2})))
-        #(-> % (process-one scroll-up 4) (project-preview) (<=>seeker (move-with % {:scroll 4 :ov 2})))
-        #(-> % (process-one scroll-up 4) (process-one scroll-down) (project-preview) (<=>seeker (move-with % {:scroll 3 :ov 2}))))))
+        #(-> %
+             (process [scroll-up])
+             (project-preview)
+             (i/equivalent? (move-with % {:scroll-offset 1
+                                          :view-offset 2})))
+        #(-> %
+             (process [scroll-up
+                       scroll-up
+                       scroll-up
+                       scroll-up])
+             (project-preview)
+             (i/equivalent? (move-with % {:scroll-offset 4
+                                          :view-offset 2})))
+        #(-> %
+             (process [scroll-up
+                       scroll-up
+                       scroll-up
+                       scroll-up
+                       scroll-down])
+             (project-preview)
+             (i/equivalent? (move-with % {:scroll-offset 3
+                                          :view-offset 2}))))))
 
 (defn hud-projection [ctx]
   (total-hud-projection ctx)
@@ -458,7 +489,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
-                                     :seeker (one (gen-seeker-of 10))})]
+                                     :seeker (gen-seeker-of 10)})]
                   (hud-projection ctx)))
 
 ;; VI. Selection projection
@@ -467,64 +498,60 @@
   (let [total (-> ctx (at-input-end) (at-line-start) (maximise-view))
         [x y] (cursor total)]
     (can-be total
-            #(-> (process-one % select-up 5)
-                 (:highlights)
+            #(-> %
+                 (process [select-up
+                           select-up
+                           select-up
+                           select-up
+                           select-up])
+                 (r/highlights)
                  (:selection)
                  (highlights? {:start [x (- y 5)]
                                :end   [x y]})))))
 
 (defn paged-selection-extension [ctx]
-  (let [from-top-start    (-> ctx (at-main-view-start) (:complete-hud) (:seeker) (:cursor))
-        top-clip-end      (-> ctx (at-main-view-end) (:complete-hud) (:seeker) (:cursor))
-        bottom-clip-start (-> ctx (at-input-start) (:complete-hud) (:seeker) (:cursor))
-        bottom-clip-end   (-> ctx (at-input-start) (at-view-bottom) (at-line-end) (:complete-hud) (:seeker) (:cursor))]
+  (let [from-top-start    (-> ctx (at-main-view-start) (r/preview-hud) (h/text) (:cursor))
+        top-clip-end      (-> ctx (at-main-view-end) (r/preview-hud) (h/text) (:cursor))
+        bottom-clip-start (-> ctx (at-input-start) (r/preview-hud) (h/text) (:cursor))
+        bottom-clip-end   (-> ctx (at-input-start) (at-view-bottom) (at-line-end) (r/preview-hud) (h/text) (:cursor))]
     (can-be ctx
             #(-> %
                  (at-main-view-start)
-                 (process-one select-all)
+                 (process [select-all])
                  (project-highlight :selection)
                  (= {:start from-top-start
                      :end   top-clip-end}))
             #(-> %
                  (at-input-start)
-                 (process-one select-down 100)
-                 (process-one select-right 100)
+                 (process (repeat 100 select-down))
+                 (process (repeat 100 select-right))
                  (project-highlight :selection)
                  (= {:start from-top-start
                      :end   top-clip-end}))
             #(-> %
                  (at-input-end)
-                 (process-one select-up 100)
-                 (process-one select-left 100)
+                 (process (repeat 100 select-up))
+                 (process (repeat 100 select-left))
                  (project-highlight :selection)
                  (= {:start bottom-clip-start
                      :end   bottom-clip-end})))))
 
 (defn paged-selection-lower-clip [ctx]
-  (let [fov (-> ctx :complete-hud :fov)]
-    (-> ctx
-        (at-main-view-start)
-        (process-one up 2)
-        (process-one select-right)
-        (update-in [:highlights :selection :region]
-                   #(let [{[xs ys] :start
-                           [xe ye] :end} %]
-                      {:start [xs (+ ys fov)]
-                       :end   [xe (+ ye fov)]}))
-        (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
+  (let [fov (-> ctx (r/preview-hud) (h/field-of-view))
+        processed (-> ctx
+                      (at-main-view-start)
+                      (process [up up select-right])
+                      (extend-highlight :selection [0 fov]))]
+    (is (= (project-highlight processed :selection) (no-projection processed)))))
 
 (defn paged-selection-upper-clip [ctx]
-  (let [fov (-> ctx :complete-hud :fov)]
-    (-> ctx
-        (at-input-end)
-        (at-line-start)
-        (process-one select-right)
-        (update-in [:highlights :selection :region]
-                   #(let [{[xs ys] :start
-                           [xe ye] :end} %]
-                      {:start [xs (- ys fov)]
-                       :end   [xe (- ye fov)]}))
-        (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
+  (let [fov (-> ctx (r/preview-hud) (h/field-of-view))
+        processed (-> ctx
+                      (at-input-end)
+                      (at-line-start)
+                      (process [select-right])
+                      (extend-highlight :selection [0 (- fov)]))]
+    (is (= (project-highlight processed :selection) (no-projection processed)))))
 
 (defn selection-projection [ctx]
   (total-selection-projection ctx)
@@ -536,7 +563,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
-                                     :seeker (one (gen-seeker-of 10))})]
+                                     :seeker (gen-seeker-of 10)})]
                   (selection-projection ctx)))
 
 ;; VII. Cursor projection
@@ -544,25 +571,25 @@
 (defn total-cursor-projection [ctx]
   (let [total (-> ctx (at-input-end) (at-line-start) (maximise-view))
         [x y] (cursor total)
-        hp    (get-in total [:persisted-hud :seeker :height])
-        hc    (get-in total [:complete-hud :seeker :height])]
+        hp    (-> total (r/persisted-hud) (h/text) (:height))
+        hc    (-> total (r/preview-hud) (h/text) (:height))]
     (can-be total
-            #(-> % (process-one up) (project-cursor) (= [x (dec y)]))
-            #(-> % (process-one up 4) (project-cursor) (= [x (- y 4)]))
-            #(-> % (process-one up 100) (project-cursor) (= [x hp]))
-            #(-> % (process-one down 100) (project-cursor) (= [x (dec hc)]))))) ;; starts with 0
+            #(-> % (process [up]) (project-preview-cursor) (= [x (dec y)]))
+            #(-> % (process [up up up up]) (project-preview-cursor) (= [x (- y 4)]))
+            #(-> % (process (repeat 100 up)) (project-preview-cursor) (= [x hp]))
+            #(-> % (process (repeat 100 down)) (project-preview-cursor) (= [x (dec hc)]))))) ;; starts with 0
 
 (defn paged-cursor-projection [ctx]
   (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
         (can-be
-          #(-> % (process-one up) (project-cursor) (= [0 0]))
-          #(-> % (process-one up 2) (project-cursor) (= [0 0]))
-          #(-> % (process-one down 1) (project-cursor) (= [0 1]))
-          #(-> % (process-one down 2) (project-cursor) (= [0 2]))
-          #(-> % (at-view-bottom) (process-one down) (project-cursor) (= [0 end-y]))
-          #(-> % (at-view-bottom) (process-one down 2) (project-cursor) (= [0 end-y]))))))
+          #(-> % (process [up]) (project-preview-cursor) (= [0 0]))
+          #(-> % (process [up up]) (project-preview-cursor) (= [0 0]))
+          #(-> % (process [down]) (project-preview-cursor) (= [0 1]))
+          #(-> % (process [down down]) (project-preview-cursor) (= [0 2]))
+          #(-> % (at-view-bottom) (process [down]) (project-preview-cursor) (= [0 end-y]))
+          #(-> % (at-view-bottom) (process [down down]) (project-preview-cursor) (= [0 end-y]))))))
 
 (defn cursor-projection [ctx]
   (total-cursor-projection ctx)
@@ -572,7 +599,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   20
                                      :fov    7
-                                     :seeker (one (gen-seeker-of 10))})]
+                                     :seeker (gen-seeker-of 10)})]
                   (cursor-projection ctx)))
 
 ;; VIII. Y Projection
@@ -584,18 +611,18 @@
   (-> ctx
       (at-input-end)
       (at-line-start)
-      (can-be #(bounded? % (-> % (process-one up 5) (project-y)))
-              #(= 0 (-> % (process-one up 15) (project-y)))
-              #(= 0 (-> % (process-one up 100) (project-y))))))
+      (can-be #(bounded? % (-> % (process (repeat 5 up)) (project-y)))
+              #(= 0 (-> % (process (repeat 15 up)) (project-y)))
+              #(= 0 (-> % (process (repeat 100 up)) (project-y))))))
 
 (defn bottom-bounded-y-projection [ctx]
   (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
-        (process-one up 5)
-        (can-be #(bounded? % (-> % (process-one down 10) (project-y)))
-                #(= end-y (-> % (process-one down 15) (project-y)))
-                #(= end-y (-> % (process-one down 100) (project-y)))))))
+        (process [up up up up up])
+        (can-be #(bounded? % (-> % (process (repeat 10 down)) (project-y)))
+                #(= end-y (-> % (process (repeat 15 down)) (project-y)))
+                #(= end-y (-> % (process (repeat 100 down)) (project-y)))))))
 
 (defn y-projection [ctx]
   (top-bounded-y-projection ctx)
@@ -605,7 +632,7 @@
          NR-OF-TESTS
          (for-all [ctx (gen-context {:size   30
                                      :fov    10
-                                     :seeker (one (gen-seeker-of 20))})]
+                                     :seeker (gen-seeker-of 20)})]
                   (y-projection ctx)))
 
 

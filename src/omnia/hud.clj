@@ -65,6 +65,10 @@
   [hud :- Hud]
   (-> hud :seeker :lines empty?))
 
+(s/defn equivalent? :- s/Bool
+  [this :- Hud, that :- Hud]
+  (i/equivalent? (text this) (text that)))
+
 (s/defn current-line :- [Character]
   [hud :- Hud]
   (-> hud (text) (i/line)))
@@ -111,7 +115,6 @@
   [hud :- Hud]
   (project-cursor hud (-> hud (text) (:cursor))))
 
-;; todo: consider using subvectors. would be faster
 (s/defn project-hud :- Seeker
   [hud :- Hud]
   (let [text           (text hud)
@@ -252,7 +255,7 @@
 
 (s/defn paginate :- Seeker
   [hud :- Hud]
-  (let [truncated? (-> hud (:ov) (zero?) (not))
+  (let [truncated? (-> hud (overview) (zero?) (not))
         extend     #(if truncated? (i/adjoin % continuation) %)]
     (-> hud
         (project-hud)

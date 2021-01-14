@@ -126,6 +126,10 @@
   [ctx :- Context]
   (:terminal ctx))
 
+(s/defn client :- REPLClient
+  [ctx :- Context]
+  (:repl ctx))
+
 (s/defn highlights :- Highlights
   [ctx :- Context]
   (:highlights ctx))
@@ -172,15 +176,21 @@
   [ctx :- Context, highlights :- Highlights]
   (assoc ctx :garbage highlights))
 
+(s/defn with-highlight :- Context
+  [ctx :- Context,
+   h-type :- HighlightType,
+   highlight :- Highlight]
+  (assoc-in ctx [:highlights h-type] highlight))
+
 (s/defn with-selection :- Context
   [ctx :- Context, highlight :- Highlight]
-  (assoc-in ctx [:highlights :selection] highlight))
+  (with-highlight ctx :selection highlight))
 
 (s/defn with-parens :- Context
   [ctx :- Context, open :- Highlight, closed :- Highlight]
   (-> ctx
-      (assoc-in [:highlights :open-paren] open)
-      (assoc-in [:highlights :closed-paren] closed)))
+      (with-highlight :open-paren open)
+      (with-highlight :closed-paren closed)))
 
 (s/defn make-selection :- Highlight
   [ctx :- Context, region :- Region]
