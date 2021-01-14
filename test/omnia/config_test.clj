@@ -3,7 +3,7 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [omnia.test-utils :refer [one can-be]]
+            [omnia.test-utils :refer [one should-be]]
             [omnia.config :as c]
             [halfling.task :as t]))
 

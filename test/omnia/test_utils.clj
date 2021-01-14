@@ -25,7 +25,7 @@
   `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
        (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
 
-(defmacro can-be [val & fs]
+(defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
 (defn rand-cursor [seeker]

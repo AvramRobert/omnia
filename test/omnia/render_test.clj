@@ -429,19 +429,19 @@
     (is (i/equivalent? actual expected))))
 
 (defn scrolled-hud-projection [ctx]
-  (can-be ctx
-          #(-> %
+  (should-be ctx
+             #(-> %
                (process [scroll-up])
                (project-preview)
                (i/equivalent? (move-with % {:scroll-offset 1})))
-          #(-> %
+             #(-> %
                (process [scroll-up
                          scroll-up
                          scroll-up
                          scroll-up])
                (project-preview)
                (i/equivalent? (move-with % {:scroll-offset 4})))
-          #(-> %
+             #(-> %
                (process [scroll-up
                          scroll-up
                          scroll-up
@@ -454,7 +454,7 @@
   (-> ctx
       (at-main-view-start)
       (process [up up])
-      (can-be
+      (should-be
         #(-> %
              (process [scroll-up])
              (project-preview)
@@ -497,8 +497,8 @@
 (defn total-selection-projection [ctx]
   (let [total (-> ctx (at-input-end) (at-line-start) (maximise-view))
         [x y] (cursor total)]
-    (can-be total
-            #(-> %
+    (should-be total
+               #(-> %
                  (process [select-up
                            select-up
                            select-up
@@ -514,21 +514,21 @@
         top-clip-end      (-> ctx (at-main-view-end) (r/preview-hud) (h/text) (:cursor))
         bottom-clip-start (-> ctx (at-input-start) (r/preview-hud) (h/text) (:cursor))
         bottom-clip-end   (-> ctx (at-input-start) (at-view-bottom) (at-line-end) (r/preview-hud) (h/text) (:cursor))]
-    (can-be ctx
-            #(-> %
+    (should-be ctx
+               #(-> %
                  (at-main-view-start)
                  (process [select-all])
                  (project-highlight :selection)
                  (= {:start from-top-start
                      :end   top-clip-end}))
-            #(-> %
+               #(-> %
                  (at-input-start)
                  (process (repeat 100 select-down))
                  (process (repeat 100 select-right))
                  (project-highlight :selection)
                  (= {:start from-top-start
                      :end   top-clip-end}))
-            #(-> %
+               #(-> %
                  (at-input-end)
                  (process (repeat 100 select-up))
                  (process (repeat 100 select-left))
@@ -573,17 +573,17 @@
         [x y] (cursor total)
         hp    (-> total (r/persisted-hud) (h/text) (:height))
         hc    (-> total (r/preview-hud) (h/text) (:height))]
-    (can-be total
-            #(-> % (process [up]) (project-preview-cursor) (= [x (dec y)]))
-            #(-> % (process [up up up up]) (project-preview-cursor) (= [x (- y 4)]))
-            #(-> % (process (repeat 100 up)) (project-preview-cursor) (= [x hp]))
-            #(-> % (process (repeat 100 down)) (project-preview-cursor) (= [x (dec hc)]))))) ;; starts with 0
+    (should-be total
+               #(-> % (process [up]) (project-preview-cursor) (= [x (dec y)]))
+               #(-> % (process [up up up up]) (project-preview-cursor) (= [x (- y 4)]))
+               #(-> % (process (repeat 100 up)) (project-preview-cursor) (= [x hp]))
+               #(-> % (process (repeat 100 down)) (project-preview-cursor) (= [x (dec hc)]))))) ;; starts with 0
 
 (defn paged-cursor-projection [ctx]
   (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
-        (can-be
+        (should-be
           #(-> % (process [up]) (project-preview-cursor) (= [0 0]))
           #(-> % (process [up up]) (project-preview-cursor) (= [0 0]))
           #(-> % (process [down]) (project-preview-cursor) (= [0 1]))
@@ -611,18 +611,18 @@
   (-> ctx
       (at-input-end)
       (at-line-start)
-      (can-be #(bounded? % (-> % (process (repeat 5 up)) (project-y)))
-              #(= 0 (-> % (process (repeat 15 up)) (project-y)))
-              #(= 0 (-> % (process (repeat 100 up)) (project-y))))))
+      (should-be #(bounded? % (-> % (process (repeat 5 up)) (project-y)))
+                 #(= 0 (-> % (process (repeat 15 up)) (project-y)))
+                 #(= 0 (-> % (process (repeat 100 up)) (project-y))))))
 
 (defn bottom-bounded-y-projection [ctx]
   (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
         (process [up up up up up])
-        (can-be #(bounded? % (-> % (process (repeat 10 down)) (project-y)))
-                #(= end-y (-> % (process (repeat 15 down)) (project-y)))
-                #(= end-y (-> % (process (repeat 100 down)) (project-y)))))))
+        (should-be #(bounded? % (-> % (process (repeat 10 down)) (project-y)))
+                   #(= end-y (-> % (process (repeat 15 down)) (project-y)))
+                   #(= end-y (-> % (process (repeat 100 down)) (project-y)))))))
 
 (defn y-projection [ctx]
   (top-bounded-y-projection ctx)
