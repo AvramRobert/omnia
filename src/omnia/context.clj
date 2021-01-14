@@ -434,7 +434,8 @@
     (-> ctx
         (with-suggestions suggestions)
         (with-text text)
-        (with-preview preview))))
+        (with-preview preview)
+        (deselect))))
 
 (s/defn signature-window :- Hud
   [ctx :- Context]
@@ -504,7 +505,7 @@
     e/docs        (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (resize) (continue))
     e/signature   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (resize) (continue))
     e/match       (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (deselect) (suggest) (match-parens) (diff-render) (resize) (continue))
+    e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (resize) (continue))
     e/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
     e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
     e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (resize) (continue))

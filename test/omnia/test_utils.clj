@@ -186,6 +186,11 @@
 (defn suggestions [ctx]
   (-> ctx (r/client) (server/complete! i/empty-seeker) (server/result)))
 
+(s/defn suggestion-at :- i/Line
+  [ctx :- Context
+   line :- s/Int]
+  (-> ctx (suggestions) (i/reset-y line) (i/line)))
+
 (defn server-history [ctx]
   (-> ctx (r/client) (:history)))
 

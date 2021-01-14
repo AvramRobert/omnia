@@ -441,13 +441,12 @@
 
 ;; VIII. Suggesting
 
-(defn suggestion-override [ctx]
+(defn suggestion-continuation [ctx]
   (let [suggestions     (suggestions ctx)
         suggestion-size (:height suggestions)
-        suggestion-at   (fn [th] (-> (i/reset-y suggestions th) (i/line)))
         end             (-> ctx (at-input-end) (at-line-start))
         replaced-point  (cursor end)
-        process-suggestion (fn [n ctx]
+        process-suggestion (fn [ctx n]
                                (-> ctx
                                    (process (repeat n suggest))
                                    (r/preview-hud)
@@ -455,12 +454,25 @@
                                    (i/reset-to replaced-point)
                                    (i/line)))]
     (should-be end
-               #(= (process-suggestion 1 %) (suggestion-at 0))
-               #(= (process-suggestion 2 %) (suggestion-at 1))
-               #(= (process-suggestion 3 %) (suggestion-at 2))
-               #(= (process-suggestion (inc suggestion-size) %) (suggestion-at 0)))))
+               #(= (process-suggestion % 1) (suggestion-at % 0))
+               #(= (process-suggestion % 2) (suggestion-at % 1))
+               #(= (process-suggestion % 3) (suggestion-at % 2))
+               #(= (process-suggestion % (inc suggestion-size)) (suggestion-at % 0)))))
+
+(defn suggestion-override [ctx]
+  (let [input          \a
+        actual         (-> ctx
+                           (at-input-end)
+                           (at-line-start)
+                           (process [suggest suggest (character input)])
+                           (r/preview-hud)
+                           (h/text)
+                           (i/line))
+        expected        (-> ctx (suggestion-at 1) (conj input))]
+    (is (= expected actual))))
 
 (defn suggesting [ctx]
+  (suggestion-continuation ctx)
   (suggestion-override ctx))
 
 (defspec suggesting-test
