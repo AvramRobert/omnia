@@ -28,38 +28,49 @@
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
-(defn rand-cursor [seeker]
-  (let [y (-> seeker (:height) (rand-int))
-        x (-> seeker (i/reset-y y) (i/line) (count) (rand-int))]
+(defn gen-coordinate [space]
+  (if (empty? space)
+    (gen/return 0)
+    (gen/elements (range 0 (count space)))))
+
+(defn gen-cursor [text]
+  (do-gen [y (gen-coordinate text)
+           x (gen-coordinate (get text y))]
     [x y]))
 
-(def gen-line
-  (->> gen/char-alphanumeric
-       (gen/vector)
-       (gen/such-that (comp not empty?))))
+(defn gen-line-of [size]
+  (gen/vector gen/char-alphanumeric size))
 
-(def gen-text
-  (->> gen-line
-       (gen/vector)
-       (gen/such-that (comp not empty?))))
+;; FIXME: The test checks apparently don't work when lines are empty
+(def gen-nonempty-line
+  (do-gen [size (gen/choose 1 10)
+           line (gen-line-of size)]
+    line))
+
+(defn gen-text-of [size]
+  (gen/vector gen-nonempty-line size))
+
+(def gen-nonempty-text
+  (do-gen [size (gen/choose 1 10)
+           text (gen-text-of size)]
+    text))
 
 (def gen-seeker
-  (->> gen-text
-       (gen/fmap i/seeker)
-       (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
+  (do-gen [text   gen-nonempty-text
+           cursor (gen-cursor text)]
+    (-> text (i/seeker) (i/reset-to cursor))))
 
 (defn gen-seeker-of [size]
-  (->> (gen/vector gen-line size)
-       (gen/fmap i/seeker)
-       (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
+  (do-gen [text   (gen-text-of size)
+           cursor (gen-cursor text)]
+    (-> text (i/seeker) (i/reset-to cursor))))
 
 (defn gen-completion [size]
-  (letfn [(candidate [s]
-            {:candidate s
-             :ns        ""
-             :type      ""})]
-    (->> (gen/vector (gen/not-empty gen/string-alphanumeric) size)
-         (gen/fmap (fn [ss] {:completions (map candidate ss)})))))
+  (do-gen [candidates (-> gen/string-alphanumeric (gen/not-empty) (gen/vector size))]
+    {:completions (mapv (fn [s]
+                          {:candidate s
+                           :ns        ""
+                           :type      ""}) candidates)}))
 
 (defn gen-evaluation [string]
   (gen/return {:value string}))

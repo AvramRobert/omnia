@@ -101,8 +101,8 @@
 (defn peering [seeker]
   (peer-at-start seeker)
   (peer-at-end seeker)
-  (peer-inserting-line seeker (one gen-line))
-  (peer-inserting-and-removing-line seeker (one gen-line))
+  (peer-inserting-line seeker (one gen-nonempty-line))
+  (peer-inserting-and-removing-line seeker (one gen-nonempty-line))
   (peer-removing-previous-lines seeker)
   (peer-removing-next-lines seeker)
   (peer-creating-line-when-empty seeker))
@@ -164,9 +164,9 @@
 (defn splitting [seeker]
   (split-removing-line-start seeker)
   (split-removing-line-end seeker)
-  (split-creating-new-line seeker (one gen-line))
-  (split-enhancing-line seeker (one gen-line))
-  (split-replacing-line seeker (one gen-text))
+  (split-creating-new-line seeker (one gen-nonempty-line))
+  (split-enhancing-line seeker (one gen-nonempty-line))
+  (split-replacing-line seeker (one gen-nonempty-text))
   (split-creating-line-when-empty seeker))
 
 (defspec splitting-test
@@ -222,8 +222,8 @@
 (defn slicing [seeker]
   (slice-removing-left-of-line seeker)
   (slice-removing-right-of-line seeker)
-  (slice-enhancing-line seeker (one gen-line))
-  (slice-replacing-line seeker (one gen-line))
+  (slice-enhancing-line seeker (one gen-nonempty-line))
+  (slice-replacing-line seeker (one gen-nonempty-line))
   (slice-creating-line-when-empty seeker))
 
 (defspec slicing-test
@@ -252,7 +252,7 @@
 
 (defn moving [seeker]
   (bound-movement seeker)
-  (unbound-movement seeker (one gen-line)))
+  (unbound-movement seeker (one gen-nonempty-line)))
 
 (defspec moving-test
          NR-OF-TESTS
@@ -280,7 +280,7 @@
         (is))))
 
 (defn retrieving [seeker]
-  (get-previous-char seeker (many gen-line 2))
+  (get-previous-char seeker (many gen-nonempty-line 2))
   (get-current-char seeker))
 
 (defspec retrieving-test
@@ -308,9 +308,9 @@
       (should-be #(-> % (i/go-forward) (after? %)))))
 
 (defn progressing [seeker]
-  (simple-progress seeker (one gen-line))
+  (simple-progress seeker (one gen-nonempty-line))
   (stop-progress-when-text-ends seeker)
-  (wrap-when-line-ends seeker (one gen-text)))
+  (wrap-when-line-ends seeker (one gen-nonempty-text)))
 
 (defspec progressing-test
          NR-OF-TESTS
@@ -339,9 +339,9 @@
       (should-be #(-> % (i/go-back) (before? %)))))
 
 (defn regressing [seeker]
-  (simple-regress seeker (one gen-line))
+  (simple-regress seeker (one gen-nonempty-line))
   (stop-regress-when-start seeker)
-  (wrap-when-line-starts seeker (one gen-text)))
+  (wrap-when-line-starts seeker (one gen-nonempty-text)))
 
 (defspec regressing-test
          NR-OF-TESTS
@@ -366,7 +366,7 @@
         (should-be #(-> (i/move-y % inc) (i/end-x) (i/go-up) (there? (i/end-x %)))))))
 
 (defn climbing [seeker]
-  (simple-ascent seeker (one gen-text))
+  (simple-ascent seeker (one gen-nonempty-text))
   (ascent-to-end-of-line seeker))
 
 (defspec climbing-test
@@ -392,7 +392,7 @@
         (should-be #(-> (i/move-y % dec) (i/end-x) (i/go-down) (there? (i/end-x %)))))))
 
 (defn falling [seeker]
-  (simple-descent seeker (one gen-text))
+  (simple-descent seeker (one gen-nonempty-text))
   (descent-to-end-of-line seeker))
 
 (defspec falling-test
@@ -506,7 +506,7 @@
   (insert-pairs seeker)
   (insert-ignoring-simple-parens seeker)
   (insert-replacing-selection seeker
-                              (one gen-text)
+                              (one gen-nonempty-text)
                               (one gen/char-alphanumeric)))
 
 (defspec inserting-test
@@ -562,15 +562,15 @@
                    #(-> (i/end-x %) (i/jump-left) (i/jump-left) (i/jump-left) (i/right) (= (first line1)))))))
 
 (defn jumping [seeker]
-  (jump-over-words seeker (one gen-text))
+  (jump-over-words seeker (one gen-nonempty-text))
   (jump-between-lines seeker)
-  (jump-until-expr-ends seeker (one gen-line))
+  (jump-until-expr-ends seeker (one gen-nonempty-line))
   (jump-until-spaces seeker
-                     (one gen-line)
-                     (one gen-line))
+                     (one gen-nonempty-line)
+                     (one gen-nonempty-line))
   (jump-over-spaces seeker
-                    (one gen-line)
-                    (one gen-line)))
+                    (one gen-nonempty-line)
+                    (one gen-nonempty-line)))
 
 (defspec jumping-test
          NR-OF-TESTS
@@ -615,9 +615,9 @@
                  #(-> (i/selection %) (:end) (= (:cursor (i/end %)))))))
 
 (defn selecting [seeker]
-  (select-single-chars seeker (one gen-text))
+  (select-single-chars seeker (one gen-nonempty-text))
   (select-when-jumping seeker)
-  (select-lines seeker (one gen-text))
+  (select-lines seeker (one gen-nonempty-text))
   (select-blocks seeker))
 
 (defspec selecting-test
@@ -739,14 +739,14 @@
     [[\( \)] [\[ \]] [\{ \}]]))
 
 (defn expanding [seeker]
-  (expand-to-words seeker (one gen-line) (one gen-line))
+  (expand-to-words seeker (one gen-nonempty-line) (one gen-nonempty-line))
   (expand-from-words-to-expr seeker)
-  (expand-over-one-expr seeker (one gen-line))
+  (expand-over-one-expr seeker (one gen-nonempty-line))
   (expand-from-inner-to-outer-expr seeker
-                                   (one gen-line)
-                                   (one gen-line)
-                                   (one gen-line))
-  (expand-over-all-expr seeker (one gen-line)))
+                                   (one gen-nonempty-line)
+                                   (one gen-nonempty-line)
+                                   (one gen-nonempty-line))
+  (expand-over-all-expr seeker (one gen-nonempty-line)))
 
 (defspec expanding-test
          NR-OF-TESTS
@@ -777,8 +777,8 @@
       (should-be #(-> (i/copy %) (:clipboard) (<=>seeker (i/seeker some-text))))))
 
 (defn copying [seeker]
-  (copy-within-line seeker (one gen-line) (one gen-line))
-  (copy-lines seeker (one gen-text)))
+  (copy-within-line seeker (one gen-nonempty-line) (one gen-nonempty-line))
+  (copy-lines seeker (one gen-nonempty-text)))
 
 (defspec copying-test
          NR-OF-TESTS
@@ -810,8 +810,8 @@
                  #(<=>seeker (i/cut %) (i/backspace %)))))
 
 (defn cutting [seeker]
-  (cut-within-line seeker (one gen-line) (one gen-line))
-  (cut-lines seeker (one gen-text)))
+  (cut-within-line seeker (one gen-nonempty-line) (one gen-nonempty-line))
+  (cut-lines seeker (one gen-nonempty-text)))
 
 (defspec cutting-test
          NR-OF-TESTS
@@ -870,15 +870,15 @@
         (<=>seeker expected))))
 
 (defn pasting [seeker]
-  (paste-new-line seeker (one gen-line))
-  (paste-within-line seeker (one gen-line))
+  (paste-new-line seeker (one gen-nonempty-line))
+  (paste-within-line seeker (one gen-nonempty-line))
   (paste-overriding-selection seeker
-                              (one gen-text)
-                              (one gen-line))
+                              (one gen-nonempty-text)
+                              (one gen-nonempty-line))
   (paste-concatenating-lines seeker
-                             (one gen-line)
-                             (one gen-line)
-                             (one gen-line)))
+                             (one gen-nonempty-line)
+                             (one gen-nonempty-line)
+                             (one gen-nonempty-line)))
 
 (defspec pasting-test
          NR-OF-TESTS
@@ -931,7 +931,7 @@
 
 (defn pairing [seeker]
   (pair-outer-parens seeker)
-  (pair-inner-parens seeker (one gen-line))
+  (pair-inner-parens seeker (one gen-nonempty-line))
   (dont-pair-unbalanced-parens seeker))
 
 (defspec pairing-test
