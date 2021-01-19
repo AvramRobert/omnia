@@ -250,6 +250,10 @@
   [seeker :- Seeker]
   (sym-at seeker))
 
+(s/defn prev-char :- (s/maybe Character)
+  [seeker :- Seeker]
+  (left seeker))
+
 (s/defn current-char :- (s/maybe Character)
   [seeker :- Seeker]
   (right seeker))

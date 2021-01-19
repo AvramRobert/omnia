@@ -30,7 +30,7 @@
                                 (r/with-text text-full-clip)
                                 (r/input-area)
                                 (:clipboard))]
-    (<=>seeker expected-clipboard actual-clipboard)))
+    (is (i/equivalent? expected-clipboard actual-clipboard))))
 
 (defn clipboard-preservation [ctx text]
   (let [text-empty-clip    (assoc text :clipboard nil)
@@ -40,7 +40,7 @@
                                (r/with-text text-empty-clip)
                                (r/input-area)
                                (:clipboard))]
-    (<=>seeker expected-clipboard actual-clipboard)))
+    (is (i/equivalent? expected-clipboard actual-clipboard))))
 
 (s/defn manipulations [ctx :- r/Context, seeker :- i/Seeker]
   (automatic-preview-refresh ctx seeker)

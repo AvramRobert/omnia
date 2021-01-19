@@ -21,10 +21,6 @@
   ([generator] (many generator (rand-int 100)))
   ([generator n] (vec (repeatedly n #(one generator)))))
 
-(defmacro <=>seeker [this-seeker that-seeker]
-  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
-       (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
-
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
@@ -41,7 +37,6 @@
 (defn gen-line-of [size]
   (gen/vector gen/char-alphanumeric size))
 
-;; FIXME: The test checks apparently don't work when lines are empty
 (def gen-nonempty-line
   (do-gen [size (gen/choose 1 10)
            line (gen-line-of size)]
