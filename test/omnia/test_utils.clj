@@ -121,7 +121,7 @@
                                    :port    0
                                    :history history-seekers
                                    :client  (constantly response)}))
-        (r/with-text input-seeker)
+        (r/with-input-area input-seeker)
         (r/with-hud (h/hud hud-seeker fov)))))
 
 (def up (e/event e/up))
@@ -227,36 +227,36 @@
 (s/defn at-input-start :- Context
   [ctx :- Context]
   (let [text (-> ctx (r/input-area) (i/start))]
-    (-> ctx (r/with-text text) (r/refresh))))
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-input-end :- Context
   [ctx :- Context]
   (let [text (-> ctx (r/input-area) (i/end))]
-    (-> ctx (r/with-text text) (r/refresh))))
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-line-start :- Context
   [ctx :- Context]
   (let [text (-> ctx (r/input-area) (i/start-x))]
-    (-> ctx (r/with-text text) (r/refresh))))
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-line-end :- Context
   [ctx :- Context]
   (let [text (-> ctx (r/input-area) (i/end-x))]
-    (-> ctx (r/with-text text) (r/refresh))))
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-view-top :- Context
   [ctx :- Context]
   (let [fov       (-> ctx (r/preview-hud) (h/field-of-view))
         top-line #(-- % (dec fov))                          ;; (dec) because we want to land on the fov'th line
         text      (-> ctx (r/input-area) (i/move-y top-line))]
-    (-> ctx (r/with-text text) (r/refresh))))
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-view-bottom :- Context
   [ctx :- Context]
   (let [fov         (-> ctx (r/preview-hud) (h/field-of-view))
         bottom-line #(+ % (dec fov))                        ;; (dec) because we want to land on the last fov'th line
         text        (-> ctx (r/input-area) (i/move-y bottom-line))]
-    (-> ctx (r/with-text text) (r/refresh))))
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-main-view-start :- Context
   [ctx :- Context]

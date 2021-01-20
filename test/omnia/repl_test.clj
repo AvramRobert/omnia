@@ -17,7 +17,7 @@
         new-hud          (-> ctx (r/persisted-hud) (h/enrich-with [text]))
         expected-preview (-> new-hud (h/enrich-with [some-input]))
         actual-preview   (-> ctx
-                             (r/with-text some-input)
+                             (r/with-input-area some-input)
                              (r/with-hud new-hud)
                              (r/preview-hud))]
     (is (= expected-preview actual-preview))))
@@ -27,7 +27,7 @@
         text-full-clip      (assoc text :clipboard expected-clipboard)
         actual-clipboard    (-> ctx
                                 (process [select-all copy])
-                                (r/with-text text-full-clip)
+                                (r/with-input-area text-full-clip)
                                 (r/input-area)
                                 (:clipboard))]
     (is (i/equivalent? expected-clipboard actual-clipboard))))
@@ -37,7 +37,7 @@
         expected-clipboard (r/input-area ctx)
         actual-clipboard    (-> ctx
                                 (process [select-all copy])
-                               (r/with-text text-empty-clip)
+                               (r/with-input-area text-empty-clip)
                                (r/input-area)
                                (:clipboard))]
     (is (i/equivalent? expected-clipboard actual-clipboard))))
@@ -81,7 +81,7 @@
                          (at-view-bottom))
         new-text     (-> initial-view (r/input-area) (i/move-y #(+ % 2)))
         new-view     (-> initial-view
-                         (r/with-text new-text)
+                         (r/with-input-area new-text)
                          (r/refresh)
                          (r/calibrate))]
     (is (= 0 (overview new-view)))))
@@ -90,7 +90,7 @@
   (let [initial-view (-> ctx (at-main-view-start))
         new-text     (-> initial-view (r/input-area) (i/move-y #(- % 2)))
         new-view     (-> initial-view
-                         (r/with-text new-text)
+                         (r/with-input-area new-text)
                          (r/refresh)
                          (r/calibrate))]
     (is (= 2 (overview new-view)))))

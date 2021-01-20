@@ -35,8 +35,8 @@
    :render        Render
    :previous-hud  Hud
    :persisted-hud Hud
-   :complete-hud  Hud
-   :seeker        Seeker
+   :preview-hud   Hud
+   :input-area    Seeker
    :suggestions   Hud
    :documentation Hud
    :signatures    Hud
@@ -78,8 +78,8 @@
      :render        :diff
      :previous-hud  previous
      :persisted-hud persisted
-     :complete-hud  preview
-     :seeker        input
+     :preview-hud  preview
+     :input-area        input
      :suggestions   h/empty-hud
      :documentation h/empty-hud
      :signatures    h/empty-hud
@@ -92,7 +92,7 @@
 
 (s/defn preview-hud :- Hud
   [ctx :- Context]
-  (:complete-hud ctx))
+  (:preview-hud ctx))
 
 (s/defn persisted-hud :- Hud
   [ctx :- Context]
@@ -104,7 +104,7 @@
 
 (s/defn input-area :- Seeker
   [ctx :- Context]
-  (:seeker ctx))
+  (:input-area ctx))
 
 (s/defn client :- REPLClient
   [ctx :- Context]
@@ -145,14 +145,14 @@
 (s/defn refresh :- Context
   [ctx :- Context]
   (assoc ctx
-    :previous-hud (:complete-hud ctx)
-    :complete-hud (-> ctx (:persisted-hud) (h/enrich-with [(:seeker ctx)]))))
+    :previous-hud (:preview-hud ctx)
+    :preview-hud (-> ctx (:persisted-hud) (h/enrich-with [(:input-area ctx)]))))
 
 (s/defn with-preview :- Context
   [ctx :- Context, hud :- Hud]
   (assoc ctx
-    :previous-hud (:complete-hud ctx)
-    :complete-hud hud))
+    :previous-hud (:preview-hud ctx)
+    :preview-hud hud))
 
 (s/defn with-persisted :- Context
   [ctx :- Context, hud :- Hud]
@@ -166,7 +166,7 @@
 
 (s/defn with-unrefreshed-preview :- Context
   [ctx :- Context, hud :- Hud]
-  (assoc ctx :complete-hud hud))
+  (assoc ctx :preview-hud hud))
 
 (s/defn reset-highlights :- Context
   [ctx :- Context]
@@ -213,11 +213,11 @@
      :scheme scheme
      :styles []}))
 
-(s/defn with-text [ctx :- Context, input :- Seeker] :- Context
+(s/defn with-input-area [ctx :- Context, input :- Seeker] :- Context
   (let [clipboard (or (:clipboard input)
                       (-> ctx (input-area) (:clipboard)))
         new-text  (assoc input :clipboard clipboard)]
-    (assoc ctx :seeker new-text)))
+    (assoc ctx :input-area new-text)))
 
 (s/defn with-server :- Context
   [ctx :- Context, repl :- REPLClient]
@@ -360,7 +360,7 @@
     (-> ctx
         (with-unrefreshed-preview preview)
         (with-persisted persisted)
-        (with-text input))))
+        (with-input-area input))))
 
 (s/defn scroll-up :- Context
   [ctx :- Context]
@@ -388,7 +388,7 @@
         then-seeker (-> (r/then then-server)
                         (i/end)
                         (assoc :clipboard clipboard))]
-    (-> ctx (with-server then-server) (with-text then-seeker) (refresh))))
+    (-> ctx (with-server then-server) (with-input-area then-seeker) (refresh))))
 
 (s/defn prev-eval :- Context
   [ctx :- Context]
@@ -408,7 +408,7 @@
                           (h/enrich-with [current-input result caret]))]
     (-> ctx
         (with-server server')
-        (with-text i/empty-line)
+        (with-input-area i/empty-line)
         (with-hud new-hud))))
 
 (s/defn suggestion-window :- Hud
@@ -433,7 +433,7 @@
                         (h/pop-up suggestions))]
     (-> ctx
         (with-suggestions suggestions)
-        (with-text text)
+        (with-input-area text)
         (with-preview preview)
         (deselect))))
 
@@ -483,12 +483,12 @@
   [ctx   :- Context
    event :- Event]
   (let [new-input (-> ctx (input-area) (i/process event))]
-    (-> ctx (with-text new-input) (refresh))))
+    (-> ctx (with-input-area new-input) (refresh))))
 
 (s/defn reformat :- Context
   [ctx :- Context]
   (let [formatted (-> ctx (input-area) (f/format-seeker))]
-    (-> ctx (with-text formatted) (refresh))))
+    (-> ctx (with-input-area formatted) (refresh))))
 
 (s/defn inject :- Context
   [ctx   :- Context
