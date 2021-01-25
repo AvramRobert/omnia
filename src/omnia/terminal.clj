@@ -9,9 +9,31 @@
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna.terminal.swing TerminalEmulatorColorConfiguration TerminalEmulatorPalette SwingTerminalFontConfiguration)
            (java.awt Font)
-           (java.io File)))
+           (java.io File)
+           (clojure.lang IPersistentVector Keyword)))
 
-; === Lanterna Terminal ===
+(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event!))
+
+(def TerminalSpec
+  {TerminalFn s/Any})
+
+(defprotocol Terminal
+  (move! [_
+          ^Integer x
+          ^Integer y])
+  (put! [_
+         ^Character char
+         ^Integer x
+         ^Integer y
+         ^Keyword fg
+         ^Keyword bg
+         ^IPersistentVector styles])
+  (size [_])
+  (clear! [_])
+  (refresh! [_])
+  (stop! [_])
+  (start! [_])
+  (get-event! [_]))
 
 ;; terminal gray   (TextColor$Indexed/fromRGB (int 51) (int 51) (int 51))
 ;; terminal yellow (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6))
@@ -19,7 +41,10 @@
 
 (def title (str "omnia-" (omnia-version)))
 
-(def colours
+(def Colour (s/enum :black :white :red :green :blue :cyan :magenta :yellow :default))
+(def Style (s/enum :bold :blinking :underline :strikethrough)) ;; :reverse :circled :fraktur :reverse (could support, but not yet)
+
+(def preset-colours
   {:black   TextColor$ANSI/BLACK
    :white   (TextColor$Indexed/fromRGB (int 171) (int 174) (int 168)) ;; TextColor$ANSI/WHITE
    :red     TextColor$ANSI/RED
@@ -30,7 +55,7 @@
    :yellow  (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6)) ;;TextColor$ANSI/YELLOW
    :default TextColor$ANSI/DEFAULT})
 
-(def styles
+(def all-styles
   {:bold          SGR/BOLD
    :reverse       SGR/REVERSE
    :blinking      SGR/BLINK
@@ -80,16 +105,6 @@
    KeyType/MouseEvent     :mouse-event
    KeyType/EOF            :eof})
 
-(def Terminal
-  {:size       s/Any
-   :move!      s/Any
-   :clear!     s/Any
-   :refresh!   s/Any
-   :stop!      s/Any
-   :start!     s/Any
-   :put!       s/Any
-   :get-event! s/Any})
-
 (s/defn to-key-binding :- c/InternalKeyBinding
   [pressed :- KeyStroke]
   (let [event (-> pressed (.getKeyType) (key-events))]
@@ -116,39 +131,58 @@
       character? (e/event e/character key)
       :else      (e/event action))))
 
-(defn move! [terminal x y]
-  ((:move! terminal) x y))
+(s/defn text-char :- TextCharacter
+  [char       :- Character
+   foreground :- Colour
+   background :- Colour
+   styles     :- [Style]]
+  (let [styles    ^IPersistentVector styles
+        text-char ^TextCharacter (-> (TextCharacter. char)
+                                     (.withBackgroundColor (preset-colours background :default))
+                                     (.withForegroundColor (preset-colours foreground :white)))]
+    (if (> (.count styles) 0) ;; much faster
+      (->> styles (mapv all-styles) (.withModifiers text-char))
+      text-char)))
 
-(defn put! [terminal ch x y foreground background styles]
-  ((:put! terminal) ch x y foreground background styles))
+(s/defn impl-put! :- nil
+  [terminal   :- TerminalScreen
+   char       :- Character
+   x          :- s/Int
+   y          :- s/Int
+   foreground :- Colour
+   background :- Colour
+   styles     :- [Style]]
+  (->> (text-char char foreground background styles)
+       (.setCharacter terminal x y)))
 
-(defn clear! [terminal]
-  ((:clear! terminal)))
+(s/defn impl-move! [t :- TerminalScreen
+                    x :- s/Int
+                    y :- s/Int]
+  (.setCursorPosition t (TerminalPosition. x y)))
 
-(defn stop! [terminal]
-  ((:stop! terminal)))
+(s/defn impl-size! :- s/Int
+  [screen :- TerminalScreen]
+  (-> screen (.getTerminalSize) (.getRows)))
 
-(defn start! [terminal]
-  ((:start! terminal)))
+(s/defn impl-clear! :- nil
+  [screen :- TerminalScreen]
+  (.clear screen))
 
-(defn refresh! [terminal]
-  ((:refresh! terminal)))
+(s/defn impl-stop! :- nil
+  [screen :- TerminalScreen]
+  (.stopScreen screen))
 
-(defn get-event! [terminal]
-  ((:get-event! terminal)))
+(s/defn impl-start! :- nil
+  [screen :- TerminalScreen]
+  (.startScreen screen))
 
-(defn size [terminal]
-  ((:size terminal)))
+(s/defn impl-refresh! :- nil
+  [screen :- TerminalScreen]
+  (.refresh screen))
 
-(defn- pos [x y]
-  (TerminalPosition. x y))
-
-(defn- text-char [^Character ch fg bg stls]
-  (-> (TextCharacter. ch)
-      (.withBackgroundColor (colours bg :default))
-      (.withForegroundColor (colours fg :white))
-      (cond->
-        (not (empty? stls)) (.withModifiers (mapv styles stls)))))
+(s/defn impl-get-event! :- nil
+  [screen :- TerminalScreen, config :- c/Config]
+  (-> screen (.readInput) (to-key-binding) (to-event config)))
 
 (defn- custom-font [^String path]
   (->> (File. path) (Font/createFont Font/TRUETYPE_FONT)))
@@ -162,31 +196,28 @@
 (defn- derive-font [config]
   (SwingTerminalFontConfiguration/newInstance (into-array Font [(font-of "./Hasklig-Regular.otf" 15)])))
 
-(s/defn terminal [config :- c/Config] :- Terminal
-  (let [terminal (-> (DefaultTerminalFactory.)
-                     (.setTerminalEmulatorColorConfiguration (derive-palette config))
-                     (.setTerminalEmulatorFontConfiguration (derive-font config))
-                     (.setTerminalEmulatorTitle title)
-                     (.createTerminalEmulator)
-                     (TerminalScreen.))]
-    {:size       (fn []
-                   (-> terminal (.getTerminalSize) (.getRows)))
-
-     :move!      (fn [x y]
-                   (.setCursorPosition terminal (pos x y)))
-
-     :put!       (fn [^Character ch x y fg bg stls]
-                   (.setCharacter terminal x y (text-char ch fg bg stls)))
-
-     :clear!     (fn [] (.clear terminal))
-
-     :refresh!   (fn [] (.refresh terminal))
-
-     :stop!      (fn []
-                   (.stopScreen terminal true))
-
-     :start!     (fn []
-                   (.startScreen terminal))
-
-     :get-event! (fn []
-                   (->> terminal (.readInput) (to-key-binding) (to-event config)))}))
+(s/defn terminal :- Terminal
+  [config :- c/Config]
+  (let [screen ^TerminalScreen (-> (DefaultTerminalFactory.)
+                                   (.setTerminalEmulatorColorConfiguration (derive-palette config))
+                                   (.setTerminalEmulatorFontConfiguration (derive-font config))
+                                   (.setTerminalEmulatorTitle title)
+                                   (.createTerminalEmulator)
+                                   (TerminalScreen.))]
+    (reify Terminal
+      (refresh! [_]
+        (impl-refresh! screen))
+      (stop! [_]
+        (impl-stop! screen))
+      (start! [_]
+        (impl-start! screen))
+      (clear! [_]
+        (impl-clear! screen))
+      (move! [_ x y]
+        (impl-move! screen x y))
+      (get-event! [_]
+        (impl-get-event! screen config))
+      (size [_]
+        (impl-size! screen))
+      (put! [_ ch x y fg bg stls]
+        (impl-put! screen ch x y fg bg stls)))))

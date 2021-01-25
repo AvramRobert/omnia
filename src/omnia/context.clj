@@ -327,11 +327,12 @@
 
 (s/defn resize :- Context
   [ctx :- Context]
-  (let [current-fov (-> ctx (persisted-hud) (h/field-of-view))
+  (let [persisted   (persisted-hud ctx)
+        current-fov (h/field-of-view persisted)
         new-fov     (-> ctx (terminal) (t/size))]
     (if (not= new-fov current-fov)
       (-> ctx
-          (with-persisted (-> ctx (persisted-hud) (h/resize new-fov)))
+          (with-persisted (h/resize persisted new-fov))
           (refresh)
           (calibrate)
           (re-render))
