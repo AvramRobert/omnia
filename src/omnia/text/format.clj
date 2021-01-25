@@ -1,10 +1,10 @@
-(ns omnia.format
-  (:require [omnia.input :as i]
-            [omnia.more :refer [--]]
+(ns omnia.text.format
+  (:require [fipp.visit :refer [visit]]
+            [omnia.text.core :as i]
+            [omnia.util.arithmetic :refer [--]]
             [fipp.engine :as e]
-            [clojure.edn :as clj-edn]
             [fipp.edn :as edn]
-            [fipp.visit :refer [visit]]
+            [clojure.edn :as clj-edn]
             [clojure.string :as s]
             [instaparse.core :as p]
             [halfling.task :as t]))

@@ -1,10 +1,11 @@
-(ns omnia.input
+(ns omnia.text.core
   (:require [clojure.core.match :as m]
             [schema.core :as s]
-            [omnia.event :as e]
+            [omnia.config.components.event :as e]
             [clojure.string :refer [join split-lines]]
             [clojure.set :refer [union map-invert]]
-            [omnia.more :refer [=> do-until Point Region]]))
+            [omnia.util.schema :refer [=> Point Region]]
+            [omnia.util.collection :refer [do-until]]))
 
 (def Line [Character])
 

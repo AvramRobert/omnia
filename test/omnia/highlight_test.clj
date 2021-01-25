@@ -2,8 +2,8 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.string :refer [split]]
             [clojure.set :refer [difference]]
-            [omnia.more :refer [map-vals]]
-            [omnia.highlighting :as h]))
+            [omnia.util.collection :refer [map-vals]]
+            [omnia.text.highlighting :as h]))
 
 (def triggers
   (assoc h/triggers

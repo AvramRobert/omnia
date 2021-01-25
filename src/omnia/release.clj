@@ -1,9 +1,8 @@
 (ns omnia.release
-  (:require [omnia.config :as c]
-            [omnia.more :as m]
-            [clojure.java.shell :as s]
+  (:require [clojure.java.shell :as s]
             [halfling.task :as t]
-            [omnia.format :as f]))
+            [omnia.config.core :refer [default-config]]
+            [omnia.util.misc :refer [omnia-version]]))
 
 (defn sh [& args]
   (-> (t/task (apply s/sh args))
@@ -39,7 +38,7 @@
 
 (defn release-for [os]
   (t/do-tasks
-    [version     (m/omnia-version)
+    [version     (omnia-version)
      ;system      (name os)
      title       (format "omnia-%s" version)
      sa-title    (format "%s-standalone" title)
@@ -51,7 +50,7 @@
      _     (sh "mkdir" directory)
      _     (sh "cp" (format "target/uberjar/%s.jar" sa-title) directory)
      _     (sh "mv" (format "%s%s.jar" directory sa-title) (format "%s%s.jar" directory title))
-     _     (spit config-file c/default-config)
+     _     (spit config-file default-config)
      _     (spit exec-file exec)
      _     (println "Creating tar..")
      _     (sh "tar" "-cvf" (format "%s.tar" title) (format "./%s" directory))

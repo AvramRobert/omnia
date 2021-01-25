@@ -1,10 +1,10 @@
 (ns omnia.input-test
-  (:require [omnia.input :as i]
-            [omnia.more :refer [time-return]]
-            [clojure.test :refer [is]]
+  (:require [clojure.test.check.generators :as gen]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
-            [clojure.test.check.generators :as gen]
+            [clojure.test :refer [is]]
+            [omnia.text.core :as i]
+            [omnia.util.debug :refer [time-return]]
             [omnia.test-utils :refer :all]))
 
 (def ^:const NR-OF-TESTS 100)

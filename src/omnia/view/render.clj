@@ -1,13 +1,16 @@
-(ns omnia.render
-  (:require [omnia.terminal :as t]
-            [omnia.input :as i]
-            [omnia.hud :as h]
-            [omnia.context :as c]
-            [schema.core :as s]
-            [omnia.config :as co]
-            [omnia.highlighting :refer [fold -text -back]]
-            [omnia.context :refer [Context]]
-            [omnia.more :refer [Point Region merge-culling map-vals reduce-idx --]]))
+(ns omnia.view.render
+  (:require [schema.core :as s]
+            [omnia.view.terminal :as t]
+            [omnia.text.core :as i]
+            [omnia.repl.hud :as h]
+            [omnia.repl.context :as c]
+            [omnia.config.components.core :refer [SyntaxConfig]]
+            [omnia.config.components.text :refer [backgrounds syntax-element Style]]
+            [omnia.text.highlighting :refer [fold -text]]
+            [omnia.repl.context :refer [Context]]
+            [omnia.util.schema :refer [Point Region]]
+            [omnia.util.collection :refer [merge-culling map-vals reduce-idx]]
+            [omnia.util.arithmetic :refer [--]]))
 
 (def HighlightPattern
   {:current c/Highlights
@@ -23,8 +26,8 @@
   {:line                        [Character]
    :at                          s/Int
    :terminal                    t/Terminal
-   :scheme                      co/Syntax
-   :styles                      [s/Keyword]
+   :scheme                      SyntaxConfig
+   :styles                      [Style]
    (s/optional-key :sub-region) Point
    (s/optional-key :padding)    s/Int})
 
@@ -69,8 +72,8 @@
     cs       :scheme
     styles   :styles} :- PrintInstruction]
   (letfn [(put! [ch x y emission]
-            (let [fg (cs emission)
-                  bg (cs -back)]
+            (let [fg (get cs (syntax-element emission))
+                  bg (get cs backgrounds)]
               (t/put! terminal ch x y fg bg styles)))
           (pad! [x]
             (when padding

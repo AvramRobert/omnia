@@ -1,6 +1,6 @@
-(ns omnia.highlighting
+(ns omnia.text.highlighting
   (:require [schema.core :as s]
-            [omnia.more :refer [=>]]
+            [omnia.util.schema :refer [=>]]
             [clojure.set :refer [intersection]]))
 
 (def ^:const -list :list)
@@ -16,8 +16,9 @@
 (def ^:const -function :function)
 (def ^:const -word :word)
 (def ^:const -comma :comma)
-(def ^:const -select :selection)
-(def ^:const -back :background)
+
+(def Emission
+  (s/enum -list -vector -map -set -number -char -keyword -text -string -comment -function -word -comma))
 
 (def ^:private ^:const  open-list-node :open-list)
 (def ^:private ^:const  closed-list-node :close-list)
@@ -59,7 +60,7 @@
 
 (def State
   {:node       Node
-   :emission   (=> [Character] s/Keyword)
+   :emission   (=> [Character] Emission)
    :transition (=> Character (s/maybe Node))})
 
 (def triggers

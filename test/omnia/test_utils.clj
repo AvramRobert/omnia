@@ -1,19 +1,22 @@
 (ns omnia.test-utils
   (:require [clojure.test :refer [is]]
-            [omnia.hud :refer [Hud]]
-            [omnia.context :refer [Context HighlightType]]
-            [omnia.input :refer [Seeker]]
-            [omnia.event :refer [Event InputEvent]]
-            [omnia.more :refer [-- Point Region do-gen]]
-            [omnia.config :as c]
-            [omnia.input :as i]
-            [omnia.hud :as h]
-            [omnia.context :as r]
-            [omnia.nrepl :as server]
-            [omnia.terminal :as t]
-            [omnia.event :as e]
+            [omnia.repl.context :refer [Context HighlightType]]
+            [omnia.text.core :refer [Seeker]]
+            [omnia.config.components.event :refer [Event InputEvent]]
+            [omnia.util.schema :refer [Point Region]]
+            [omnia.util.arithmetic :refer [--]]
+            [omnia.util.generator :refer [do-gen]]
+            [omnia.repl.hud :refer [Hud]]
             [schema.core :as s]
-            [clojure.test.check.generators :as gen]))
+            [clojure.test.check.generators :as gen]
+            [omnia.config.defaults :refer [default-syntax]]
+            [omnia.config.core :as c]
+            [omnia.text.core :as i]
+            [omnia.repl.hud :as h]
+            [omnia.repl.context :as r]
+            [omnia.repl.nrepl :as server]
+            [omnia.view.terminal :as t]
+            [omnia.config.components.event :as e]))
 
 (defn one [generator] (rand-nth (gen/sample generator)))
 
@@ -95,7 +98,7 @@
       (move! [t x y]              ((:move! fns unit) t x y))
       (stop! [t]                  ((:stop! fns unit) t))
       (start! [t]                 ((:start! fns unit) t))
-      (put! [t ch x y fg bg stls] ((:put fns unit) t ch x y fg bg stls))
+      (put! [t ch x y fg bg stls] ((:put! fns unit) t ch x y fg bg stls))
       (get-event! [t]             ((:get-event! fns unit) t)))))
 
 (defn gen-context [{:keys [size fov seeker receive history]
@@ -301,5 +304,5 @@
 (s/defn highlight-from :- r/Highlight
   [region :- Region]
   {:region region
-   :scheme c/default-syntax
+   :scheme default-syntax
    :styles []})

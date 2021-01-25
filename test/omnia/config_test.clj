@@ -4,12 +4,13 @@
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [omnia.test-utils :refer [one should-be]]
-            [omnia.config :as c]
-            [halfling.task :as t]))
+            [halfling.task :as t]
+            [omnia.config.defaults :refer [default-keymap]]
+            [omnia.config.core :as c]))
 
 (def ^:const NR-OF-TESTS 100)
 
-(def gen-keybind (gen/elements c/default-keymap))
+(def gen-keybind (gen/elements default-keymap))
 (defn gen-keybind-unlike [k] (gen/such-that (fn [[ik _]] (not= k ik)) gen-keybind))
 
 (defspec detect-duplicate-bindings
@@ -28,4 +29,4 @@
           (is (contains? k :key))
           (is (contains? k :ctrl))
           (is (contains? k :shift))
-          (is (contains? k :alt))) (c/fix-keymap c/default-keymap)))
+          (is (contains? k :alt))) (c/fix-keymap default-keymap)))

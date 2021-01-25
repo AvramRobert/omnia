@@ -1,26 +1,30 @@
-(ns omnia.context
-  (:require [omnia.nrepl :as r]
-            [omnia.hud :as h]
-            [omnia.input :as i]
-            [omnia.format :as f]
-            [omnia.terminal :as t]
-            [omnia.event :as e]
-            [schema.core :as s]
-            [omnia.event :refer [Event]]
-            [omnia.hud :refer [Hud]]
-            [omnia.terminal :refer [Terminal]]
-            [omnia.input :refer [Seeker]]
-            [omnia.nrepl :refer [REPLClient]]
-            [omnia.more :refer [=> omnia-version map-vals Region]]
-            [omnia.config :refer [InternalConfig Syntax]]))
+(ns omnia.repl.context
+  (:require [schema.core :as s]
+            [omnia.repl.nrepl :as r]
+            [omnia.repl.hud :as h]
+            [omnia.text.core :as i]
+            [omnia.text.format :as f]
+            [omnia.view.terminal :as t]
+            [omnia.config.components.event :as e]
+            [omnia.config.components.event :refer [Event]]
+            [omnia.repl.hud :refer [Hud]]
+            [omnia.view.terminal :refer [Terminal]]
+            [omnia.text.core :refer [Seeker]]
+            [omnia.repl.nrepl :refer [REPLClient]]
+            [omnia.util.schema :refer [=> Region]]
+            [omnia.util.collection :refer [map-vals]]
+            [omnia.util.misc :refer [omnia-version]]
+            [omnia.config.components.text :refer [Style]]
+            [omnia.config.components.core :refer [SyntaxConfig]]
+            [omnia.config.core :refer [Config]]))
 
 (def Render
   (s/enum :diff :total :clear :nothing))
 
 (def Highlight
   {:region Region
-   :scheme Syntax
-   :styles [s/Keyword]})
+   :scheme SyntaxConfig
+   :styles [Style]})
 
 (def HighlightType (s/enum :selection :open-paren :closed-paren))
 
@@ -31,7 +35,7 @@
 (def Context
   {:terminal      Terminal
    :repl          REPLClient
-   :config        InternalConfig
+   :config        Config
    :render        Render
    :previous-hud  Hud
    :persisted-hud Hud
@@ -43,7 +47,6 @@
    :highlights    Highlights
    :garbage       Highlights})
 
-(def delimiter (i/from-string "------"))
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
 (def greeting (i/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
@@ -65,7 +68,7 @@
                         caret]))))
 
 (s/defn context :- Context
-  [config   :- InternalConfig
+  [config   :- Config
    terminal :- Terminal
    repl     :- REPLClient]
   (let [input     i/empty-line
@@ -86,7 +89,7 @@
      :highlights    {}
      :garbage       {}}))
 
-(s/defn configuration :- InternalConfig
+(s/defn configuration :- Config
   [ctx :- Context]
   (:config ctx))
 

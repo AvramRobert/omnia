@@ -1,7 +1,8 @@
-(ns omnia.event
+(ns omnia.config.components.event
   (:require [schema.core :as s]))
 
-(def character :character)                                  ;; replaces char
+(def delete :delete)
+(def character :character)
 (def expand :expand)
 (def select-all :select-all)
 (def paste :paste)
@@ -21,7 +22,7 @@
 (def jump-select-right :jump-select-right)
 (def backspace :backspace)
 (def delete :delete)
-(def break :break)                                          ;; replaces newline
+(def break :break)
 (def undo :undo)
 (def redo :redo)
 
@@ -34,9 +35,9 @@
 (def scroll-down :scroll-down)
 (def prev-eval :prev-eval)
 (def next-eval :next-eval)
-(def indent :indent)                                        ;; replaces format
+(def indent :indent)
 (def clear :clear)
-(def evaluate :evaluate)                                    ;; replaces eval
+(def evaluate :evaluate)
 (def exit :exit)
 (def ignore :ignore)
 (def refresh :refresh)

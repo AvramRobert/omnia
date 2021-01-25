@@ -2,24 +2,24 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
-            [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
-            [omnia.render :refer :all]
-            [omnia.more :refer [map-vals reduce-idx]]
-            [omnia.context :as r]
-            [omnia.hud :as h]
-            [omnia.terminal :as t]
-            [omnia.input :as i]
+            [omnia.view.render :refer :all]
+            [omnia.util.collection :refer [map-vals reduce-idx]]
+            [omnia.util.schema :refer [Point Region]]
+            [clojure.test.check.generators :as gen]
             [schema.core :as s]
-            [omnia.context :as c]
-            [omnia.more :as m])
+            [omnia.repl.context :as r]
+            [omnia.repl.hud :as h]
+            [omnia.view.terminal :as t]
+            [omnia.text.core :as i]
+            [omnia.repl.context :as c])
   (:import (clojure.lang Atom)))
 
 (def ^:const NR-OF-TESTS 100)
 
 (def IndexedCharacter
   {:char   Character
-   :cursor m/Point})
+   :cursor Point})
 
 (def IndexedSeeker
   (assoc i/Seeker :lines [[IndexedCharacter]]))
@@ -37,21 +37,21 @@
 
 (s/defn accumulative :- Accumulate
   [ctx :- r/Context]
-  (let [chars   (atom [])
-        cursors (atom [])
-        bgs     (atom [])
-        fgs     (atom [])
-        stls    (atom [])
-        acc     (fn [atm val] (swap! atm #(conj % val)))
-        size    (t/size (:terminal ctx))]
-    {:ctx (assoc ctx
-            :terminal (test-terminal {:put! (fn [ch x y fg bg stl]
-                                              (acc bgs bg)
-                                              (acc fgs fg)
-                                              (run! #(acc stls %) stl)
-                                              (acc chars ch)
-                                              (acc cursors [x y]))
-                                      :size (fn [] size)}))
+  (let [chars    (atom [])
+        cursors  (atom [])
+        bgs      (atom [])
+        fgs      (atom [])
+        stls     (atom [])
+        acc      (fn [atm val] (swap! atm #(conj % val)))
+        size     (t/size (:terminal ctx))
+        terminal (test-terminal {:put! (fn [_ ch x y fg bg stl]
+                                         (acc bgs bg)
+                                         (acc fgs fg)
+                                         (run! #(acc stls %) stl)
+                                         (acc chars ch)
+                                         (acc cursors [x y]))
+                                 :size (fn [] size)})]
+    {:ctx (assoc ctx :terminal terminal)
      :state {:chars   chars
              :cursors cursors
              :bgs     bgs
@@ -84,7 +84,7 @@
         (flatten))))
 
 (s/defn index-at :- [IndexedCharacter]
-  ([hud :- h/Hud, region :- m/Region]
+  ([hud :- h/Hud, region :- Region]
    (let [indexed (->> hud (h/project-hud) (index-seeker))]
      (->> (h/project-selection hud region)
           (i/extract-for indexed)

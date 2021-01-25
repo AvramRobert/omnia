@@ -1,12 +1,13 @@
-(ns omnia.hud
+(ns omnia.repl.hud
   (:require [schema.core :as s]
-            [omnia.input :as i]
-            [omnia.more :refer [Point Region omnia-version ++ -- mod* inc< dec<]]
-            [omnia.input :refer [Seeker]]
-            [omnia.terminal :refer [Terminal]]
-            [omnia.nrepl :refer [REPLClient]]))
+            [omnia.text.core :as i]
+            [omnia.util.schema :refer [Point Region]]
+            [omnia.util.arithmetic :refer [++ -- mod* inc< dec<]]
+            [omnia.util.misc :refer [omnia-version]]
+            [omnia.text.core :refer [Seeker]]
+            [omnia.view.terminal :refer [Terminal]]
+            [omnia.repl.nrepl :refer [REPLClient]]))
 
-(def caret (i/from-string "Ω =>"))
 (def continuation (i/from-string "..."))
 (def delimiter (i/from-string "------"))
 

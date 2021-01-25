@@ -1,8 +1,11 @@
-(ns omnia.terminal
+(ns omnia.view.terminal
   (:require [schema.core :as s]
-            [omnia.config :as c]
-            [omnia.event :as e]
-            [omnia.more :refer [=> omnia-version]])
+            [omnia.config.components.event :as e]
+            [omnia.config.components.text :as t]
+            [omnia.config.components.core :as c]
+            [omnia.util.schema :refer [=>]]
+            [omnia.config.core :refer [Config]]
+            [omnia.util.misc :refer [omnia-version]])
   (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -41,18 +44,15 @@
 
 (def title (str "omnia-" (omnia-version)))
 
-(def Colour (s/enum :black :white :red :green :blue :cyan :magenta :yellow :default))
-(def Style (s/enum :bold :blinking :underline :strikethrough)) ;; :reverse :circled :fraktur :reverse (could support, but not yet)
-
 (def preset-colours
   {:black   TextColor$ANSI/BLACK
-   :white   (TextColor$Indexed/fromRGB (int 171) (int 174) (int 168)) ;; TextColor$ANSI/WHITE
+   :white   (TextColor$Indexed/fromRGB (int 171) (int 174) (int 168))
    :red     TextColor$ANSI/RED
    :green   TextColor$ANSI/GREEN
    :blue    TextColor$ANSI/BLUE
    :cyan    TextColor$ANSI/CYAN
    :magenta TextColor$ANSI/MAGENTA
-   :yellow  (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6)) ;;TextColor$ANSI/YELLOW
+   :yellow  (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6))
    :default TextColor$ANSI/DEFAULT})
 
 (def all-styles
@@ -60,9 +60,7 @@
    :reverse       SGR/REVERSE
    :blinking      SGR/BLINK
    :underline     SGR/UNDERLINE
-   :circled       SGR/CIRCLED
-   :strikethrough SGR/CROSSED_OUT
-   :fraktur       SGR/FRAKTUR})
+   :strikethrough SGR/CROSSED_OUT})
 
 (def key-events
   {KeyType/Character      :character
@@ -105,7 +103,7 @@
    KeyType/MouseEvent     :mouse-event
    KeyType/EOF            :eof})
 
-(s/defn to-key-binding :- c/InternalKeyBinding
+(s/defn to-key-binding :- c/KeyBinding
   [pressed :- KeyStroke]
   (let [event (-> pressed (.getKeyType) (key-events))]
     {:key   (if (= :character event) (.getCharacter pressed) event)
@@ -115,10 +113,10 @@
 
 ;; Can't i actually skip one hop and just read the input directly to an event?
 (s/defn to-event :- e/Event
-  [config :- c/Config,
-   key-binding :- c/InternalKeyBinding]
+  [keymap      :- c/KeyMap,
+   key-binding :- c/KeyBinding]
   (let [key        (:key key-binding)
-        action     (-> config (:keymap) (get key-binding))
+        action     (get keymap key-binding)
         ;control?   (and (char? key)
         ;                (Character/isISOControl ^Character char)) ;; Swing gives me control characters
         unknown?   (and (nil? action)
@@ -133,9 +131,9 @@
 
 (s/defn text-char :- TextCharacter
   [char       :- Character
-   foreground :- Colour
-   background :- Colour
-   styles     :- [Style]]
+   foreground :- t/Colour
+   background :- t/Colour
+   styles     :- [t/Style]]
   (let [styles    ^IPersistentVector styles
         text-char ^TextCharacter (-> (TextCharacter. char)
                                      (.withBackgroundColor (preset-colours background :default))
@@ -149,9 +147,9 @@
    char       :- Character
    x          :- s/Int
    y          :- s/Int
-   foreground :- Colour
-   background :- Colour
-   styles     :- [Style]]
+   foreground :- t/Colour
+   background :- t/Colour
+   styles     :- [t/Style]]
   (->> (text-char char foreground background styles)
        (.setCharacter terminal x y)))
 
@@ -180,9 +178,9 @@
   [screen :- TerminalScreen]
   (.refresh screen))
 
-(s/defn impl-get-event! :- nil
-  [screen :- TerminalScreen, config :- c/Config]
-  (-> screen (.readInput) (to-key-binding) (to-event config)))
+(s/defn impl-get-event! :- e/Event
+  [screen :- TerminalScreen, keymap :- c/KeyMap]
+  (->> screen (.readInput) (to-key-binding) (to-event keymap)))
 
 (defn- custom-font [^String path]
   (->> (File. path) (Font/createFont Font/TRUETYPE_FONT)))
@@ -191,13 +189,18 @@
   (-> path (custom-font) (.deriveFont Font/BOLD (float size))))
 
 (defn- derive-palette [config]
-  (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL))
+  (let [palette (-> config (:terminal) (:palette))]
+    (case palette
+      :default (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)
+      (TerminalEmulatorColorConfiguration/newInstance palette))))
 
 (defn- derive-font [config]
-  (SwingTerminalFontConfiguration/newInstance (into-array Font [(font-of "./Hasklig-Regular.otf" 15)])))
+  (let [font-name (-> config (:terminal) (:font))
+        font-size (-> config (:terminal) (:font-size))]
+    (SwingTerminalFontConfiguration/newInstance (into-array Font [(font-of font-name font-size)]))))
 
 (s/defn terminal :- Terminal
-  [config :- c/Config]
+  [config :- Config]
   (let [screen ^TerminalScreen (-> (DefaultTerminalFactory.)
                                    (.setTerminalEmulatorColorConfiguration (derive-palette config))
                                    (.setTerminalEmulatorFontConfiguration (derive-font config))
@@ -216,7 +219,7 @@
       (move! [_ x y]
         (impl-move! screen x y))
       (get-event! [_]
-        (impl-get-event! screen config))
+        (impl-get-event! screen (:keymap config)))
       (size [_]
         (impl-size! screen))
       (put! [_ ch x y fg bg stls]

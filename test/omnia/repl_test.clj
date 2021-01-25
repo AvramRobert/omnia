@@ -3,10 +3,10 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [omnia.test-utils :refer :all]
-            [omnia.hud :as h]
-            [omnia.context :as r]
-            [omnia.input :as i]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [omnia.repl.hud :as h]
+            [omnia.repl.context :as r]
+            [omnia.text.core :as i]))
 
 (def ^:const NR-OF-TESTS 100)
 
@@ -362,7 +362,7 @@
                                (h/enrich-with [current-input
                                                result
                                                i/empty-line
-                                               h/caret]))
+                                               r/caret]))
         expected-complete  (h/enrich-with expected-persisted [i/empty-line])]
     (-> ctx
         (process [evaluate])
@@ -652,7 +652,7 @@
         window       (h/riffle-window content content-size)
         text         (r/input-area ctx)
         pop-up-size  (+ content-size 2)
-        expected     (-> (i/conjoin text r/delimiter (i/indent content 1) r/delimiter)
+        expected     (-> (i/conjoin text h/delimiter (i/indent content 1) h/delimiter)
                          (i/rebase #(take-last pop-up-size %)))
         actual       (-> ctx
                          (at-input-end)
@@ -660,8 +660,8 @@
                          (pop-up window)
                          (h/text)
                          (i/rebase #(take-last pop-up-size %)))]
-    (is (= (-> actual (i/start) (i/line)) (i/line r/delimiter)))
-    (is (= (-> actual (i/end) (i/line)) (i/line r/delimiter)))
+    (is (= (-> actual (i/start) (i/line)) (i/line h/delimiter)))
+    (is (= (-> actual (i/end) (i/line)) (i/line h/delimiter)))
     (is (i/equivalent? expected actual))))
 
 (defn empty-pop-up-window [ctx]

@@ -1,11 +1,11 @@
 (ns omnia.nrepl-test
   (:require [clojure.test :refer [deftest is]]
-            [omnia.more :refer [=>]]
             [clojure.string :refer [includes?]]
+            [omnia.util.schema :refer [=>]]
             [schema.core :as s]
-            [omnia.nrepl :as r]
+            [omnia.repl.nrepl :as r]
             [omnia.test-utils :refer :all]
-            [omnia.input :as i]))
+            [omnia.text.core :as i]))
 
 (s/defn with-server :- s/Any
   [f :- (=> r/REPLClient s/Any)]
