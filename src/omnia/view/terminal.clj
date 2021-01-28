@@ -3,10 +3,13 @@
             [omnia.config.components.event :as e]
             [omnia.config.components.text :as t]
             [omnia.config.components.core :as c]
+            [omnia.config.components.input :as i]
             [omnia.util.schema :refer [=>]]
             [omnia.config.core :refer [Config]]
-            [omnia.util.misc :refer [omnia-version]])
-  (:import (com.googlecode.lanterna TextColor$ANSI SGR TerminalPosition TextCharacter TextColor$Indexed)
+            [omnia.util.collection :refer [map-vals]]
+            [omnia.util.misc :refer [omnia-version]]
+            [omnia.util.debug :refer [debug]])
+  (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
            (com.googlecode.lanterna.screen TerminalScreen)
@@ -38,75 +41,64 @@
   (start! [_])
   (get-event! [_]))
 
-;; terminal gray   (TextColor$Indexed/fromRGB (int 51) (int 51) (int 51))
-;; terminal yellow (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6))
-;; terminal white  (TextColor$Indexed/fromRGB (int 51) (int 51) (int 51))
+(s/defn to-text-colour :- TextColor
+  [[r g b] :- t/RGBColour]
+  (TextColor$RGB. ^Integer r ^Integer g ^Integer b))
 
-(def title (str "omnia-" (omnia-version)))
+(s/defn text-colours :- {t/RGBColour TextColor}
+  [syntax :- c/Syntax]
+  (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
 
-(def preset-colours
-  {:black   TextColor$ANSI/BLACK
-   :white   (TextColor$Indexed/fromRGB (int 171) (int 174) (int 168))
-   :red     TextColor$ANSI/RED
-   :green   TextColor$ANSI/GREEN
-   :blue    TextColor$ANSI/BLUE
-   :cyan    TextColor$ANSI/CYAN
-   :magenta TextColor$ANSI/MAGENTA
-   :yellow  (TextColor$Indexed/fromRGB (int 180) (int 148) (int 6))
-   :default TextColor$ANSI/DEFAULT})
+(s/def to-sgr :- {t/Style SGR}
+  {t/bold          SGR/BOLD
+   t/blinking      SGR/BLINK
+   t/underline     SGR/UNDERLINE
+   t/strikethrough SGR/CROSSED_OUT})
 
-(def all-styles
-  {:bold          SGR/BOLD
-   :reverse       SGR/REVERSE
-   :blinking      SGR/BLINK
-   :underline     SGR/UNDERLINE
-   :strikethrough SGR/CROSSED_OUT})
-
-(def key-events
-  {KeyType/Character      :character
-   KeyType/Escape         :escape
-   KeyType/Backspace      :backspace
-   KeyType/ArrowLeft      :left
-   KeyType/ArrowRight     :right
-   KeyType/ArrowUp        :up
-   KeyType/ArrowDown      :down
-   KeyType/Insert         :insert
-   KeyType/Delete         :delete
-   KeyType/Home           :home
-   KeyType/End            :end
-   KeyType/PageUp         :page-up
-   KeyType/PageDown       :page-down
-   KeyType/Tab            :tab
-   KeyType/ReverseTab     :reverse-tab
-   KeyType/Enter          :enter
-   KeyType/F1             :f1
-   KeyType/F2             :f2
-   KeyType/F3             :f3
-   KeyType/F4             :f4
-   KeyType/F5             :f5
-   KeyType/F6             :f6
-   KeyType/F7             :f7
-   KeyType/F8             :f8
-   KeyType/F9             :f9
-   KeyType/F10            :f10
-   KeyType/F11            :f11
-   KeyType/F12            :f12
-   KeyType/F13            :f13
-   KeyType/F14            :f14
-   KeyType/F15            :f15
-   KeyType/F16            :f16
-   KeyType/F17            :f17
-   KeyType/F18            :f18
-   KeyType/F19            :f19
-   KeyType/Unknown        :unknown
-   KeyType/CursorLocation :cursor-location
-   KeyType/MouseEvent     :mouse-event
-   KeyType/EOF            :eof})
+(s/def to-key :- {KeyType i/Key}
+  {KeyType/Escape         i/escape
+   KeyType/Backspace      i/backspace
+   KeyType/ArrowLeft      i/left
+   KeyType/ArrowRight     i/right
+   KeyType/ArrowUp        i/up
+   KeyType/ArrowDown      i/down
+   KeyType/Insert         i/insert
+   KeyType/Delete         i/delete
+   KeyType/Home           i/home
+   KeyType/End            i/end
+   KeyType/PageUp         i/page-up
+   KeyType/PageDown       i/page-down
+   KeyType/Tab            i/tab
+   KeyType/ReverseTab     i/reverse-tab
+   KeyType/Enter          i/enter
+   KeyType/F1             i/f1
+   KeyType/F2             i/f2
+   KeyType/F3             i/f3
+   KeyType/F4             i/f4
+   KeyType/F5             i/f5
+   KeyType/F6             i/f6
+   KeyType/F7             i/f7
+   KeyType/F8             i/f8
+   KeyType/F9             i/f9
+   KeyType/F10            i/f10
+   KeyType/F11            i/f11
+   KeyType/F12            i/f12
+   KeyType/F13            i/f13
+   KeyType/F14            i/f14
+   KeyType/F15            i/f15
+   KeyType/F16            i/f16
+   KeyType/F17            i/f17
+   KeyType/F18            i/f18
+   KeyType/F19            i/f19
+   KeyType/Unknown        i/unknown})
 
 (s/defn to-key-binding :- c/KeyBinding
   [pressed :- KeyStroke]
-  (let [event (-> pressed (.getKeyType) (key-events))]
-    {:key   (if (= :character event) (.getCharacter pressed) event)
+  ;; control characters should be caught here and transformed into appropriate key bindings
+  (let [key-type (.getKeyType pressed)]
+    {:key   (if (= KeyType/Character key-type)
+              (.getCharacter pressed)
+              (to-key key-type i/unknown))
      :ctrl  (.isCtrlDown pressed)
      :alt   (.isAltDown  pressed)
      :shift (.isShiftDown pressed)}))
@@ -129,29 +121,22 @@
       character? (e/event e/character key)
       :else      (e/event action))))
 
-(s/defn text-char :- TextCharacter
-  [char       :- Character
-   foreground :- t/Colour
-   background :- t/Colour
-   styles     :- [t/Style]]
-  (let [styles    ^IPersistentVector styles
-        text-char ^TextCharacter (-> (TextCharacter. char)
-                                     (.withBackgroundColor (preset-colours background :default))
-                                     (.withForegroundColor (preset-colours foreground :white)))]
-    (if (> (.count styles) 0) ;; much faster
-      (->> styles (mapv all-styles) (.withModifiers text-char))
-      text-char)))
-
 (s/defn impl-put! :- nil
   [terminal   :- TerminalScreen
    char       :- Character
    x          :- s/Int
    y          :- s/Int
-   foreground :- t/Colour
-   background :- t/Colour
-   styles     :- [t/Style]]
-  (->> (text-char char foreground background styles)
-       (.setCharacter terminal x y)))
+   foreground :- t/RGBColour
+   background :- t/RGBColour
+   styles     :- [t/Style]
+   colours    :- {t/RGBColour TextColor}]
+  (let [styles ^IPersistentVector styles
+        text-char ^TextCharacter (-> (TextCharacter. char)
+                                     (.withBackgroundColor (colours background))
+                                     (.withForegroundColor (colours foreground)))]
+    (if (> (.count styles) 0)
+      (->> styles (mapv to-sgr) (.withModifiers text-char) (.setCharacter terminal x y))
+      (.setCharacter terminal x y text-char))))
 
 (s/defn impl-move! [t :- TerminalScreen
                     x :- s/Int
@@ -182,31 +167,31 @@
   [screen :- TerminalScreen, keymap :- c/KeyMap]
   (->> screen (.readInput) (to-key-binding) (to-event keymap)))
 
-(defn- custom-font [^String path]
-  (->> (File. path) (Font/createFont Font/TRUETYPE_FONT)))
+(s/defn derive-palette :- TerminalEmulatorColorConfiguration
+  [config :- Config]
+  (if-let [palette (-> config (:terminal) (:palette))]
+    (TerminalEmulatorColorConfiguration/newInstance palette)
+    (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)))
 
-(defn- font-of [path size]
-  (-> path (custom-font) (.deriveFont Font/BOLD (float size))))
-
-(defn- derive-palette [config]
-  (let [palette (-> config (:terminal) (:palette))]
-    (case palette
-      :default (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)
-      (TerminalEmulatorColorConfiguration/newInstance palette))))
-
-(defn- derive-font [config]
-  (let [font-name (-> config (:terminal) (:font))
-        font-size (-> config (:terminal) (:font-size))]
-    (SwingTerminalFontConfiguration/newInstance (into-array Font [(font-of font-name font-size)]))))
+(s/defn derive-font :- SwingTerminalFontConfiguration
+  [config :- Config]
+  (let [font-path ^String (-> config (:terminal) (:font-path))
+        font-size ^Float  (-> config (:terminal) (:font-size) (float))
+        font      ^Font   (-> Font/TRUETYPE_FONT
+                              (Font/createFont (File. font-path))
+                              (.deriveFont Font/BOLD font-size))]
+    (SwingTerminalFontConfiguration/newInstance (into-array Font [font]))))
 
 (s/defn terminal :- Terminal
   [config :- Config]
-  (let [screen ^TerminalScreen (-> (DefaultTerminalFactory.)
-                                   (.setTerminalEmulatorColorConfiguration (derive-palette config))
-                                   (.setTerminalEmulatorFontConfiguration (derive-font config))
-                                   (.setTerminalEmulatorTitle title)
-                                   (.createTerminalEmulator)
-                                   (TerminalScreen.))]
+  (let [screen  ^TerminalScreen (-> (DefaultTerminalFactory.)
+                                    (.setTerminalEmulatorColorConfiguration (derive-palette config))
+                                    (.setTerminalEmulatorFontConfiguration (derive-font config))
+                                    (.setTerminalEmulatorTitle (str "omnia-" (omnia-version)))
+                                    (.createTerminalEmulator)
+                                    (TerminalScreen.))
+        memoised-keymap             (-> config (:keymap))
+        memoised-colours            (-> config (:syntax) (text-colours))]
     (reify Terminal
       (refresh! [_]
         (impl-refresh! screen))
@@ -218,9 +203,9 @@
         (impl-clear! screen))
       (move! [_ x y]
         (impl-move! screen x y))
-      (get-event! [_]
-        (impl-get-event! screen (:keymap config)))
       (size [_]
         (impl-size! screen))
+      (get-event! [_]
+        (impl-get-event! screen memoised-keymap))
       (put! [_ ch x y fg bg stls]
-        (impl-put! screen ch x y fg bg stls)))))
+        (impl-put! screen ch x y fg bg stls memoised-colours)))))

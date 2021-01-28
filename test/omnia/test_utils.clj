@@ -9,7 +9,7 @@
             [omnia.repl.hud :refer [Hud]]
             [schema.core :as s]
             [clojure.test.check.generators :as gen]
-            [omnia.config.defaults :refer [default-syntax]]
+            [omnia.config.defaults :refer [default-user-highlighting]]
             [omnia.config.core :as c]
             [omnia.text.core :as i]
             [omnia.repl.hud :as h]
@@ -111,7 +111,7 @@
            input-seeker    seeker
            response        (gen-nrepl-result receive)
            history-seekers history]
-    (-> (r/context (c/convert c/default-config)
+    (-> (r/context (c/convert c/default-user-config)
                    (test-terminal {:size (constantly fov)})
                    (server/client {:host    ""
                                    :port    0
@@ -304,5 +304,5 @@
 (s/defn highlight-from :- r/Highlight
   [region :- Region]
   {:region region
-   :scheme default-syntax
+   :scheme default-user-highlighting
    :styles []})

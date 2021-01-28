@@ -10,9 +10,9 @@
 
 (def UserConfig
   {:os                        c/OS
-   :keymap                    c/KeyMapConfig
-   :syntax                    c/SyntaxConfig
-   (s/optional-key :terminal) c/TerminalConfig})
+   :keymap                    c/UserKeyMap
+   :syntax                    c/UserHighlighting
+   (s/optional-key :terminal) c/UserTerminal})
 
 (def Config
   {:os       c/OS
@@ -20,13 +20,13 @@
    :syntax   c/Syntax
    :terminal c/Terminal})
 
-(s/def default-config :- UserConfig
+(s/def default-user-config :- UserConfig
   {:os       d/default-os
-   :keymap   d/default-keymap
-   :syntax   d/default-syntax
-   :terminal d/default-terminal})
+   :keymap   d/default-user-keymap
+   :syntax   d/default-user-highlighting
+   :terminal d/default-user-terminal})
 
-(s/defn check-duplicates! [keymap :- c/KeyMapConfig]
+(s/defn check-duplicates! [keymap :- c/UserKeyMap]
   (letfn [(report! [errs]
             (if (empty? errs)
               keymap
@@ -43,57 +43,74 @@
          (report!))))
 
 (defn validate! [config]
-  (s/validate c/KeyMapConfig (:keymap config))
-  (s/validate c/SyntaxConfig (:syntax config))
+  (s/validate c/UserKeyMap (:keymap config))
+  (s/validate c/UserHighlighting (:syntax config))
   (check-duplicates! (:keymap config)))
 
-(defn- clean-up-syntax [syntax]
-  (assoc syntax t/selections t/default
-                t/backgrounds t/default))
+(s/defn make-rgb :- t/RGBColour
+  [colour :- t/Colour]
+  (let [default-colour (get d/default-colours t/default)]
+    (if (keyword? colour)
+      (get d/default-colours colour default-colour)
+      colour)))
 
-(defn- selection-syntax [syntax]
-  (let [select-colour (syntax t/selections)]
-    (-> (syntax t/texts)
+(s/defn clean-up-highlighting :- c/Highlighting
+  [standard :- c/Highlighting]
+  (let [default-colour (get d/default-colours t/default)]
+    (assoc standard t/selections default-colour
+                    t/backgrounds default-colour)))
+
+(s/defn selection-highlighting :- c/Highlighting
+  [standard :- c/Highlighting]
+  (let [select-colour (standard t/selections)]
+    (-> (standard t/texts)
         (constantly)
-        (map-vals syntax)
+        (map-vals standard)
         (assoc t/backgrounds select-colour
                t/selections select-colour))))
 
-(s/defn fix-syntax :- c/Syntax
-  [provided-syntax :- c/SyntaxConfig]
-  (let [standard  (merge-from-both provided-syntax d/default-terminal)
-        selection (selection-syntax standard)
-        clean-up  (clean-up-syntax standard)]
-    {:standard  standard
+(s/defn fix-highlighting :- c/Highlighting
+  [provided-highlighting :- c/UserHighlighting]
+  (->> (merge-from-both provided-highlighting d/default-user-highlighting)
+       (merge {t/selections  t/blue
+               t/backgrounds t/default
+               t/foregrounds t/default})
+       (map-vals make-rgb)))
+
+(s/defn create-syntax :- c/Syntax
+  [highlighting :- c/Highlighting]
+  (let [selection (selection-highlighting highlighting)
+        clean-up  (clean-up-highlighting highlighting)]
+    {:standard  highlighting
      :selection selection
      :clean-up  clean-up}))
 
 (s/defn fix-key-binding :- c/KeyBinding
-  [binding :- c/KeyBindingConfig]
+  [binding :- c/UserKeyBinding]
   {:key   (:key binding)
    :ctrl  (:ctrl binding false)
    :alt   (:alt binding false)
    :shift (:shift binding false)})
 
 (s/defn fix-keymap :- c/KeyMap
-  [provided-keymap :- c/KeyMapConfig]
-  (->> (merge-from-both provided-keymap d/default-keymap)
+  [provided-keymap :- c/UserKeyMap]
+  (->> (merge-from-both provided-keymap d/default-user-keymap)
        (map-vals fix-key-binding)
        (map-invert)))
 
 (s/defn fix-terminal :- c/Terminal
-  [provided-terminal :- c/TerminalConfig]
-  (merge-from-both provided-terminal d/default-terminal))
+  [provided-terminal :- c/UserTerminal]
+  (merge-from-both provided-terminal d/default-user-terminal))
 
 (s/defn convert :- Config
   [config :- UserConfig]
   {:os       (:os config d/default-os)                      ;; I should statically write a field with the os upon release
    :keymap   (-> config (:keymap) (fix-keymap))
-   :syntax   (-> config (:syntax) (fix-syntax))
+   :syntax   (-> config (:syntax) (fix-highlighting) (create-syntax))
    :terminal (-> config (:terminal) (fix-terminal))})
 
 (s/defn read-config :- UserConfig
   [path :- String]
-  (let [config (gulp-or-else path default-config)
+  (let [config (gulp-or-else path default-user-config)
         _      (validate! config)]
     (convert config)))

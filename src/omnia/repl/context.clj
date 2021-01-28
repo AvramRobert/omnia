@@ -15,7 +15,7 @@
             [omnia.util.collection :refer [map-vals]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.config.components.text :refer [Style]]
-            [omnia.config.components.core :refer [SyntaxConfig]]
+            [omnia.config.components.core :refer [UserHighlighting]]
             [omnia.config.core :refer [Config]]))
 
 (def Render
@@ -23,7 +23,7 @@
 
 (def Highlight
   {:region Region
-   :scheme SyntaxConfig
+   :scheme UserHighlighting
    :styles [Style]})
 
 (def HighlightType (s/enum :selection :open-paren :closed-paren))

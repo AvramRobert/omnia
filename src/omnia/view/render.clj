@@ -4,8 +4,8 @@
             [omnia.text.core :as i]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
-            [omnia.config.components.core :refer [SyntaxConfig]]
-            [omnia.config.components.text :refer [backgrounds syntax-element Style]]
+            [omnia.config.components.core :refer [UserHighlighting]]
+            [omnia.config.components.text :refer [backgrounds coloured-element Style]]
             [omnia.text.highlighting :refer [fold -text]]
             [omnia.repl.context :refer [Context]]
             [omnia.util.schema :refer [Point Region]]
@@ -26,7 +26,7 @@
   {:line                        [Character]
    :at                          s/Int
    :terminal                    t/Terminal
-   :scheme                      SyntaxConfig
+   :scheme                      UserHighlighting
    :styles                      [Style]
    (s/optional-key :sub-region) Point
    (s/optional-key :padding)    s/Int})
@@ -72,7 +72,7 @@
     cs       :scheme
     styles   :styles} :- PrintInstruction]
   (letfn [(put! [ch x y emission]
-            (let [fg (get cs (syntax-element emission))
+            (let [fg (get cs (coloured-element emission))
                   bg (get cs backgrounds)]
               (t/put! terminal ch x y fg bg styles)))
           (pad! [x]

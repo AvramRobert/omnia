@@ -18,7 +18,12 @@
 (def backgrounds :background)
 (def foregrounds :foreground)
 
-(def SyntaxElement
+(def bold :bold)
+(def blinking :blinking)
+(def strikethrough :strikethrough)
+(def underline :underline)
+
+(def ColouredElement
   (s/enum lists
           vectors
           maps
@@ -35,33 +40,37 @@
           backgrounds
           foregrounds))
 
-
-(def default :default)
-(def font :font)
+(def font-path :font-path)
 (def font-size :font-size)
 (def palette :palette)
 
-(def Default (s/eq default))
+(def black :black)
+(def white :white)
+(def red :red)
+(def green :green)
+(def blue :blue)
+(def cyan :cyan)
+(def magenta :magenta)
+(def yellow :yellow)
+(def default :default)
 
-(def PredefinedColour
-  (s/enum :default :black :white :red :green :blue :cyan :magenta :yellow))
+(def PresetColour
+  (s/enum black white red green blue cyan magenta yellow default))
 
-(def CustomColour
+(def RGBColour
   (s/constrained [(s/pred #(< % 255))] #(= 3 (count %))))
 
 (def Colour
-  (s/cond-pre PredefinedColour CustomColour))
+  (s/cond-pre PresetColour RGBColour))
 
-(def Style (s/enum :bold :blinking :underline :strikethrough))
+(def Style (s/enum bold blinking underline strikethrough))
 
-(def Palette Default)
+(def Palette s/Any)
 
-(def Font
-  (s/cond-pre Default s/Str))
+(def FontPath s/Str)
 
-(def FontSize
-  (s/cond-pre Default s/Num))
+(def FontSize s/Num)
 
-(s/defn syntax-element :- SyntaxElement
+(s/defn coloured-element :- ColouredElement
   [emission :- h/Emission]
   emission)

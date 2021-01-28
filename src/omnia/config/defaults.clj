@@ -8,7 +8,7 @@
 (s/def default-os :- OS
   :linux)
 
-(s/def default-keymap :- KeyMapConfig
+(s/def default-user-keymap :- UserKeyMap
   {e/docs              {:key \i :alt true}
    e/signature         {:key \p :alt true}
    e/expand            {:key \w :ctrl true}
@@ -44,23 +44,32 @@
    e/evaluate          {:key \e :alt true}
    e/exit              {:key \d :ctrl true}})
 
-(s/def default-syntax :- SyntaxConfig
-  {t/lists       :white
-   t/vectors     :white
-   t/maps        :white
-   t/numbers     :blue
-   t/characters  :green
-   t/strings     :green
-   t/keywords    :cyan
-   t/comments    :magenta
-   t/words       :yellow
-   t/functions   :yellow
-   t/texts       :white
-   t/commas      :white
-   t/selections  :blue
-   t/backgrounds :default})
+(s/def default-user-highlighting :- UserHighlighting
+  {t/lists       t/white
+   t/vectors     t/white
+   t/maps        t/white
+   t/numbers     t/blue
+   t/characters  t/green
+   t/strings     t/green
+   t/keywords    t/cyan
+   t/comments    t/magenta
+   t/words       t/yellow
+   t/functions   t/yellow
+   t/texts       t/white
+   t/commas      t/white})
 
-(s/def default-terminal :- TerminalConfig
-  {:font      "Hasklig-Regular.otf"
-   :font-size 15
-   :palette   :default})
+(s/def default-user-terminal :- UserTerminal
+  {t/font-path "./Hasklig-Regular.otf"
+   t/font-size  15})
+
+;; The default colour should always be the background colour taken from the palette, otherwise a lot of shit may get rendered badly
+(s/def default-colours :- {t/PresetColour t/RGBColour}
+  {t/black   [0 0 0]
+   t/white   [171 174 168]
+   t/red     [170 0 0]
+   t/green   [0 170 0]
+   t/blue    [0 0 170]
+   t/cyan    [0 170 170]
+   t/magenta [170 0 170]
+   t/yellow  [180 148 6]
+   t/default [46 52 54]})

@@ -12,7 +12,9 @@
             [omnia.repl.hud :as h]
             [omnia.view.terminal :as t]
             [omnia.text.core :as i]
-            [omnia.repl.context :as c])
+            [omnia.repl.context :as c]
+            [omnia.config.components.text :as ct]
+            [omnia.config.defaults :as d])
   (:import (clojure.lang Atom)))
 
 (def ^:const NR-OF-TESTS 100)
@@ -364,7 +366,8 @@
                          (r/garbage)
                          (vals)
                          (map :region)
-                         (mapcat #(index-at (r/preview-hud adapted) %)))]
+                         (mapcat #(index-at (r/preview-hud adapted) %)))
+        expected-bg (get d/default-colours ct/default)]
     (-> adapted
         (accumulative)
         (execute clean-highlights!)
@@ -372,7 +375,7 @@
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (map :char expectation) chars))
             (is (= (map :cursor expectation) cursors))
-            (is (= :default (first (distinct bgs))))
+            (is (= expected-bg (first (distinct bgs))))
             (is (not (empty? bgs)))
             (is (not (empty? fgs))))))))
 
