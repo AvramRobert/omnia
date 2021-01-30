@@ -4,11 +4,10 @@
             [omnia.config.components.text :as t]
             [omnia.config.components.core :as c]
             [omnia.config.components.input :as i]
-            [omnia.util.schema :refer [=>]]
+            [clojure.set :refer [map-invert]]
             [omnia.config.core :refer [Config]]
-            [omnia.util.collection :refer [map-vals]]
-            [omnia.util.misc :refer [omnia-version]]
-            [omnia.util.debug :refer [debug]])
+            [omnia.util.collection :refer [map-vals map-keys]]
+            [omnia.util.misc :refer [omnia-version]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -41,86 +40,85 @@
   (start! [_])
   (get-event! [_]))
 
-(s/defn to-text-colour :- TextColor
-  [[r g b] :- t/RGBColour]
-  (TextColor$RGB. ^Integer r ^Integer g ^Integer b))
-
-(s/defn text-colours :- {t/RGBColour TextColor}
-  [syntax :- c/Syntax]
-  (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
-
 (s/def to-sgr :- {t/Style SGR}
   {t/bold          SGR/BOLD
    t/blinking      SGR/BLINK
    t/underline     SGR/UNDERLINE
    t/strikethrough SGR/CROSSED_OUT})
 
-(s/def to-key :- {KeyType i/Key}
-  {KeyType/Escape         i/escape
-   KeyType/Backspace      i/backspace
-   KeyType/ArrowLeft      i/left
-   KeyType/ArrowRight     i/right
-   KeyType/ArrowUp        i/up
-   KeyType/ArrowDown      i/down
-   KeyType/Insert         i/insert
-   KeyType/Delete         i/delete
-   KeyType/Home           i/home
-   KeyType/End            i/end
-   KeyType/PageUp         i/page-up
-   KeyType/PageDown       i/page-down
-   KeyType/Tab            i/tab
-   KeyType/ReverseTab     i/reverse-tab
-   KeyType/Enter          i/enter
-   KeyType/F1             i/f1
-   KeyType/F2             i/f2
-   KeyType/F3             i/f3
-   KeyType/F4             i/f4
-   KeyType/F5             i/f5
-   KeyType/F6             i/f6
-   KeyType/F7             i/f7
-   KeyType/F8             i/f8
-   KeyType/F9             i/f9
-   KeyType/F10            i/f10
-   KeyType/F11            i/f11
-   KeyType/F12            i/f12
-   KeyType/F13            i/f13
-   KeyType/F14            i/f14
-   KeyType/F15            i/f15
-   KeyType/F16            i/f16
-   KeyType/F17            i/f17
-   KeyType/F18            i/f18
-   KeyType/F19            i/f19
-   KeyType/Unknown        i/unknown})
+(s/def to-key-type :- {i/Key KeyType}
+  {i/escape      KeyType/Escape
+   i/backspace   KeyType/Backspace
+   i/left        KeyType/ArrowLeft
+   i/right       KeyType/ArrowRight
+   i/up          KeyType/ArrowUp
+   i/down        KeyType/ArrowDown
+   i/insert      KeyType/Insert
+   i/delete      KeyType/Delete
+   i/home        KeyType/Home
+   i/end         KeyType/End
+   i/page-up     KeyType/PageUp
+   i/page-down   KeyType/PageDown
+   i/tab         KeyType/Tab
+   i/reverse-tab KeyType/ReverseTab
+   i/enter       KeyType/Enter
+   i/f1          KeyType/F1
+   i/f2          KeyType/F2
+   i/f3          KeyType/F3
+   i/f4          KeyType/F4
+   i/f5          KeyType/F5
+   i/f6          KeyType/F6
+   i/f7          KeyType/F7
+   i/f8          KeyType/F8
+   i/f9          KeyType/F9
+   i/f10         KeyType/F10
+   i/f11         KeyType/F11
+   i/f12         KeyType/F12
+   i/f13         KeyType/F13
+   i/f14         KeyType/F14
+   i/f15         KeyType/F15
+   i/f16         KeyType/F16
+   i/f17         KeyType/F17
+   i/f18         KeyType/F18
+   i/f19         KeyType/F19
+   i/unknown     KeyType/Unknown})
 
-(s/defn to-key-binding :- c/KeyBinding
-  [pressed :- KeyStroke]
-  ;; control characters should be caught here and transformed into appropriate key bindings
-  (let [key-type (.getKeyType pressed)]
-    {:key   (if (= KeyType/Character key-type)
-              (.getCharacter pressed)
-              (to-key key-type i/unknown))
-     :ctrl  (.isCtrlDown pressed)
-     :alt   (.isAltDown  pressed)
-     :shift (.isShiftDown pressed)}))
+(s/defn to-text-colour :- TextColor
+  [[r g b] :- t/RGBColour]
+  (TextColor$RGB. ^Integer r ^Integer g ^Integer b))
 
-;; Can't i actually skip one hop and just read the input directly to an event?
-(s/defn to-event :- e/Event
-  [keymap      :- c/KeyMap,
-   key-binding :- c/KeyBinding]
-  (let [key        (:key key-binding)
-        action     (get keymap key-binding)
-        ;control?   (and (char? key)
-        ;                (Character/isISOControl ^Character char)) ;; Swing gives me control characters
-        unknown?   (and (nil? action)
-                        (not (char? key)))
-        character? (and (nil? action)
-                        (char? key))]
-    (cond
-      ;      control?   ()
-      unknown?   (e/event e/ignore)
-      character? (e/event e/character key)
-      :else      (e/event action))))
+(s/defn to-key-stroke :- KeyStroke
+  [key-binding :- c/KeyBinding]
+   (let [key (:key key-binding)]
+     (cond
+       (char? key)
+       (KeyStroke. ^Character (:key key-binding)
+                   ^Boolean (:ctrl key-binding)
+                   ^Boolean (:alt key-binding)
+                   ^Boolean (:shift key-binding))
+       (contains? to-key-type key)
+       (KeyStroke. ^KeyType (get to-key-type key)
+                   ^Boolean (:ctrl key-binding)
+                   ^Boolean (:alt key-binding)
+                   ^Boolean (:shift key-binding))
+       :else KeyType/Unknown)))
 
+(s/defn text-colours :- {t/RGBColour TextColor}
+  [syntax :- c/Syntax]
+  (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
+
+;; maps out all unicode characters; sums up to about 350 kbytes
+(s/def text-events :- {Character e/Event}
+  (->> (range 0 65535)
+       (map char)
+       (map (juxt identity #(e/event e/character %)))
+       (into {})))
+
+(s/defn context-events :- {KeyStroke e/Event}
+  [keymap :- c/KeyMap]
+   (->> keymap (map-vals e/event) (map-keys to-key-stroke)))
+
+;; uses a memoised hashmap of all objects to reduce overhead
 (s/defn impl-put! :- nil
   [terminal   :- TerminalScreen
    char       :- Character
@@ -137,6 +135,16 @@
     (if (> (.count styles) 0)
       (->> styles (mapv to-sgr) (.withModifiers text-char) (.setCharacter terminal x y))
       (.setCharacter terminal x y text-char))))
+
+;; uses a memoised hashmap of all objects to reduce overhead
+(s/defn impl-get-event! :- e/Event
+  [screen         :- TerminalScreen
+   context-events :- {KeyStroke e/ContextEvent}
+   text-events    :- {Character e/TextEvent}]
+  (let [input ^KeyStroke (.readInput screen)]
+    (or (get context-events input)
+        (get text-events (.getCharacter input))
+        e/ignore)))
 
 (s/defn impl-move! [t :- TerminalScreen
                     x :- s/Int
@@ -163,20 +171,16 @@
   [screen :- TerminalScreen]
   (.refresh screen))
 
-(s/defn impl-get-event! :- e/Event
-  [screen :- TerminalScreen, keymap :- c/KeyMap]
-  (->> screen (.readInput) (to-key-binding) (to-event keymap)))
-
 (s/defn derive-palette :- TerminalEmulatorColorConfiguration
   [config :- Config]
-  (if-let [palette (-> config (:terminal) (:palette))]
+  (if-let [palette (-> config (:terminal) (t/palette))]
     (TerminalEmulatorColorConfiguration/newInstance palette)
     (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)))
 
 (s/defn derive-font :- SwingTerminalFontConfiguration
   [config :- Config]
-  (let [font-path ^String (-> config (:terminal) (:font-path))
-        font-size ^Float  (-> config (:terminal) (:font-size) (float))
+  (let [font-path ^String (-> config (:terminal) (t/font-path))
+        font-size ^Float  (-> config (:terminal) (t/font-size) (float))
         font      ^Font   (-> Font/TRUETYPE_FONT
                               (Font/createFont (File. font-path))
                               (.deriveFont Font/BOLD font-size))]
@@ -190,7 +194,8 @@
                                     (.setTerminalEmulatorTitle (str "omnia-" (omnia-version)))
                                     (.createTerminalEmulator)
                                     (TerminalScreen.))
-        memoised-keymap             (-> config (:keymap))
+        memoised-context-events     (-> config (:keymap) (context-events))
+        memoised-text-events        text-events
         memoised-colours            (-> config (:syntax) (text-colours))]
     (reify Terminal
       (refresh! [_]
@@ -206,6 +211,6 @@
       (size [_]
         (impl-size! screen))
       (get-event! [_]
-        (impl-get-event! screen memoised-keymap))
+        (impl-get-event! screen memoised-context-events memoised-text-events))
       (put! [_ ch x y fg bg stls]
         (impl-put! screen ch x y fg bg stls memoised-colours)))))

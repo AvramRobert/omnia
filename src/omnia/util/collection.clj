@@ -26,5 +26,9 @@
   (reduce (fn [nmap [k v]]
             (assoc nmap k (f v))) {} hmap))
 
+(defn map-keys [f hmap]
+  (reduce (fn [nmap [k v]]
+            (assoc nmap (f k) v)) {} hmap))
+
 (defn do-until [elm f p]
   (if (p elm) elm (recur (f elm) f p)))

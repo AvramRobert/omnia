@@ -42,7 +42,7 @@
 (def ignore :ignore)
 (def refresh :refresh)
 
-(def input-actions
+(def text-actions
   #{select-all
     expand
     select-right
@@ -66,7 +66,7 @@
     jump-select-left
     jump-select-right})
 
-(def hud-actions
+(def context-actions
   #{docs
     signature
     match
@@ -97,21 +97,21 @@
 (defn ControlEvent [actions]
   {:action (apply s/enum actions)})
 
-(def InputEvent
+(def TextEvent
   (s/conditional
     (action? character) CharEvent
-    :else              (ControlEvent input-actions)))
+    :else (ControlEvent text-actions)))
 
-(def HudEvent
+(def ContextEvent
   (s/conditional
-    (action? inject)   InjectEvent
-    :else              (ControlEvent hud-actions)))
+    (action? inject) InjectEvent
+    :else (ControlEvent context-actions)))
 
 (def Event
   (s/conditional
     (action? character) CharEvent
-    (action? inject)    InjectEvent
-    :else               (ControlEvent (concat input-actions hud-actions))))
+    (action? inject) InjectEvent
+    :else (ControlEvent (concat text-actions context-actions))))
 
 (s/defn event :- Event
   ([action :- s/Keyword]

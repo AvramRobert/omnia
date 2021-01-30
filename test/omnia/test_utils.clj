@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [is]]
             [omnia.repl.context :refer [Context HighlightType]]
             [omnia.text.core :refer [Seeker]]
-            [omnia.config.components.event :refer [Event InputEvent]]
+            [omnia.config.components.event :refer [Event TextEvent]]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.arithmetic :refer [--]]
             [omnia.util.generator :refer [do-gen]]
@@ -154,7 +154,7 @@
   (reduce (comp :ctx r/process) ctx events))
 
 (s/defn process' :- Seeker
-  [seeker :- Seeker, events :- [InputEvent]]
+  [seeker :- Seeker, events :- [TextEvent]]
   (reduce i/process seeker events))
 
 (s/defn overview :- s/Int

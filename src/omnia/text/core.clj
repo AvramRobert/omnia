@@ -656,7 +656,7 @@
 
 (s/defn process :- Seeker
   [seeker :- Seeker
-   event :- e/InputEvent]
+   event :- e/TextEvent]
   (condp = (:action event)
     e/expand            (-> seeker (expand))
     e/select-all        (-> seeker (select-all))
