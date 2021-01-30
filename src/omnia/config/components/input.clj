@@ -37,9 +37,6 @@
 (def f18 :f18)
 (def f19 :f19)
 (def unknown :unknown)
-;(def cursor-location :cursor-location)
-;(def mouse-event :mouse-event)
-;(def eof :eof)
 
 (def ControlKey
   (s/enum up
@@ -77,11 +74,7 @@
           f17
           f18
           f19
-          unknown
-          ;cursor-location
-          ;mouse-event
-          ;eof
-          ))
+          unknown))
 
 (def CharKey
   (s/pred char?))

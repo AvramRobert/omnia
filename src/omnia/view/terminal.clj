@@ -7,7 +7,8 @@
             [clojure.set :refer [map-invert]]
             [omnia.config.core :refer [Config]]
             [omnia.util.collection :refer [map-vals map-keys]]
-            [omnia.util.misc :refer [omnia-version]])
+            [omnia.util.misc :refer [omnia-version]]
+            [omnia.util.debug :refer [debug]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -80,8 +81,7 @@
    i/f16         KeyType/F16
    i/f17         KeyType/F17
    i/f18         KeyType/F18
-   i/f19         KeyType/F19
-   i/unknown     KeyType/Unknown})
+   i/f19         KeyType/F19})
 
 (s/defn to-text-colour :- TextColor
   [[r g b] :- t/RGBColour]
@@ -108,11 +108,15 @@
   (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
 
 ;; maps out all unicode characters; sums up to about 350 kbytes
+;; the first 32 unicode character are control characters:
 (s/def text-events :- {Character e/Event}
-  (->> (range 0 65535)
-       (map char)
-       (map (juxt identity #(e/event e/character %)))
-       (into {})))
+  (let [supported-control-unicodes [8 9 10 12 13]
+        supported-char-unicodes (range 32 65535)]
+    (->> (concat supported-control-unicodes
+                 supported-char-unicodes)
+         (map char)
+         (map (juxt identity #(e/event e/character %)))
+         (into {}))))
 
 (s/defn context-events :- {KeyStroke e/Event}
   [keymap :- c/KeyMap]
