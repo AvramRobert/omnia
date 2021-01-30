@@ -108,15 +108,13 @@
   (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
 
 ;; maps out all unicode characters; sums up to about 350 kbytes
-;; the first 32 unicode character are control characters:
+;; the first 32 unicode character are control characters
+;; the supported ones are already mapped by lanterna to special keys
 (s/def text-events :- {Character e/Event}
-  (let [supported-control-unicodes [8 9 10 12 13]
-        supported-char-unicodes (range 32 65535)]
-    (->> (concat supported-control-unicodes
-                 supported-char-unicodes)
-         (map char)
-         (map (juxt identity #(e/event e/character %)))
-         (into {}))))
+  (->> (range 32 65535)
+       (map char)
+       (map (juxt identity #(e/event e/character %)))
+       (into {})))
 
 (s/defn context-events :- {KeyStroke e/Event}
   [keymap :- c/KeyMap]
