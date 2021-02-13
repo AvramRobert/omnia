@@ -18,12 +18,6 @@
             [omnia.view.terminal :as t]
             [omnia.config.components.event :as e]))
 
-(defn one [generator] (rand-nth (gen/sample generator)))
-
-(defn many
-  ([generator] (many generator (rand-int 100)))
-  ([generator n] (vec (repeatedly n #(one generator)))))
-
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 

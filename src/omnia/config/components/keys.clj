@@ -35,7 +35,6 @@
 (def f17 :f17)
 (def f18 :f18)
 (def f19 :f19)
-(def unknown :unknown)
 
 (def key-set #{up
                down
@@ -70,8 +69,7 @@
                f16
                f17
                f18
-               f19
-               unknown})
+               f19})
 
 (def ControlKey
   (apply s/enum key-set))

@@ -6,6 +6,7 @@
             [omnia.view.render :refer :all]
             [omnia.util.collection :refer [map-vals reduce-idx]]
             [omnia.util.schema :refer [Point Region]]
+            [omnia.util.generator :refer [one]]
             [clojure.test.check.generators :as gen]
             [schema.core :as s]
             [omnia.repl.context :as r]

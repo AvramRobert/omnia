@@ -5,6 +5,7 @@
             [clojure.test :refer [is]]
             [omnia.text.core :as i]
             [omnia.util.debug :refer [time-return]]
+            [omnia.util.generator :refer [one many]]
             [omnia.test-utils :refer :all]))
 
 (def ^:const NR-OF-TESTS 100)
@@ -35,7 +36,7 @@
       #(conj % [ns-f# (str name)]))))
 
 (defn bench-all! [n]
-  (run!
+  (run!`
     (fn [[f desc]]
       (let [_             (println "Benchmarking `" desc "`")
             result-string (bench f n)]

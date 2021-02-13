@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [is]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
+            [omnia.util.generator :refer [one]]
             [omnia.test-utils :refer :all]
             [schema.core :as s]
             [omnia.repl.hud :as h]

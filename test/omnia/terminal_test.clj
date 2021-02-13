@@ -10,7 +10,6 @@
             [clojure.test.check.generators :as gen]
             [omnia.view.terminal :as t]
             [omnia.config.core :as c]
-            [omnia.config.components.core :as cc]
             [omnia.config.components.text :as tc]
             [omnia.config.components.keys :as kc]
             [omnia.config.components.event :as e])
@@ -51,14 +50,14 @@
            shift gen/boolean]
     {:key key :ctrl ctrl :alt alt :shift shift}))
 
-(deftest get-context-event-test
+(deftest get-context-event
   (let [context-strokes   (-> c/default-config (:keymap) (t/key-stroke->event))
         expected-events   (set (vals context-strokes))
         screen            (terminal-screen-with {:read-input (keys context-strokes)})]
     (dotimes [_ (count context-strokes)]
       (is (contains? expected-events (t/impl-get-event! screen context-strokes {}))))))
 
-(deftest get-text-event-test
+(deftest get-text-event
   (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
         text-strokes    (->> t/char->event (keys) (mapv char-stroke))
         expected-events (set (vals t/char->event))
@@ -66,7 +65,7 @@
     (dotimes [_ (count text-strokes)]
       (is (contains? expected-events (t/impl-get-event! screen context-strokes t/char->event))))))
 
-(defspec get-unknown-event-test NR-OF-TESTS
+(defspec get-unknown-event NR-OF-TESTS
   (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
         text-events     t/char->event]
     (for-all [binding (->> c/default-config
@@ -79,7 +78,7 @@
      (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
        (is (= e/ignore-event (t/impl-get-event! screen context-strokes text-events)))))))
 
-(defspec put-char-test NR-OF-TESTS
+(defspec put-char NR-OF-TESTS
   (for-all [char  gen/char-alphanumeric
             fg    gen-rgb
             bg    gen-rgb

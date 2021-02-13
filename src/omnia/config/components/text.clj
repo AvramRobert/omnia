@@ -23,25 +23,6 @@
 (def strikethrough :strikethrough)
 (def underline :underline)
 
-(def styles #{bold blinking strikethrough underline})
-
-(def ColouredElement
-  (s/enum lists
-          vectors
-          maps
-          numbers
-          characters
-          strings
-          keywords
-          comments
-          words
-          functions
-          texts
-          commas
-          selections
-          backgrounds
-          foregrounds))
-
 (def font-path :font-path)
 (def font-size :font-size)
 (def palette :palette)
@@ -56,16 +37,24 @@
 (def yellow :yellow)
 (def default :default)
 
+(def elements #{lists vectors maps numbers characters strings keywords comments
+                words functions texts commas selections backgrounds foregrounds})
+(def styles #{bold blinking strikethrough underline})
+(def colours #{black white red blue cyan magenta yellow green default})
+
+(def ColouredElement
+  (apply s/enum elements))
+
 (def PresetColour
-  (s/enum black white red green blue cyan magenta yellow default))
+  (apply s/enum colours))
+
+(def Style (apply s/enum styles))
 
 (def RGBColour
   (s/constrained [(s/pred #(<= % 255))] #(= 3 (count %))))
 
 (def Colour
   (s/cond-pre PresetColour RGBColour))
-
-(def Style (apply s/enum styles))
 
 (def Palette s/Any)
 
