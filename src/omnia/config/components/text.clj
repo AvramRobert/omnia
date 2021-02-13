@@ -23,6 +23,8 @@
 (def strikethrough :strikethrough)
 (def underline :underline)
 
+(def styles #{bold blinking strikethrough underline})
+
 (def ColouredElement
   (s/enum lists
           vectors
@@ -58,12 +60,12 @@
   (s/enum black white red green blue cyan magenta yellow default))
 
 (def RGBColour
-  (s/constrained [(s/pred #(< % 255))] #(= 3 (count %))))
+  (s/constrained [(s/pred #(<= % 255))] #(= 3 (count %))))
 
 (def Colour
   (s/cond-pre PresetColour RGBColour))
 
-(def Style (s/enum bold blinking underline strikethrough))
+(def Style (apply s/enum styles))
 
 (def Palette s/Any)
 

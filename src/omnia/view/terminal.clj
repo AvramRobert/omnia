@@ -3,7 +3,7 @@
             [omnia.config.components.event :as e]
             [omnia.config.components.text :as t]
             [omnia.config.components.core :as c]
-            [omnia.config.components.input :as i]
+            [omnia.config.components.keys :as i]
             [clojure.set :refer [map-invert]]
             [omnia.config.core :refer [Config]]
             [omnia.util.collection :refer [map-vals map-keys]]
@@ -41,13 +41,13 @@
   (start! [_])
   (get-event! [_]))
 
-(s/def to-sgr :- {t/Style SGR}
+(s/def style->sgr :- {t/Style SGR}
   {t/bold          SGR/BOLD
    t/blinking      SGR/BLINK
    t/underline     SGR/UNDERLINE
    t/strikethrough SGR/CROSSED_OUT})
 
-(s/def to-key-type :- {i/Key KeyType}
+(s/def key->key-type :- {i/Key KeyType}
   {i/escape      KeyType/Escape
    i/backspace   KeyType/Backspace
    i/left        KeyType/ArrowLeft
@@ -90,45 +90,46 @@
 (s/defn to-key-stroke :- KeyStroke
   [{:keys [key ctrl alt shift]} :- c/KeyBinding]
    (let [key-type (cond (char? key) key
-                        (contains? to-key-type key) (to-key-type key)
+                        (contains? key->key-type key) (key->key-type key)
                         :else KeyType/Unknown)]
      (KeyStroke. key-type ctrl alt shift)))
 
-(s/defn text-colours :- {t/RGBColour TextColor}
-  [syntax :- c/Syntax]
-  (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
+(s/defn rgb->text-colour :- {t/RGBColour TextColor}
+   [syntax :- c/Syntax]
+   (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
 
 ;; maps out all unicode characters; sums up to about 350 kbytes
 ;; the first 32 unicode character are control characters
 ;; the supported ones are already mapped by lanterna to special keys
-(s/def text-events :- {Character e/Event}
+(s/def char->event :- {Character e/Event}
   (->> (range 32 65535)
        (map (juxt char (comp e/char-event char)))
        (into {})))
 
-(s/defn context-events :- {KeyStroke e/Event}
-  [keymap :- c/KeyMap]
-   (->> keymap
+(s/defn key-stroke->event :- {KeyStroke e/Event}
+        [keymap :- c/KeyMap]
+        (->> keymap
         (map (juxt (comp to-key-stroke val)
                    (comp e/event key)))
         (into {})))
 
 ;; uses a memoised hashmap of all objects to reduce overhead
 (s/defn impl-put! :- nil
-  [terminal   :- TerminalScreen
-   char       :- Character
-   x          :- s/Int
-   y          :- s/Int
-   foreground :- t/RGBColour
-   background :- t/RGBColour
-   styles     :- [t/Style]
-   colours    :- {t/RGBColour TextColor}]
+  [terminal    :- TerminalScreen
+   char        :- Character
+   x           :- s/Int
+   y           :- s/Int
+   foreground  :- t/RGBColour
+   background  :- t/RGBColour
+   styles      :- [t/Style]
+   style-map   :- {t/Style SGR}
+   colour-map  :- {t/RGBColour TextColor}]
   (let [styles ^IPersistentVector styles
         text-char ^TextCharacter (-> (TextCharacter. char)
-                                     (.withBackgroundColor (colours background))
-                                     (.withForegroundColor (colours foreground)))]
+                                     (.withBackgroundColor (colour-map background))
+                                     (.withForegroundColor (colour-map foreground)))]
     (if (> (.count styles) 0)
-      (->> styles (mapv to-sgr) (.withModifiers text-char) (.setCharacter terminal x y))
+      (->> styles (mapv style-map) (.withModifiers text-char) (.setCharacter terminal x y))
       (.setCharacter terminal x y text-char))))
 
 ;; uses a memoised hashmap of all objects to reduce overhead
@@ -183,15 +184,16 @@
 
 (s/defn terminal :- Terminal
   [config :- Config]
-  (let [screen  ^TerminalScreen (-> (DefaultTerminalFactory.)
+  (let [screen ^TerminalScreen (-> (DefaultTerminalFactory.)
                                     (.setTerminalEmulatorColorConfiguration (derive-palette config))
                                     (.setTerminalEmulatorFontConfiguration (derive-font config))
                                     (.setTerminalEmulatorTitle (str "omnia-" (omnia-version)))
                                     (.createTerminalEmulator)
                                     (TerminalScreen.))
-        memoised-context-events     (-> config (:keymap) (context-events))
-        memoised-text-events        text-events
-        memoised-colours            (-> config (:syntax) (text-colours))]
+        memoised-context-events (-> config (:keymap) (key-stroke->event))
+        memoised-text-events    char->event
+        memoised-styles         style->sgr
+        memoised-colours        (-> config (:syntax) (rgb->text-colour))]
     (reify Terminal
       (refresh! [_]
         (impl-refresh! screen))
@@ -208,4 +210,4 @@
       (get-event! [_]
         (impl-get-event! screen memoised-context-events memoised-text-events))
       (put! [_ ch x y fg bg stls]
-        (impl-put! screen ch x y fg bg stls memoised-colours)))))
+        (impl-put! screen ch x y fg bg stls memoised-styles memoised-colours)))))

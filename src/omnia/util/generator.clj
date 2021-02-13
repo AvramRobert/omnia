@@ -6,3 +6,6 @@
     (reduce
       (fn [expr [bn# bb#]]
         `(gen/bind ~bb# (fn [~bn#] ~expr))) `(gen/fmap (fn [~n#] ~@body) ~b#) bound)))
+
+(def gen-rgb
+  (gen/vector (gen/choose 0 255) 3))
