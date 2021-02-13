@@ -88,20 +88,11 @@
   (TextColor$RGB. ^Integer r ^Integer g ^Integer b))
 
 (s/defn to-key-stroke :- KeyStroke
-  [key-binding :- c/KeyBinding]
-   (let [key (:key key-binding)]
-     (cond
-       (char? key)
-       (KeyStroke. ^Character (:key key-binding)
-                   ^Boolean (:ctrl key-binding)
-                   ^Boolean (:alt key-binding)
-                   ^Boolean (:shift key-binding))
-       (contains? to-key-type key)
-       (KeyStroke. ^KeyType (get to-key-type key)
-                   ^Boolean (:ctrl key-binding)
-                   ^Boolean (:alt key-binding)
-                   ^Boolean (:shift key-binding))
-       :else KeyType/Unknown)))
+  [{:keys [key ctrl alt shift]} :- c/KeyBinding]
+   (let [key-type (cond (char? key) key
+                        (contains? to-key-type key) (to-key-type key)
+                        :else KeyType/Unknown)]
+     (KeyStroke. key-type ctrl alt shift)))
 
 (s/defn text-colours :- {t/RGBColour TextColor}
   [syntax :- c/Syntax]
