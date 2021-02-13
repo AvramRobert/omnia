@@ -103,13 +103,15 @@
 ;; the supported ones are already mapped by lanterna to special keys
 (s/def text-events :- {Character e/Event}
   (->> (range 32 65535)
-       (map char)
-       (map (juxt identity #(e/event e/character %)))
+       (map (juxt char (comp e/char-event char)))
        (into {})))
 
 (s/defn context-events :- {KeyStroke e/Event}
   [keymap :- c/KeyMap]
-   (->> keymap (map-vals e/event) (map-keys to-key-stroke)))
+   (->> keymap
+        (map (juxt (comp to-key-stroke val)
+                   (comp e/event key)))
+        (into {})))
 
 ;; uses a memoised hashmap of all objects to reduce overhead
 (s/defn impl-put! :- nil
@@ -137,7 +139,7 @@
   (let [input ^KeyStroke (.readInput screen)]
     (or (get context-events input)
         (get text-events (.getCharacter input))
-        e/ignore)))
+        e/ignore-event)))
 
 (s/defn impl-move! [t :- TerminalScreen
                     x :- s/Int

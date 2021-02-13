@@ -123,4 +123,11 @@
 
 (s/defn inject-event :- InjectEvent
   [clojure :- s/Str]
-  (event :inject clojure))
+  (event inject clojure))
+
+(s/defn char-event :- CharEvent
+  [char :- Character]
+  (event character char))
+
+(s/def ignore-event :- ContextEvent
+  (event ignore))

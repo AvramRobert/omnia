@@ -10,23 +10,25 @@
 
 (def ^:const NR-OF-TESTS 100)
 
-(def gen-keybind (gen/elements default-user-keymap))
-(defn gen-keybind-unlike [k] (gen/such-that (fn [[ik _]] (not= k ik)) gen-keybind))
+(def gen-keymap-entry
+  (gen/elements default-user-keymap))
 
-(defspec detect-duplicate-bindings
-         NR-OF-TESTS
-         (for-all [[ik v] gen-keybind]
-                  (let [[k _] (one (gen-keybind-unlike ik))]
-                    (-> (assoc-in c/default-user-config [:keymap k] v)
-                        (c/validate!)
-                        (t/task)
-                        (t/run)
-                        (t/broken?)
-                        (is)))))
+(defn gen-keymap-entry-unlike [[event _]]
+  (gen/elements (dissoc default-user-keymap event)))
+
+(defspec detect-duplicate-bindings NR-OF-TESTS
+  (for-all [[event binding] gen-keymap-entry]
+           (let [binding' (-> (gen-keymap-entry-unlike [event binding]) (one) (val))
+                 result   (-> c/default-config
+                              (assoc-in [:keymap event] binding')
+                              (c/validate!)
+                              (t/task)
+                              (t/run))]
+             (is (t/broken? result)))))
 
 (deftest normalise-keymap
-  (run! (fn [[k _]]
-          (is (contains? k :key))
-          (is (contains? k :ctrl))
-          (is (contains? k :shift))
-          (is (contains? k :alt))) (c/fix-keymap default-user-keymap)))
+  (run! (fn [[_ binding]]
+          (is (contains? binding :key))
+          (is (contains? binding :ctrl))
+          (is (contains? binding :shift))
+          (is (contains? binding :alt))) (c/fix-keymap default-user-keymap)))

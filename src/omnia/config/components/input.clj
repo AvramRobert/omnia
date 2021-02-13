@@ -11,7 +11,6 @@
 (def tab :tab)
 (def page-up :page-up)
 (def page-down :page-down)
-(def character :character)
 (def escape :escape)
 (def insert :insert)
 (def home :home)
@@ -48,7 +47,6 @@
                tab
                page-up
                page-down
-               character
                escape
                insert
                home
