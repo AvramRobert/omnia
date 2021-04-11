@@ -16,7 +16,8 @@
             [omnia.util.misc :refer [omnia-version]]
             [omnia.config.components.text :refer [Style]]
             [omnia.config.components.core :refer [UserHighlighting]]
-            [omnia.config.core :refer [Config]]))
+            [omnia.config.core :refer [Config]]
+            [omnia.util.debug :as d]))
 
 (def Render
   (s/enum :diff :total :clear :nothing))
@@ -330,16 +331,13 @@
 
 (s/defn resize :- Context
   [ctx :- Context]
-  (let [persisted   (persisted-hud ctx)
-        current-fov (h/field-of-view persisted)
-        new-fov     (-> ctx (terminal) (t/size))]
-    (if (not= new-fov current-fov)
-      (-> ctx
-          (with-persisted (h/resize persisted new-fov))
-          (refresh)
-          (calibrate)
-          (re-render))
-      ctx)))
+  (if-let [new-size (-> ctx (terminal) (t/resize!))]
+    (-> ctx
+        (with-persisted (h/resize (persisted-hud ctx) new-size))
+        (refresh)
+        (calibrate)
+        (re-render))
+    ctx))
 
 (s/defn clear :- Context
   [ctx :- Context]

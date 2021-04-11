@@ -10,15 +10,15 @@
             [omnia.util.misc :refer [omnia-version]]
             [omnia.util.debug :refer [debug]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
-           (com.googlecode.lanterna.terminal DefaultTerminalFactory)
+           (com.googlecode.lanterna.terminal DefaultTerminalFactory TerminalResizeListener)
            (com.googlecode.lanterna.input KeyType KeyStroke)
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna.terminal.swing TerminalEmulatorColorConfiguration TerminalEmulatorPalette SwingTerminalFontConfiguration)
            (java.awt Font)
            (java.io File)
-           (clojure.lang IPersistentVector Keyword)))
+           (clojure.lang IPersistentVector Keyword Atom)))
 
-(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event!))
+(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event! :resize!))
 
 (def TerminalSpec
   {TerminalFn s/Any})
@@ -35,6 +35,7 @@
          ^Keyword bg
          ^IPersistentVector styles])
   (size [_])
+  (resize! [_])
   (clear! [_])
   (refresh! [_])
   (stop! [_])
@@ -151,6 +152,14 @@
   [screen :- TerminalScreen]
   (-> screen (.getTerminalSize) (.getRows)))
 
+(s/defn impl-resize! :- (s/maybe s/Int)
+  [screen        :- TerminalScreen
+   resizing-sink :- Atom]
+  (when @resizing-sink
+    (reset! resizing-sink false)
+    (.doResizeIfNecessary screen)
+    (impl-size! screen)))
+
 (s/defn impl-clear! :- nil
   [screen :- TerminalScreen]
   (.clear screen))
@@ -182,14 +191,22 @@
                               (.deriveFont Font/BOLD font-size))]
     (SwingTerminalFontConfiguration/newInstance (into-array Font [font]))))
 
+(s/defn create-screen :- TerminalScreen
+  [config        :- Config
+   resizing-sink :- Atom]
+  (let [listener (reify TerminalResizeListener (onResized [_ _ _] (reset! resizing-sink true)))]
+    (-> (DefaultTerminalFactory.)
+        (.setTerminalEmulatorColorConfiguration (derive-palette config))
+        (.setTerminalEmulatorFontConfiguration (derive-font config))
+        (.setTerminalEmulatorTitle (str "omnia-" (omnia-version)))
+        (.createTerminalEmulator)
+        (doto (.addResizeListener listener))
+        (TerminalScreen.))))
+
 (s/defn terminal :- Terminal
   [config :- Config]
-  (let [screen ^TerminalScreen (-> (DefaultTerminalFactory.)
-                                    (.setTerminalEmulatorColorConfiguration (derive-palette config))
-                                    (.setTerminalEmulatorFontConfiguration (derive-font config))
-                                    (.setTerminalEmulatorTitle (str "omnia-" (omnia-version)))
-                                    (.createTerminalEmulator)
-                                    (TerminalScreen.))
+  (let [resizing-sink           (atom false)
+        screen ^TerminalScreen  (create-screen config resizing-sink)
         memoised-context-events (-> config (:keymap) (key-stroke->event))
         memoised-text-events    char->event
         memoised-styles         style->sgr
@@ -205,6 +222,8 @@
         (impl-clear! screen))
       (move! [_ x y]
         (impl-move! screen x y))
+      (resize! [_]
+        (impl-resize! screen resizing-sink))
       (size [_]
         (impl-size! screen))
       (get-event! [_]

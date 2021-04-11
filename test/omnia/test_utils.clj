@@ -86,9 +86,10 @@
   [fns :- t/TerminalSpec]
   (let [unit (constantly nil)]
     (reify t/Terminal
+      (resize! [t]                ((:resize! fns unit) t))
       (clear! [t]                 ((:clear! fns unit) t))
       (refresh! [t]               ((:refresh! fns unit) t))
-      (size [t]                   ((:size fns (constantly 10)) t))
+      (size [t]                   ((:size fns (:resize! fns (constantly 10))) t))
       (move! [t x y]              ((:move! fns unit) t x y))
       (stop! [t]                  ((:stop! fns unit) t))
       (start! [t]                 ((:start! fns unit) t))
@@ -259,7 +260,7 @@
 (s/defn shrink-view :- Context
    [ctx :- Context, n :- s/Int]
   (let [new-size (-> ctx (r/terminal) (t/size) (-- n))
-        terminal (test-terminal {:size (constantly new-size)})]
+        terminal (test-terminal {:resize! (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
         (process [refresh]))))
@@ -267,7 +268,7 @@
 (s/defn enlarge-view :- Context
    [ctx :- Context, n :- s/Int]
   (let [new-size (-> ctx (r/terminal) (t/size) (+ n))
-        terminal (test-terminal {:size (constantly new-size)})]
+        terminal (test-terminal {:resize! (constantly new-size)})]
     (-> ctx
         (r/with-terminal terminal)
         (process [refresh]))))
@@ -275,7 +276,7 @@
 (s/defn maximise-view :- Context
     [ctx :- Context]
   (let [height   (-> ctx (r/preview-hud) (h/text) (:height))
-        terminal (test-terminal {:size (constantly height)})]
+        terminal (test-terminal {:resize! (constantly height)})]
     (-> ctx
         (r/with-terminal terminal)
         (process [refresh]))))
