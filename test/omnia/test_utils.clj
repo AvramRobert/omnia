@@ -141,7 +141,6 @@
 (def suggest (e/event e/suggest))
 (def ignore (e/event e/ignore))
 (def backspace (e/event e/backspace))
-(def refresh (e/event e/refresh))
 
 (s/defn process :- Context
   [ctx :- Context, events :- [Event]]

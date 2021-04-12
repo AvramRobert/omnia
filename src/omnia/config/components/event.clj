@@ -40,7 +40,6 @@
 (def evaluate :evaluate)
 (def exit :exit)
 (def ignore :ignore)
-(def refresh :refresh)
 (def resize :resize)
 
 (def text-actions
@@ -81,7 +80,6 @@
     evaluate
     exit
     ignore
-    refresh
     resize})
 
 (defn action? [action]

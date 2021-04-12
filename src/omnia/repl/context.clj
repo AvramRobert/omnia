@@ -164,9 +164,7 @@
 
 (s/defn with-hud :- Context
   [ctx :- Context, hud :- Hud]
-  (let [size (-> ctx (terminal) (t/size))
-        hud  (h/resize hud size)]
-    (-> ctx (with-persisted hud) (refresh))))
+  (-> ctx (with-persisted hud) (refresh)))
 
 (s/defn with-unrefreshed-preview :- Context
   [ctx :- Context, hud :- Hud]
@@ -514,7 +512,6 @@
     e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
     e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight)  (diff-render) (continue))
     e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
-    e/refresh     (-> ctx (gc) (scroll-stop) (deselect) (re-render) (continue))
     e/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
     e/ignore      (continue ctx)
     (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (continue))))
