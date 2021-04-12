@@ -7,7 +7,6 @@
             [omnia.config.components.event :as e]
             [omnia.config.components.event :refer [Event]]
             [omnia.repl.hud :refer [Hud]]
-            [omnia.view.terminal :refer [Terminal]]
             [omnia.text.core :refer [Seeker]]
             [omnia.repl.nrepl :refer [REPLClient]]
             [omnia.util.schema :refer [=> Region]]
@@ -220,10 +219,6 @@
 (s/defn with-server :- Context
   [ctx :- Context, repl :- REPLClient]
   (assoc ctx :repl repl))
-
-(s/defn with-terminal :- Context
-  [ctx :- Context, terminal :- Terminal]
-  (assoc ctx :terminal terminal))
 
 (s/defn with-suggestions :- Context
   [ctx :- Context, suggestions :- Hud]
