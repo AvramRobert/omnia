@@ -16,7 +16,7 @@
   (letfn [(avg [a] (/ a n))]
     (->> (range 0 n)
          (mapv (fn [_]
-                 (let [seeker (first (gen/sample gen-seeker))]
+                 (let [seeker (first (gen/sample gen-text-area))]
                    (->> (time-return (f seeker))
                         (first)
                         (drop-last 3)
@@ -112,7 +112,7 @@
 
 (defspec peering-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (peering seeker)))
 
 (defbench peering-bench peering)
@@ -173,7 +173,7 @@
 
 (defspec splitting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (splitting seeker)))
 
 (defbench splitting-bench splitting)
@@ -226,7 +226,7 @@
 
 (defspec slicing-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (slicing seeker)))
 
 (defbench slicing-bench slicing)
@@ -254,7 +254,7 @@
 
 (defspec moving-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (moving seeker)))
 
 (defbench moving-bench moving)
@@ -281,7 +281,7 @@
 
 (defspec retrieving-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (retrieving seeker)))
 
 (defbench retrieving-bench retrieving)
@@ -310,7 +310,7 @@
 
 (defspec progressing-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (progressing seeker)))
 
 (defbench progressing-bench progressing)
@@ -341,7 +341,7 @@
 
 (defspec regressing-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (regressing seeker)))
 
 (defbench regressing-bench regressing)
@@ -367,7 +367,7 @@
 
 (defspec climbing-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (climbing seeker)))
 
 (defbench climbing-bench climbing)
@@ -393,7 +393,7 @@
 
 (defspec falling-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (falling seeker)))
 
 (defbench falling-bench falling)
@@ -455,7 +455,7 @@
 
 (defspec deleting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (deleting seeker)))
 
 (defbench deleting-bench deleting)
@@ -505,7 +505,7 @@
 
 (defspec inserting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (inserting seeker)))
 
 (defbench inserting-bench inserting)
@@ -568,7 +568,7 @@
 
 (defspec jumping-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (jumping seeker)))
 
 (defbench jumping-bench jumping)
@@ -616,7 +616,7 @@
 
 (defspec selecting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (selecting seeker)))
 
 
@@ -636,13 +636,13 @@
         (should-be #(-> (i/selection %) (:end) (= (:cursor (i/end %))))))))
 
 (defn joining [seeker1]
-  (let [seeker2 (first (gen/sample gen-seeker))]
+  (let [seeker2 (first (gen/sample gen-text-area))]
     (join-texts seeker1 seeker2)
     (join-texts-with-selections seeker1 seeker2)))
 
 (defspec joining-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (joining seeker)))
 
 (defbench joining-bench joining)
@@ -743,7 +743,7 @@
 
 (defspec expanding-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (expanding seeker)))
 
 
@@ -775,7 +775,7 @@
 
 (defspec copying-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (copying seeker)))
 
 (defbench copying-bench copying)
@@ -808,7 +808,7 @@
 
 (defspec cutting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (cutting seeker)))
 
 (defbench cutting-bench cutting)
@@ -875,7 +875,7 @@
 
 (defspec pasting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (pasting seeker)))
 
 (defbench pasting-bench pasting)
@@ -929,7 +929,7 @@
 
 (defspec pairing-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (pairing seeker)))
 
 (defbench pairing-bench pairing)
@@ -1009,7 +1009,7 @@
 
 (defspec extracting-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (extracting seeker)))
 
 (defbench extracting-bench extracting)
@@ -1031,7 +1031,7 @@
                #(-> % (i/undo) (:rhistory) (count) (= 1)))))
 
 (defn limit-undoing [seeker]
-  (let [history (one (gen-history {:size 50 :element-size 3}))]
+  (let [history (one (gen-history {:prefilled-size 50 :element-size 3}))]
     (-> seeker
         (assoc :history history)
         (i/remember)
@@ -1075,7 +1075,7 @@
 
 (defspec undoing-redoing-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (undo-redo seeker)))
 
 (defbench undoing-redoing-bench undo-redo)
@@ -1098,7 +1098,7 @@
 
 (defspec history-test
          NR-OF-TESTS
-  (for-all [seeker gen-seeker]
+  (for-all [seeker gen-text-area]
            (history seeker)))
 
 (defbench history-test history)

@@ -47,12 +47,12 @@
            text (gen-text-of size)]
     text))
 
-(def gen-seeker
+(def gen-text-area
   (do-gen [text   gen-nonempty-text
            cursor (gen-cursor text)]
     (-> text (i/seeker) (i/reset-to cursor))))
 
-(defn gen-seeker-of [size]
+(defn gen-text-area-of [size]
   (do-gen [text   (gen-text-of size)
            cursor (gen-cursor text)]
     (-> text (i/seeker) (i/reset-to cursor))))
@@ -79,8 +79,8 @@
                :status ["done"])
         (list))))
 
-(defn gen-history [{:keys [size element-size]}]
-  (gen/vector (gen-seeker-of element-size) size))
+(defn gen-history [{:keys [prefilled-size element-size]}]
+  (gen/vector (gen-text-area-of element-size) prefilled-size))
 
 (s/defn test-terminal :- t/Terminal
   [fns :- t/TerminalSpec]
@@ -95,24 +95,28 @@
       (put! [t ch x y fg bg stls] ((:put! fns unit) t ch x y fg bg stls))
       (get-event! [t]             ((:get-event! fns unit) t)))))
 
-(defn gen-context [{:keys [size fov seeker receive history]
-                    :or   {size    0
-                           fov     10
-                           receive (gen/return {})
-                           seeker  (gen/return i/empty-seeker)
-                           history (gen/return [])}}]
-  (do-gen [hud-seeker      (gen-seeker-of size)
-           input-seeker    seeker
+(defn gen-context [{:keys [prefilled-size
+                           view-size
+                           text-area
+                           receive
+                           history]
+                    :or   {prefilled-size 0
+                           view-size      10
+                           receive        (gen/return {})
+                           text-area      (gen/return i/empty-seeker)
+                           history        (gen/return [])}}]
+  (do-gen [hud-seeker      (gen-text-area-of prefilled-size)
+           input-seeker    text-area
            response        (gen-nrepl-result receive)
            history-seekers history]
-    (-> (r/context (c/convert c/default-user-config)
-                   (server/client {:host    ""
+          (-> (r/context (c/convert c/default-user-config)
+                         (server/client {:host    ""
                                    :port    0
                                    :history history-seekers
                                    :client  (constantly response)})
-                   fov)
-        (r/with-input-area input-seeker)
-        (r/with-hud (h/hud hud-seeker fov)))))
+                         view-size)
+              (r/with-input-area input-seeker)
+              (r/with-hud (h/hud hud-seeker view-size)))))
 
 (def up (e/event e/up))
 (def down (e/event e/down))

@@ -50,10 +50,9 @@
 
 (defspec manipulating-test
          NR-OF-TESTS
-  (for-all [seeker  (gen-seeker-of 10)
-            context (gen-context {:size   0
-                                  :fov    7
-                                  :seeker (gen-seeker-of 5)})]
+  (for-all [seeker  (gen-text-area-of 10)
+            context (gen-context {:view-size 7
+                                  :text-area (gen-text-area-of 5)})]
            (manipulations context seeker)))
 
 ;; I. Calibrating
@@ -254,9 +253,9 @@
 
 (defspec calibrating-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   5
-                               :fov    27
-                               :seeker (gen-seeker-of 29)})]
+  (for-all [tctx (gen-context {:prefilled-size 5
+                               :view-size      27
+                               :text-area      (gen-text-area-of 29)})]
            (calibrating tctx)))
 
 ;; II. Scrolling
@@ -304,9 +303,9 @@
 
 (defspec scrolling-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   20
-                               :fov    7
-                               :seeker (gen-seeker-of 10)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      7
+                               :text-area      (gen-text-area-of 10)})]
            (scrolling tctx)))
 
 ;; III. Capturing
@@ -325,9 +324,9 @@
 
 (defspec capturing-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   20
-                               :fov    7
-                               :seeker (gen-seeker-of 10)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      7
+                               :text-area      (gen-text-area-of 10)})]
            (capturing tctx)))
 
 ;; IV. Clearing
@@ -347,9 +346,9 @@
 
 (defspec clearing-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   20
-                               :fov    7
-                               :seeker (gen-seeker-of 10)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      7
+                               :text-area      (gen-text-area-of 10)})]
            (clearing tctx)))
 
 ;; V. Evaluating
@@ -378,10 +377,10 @@
 (defspec evaluating-test
          NR-OF-TESTS
   (let [eval-result "result"]
-    (for-all [tctx (gen-context {:size    20
-                                 :fov     7
-                                 :seeker  (gen-seeker-of 10)
-                                 :receive (gen-evaluation eval-result)})]
+    (for-all [tctx (gen-context {:prefilled-size 20
+                                 :view-size      7
+                                 :text-area      (gen-text-area-of 10)
+                                 :receive        (gen-evaluation eval-result)})]
              (evaluating tctx eval-result))))
 
 ;; VI. Rolling back
@@ -409,11 +408,11 @@
 
 (defspec rolling-back-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size    5
-                               :fov     27
-                               :seeker  (gen-seeker-of 29)
-                               :history (gen-history {:size 1
-                                                      :element-size 10})})]
+  (for-all [tctx (gen-context {:prefilled-size 5
+                               :view-size      27
+                               :text-area      (gen-text-area-of 29)
+                               :history        (gen-history {:prefilled-size 1
+                                                             :element-size   10})})]
            (rolling-back tctx)))
 
 ;; VII. Rolling forward
@@ -433,11 +432,11 @@
 
 (defspec rolling-forward-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size    5
-                               :fov     27
-                               :seeker  (gen-seeker-of 29)
-                               :history (gen-history {:size 1
-                                                      :element-size 12})})]
+  (for-all [tctx (gen-context {:prefilled-size 5
+                               :view-size      27
+                               :text-area      (gen-text-area-of 29)
+                               :history        (gen-history {:prefilled-size 1
+                                                             :element-size   12})})]
            (rolling-forward tctx)))
 
 ;; VIII. Suggesting
@@ -478,10 +477,10 @@
 
 (defspec suggesting-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size    20
-                               :fov     15
-                               :receive (gen-completion 12)
-                               :seeker  (gen-seeker-of 17)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      15
+                               :receive        (gen-completion 12)
+                               :text-area      (gen-text-area-of 17)})]
            (suggesting tctx)))
 
 (defn no-override [ctx]
@@ -501,9 +500,9 @@
 
 (defspec empty-suggesting-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size    20
-                               :fov     15
-                               :seeker  (gen-seeker-of 17)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      15
+                               :text-area      (gen-text-area-of 17)})]
            (empty-suggesting tctx)))
 
 ;; IX. Highlighting
@@ -585,9 +584,9 @@
 
 (defspec highlighting-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   20
-                               :fov    7
-                               :seeker (gen-seeker-of 10)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      7
+                               :text-area      (gen-text-area-of 10)})]
            (highlighting tctx)))
 
 ;; X. Parenthesis matching
@@ -632,9 +631,9 @@
 
 (defspec parens-matching-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   20
-                               :fov    7
-                               :seeker (gen-seeker-of 10)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      7
+                               :text-area      (gen-text-area-of 10)})]
            (parens-matching tctx)))
 
 ;; XI. Pop-ups
@@ -669,7 +668,7 @@
   (pop-up-window ctx i/empty-seeker))
 
 (defn framed-pop-up [ctx]
-  (pop-up-window ctx (one (gen-seeker-of 5))))
+  (pop-up-window ctx (one (gen-text-area-of 5))))
 
 (defn pop-up-riffled [ctx content]
   (let [content-size (:height content)
@@ -691,14 +690,14 @@
 (defn pop-ups [ctx]
   (empty-pop-up-window ctx)
   (framed-pop-up ctx)
-  (pop-up-with-calibration ctx (one (gen-seeker-of 5)))
-  (pop-up-riffled ctx (one (gen-seeker-of 5))))
+  (pop-up-with-calibration ctx (one (gen-text-area-of 5)))
+  (pop-up-riffled ctx (one (gen-text-area-of 5))))
 
 (defspec pop-up-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:size   20
-                               :fov    15
-                               :seeker (gen-seeker-of 17)})]
+  (for-all [tctx (gen-context {:prefilled-size 20
+                               :view-size      15
+                               :text-area      (gen-text-area-of 17)})]
            (pop-ups tctx)))
 
 
@@ -727,6 +726,6 @@
 
 (defspec ignoring-test
          NR-OF-TESTS
-  (for-all [tctx (gen-context {:fov    10
-                               :seeker (gen-seeker-of 17)})]
+  (for-all [tctx (gen-context {:view-size 10
+                               :text-area (gen-text-area-of 17)})]
            (ignores tctx)))

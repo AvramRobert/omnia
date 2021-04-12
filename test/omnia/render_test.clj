@@ -182,9 +182,9 @@
 
 (defspec diff-render-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (gen-seeker-of 29)})]
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (diff-render ctx)))
 
 ;; II. No rendering
@@ -220,9 +220,9 @@
 
 (defspec no-render-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (gen-seeker-of 29)})]
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (no-render ctx)))
 
 ;; III. Selection highlighting
@@ -349,9 +349,9 @@
 
 (defspec selection-render-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (gen-seeker-of 29)})]
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (selection-render ctx)))
 
 ;; IV. Clean-up highlighting
@@ -385,9 +385,9 @@
 
 (defspec clean-up-render-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (gen-seeker-of 29)})]
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (clean-up-render ctx)))
 
 ;; V. Hud projection
@@ -491,9 +491,9 @@
 
 (defspec hud-projection-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   20
-                                     :fov    7
-                                     :seeker (gen-seeker-of 10)})]
+         (for-all [ctx (gen-context {:prefilled-size 20
+                                     :view-size      7
+                                     :text-area      (gen-text-area-of 10)})]
                   (hud-projection ctx)))
 
 ;; VI. Selection projection
@@ -565,9 +565,9 @@
 
 (defspec selection-projection-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   20
-                                     :fov    7
-                                     :seeker (gen-seeker-of 10)})]
+         (for-all [ctx (gen-context {:prefilled-size 20
+                                     :view-size      7
+                                     :text-area      (gen-text-area-of 10)})]
                   (selection-projection ctx)))
 
 ;; VII. Cursor projection
@@ -601,9 +601,9 @@
 
 (defspec cursor-projection-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   20
-                                     :fov    7
-                                     :seeker (gen-seeker-of 10)})]
+         (for-all [ctx (gen-context {:prefilled-size 20
+                                     :view-size      7
+                                     :text-area      (gen-text-area-of 10)})]
                   (cursor-projection ctx)))
 
 ;; VIII. Y Projection
@@ -634,9 +634,9 @@
 
 (defspec y-projection-test
          NR-OF-TESTS
-         (for-all [ctx (gen-context {:size   30
-                                     :fov    10
-                                     :seeker (gen-seeker-of 20)})]
+         (for-all [ctx (gen-context {:prefilled-size 30
+                                     :view-size      10
+                                     :text-area      (gen-text-area-of 20)})]
                   (y-projection ctx)))
 
 
