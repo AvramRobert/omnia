@@ -4,7 +4,7 @@
             [omnia.text.core :refer [Seeker]]
             [omnia.config.components.event :refer [Event TextEvent]]
             [omnia.util.schema :refer [Point Region]]
-            [omnia.util.arithmetic :refer [--]]
+            [omnia.util.arithmetic :refer [-- ++]]
             [omnia.util.generator :refer [do-gen]]
             [omnia.repl.hud :refer [Hud]]
             [schema.core :as s]
@@ -86,10 +86,9 @@
   [fns :- t/TerminalSpec]
   (let [unit (constantly nil)]
     (reify t/Terminal
-      (resize! [t]                ((:resize! fns unit) t))
       (clear! [t]                 ((:clear! fns unit) t))
       (refresh! [t]               ((:refresh! fns unit) t))
-      (size [t]                   ((:size fns (:resize! fns (constantly 10))) t))
+      (size [t]                   ((:size fns (constantly 10)) t))
       (move! [t x y]              ((:move! fns unit) t x y))
       (stop! [t]                  ((:stop! fns unit) t))
       (start! [t]                 ((:start! fns unit) t))
@@ -191,11 +190,11 @@
 (defn server-history [ctx]
   (-> ctx (r/client) (:history)))
 
-(defn highlights? [highlited region]
+(defn highlights? [highlighted region]
   (let [{expected-start :start
          expected-end   :end} region
         {actual-start :start
-         actual-end   :end} (:region highlited)]
+         actual-end   :end} (:region highlighted)]
     (and (= expected-start actual-start)
          (= expected-end actual-end))))
 
@@ -257,29 +256,16 @@
   [ctx :- Context]
   (-> ctx (at-input-end) (at-view-bottom)))
 
-(s/defn shrink-view :- Context
-   [ctx :- Context, n :- s/Int]
-  (let [new-size (-> ctx (r/terminal) (t/size) (-- n))
-        terminal (test-terminal {:resize! (constantly new-size)})]
-    (-> ctx
-        (r/with-terminal terminal)
-        (process [refresh]))))
-
-(s/defn enlarge-view :- Context
-   [ctx :- Context, n :- s/Int]
-  (let [new-size (-> ctx (r/terminal) (t/size) (+ n))
-        terminal (test-terminal {:resize! (constantly new-size)})]
-    (-> ctx
-        (r/with-terminal terminal)
-        (process [refresh]))))
+(s/defn resize-view-by :- Context
+  [ctx :- Context, n :- s/Int]
+  (let [new-size (-> ctx (r/preview-hud) (h/field-of-view) (++ n))]
+    (process ctx [(e/resize-event 80 new-size)])))
 
 (s/defn maximise-view :- Context
     [ctx :- Context]
-  (let [height   (-> ctx (r/preview-hud) (h/text) (:height))
-        terminal (test-terminal {:resize! (constantly height)})]
-    (-> ctx
-        (r/with-terminal terminal)
-        (process [refresh]))))
+  (let [size   (-> ctx (r/preview-hud) (h/field-of-view))
+        height (-> ctx (r/preview-hud) (h/text) (:height))]
+    (resize-view-by ctx (- height size))))
 
 (s/defn extend-highlight :- Context
   [ctx         :- Context,

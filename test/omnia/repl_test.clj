@@ -209,25 +209,25 @@
 (defn correct-under-hud-enlargement [ctx]
   (-> ctx
       (at-main-view-start)
-      (should-be #(-> % (process [up up]) (enlarge-view 1) (overview) (= 1))
-                 #(-> % (process [up up]) (enlarge-view 2) (overview) (= 0))
-                 #(-> % (process [select-all backspace]) (enlarge-view 2) (overview) (= 0)))))
+      (should-be #(-> % (process [up up]) (resize-view-by 1) (overview) (= 1))
+                 #(-> % (process [up up]) (resize-view-by 2) (overview) (= 0))
+                 #(-> % (process [select-all backspace]) (resize-view-by 2) (overview) (= 0)))))
 
 (defn correct-under-hud-shrinking [ctx]
   (-> ctx
       (at-main-view-start)
-      (should-be #(-> % (process [up up]) (shrink-view 1) (overview) (= 3))
-                 #(-> % (process [up up]) (shrink-view 2) (overview) (= 4))
-                 #(-> % (process [up up]) (shrink-view 3) (overview) (= 5))
-                 #(-> % (process [select-all backspace]) (shrink-view 3) (overview) (= 0)))))
+      (should-be #(-> % (process [up up]) (resize-view-by -1) (overview) (= 3))
+                 #(-> % (process [up up]) (resize-view-by -2) (overview) (= 4))
+                 #(-> % (process [up up]) (resize-view-by -3) (overview) (= 5))
+                 #(-> % (process [select-all backspace]) (resize-view-by -3) (overview) (= 0)))))
 
 (defn correct-under-hud-size-variance [ctx]
   (-> ctx
       (at-main-view-start)
-      (should-be #(-> % (process [up up]) (enlarge-view 2) (shrink-view 2) (overview) (= 2))
-                 #(-> % (process [up up]) (enlarge-view 2) (shrink-view 1) (overview) (= 1))
-                 #(-> % (process [up up]) (shrink-view 2) (enlarge-view 1) (overview) (= 3))
-                 #(-> % (process [up up]) (shrink-view 4) (enlarge-view 2) (overview) (= 4)))))
+      (should-be #(-> % (process [up up]) (resize-view-by 2) (resize-view-by -2) (overview) (= 2))
+                 #(-> % (process [up up]) (resize-view-by 2) (resize-view-by -1) (overview) (= 1))
+                 #(-> % (process [up up]) (resize-view-by -2) (resize-view-by 1) (overview) (= 3))
+                 #(-> % (process [up up]) (resize-view-by -4) (resize-view-by 2) (overview) (= 4)))))
 
 (defn calibrating [ctx]
   (exceed-upper-bound ctx)

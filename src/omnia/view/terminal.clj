@@ -18,7 +18,7 @@
            (java.io File)
            (clojure.lang IPersistentVector Keyword Atom)))
 
-(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event! :resize!))
+(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event!))
 
 (def TerminalSpec
   {TerminalFn s/Any})
@@ -35,7 +35,6 @@
          ^Keyword bg
          ^IPersistentVector styles])
   (size [_])
-  (resize! [_])
   (clear! [_])
   (refresh! [_])
   (stop! [_])
@@ -134,7 +133,7 @@
       (.setCharacter terminal x y text-char))))
 
 ;; uses a memoised hashmap of all objects to reduce overhead
-(s/defn impl-get-event! :- e/Event
+(s/defn impl-get-input-event! :- e/Event
   [screen         :- TerminalScreen
    context-events :- {KeyStroke e/ContextEvent}
    text-events    :- {Character e/TextEvent}]
@@ -142,6 +141,15 @@
     (or (get context-events input)
         (get text-events (.getCharacter input))
         e/ignore-event)))
+
+(s/defn impl-get-resize-event! :- (s/maybe e/Event)
+  [screen   :- TerminalScreen
+   resized? :- Atom]
+  (when @resized?
+    (reset! resized? false)
+    (.doResizeIfNecessary screen)
+    (e/resize-event (-> screen (.getTerminalSize) (.getColumns))
+                    (-> screen (.getTerminalSize) (.getRows)))))
 
 (s/defn impl-move! [t :- TerminalScreen
                     x :- s/Int
@@ -151,14 +159,6 @@
 (s/defn impl-size! :- s/Int
   [screen :- TerminalScreen]
   (-> screen (.getTerminalSize) (.getRows)))
-
-(s/defn impl-resize! :- (s/maybe s/Int)
-  [screen        :- TerminalScreen
-   resizing-sink :- Atom]
-  (when @resizing-sink
-    (reset! resizing-sink false)
-    (.doResizeIfNecessary screen)
-    (impl-size! screen)))
 
 (s/defn impl-clear! :- nil
   [screen :- TerminalScreen]
@@ -222,11 +222,10 @@
         (impl-clear! screen))
       (move! [_ x y]
         (impl-move! screen x y))
-      (resize! [_]
-        (impl-resize! screen resizing-sink))
       (size [_]
         (impl-size! screen))
       (get-event! [_]
-        (impl-get-event! screen memoised-context-events memoised-text-events))
+        (or (impl-get-resize-event! screen resizing-sink)
+            (impl-get-input-event! screen memoised-context-events memoised-text-events)))
       (put! [_ ch x y fg bg stls]
         (impl-put! screen ch x y fg bg stls memoised-styles memoised-colours)))))

@@ -55,7 +55,7 @@
         expected-events   (set (vals context-strokes))
         screen            (terminal-screen-with {:read-input (keys context-strokes)})]
     (dotimes [_ (count context-strokes)]
-      (is (contains? expected-events (t/impl-get-event! screen context-strokes {}))))))
+      (is (contains? expected-events (t/impl-get-input-event! screen context-strokes {}))))))
 
 (deftest get-text-event
   (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
@@ -63,20 +63,20 @@
         expected-events (set (vals t/char->event))
         screen          (terminal-screen-with {:read-input text-strokes})]
     (dotimes [_ (count text-strokes)]
-      (is (contains? expected-events (t/impl-get-event! screen context-strokes t/char->event))))))
+      (is (contains? expected-events (t/impl-get-input-event! screen context-strokes t/char->event))))))
 
 (defspec get-unknown-event NR-OF-TESTS
-  (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
+         (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
         text-events     t/char->event]
-    (for-all [binding (->> c/default-config
+           (for-all [binding (->> c/default-config
                            (:keymap)
                            (vals)
                            (mapv :key)
                            (set)
                            (difference kc/key-set)
                            (gen-key-binding-from))]
-     (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
-       (is (= e/ignore-event (t/impl-get-event! screen context-strokes text-events)))))))
+             (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
+               (is (= e/ignore-event (t/impl-get-input-event! screen context-strokes text-events)))))))
 
 (defspec put-char NR-OF-TESTS
   (for-all [char  gen/char-alphanumeric

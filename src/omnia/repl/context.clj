@@ -330,14 +330,12 @@
         (with-unrefreshed-preview preview))))
 
 (s/defn resize :- Context
-  [ctx :- Context]
-  (if-let [new-size (-> ctx (terminal) (t/resize!))]
+  [ctx :- Context event :- Event]
+  (let [persisted (persisted-hud ctx)
+        new-fov   (-> event (:value) (second))]
     (-> ctx
-        (with-persisted (h/resize (persisted-hud ctx) new-size))
-        (refresh)
-        (calibrate)
-        (re-render))
-    ctx))
+        (with-persisted (h/resize persisted new-fov))
+        (refresh))))
 
 (s/defn clear :- Context
   [ctx :- Context]
@@ -504,18 +502,19 @@
    event :- Event]
   (condp = (:action event)
     e/inject      (-> ctx (inject event) (diff-render) (continue))
-    e/docs        (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (resize) (continue))
-    e/signature   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (resize) (continue))
-    e/match       (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (resize) (continue))
-    e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (resize) (continue))
-    e/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (resize) (continue))
-    e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (resize) (continue))
-    e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (resize) (continue))
-    e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (resize) (continue))
-    e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (match-parens) (diff-render) (resize) (continue))
-    e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (resize) (continue))
-    e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight)  (diff-render) (resize) (continue))
-    e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (resize) (exit) (terminate))
-    e/refresh     (-> ctx (gc) (scroll-stop) (deselect) (re-render) (resize) (continue))
+    e/docs        (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (continue))
+    e/signature   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (continue))
+    e/match       (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (continue))
+    e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (continue))
+    e/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (continue))
+    e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (continue))
+    e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (continue))
+    e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
+    e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (match-parens) (diff-render) (continue))
+    e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
+    e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight)  (diff-render) (continue))
+    e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
+    e/refresh     (-> ctx (gc) (scroll-stop) (deselect) (re-render) (continue))
+    e/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
     e/ignore      (continue ctx)
-    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (resize) (continue))))
+    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (continue))))

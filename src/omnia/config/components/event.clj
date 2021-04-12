@@ -41,6 +41,7 @@
 (def exit :exit)
 (def ignore :ignore)
 (def refresh :refresh)
+(def resize :resize)
 
 (def text-actions
   #{select-all
@@ -80,7 +81,8 @@
     evaluate
     exit
     ignore
-    refresh})
+    refresh
+    resize})
 
 (defn action? [action]
   (fn [event]
@@ -131,3 +133,7 @@
 
 (s/def ignore-event :- ContextEvent
   (event ignore))
+
+(s/defn resize-event :- ContextEvent
+  [width :- s/Int height :- s/Int]
+  (event resize [width height]))
