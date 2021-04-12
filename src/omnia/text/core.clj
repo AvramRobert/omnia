@@ -9,13 +9,6 @@
 
 (def Line [Character])
 
-;; Instead of changing the history constantly, I can accumulate either :
-;; a) seekers
-;; b) events
-;; And use a cursor over the history as a "historical" timeline
-;; in case b, I would just replay the events or invert replay them
-;; The problem with a timeline is that new changes would pe added to the beginning of the list
-;; which then makes undoing from that point difficult, as the regression in time would not be linear anymore
 (def Seeker
   {:lines     [Line]
    :cursor    Point
@@ -385,10 +378,10 @@
 (s/defn backspace :- Seeker
   [seeker :- Seeker]
   (cond
-    (selected? seeker) (chunk-delete seeker)
-    (pair? seeker) (pair-delete seeker)
+    (selected? seeker)     (chunk-delete seeker)
+    (pair? seeker)         (pair-delete seeker)
     (tokens (left seeker)) (go-back seeker)
-    :else (simple-delete seeker)))
+    :else                  (simple-delete seeker)))
 
 (s/defn simple-insert :- Seeker
   [seeker :- Seeker
@@ -428,15 +421,15 @@
    f      :- (=> Seeker Seeker)
    look   :- (=> Seeker (s/maybe Character))]
   (letfn [(blanks? [s] (some-> s (look) (space?)))
-          (lits? [s]   (not (blanks? s)))
+          (literals? [s] (not (blanks? s)))
           (tokens? [s] (tokens (look s)))
-          (bounds? [s] (or (-> s (:cursor) (first) (zero?))
+          (bounds? [s] (or (-> s (:cursor) (nth 0) (zero?))
                            (nil? (look s))))
           (go [pred] (do-until (f seeker) f pred))]
     (cond
-      (blanks? seeker) (go #(or (bounds? %) (tokens? %) (lits? %)))
-      (tokens? seeker) (go #(or (bounds? %) (lits? %)))
-      :else (go #(or (bounds? %) (tokens? %) (blanks? %))))))
+      (blanks? seeker) (go #(or (bounds? %) (tokens? %) (literals? %)))
+      (tokens? seeker) (go #(or (bounds? %) (literals? %)))
+      :else            (go #(or (bounds? %) (tokens? %) (blanks? %))))))
 
 (s/defn jump-left :- Seeker
   [seeker :- Seeker]
@@ -514,9 +507,15 @@
   [seeker :- Seeker]
   (-> seeker (start) (select) (end)))
 
-(defn- a-pair? [this that]
+(defn- any-pair? [this that]
   (or (= (open-pairs this :none) that)
       (= (closed-pairs this :none) that)))
+
+(defn- expand-result [tuple]
+  (nth tuple 0))
+
+(defn- expand-value [tuple]
+  (nth tuple 1))
 
 (defn open-expand [seeker]
   "Note: This assumes that the right-hand side of the seeker starts with an open parens"
@@ -526,11 +525,11 @@
            current (-> seeker (select) (go-forward))]
       (let [r (right current)]
         (cond
-          (zero? seen) [:matched current]
+          (zero? seen)                           [:matched current]
           (= (:cursor ending) (:cursor current)) [:unmatched current]
-          (a-pair? l r) (recur (dec seen) (go-forward current))
-          (= l r) (recur (inc seen) (go-forward current))
-          :else (recur seen (go-forward current)))))))
+          (any-pair? l r)                        (recur (dec seen) (go-forward current))
+          (= l r)                                (recur (inc seen) (go-forward current))
+          :else                                  (recur seen (go-forward current)))))))
 
 (defn closed-expand [seeker]
   "Note: This assumes that the left-hand side of the seeker starts with a closed parens"
@@ -542,11 +541,11 @@
            current (-> seeker (select) (go-back))]
       (let [l (left current)]
         (cond
-          (zero? seen) [:matched (switch current)]
+          (zero? seen)                              [:matched (switch current)]
           (= (:cursor beginning) (:cursor current)) [:unmatched (switch current)]
-          (a-pair? l r) (recur (dec seen) (go-back current))
-          (= l r) (recur (inc seen) (go-back current))
-          :else (recur seen (go-back current)))))))
+          (any-pair? l r)                           (recur (dec seen) (go-back current))
+          (= l r)                                   (recur (inc seen) (go-back current))
+          :else                                     (recur seen (go-back current)))))))
 
 (defn near-expand [seeker]
   "Note: This assumes that the seeker isn't neighbouring parens"
@@ -555,31 +554,32 @@
            current seeker]
       (let [l (left current) r (first seen)]
         (cond
-          (and (empty? seen) (open-pairs l)) (-> current (go-back) (open-expand))
-          (a-pair? l r) (recur (rest seen) (go-back current))
+          (and (empty? seen) (open-pairs l))        (-> current (go-back) (open-expand))
+          (any-pair? l r)                           (recur (rest seen) (go-back current))
           (= (:cursor beginning) (:cursor current)) [:unmatched (-> current (select) (end))]
-          (closed-pairs l) (recur (conj seen l) (go-back current))
-          :else (recur seen (go-back current)))))))
+          (closed-pairs l)                          (recur (conj seen l) (go-back current))
+          :else                                     (recur seen (go-back current)))))))
 
 (s/defn expand :- Seeker
   [seeker :- Seeker]
   (-> (m/match [(:expansion seeker) (left seeker) (right seeker)]
-               [:word \( \)] (-> seeker (near-expand) (second))
-               [:word \[ \]] (-> seeker (near-expand) (second))
-               [:word \{ \}] (-> seeker (near-expand) (second))
-               [:word \space \space] (-> seeker (near-expand) (second))
-               [:word (:or \" \space) (:or \) \] \})] (-> seeker (go-forward) (closed-expand) (second))
-               [:word (:or \) \] \}) _] (-> seeker (closed-expand) (second))
-               [(:or :word :expr) _ (:or \( \[ \{)] (-> seeker (open-expand) (second))
+               [:word \( \)]                          (-> seeker (near-expand) (expand-value))
+               [:word \[ \]]                          (-> seeker (near-expand) (expand-value))
+               [:word \{ \}]                          (-> seeker (near-expand) (expand-value))
+               [:word \space \space]                  (-> seeker (near-expand) (expand-value))
+               [:word (:or \" \space) (:or \) \] \})] (-> seeker (go-forward) (closed-expand) (expand-value))
+               [:word (:or \) \] \}) _]               (-> seeker (closed-expand) (expand-value))
+               [(:or :word :expr) _ (:or \( \[ \{)]   (-> seeker (open-expand) (expand-value))
                [:word (:or \( \[ \{ \" \space nil) _] (-> seeker (select) (jump-right))
-               [:word _ _] (-> seeker (jump-left) (select) (jump-right))
-               :else (-> seeker (near-expand) (second)))
+               [:word _ _]                            (-> seeker (jump-left) (select) (jump-right))
+               :else                                  (-> seeker (near-expand) (expand-value)))
       (assoc :expansion :expr)))
 
 (s/defn find-pair :- (s/maybe Region)
   [seeker :- Seeker]
-  (letfn [(choose [[m s]]
-            (when (= :matched m) (-> s (go-back) (selection))))]
+  (letfn [(choose [tuple]
+            (when (= :matched (expand-result tuple))
+              (-> tuple (expand-value) (go-back) (selection))))]
     (cond
       (open-pairs (right seeker))  (-> seeker (open-expand) (choose))
       (closed-pairs (left seeker)) (-> seeker (closed-expand) (choose))
