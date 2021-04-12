@@ -104,16 +104,22 @@
 
 (deftest detect-functions
   (test-detections
-    [["(he)"   [h/open-list h/function h/function h/close-list]      [h/-list h/-function h/-list]]
+    [["(he)"  [h/open-list h/function h/function h/close-list]      [h/-list h/-function h/-list]]
      ["(nil " [h/open-list h/function h/function h/function h/space] [h/-list h/-function h/-text]]]))
 
 (deftest detect-chars
   (test-detections
-    [["\\a" [h/character h/character]                [h/-char]]
-     ["\\\\" [h/character h/character]               [h/-char]]
-     ["\\abc" [h/character h/character h/character]  [h/-text]]
-     ["\\" [h/character]                             [h/-text]]
-     ["\\\\\\" [h/character h/character h/character] [h/-text]]]))
+    [["\\a"        [h/escape h/character]                      [h/-char h/-char]]
+     ["\\\\"       [h/escape h/character h/escape h/character] [h/-char h/-char]]
+     ["\\abc"      [h/escape h/character h/text h/text]        [h/-char h/-char h/-text]]
+     ["\\"         [h/escape]                                  [h/-char]]
+     ["\\space"    [h/escape h/special-character]              [h/-char h/-char]]
+     ["\\newline"  [h/escape h/special-character]              [h/-char h/-char]]
+     ["\\spacex"   [h/escape h/special-character]              [h/-char h/-text]]
+     ["\\newlinex" [h/escape h/special-character]              [h/-char h/-text]]
+     ["[\\a \\]]"  [h/open-vector h/escape h/character h/space
+                    h/escape h/character h/close-vector]       [h/-vector h/-char h/-char
+                                                               h/-text h/-char h/-char h/-vector]]]))
 
 (deftest detect-keywords
   (test-detections
@@ -171,7 +177,7 @@
      [":a,1"    [h/key-word h/comma h/number]      [h/-keyword h/-comma h/-number]]
      ["(,)"     [h/open-list h/comma h/close-list] [h/-list h/-comma h/-list]]
      ["nil,"    [h/word h/comma]                   [h/-word h/-comma]]
-     ["\\c,\\a" [h/character h/comma h/character]  [h/-char h/-comma h/-char]]]))
+     ["\\c,\\a" [h/escape h/comma h/escape]  [h/-char h/-comma h/-char]]]))
 
 (deftest open-list-transitions
   (test-transitions
@@ -189,7 +195,7 @@
                   h/space
                   h/break
                   h/function
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/word
@@ -212,7 +218,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function]}))
@@ -234,7 +240,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function]}))
@@ -256,7 +262,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function]}))
@@ -278,7 +284,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function]}))
@@ -300,7 +306,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function]}))
@@ -323,7 +329,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/function
                   h/comma]}))
 
@@ -344,7 +350,7 @@
                   h/break
                   h/word
                   h/text
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function]}))
@@ -363,7 +369,7 @@
                   h/com-ment
                   h/space
                   h/break
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/close-string
                   h/function
@@ -385,7 +391,7 @@
                   h/open-string
                   h/key-word
                   h/space
-                  h/character
+                  h/escape
                   h/open-string
                   h/close-string
                   h/function
@@ -414,7 +420,7 @@
                   h/word
                   h/text
                   h/key-word
-                  h/character]}))
+                  h/escape]}))
 
 (deftest word-transitions
   (test-transitions
@@ -435,7 +441,7 @@
                   h/function
                   h/text
                   h/key-word
-                  h/character
+                  h/escape
                   h/number]}))
 
 (deftest space-transitions
@@ -454,7 +460,7 @@
                   h/break
                   h/word
                   h/key-word
-                  h/character
+                  h/escape
                   h/text
                   h/comma]
      :disallowed [h/close-string
@@ -476,7 +482,7 @@
                   h/break
                   h/word
                   h/key-word
-                  h/character
+                  h/escape
                   h/text
                   h/comma]
      :disallowed [h/close-string
@@ -484,10 +490,10 @@
 
 (deftest character-transitions
   (test-transitions
-    {:state      h/character
+    {:state      h/escape
      :allowed    [h/space
                   h/break
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/open-list
                   h/close-list
@@ -521,7 +527,7 @@
                   h/text
                   h/space
                   h/break
-                  h/character
+                  h/escape
                   h/comma]
      :disallowed [h/function
                   h/close-string]}))

@@ -8,7 +8,7 @@
 (def ^:const -map :map)
 (def ^:const -set :set)
 (def ^:const -number :number)
-(def ^:const -char :character)
+(def ^:const -char :char)
 (def ^:const -keyword :keyword)
 (def ^:const -text :text)
 (def ^:const -string :string)
@@ -26,7 +26,9 @@
 (def ^:private ^:const  closed-vector-node :close-vector)
 (def ^:private ^:const  open-map-node :open-map)
 (def ^:private ^:const  closed-map-node :close-map)
+(def ^:private ^:const  escape-node :escape)
 (def ^:private ^:const  character-node :character)
+(def ^:private ^:const  special-character-node :special-character)
 (def ^:private ^:const  number-node :number)
 (def ^:private ^:const  open-string-node :open-string)
 (def ^:private ^:const  closed-string-node :close-string)
@@ -47,7 +49,9 @@
                   closed-map-node
                   open-string-node
                   closed-string-node
+                  escape-node
                   character-node
+                  special-character-node
                   number-node
                   keyword-node
                   function-node
@@ -64,27 +68,32 @@
    :transition (=> Character (s/maybe Node))})
 
 (def triggers
-  {space-node         #{\space},
-   closed-string-node #{\"},
-   open-string-node   #{\"}
-   number-node        #{\+ \- \0 \1 \2 \3 \4 \5 \6 \7 \8 \9},
-   closed-map-node    #{\}},
-   closed-list-node   #{\)},
-   closed-vector-node #{\]},
-   break-node         #{\newline},
-   open-vector-node   #{\[},
-   keyword-node       #{\:},
-   character-node     #{\\},
-   word-node          #{\f \n \t},
-   comment-node       #{\;},
-   open-map-node      #{\{},
-   open-list-node     #{\(},
-   comma-node         #{\,}})
+  {space-node             #{\space},
+   closed-string-node     #{\"},
+   open-string-node       #{\"}
+   number-node            #{\+ \- \0 \1 \2 \3 \4 \5 \6 \7 \8 \9},
+   closed-map-node        #{\}},
+   closed-list-node       #{\)},
+   closed-vector-node     #{\]},
+   break-node             #{\newline},
+   open-vector-node       #{\[},
+   keyword-node           #{\:},
+   escape-node            #{\\},
+   word-node              #{\f \n \t},
+   special-character-node #{\s \n},
+   comment-node           #{\;},
+   open-map-node          #{\{},
+   open-list-node         #{\(},
+   comma-node             #{\,}})
 
 (def words
   #{[\n \i \l]
     [\t \r \u \e]
     [\f \a \l \s \e]})
+
+(def special-characters
+  #{[\n \e \w \l \i \n \e]
+    [\s \p \a \c \e]})
 
 (s/defn transitions :- {Character Node}
   [& nodes :- [Node]]
@@ -104,7 +113,7 @@
                  break-node
                  space-node
                  comment-node
-                 character-node
+                 escape-node
                  comma-node)]
     {:node       function-node
      :emission   (constantly -function)
@@ -120,7 +129,7 @@
                  closed-vector-node
                  open-map-node
                  closed-map-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -142,7 +151,7 @@
                  open-map-node
                  closed-map-node
                  number-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -161,7 +170,7 @@
                  closed-vector-node
                  open-map-node
                  closed-map-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  comma-node)]
@@ -180,7 +189,7 @@
                  open-map-node
                  closed-map-node
                  number-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -201,7 +210,7 @@
                  open-map-node
                  closed-map-node
                  number-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -240,7 +249,7 @@
                  open-map-node
                  closed-map-node
                  number-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -262,7 +271,7 @@
                  closed-map-node
                  open-string-node
                  number-node
-                 character-node
+                 escape-node
                  comment-node
                  keyword-node
                  comma-node)]
@@ -283,7 +292,7 @@
                  closed-map-node
                  open-string-node
                  number-node
-                 character-node
+                 escape-node
                  comment-node
                  keyword-node
                  comma-node)]
@@ -304,7 +313,7 @@
                  closed-map-node
                  open-string-node
                  number-node
-                 character-node
+                 escape-node
                  comment-node
                  keyword-node
                  comma-node)]
@@ -323,7 +332,7 @@
                  open-map-node
                  closed-map-node
                  open-string-node
-                 character-node
+                 escape-node
                  comment-node
                  comma-node)]
     {:node       keyword-node
@@ -366,10 +375,52 @@
   (let [lookup (transitions
                  break-node
                  space-node
-                 character-node
-                 comma-node)]
+                 open-list-node
+                 closed-list-node
+                 open-vector-node
+                 closed-vector-node
+                 open-map-node
+                 closed-map-node
+                 open-string-node
+                 comment-node
+                 comma-node
+                 escape-node
+                 number-node
+                 keyword-node)]
     {:node       character-node
-     :emission   #(if (= (count %) 2) -char -text)
+     :emission   (constantly -char)
+     :transition #(lookup % text-node)}))
+
+(s/def special-character :- State
+  (let [lookup (transitions
+                 break-node
+                 space-node
+                 open-list-node
+                 closed-list-node
+                 open-vector-node
+                 closed-vector-node
+                 open-map-node
+                 closed-map-node
+                 open-string-node
+                 comment-node
+                 comma-node
+                 escape-node
+                 number-node
+                 keyword-node)]
+    {:node       special-character-node
+     :emission   #(if (or (special-characters %)
+                          (= (count %) 1))
+                    -char
+                    -text)
+     :transition #(lookup % special-character-node)}))
+
+(s/def escape :- State
+  (let [lookup (transitions
+                 break-node
+                 space-node
+                 special-character-node)]
+    {:node       escape-node
+     :emission   (constantly -char)
      :transition #(lookup % character-node)}))
 
 (s/def com-ment :- State
@@ -390,7 +441,7 @@
                  open-map-node
                  closed-map-node
                  number-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -411,7 +462,7 @@
                  open-map-node
                  closed-map-node
                  number-node
-                 character-node
+                 escape-node
                  open-string-node
                  comment-node
                  keyword-node
@@ -421,24 +472,26 @@
      :transition #(lookup % text-node)}))
 
 (s/def node->state :- {Node State}
-  {function-node      function
-   text-node          text
-   open-list-node     open-list
-   closed-list-node   close-list
-   open-vector-node   open-vector
-   closed-vector-node close-vector
-   open-map-node      open-map
-   closed-map-node    close-map
-   open-string-node   open-string
-   closed-string-node close-string
-   break-node         break
-   space-node         space
-   word-node          word
-   keyword-node       key-word
-   number-node        number
-   character-node     character
-   comment-node       com-ment
-   comma-node         comma})
+  {function-node          function
+   text-node              text
+   open-list-node         open-list
+   closed-list-node       close-list
+   open-vector-node       open-vector
+   closed-vector-node     close-vector
+   open-map-node          open-map
+   closed-map-node        close-map
+   open-string-node       open-string
+   closed-string-node     close-string
+   break-node             break
+   space-node             space
+   word-node              word
+   keyword-node           key-word
+   number-node            number
+   escape-node            escape
+   character-node         character
+   special-character-node special-character
+   comment-node           com-ment
+   comma-node             comma})
 
 (defn consume-with [f]
   (fn [[intermediate accumulate state] char]

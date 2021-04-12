@@ -2,7 +2,7 @@
   (:require [schema.core :as s]))
 
 (def delete :delete)
-(def character :character)
+(def character :escape)
 (def expand :expand)
 (def select-all :select-all)
 (def paste :paste)
