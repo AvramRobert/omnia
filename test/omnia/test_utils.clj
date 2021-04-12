@@ -106,11 +106,11 @@
            response        (gen-nrepl-result receive)
            history-seekers history]
     (-> (r/context (c/convert c/default-user-config)
-                   (test-terminal {:size (constantly fov)})
                    (server/client {:host    ""
                                    :port    0
                                    :history history-seekers
-                                   :client  (constantly response)}))
+                                   :client  (constantly response)})
+                   fov)
         (r/with-input-area input-seeker)
         (r/with-hud (h/hud hud-seeker fov)))))
 
@@ -157,10 +157,6 @@
 (s/defn scroll-offset :- s/Int
   [ctx :- Context]
   (-> ctx (r/preview-hud) (h/scroll-offset)))
-
-(s/defn field-of-view :- s/Int
-  [ctx :- Context]
-  (-> ctx (r/preview-hud) (h/field-of-view)))
 
 (s/defn project-y :- s/Int
   [ctx :- Context]
@@ -235,14 +231,14 @@
 
 (s/defn at-view-top :- Context
   [ctx :- Context]
-  (let [fov       (-> ctx (r/preview-hud) (h/field-of-view))
+  (let [fov       (r/view-size ctx)
         top-line #(-- % (dec fov))                          ;; (dec) because we want to land on the fov'th line
         text      (-> ctx (r/input-area) (i/move-y top-line))]
     (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-view-bottom :- Context
   [ctx :- Context]
-  (let [fov         (-> ctx (r/preview-hud) (h/field-of-view))
+  (let [fov         (r/view-size ctx)
         bottom-line #(+ % (dec fov))                        ;; (dec) because we want to land on the last fov'th line
         text        (-> ctx (r/input-area) (i/move-y bottom-line))]
     (-> ctx (r/with-input-area text) (r/refresh))))
@@ -257,14 +253,14 @@
 
 (s/defn resize-view-by :- Context
   [ctx :- Context, n :- s/Int]
-  (let [new-size (-> ctx (r/preview-hud) (h/field-of-view) (++ n))]
+  (let [new-size (-> ctx (r/view-size) (++ n))]
     (process ctx [(e/resize-event 80 new-size)])))
 
 (s/defn maximise-view :- Context
-    [ctx :- Context]
-  (let [size   (-> ctx (r/preview-hud) (h/field-of-view))
-        height (-> ctx (r/preview-hud) (h/text) (:height))]
-    (resize-view-by ctx (- height size))))
+  [ctx :- Context]
+  (let [view-size (r/view-size ctx)
+        text-size (-> ctx (r/preview-hud) (h/text) (:height))]
+    (resize-view-by ctx (- text-size view-size))))
 
 (s/defn extend-highlight :- Context
   [ctx         :- Context,

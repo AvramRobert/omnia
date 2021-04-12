@@ -14,14 +14,15 @@
 (def prelude [(e/inject-event "(require '[omnia.resolution :refer [retrieve retrieve-from]])")])
 
 (s/defn consume :- Context
-        [ctx    :- Context,
-         events :- [Event]]
+        [ctx      :- Context,
+         terminal :- Terminal
+         events   :- [Event]]
    (let [step   (c/process ctx (first events))
          status (:status step)
          ctx'   (:ctx step)
-         _      (r/render! ctx')]
+         _      (r/render! ctx' terminal)]
      (case status
-       :continue (recur ctx' (rest events))
+       :continue (recur ctx' terminal (rest events))
        :terminate ctx')))
 
 (s/defn events-from :- [Event]
@@ -33,7 +34,7 @@
    terminal :-  Terminal
    repl     :-  REPLClient]
   (let [events          (concat prelude (events-from terminal))
-        initial-context (c/context config terminal repl)]
-    (-> (tsk/task (consume initial-context events))
+        initial-context (c/context config repl (t/size terminal))]
+    (-> (tsk/task (consume initial-context terminal events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))

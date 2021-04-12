@@ -334,7 +334,7 @@
 
 (defn clear-remember-persist [ctx]
   (let [current-input      (r/input-area ctx)
-        expected-persisted (r/init-hud (r/terminal ctx) (r/client ctx))
+        expected-persisted (r/init-hud (r/view-size ctx) (r/client ctx))
         expected-complete  (h/enrich-with expected-persisted [current-input])]
     (-> ctx
         (process [clear])

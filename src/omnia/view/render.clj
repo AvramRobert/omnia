@@ -9,8 +9,8 @@
             [omnia.text.highlighting :refer [fold -text]]
             [omnia.repl.context :refer [Context]]
             [omnia.util.schema :refer [Point Region]]
-            [omnia.util.collection :refer [merge-culling map-vals reduce-idx]]
-            [omnia.util.arithmetic :refer [--]]))
+            [omnia.util.collection :refer [merge-culling map-vals reduce-idx]])
+  (:import (omnia.view.terminal Terminal)))
 
 (def HighlightPattern
   {:current c/Highlights
@@ -125,9 +125,10 @@
 (s/defn highlight!
   "This thing should not do any selection extraction
    It should purely just do lookups and recursion over indexes"
-  [ctx :- Context, pattern :- HighlightPattern]
+  [terminal :- Terminal,
+   ctx      :- Context,
+   pattern  :- HighlightPattern]
   (let [hud        (:hud pattern)
-        terminal   (c/terminal ctx)
         highlights (prioritised ctx pattern)]
     (doseq [{region :region
              scheme :scheme
@@ -149,27 +150,33 @@
                  0) ys xs))))))
 
 (s/defn clean-highlights!
-  [ctx :- Context]
+  [terminal :- Terminal,
+   ctx      :- Context]
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
         previous   (c/previous-hud ctx)]
-    (highlight! ctx {:current garbage
-                     :former  highlights
-                     :hud     previous})))
+    (highlight! terminal
+                ctx
+                {:current garbage
+                 :former  highlights
+                 :hud     previous})))
 
 (s/defn render-highlights!
-  [ctx :- Context]
+  [terminal :- Terminal,
+   ctx      :- Context]
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
         preview    (c/preview-hud ctx)]
-    (highlight! ctx {:current highlights
-                     :former  garbage
-                     :hud     preview})))
+    (highlight! terminal
+                ctx
+                {:current highlights
+                 :former  garbage
+                 :hud     preview})))
 
 (s/defn set-position!
-  [ctx :- Context]
-  (let [terminal (c/terminal ctx)
-        preview  (c/preview-hud ctx)
+  [terminal :- Terminal
+   ctx      :- Context]
+  (let [preview  (c/preview-hud ctx)
         [x y]    (h/project-hud-cursor preview)]
     (t/move! terminal x y)))
 
@@ -182,10 +189,10 @@
         f (count former-line)]
     (if (> f c) (- f c) 0)))
 
-(s/defn total!
-  [ctx :- Context]
-  (let [terminal (c/terminal ctx)
-        now      (-> ctx (c/preview-hud) (h/project-hud) (:lines))
+(s/defn render-total!
+  [terminal :- Terminal,
+   ctx      :- Context]
+  (let [now      (-> ctx (c/preview-hud) (h/project-hud) (:lines))
         then     (-> ctx (c/previous-hud) (h/project-hud) (:lines))
         scheme   (-> ctx (c/configuration) (:syntax) (:standard))
         limit    (max (count now) (count then))]
@@ -200,10 +207,10 @@
            :scheme   scheme
            :styles  []})))))
 
-(s/defn diff!
-  [ctx :- Context]
-  (let [terminal (c/terminal ctx)
-        preview  (c/preview-hud ctx)
+(s/defn render-diff!
+  [terminal :- Terminal
+   ctx      :- Context]
+  (let [preview  (c/preview-hud ctx)
         previous (c/previous-hud ctx)
         config   (c/configuration ctx)
         now      (-> preview (h/project-hud) (:lines))
@@ -211,7 +218,7 @@
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (h/view-offset preview) (h/view-offset previous))
-      (total! ctx)
+      (render-total! terminal ctx)
       (dotimes [y limit]
         (let [a (nth now y nil)
               b (nth then y nil)]
@@ -223,25 +230,19 @@
                           :scheme   scheme
                           :styles   []})))))))
 
-(s/defn clear!
-  [ctx :- Context]
-  (-> ctx (c/terminal) (t/clear!)))
-
-(s/defn nothing!
-  [ctx :- Context]
+(s/defn render-nothing!
+  [terminal :- Terminal,
+   ctx      :- Context]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (when (not= preview-ov previous-ov)
-      (total! ctx))))
-
-(s/defn refresh!
-  [ctx :- Context]
-  (-> ctx (c/terminal) (t/refresh!)))
+      (render-total! terminal ctx))))
 
 (s/defn render!
-  [ctx :- Context]
+  [ctx      :- Context,
+   terminal :- Terminal]
   (case (c/rendering ctx)
-    :diff    (doto ctx (clean-highlights!) (diff!) (render-highlights!) (set-position!) (refresh!))
-    :clear   (doto ctx (clear!) (total!) (set-position!) (refresh!))
-    :nothing (doto ctx (clean-highlights!) (nothing!) (render-highlights!) (set-position!) (refresh!))
-    (doto ctx (total!) (render-highlights!) (set-position!) (refresh!))))
+    :diff (doto terminal (clean-highlights! ctx) (render-diff! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
+    :clear (doto terminal (t/clear!) (render-total! ctx) (set-position! ctx) (t/refresh!))
+    :nothing (doto terminal (clean-highlights! ctx) (render-nothing! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
+    (doto terminal (render-total! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))))

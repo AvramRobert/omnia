@@ -4,7 +4,6 @@
             [omnia.repl.hud :as h]
             [omnia.text.core :as i]
             [omnia.text.format :as f]
-            [omnia.view.terminal :as t]
             [omnia.config.components.event :as e]
             [omnia.config.components.event :refer [Event]]
             [omnia.repl.hud :refer [Hud]]
@@ -34,8 +33,7 @@
                  (s/optional-key :closed-paren) Highlight})
 
 (def Context
-  {:terminal      Terminal
-   :repl          REPLClient
+  {:repl          REPLClient
    :config        Config
    :render        Render
    :previous-hud  Hud
@@ -56,11 +54,10 @@
 (defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 
 (s/defn init-hud :- Hud
-  [terminal :- Terminal,
-   repl     :- REPLClient]
-  (let [fov       (t/size terminal)
-        repl-info (nrepl-info (:host repl) (:port repl))]
-    (-> (h/hud-of fov)
+  [size :- s/Int,
+   repl :- REPLClient]
+  (let [repl-info (nrepl-info (:host repl) (:port repl))]
+    (-> (h/hud-of size)
         (h/enrich-with [greeting
                         repl-info
                         clj-version
@@ -69,15 +66,14 @@
                         caret]))))
 
 (s/defn context :- Context
-  [config   :- Config
-   terminal :- Terminal
-   repl     :- REPLClient]
+  [config    :- Config
+   repl      :- REPLClient
+   view-size :- s/Int]
   (let [input     i/empty-line
-        previous  (h/hud-of (t/size terminal))
-        persisted (init-hud terminal repl)
+        previous  (h/hud-of view-size)
+        persisted (init-hud view-size repl)
         preview   (h/enrich-with persisted [input])]
     {:config        config
-     :terminal      terminal
      :repl          repl
      :render        :diff
      :previous-hud  previous
@@ -110,6 +106,10 @@
   [ctx :- Context]
   (:input-area ctx))
 
+(s/defn view-size :- s/Int
+  [ctx :- Context]
+  (-> ctx (persisted-hud) (h/field-of-view)))
+
 (s/defn client :- REPLClient
   [ctx :- Context]
   (:repl ctx))
@@ -125,10 +125,6 @@
 (s/defn documentation :- Hud
   [ctx :- Context]
   (:documentation ctx))
-
-(s/defn terminal :- Terminal
-  [ctx :- Context]
-  (:terminal ctx))
 
 (s/defn client :- REPLClient
   [ctx :- Context]
@@ -337,10 +333,9 @@
 
 (s/defn clear :- Context
   [ctx :- Context]
-  (let [terminal    (terminal ctx)
-        repl-server (client ctx)
-        new-hud     (init-hud terminal repl-server)]
-    (with-hud ctx new-hud)))
+  (let [size  (view-size ctx)
+        nrepl (client ctx)]
+    (with-hud ctx (init-hud size nrepl))))
 
 (s/defn exit :- Context
   [ctx :- Context]

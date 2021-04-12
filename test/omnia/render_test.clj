@@ -39,35 +39,35 @@
    :state State})
 
 (s/defn accumulative :- Accumulate
-  [ctx :- r/Context]
+  [ctx  :- r/Context]
   (let [chars    (atom [])
         cursors  (atom [])
         bgs      (atom [])
         fgs      (atom [])
         stls     (atom [])
         acc      (fn [atm val] (swap! atm #(conj % val)))
-        size     (t/size (:terminal ctx))
         terminal (test-terminal {:put! (fn [_ ch x y fg bg stl]
                                          (acc bgs bg)
                                          (acc fgs fg)
                                          (run! #(acc stls %) stl)
                                          (acc chars ch)
                                          (acc cursors [x y]))
-                                 :size (fn [] size)})]
-    {:ctx (assoc ctx :terminal terminal)
-     :state {:chars   chars
-             :cursors cursors
-             :bgs     bgs
-             :fgs     fgs
-             :stls    stls}}))
+                                 :size (fn [] (r/view-size ctx))})]
+    {:ctx      ctx
+     :terminal terminal
+     :state    {:chars   chars
+                :cursors cursors
+                :bgs     bgs
+                :fgs     fgs
+                :stls    stls}}))
 
 (s/defn inspect
   [acc :- Accumulate p]
   (->> acc (:state) (map-vals deref) (p)))
 
 (s/defn execute :- Accumulate
-  [acc :- Accumulate f]
-  (f (:ctx acc))
+  [acc :- Accumulate, f]
+  (f (:terminal acc) (:ctx acc))
   acc)
 
 (s/defn index-seeker :- IndexedSeeker
@@ -111,7 +111,7 @@
                               (map :cursor))]
     (-> processed
         (accumulative)
-        (execute diff!)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -128,7 +128,7 @@
         last-n           (->> processed (r/preview-hud) (h/text) (:lines) (last) (count))
         expectation      (->> processed (r/preview-hud) (index) (take-last last-n))]
     (-> (accumulative processed)
-        (execute diff!)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -143,7 +143,7 @@
       (at-line-start)
       (process [up])
       (accumulative)
-      (execute diff!)
+      (execute render-diff!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? chars))
@@ -161,7 +161,7 @@
         expected-cursors (map :cursor expectation)]
     (-> processed
         (accumulative)
-        (execute diff!)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors _ _ _ _]}]
             (->> (map vector chars cursors)
@@ -191,7 +191,7 @@
 
 (defn projected-no-render [ctx]
   (-> (accumulative ctx)
-      (execute nothing!)
+      (execute render-nothing!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? bgs))
@@ -205,7 +205,7 @@
                       (at-main-view-start)
                       (process [up]))]
     (-> (accumulative processed)
-        (execute nothing!)
+        (execute render-nothing!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -396,7 +396,7 @@
                              view-offset]
                       :or   {scroll-offset 0
                              view-offset   0}}]
-  (let [fov  (-> ctx (r/preview-hud) (h/field-of-view))
+  (let [fov  (r/view-size ctx)
         text (-> ctx (r/preview-hud) (h/text))]
     (i/rebase text #(->> % (take-last (+ fov scroll-offset view-offset)) (take fov)))))
 
@@ -409,7 +409,7 @@
     (is (i/equivalent? projected expected-projection))))
 
 (defn fov-hud-projection [ctx]
-  (let [fov      (field-of-view ctx)
+  (let [fov      (r/view-size ctx)
         actual   (-> ctx
                      (at-main-view-end)
                      (project-preview))
@@ -421,7 +421,7 @@
 
 (defn fov-with-overview-hud-projection [ctx]
   (let [offset   2
-        fov      (field-of-view ctx)
+        fov      (r/view-size ctx)
         actual   (-> ctx
                      (at-main-view-start)
                      (process (repeat offset up))
@@ -541,7 +541,7 @@
                      :end   bottom-clip-end})))))
 
 (defn paged-selection-lower-clip [ctx]
-  (let [fov (-> ctx (r/preview-hud) (h/field-of-view))
+  (let [fov       (r/view-size ctx)
         processed (-> ctx
                       (at-main-view-start)
                       (process [up up select-right])
@@ -549,7 +549,7 @@
     (is (= (project-highlight processed :selection) (no-projection processed)))))
 
 (defn paged-selection-upper-clip [ctx]
-  (let [fov (-> ctx (r/preview-hud) (h/field-of-view))
+  (let [fov       (r/view-size ctx)
         processed (-> ctx
                       (at-input-end)
                       (at-line-start)
@@ -584,7 +584,7 @@
                #(-> % (process (repeat 100 down)) (project-preview-cursor) (= [x (dec hc)]))))) ;; starts with 0
 
 (defn paged-cursor-projection [ctx]
-  (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
+  (let [end-y (dec (r/view-size ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
         (should-be
@@ -609,7 +609,7 @@
 ;; VIII. Y Projection
 
 (defn- bounded? [ctx y]
-  (<= 0 y (field-of-view ctx)))
+  (<= 0 y (r/view-size ctx)))
 
 (defn top-bounded-y-projection [ctx]
   (-> ctx
@@ -620,7 +620,7 @@
                  #(= 0 (-> % (process (repeat 100 up)) (project-y))))))
 
 (defn bottom-bounded-y-projection [ctx]
-  (let [end-y (dec (field-of-view ctx))]                              ;; starts from 0
+  (let [end-y (dec (r/view-size ctx))]                              ;; starts from 0
     (-> ctx
         (at-main-view-start)
         (process [up up up up up])
