@@ -158,19 +158,17 @@
 ;          (->> line (fold print! 0) (pad!))))
 
 (s/defn prioritise :- [c/Highlight]
-        [highlights :- c/Highlights]
-        (->> highlights (sort-by (comp highlight-priority key)) (map second)))
+  [highlights :- c/Highlights]
+  (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
 
-(s/defn prioritised :- [c/Highlight]
-        [ctx :- Context, pattern :- HighlightPattern]
-        (let [current     (:current pattern)
-              former      (:former pattern)
-              preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
-              previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
-          (if (= preview-ov previous-ov)
-            ;; additive-diff nils highlights that don't have a diff
-            (prioritise (merge-culling additive-diff current former))
-            (prioritise current))))
+(s/defn cull :- [c/Highlight]
+  [ctx :- Context, current :- c/Highlight, former :- c/Highlight]
+  (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
+        previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
+    (if (= preview-ov previous-ov)
+      ;; additive-diff nils highlights that don't have a diff
+      (prioritise (merge-culling additive-diff current former))
+      (prioritise current))))
 
 (s/defn put!
   [terminal  :- Terminal
@@ -212,34 +210,29 @@
         [xs ys]   (:start selection)
         [xe ye]   (:end selection)]
     (doseq [y (range ys (inc ye))]
-      (let [line  (i/line seeker [0 y])
+      (let [line  (i/line-at seeker y)
             xs    (if (= y ys) xs 0)
             xe    (if (= y ye) xe (count line))
             y'    (h/project-y hud y)]
         (doseq [x' (range xs xe)]
           (put! terminal (nth line x') x' y' -text scheme styles))))))
 
-(s/defn highlight!
-  [terminal :- Terminal,
-   ctx      :- Context,
-   pattern  :- HighlightPattern]
-  (let [hud        (:hud pattern)
-        highlights (prioritised ctx pattern)]
-    (doseq [highlight highlights]
-      (print-highlight! terminal hud highlight))))
-
-;; FIXME: Now that I've divided simple rendering from highlighting, cleaning highlights doesn't print the normal highlighting anymore
+;; okay, the cleaning previously only looked at the affected highlights, not the entire line
 (s/defn clean-highlights!
   [terminal :- Terminal,
    ctx      :- Context]
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
-        previous   (c/previous-hud ctx)]
-    (highlight! terminal
-                ctx
-                {:current garbage
-                 :former  highlights
-                 :hud     previous})))
+        preview    (c/preview-hud ctx)
+        text       (h/text preview)]
+    (doseq [highlight (cull ctx garbage highlights)]
+      (let [region (->> highlight (:region) (h/clip-selection preview))
+            scheme (->> highlight (:scheme))
+            styles (->> highlight (:styles))
+            [_ ys] (:start region)
+            [_ ye] (:end region)]
+        (doseq [y (range ys (inc ye))]
+          (print-line! terminal (i/line-at text y) y 0 scheme styles))))))
 
 (s/defn render-highlights!
   [terminal :- Terminal,
@@ -247,11 +240,8 @@
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
         preview    (c/preview-hud ctx)]
-    (highlight! terminal
-                ctx
-                {:current highlights
-                 :former  garbage
-                 :hud     preview})))
+    (doseq [highlight (cull ctx highlights garbage)]
+      (print-highlight! terminal preview highlight))))
 
 (s/defn set-position!
   [terminal :- Terminal

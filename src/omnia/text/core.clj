@@ -70,12 +70,16 @@
   [character :- Character]
   (= \space character))
 
-(s/defn line :- [Character]
+(s/defn line :- Line
   ([seeker :- Seeker]
    (line seeker (:cursor seeker)))
   ([seeker :- Seeker
     [_ y]  :- Point]
    (-> seeker :lines (nth y []))))
+
+(s/defn line-at :- Line
+  [seeker :- Seeker, y :- s/Int]
+  (-> seeker :lines (nth y [])))
 
 (s/defn sym-at :- (s/maybe Character)
   ([seeker :- Seeker]

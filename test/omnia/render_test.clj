@@ -383,6 +383,7 @@
 (defn clean-up-render [ctx]
   (arbitrary-line-clean-up ctx))
 
+;; Even though previously I only put the highlighted characters, I still started at the beginning of the line an iterated over it entirely
 (defspec clean-up-render-test
          NR-OF-TESTS
          (for-all [ctx (gen-context {:prefilled-size 5
