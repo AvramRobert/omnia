@@ -74,9 +74,10 @@
   [seeker :- i/Seeker]
   (i/rebase seeker #(map-indexed
                       (fn [y line]
-                        (map-indexed
-                          (fn [x c]
-                            {:cursor [x y] :char c}) line)) %)))
+                        (vec
+                          (map-indexed
+                            (fn [x c]
+                              {:cursor [x y] :char c}) line))) %)))
 
 (s/defn index :- [IndexedCharacter]
   ([hud :- h/Hud]
@@ -88,11 +89,11 @@
 
 (s/defn index-at :- [IndexedCharacter]
   ([hud :- h/Hud, region :- Region]
-   (let [indexed (->> hud (h/project-hud) (index-seeker))]
-     (->> (h/project-selection hud region)
-          (i/extract-for indexed)
-          (:lines)
-          (flatten)))))
+   (let [indexed-text (->> hud (h/project-hud) (index-seeker))
+         selection    (h/project-selection hud region)
+         [_ ys]       (:start selection)
+         [_ ye]       (:end selection)]
+     (-> indexed-text (:lines) (subvec ys (inc ye)) (flatten)))))
 
 ;; I. Diffed rendering
 

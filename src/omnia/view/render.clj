@@ -73,90 +73,6 @@
           (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
       :else current)))
 
-;(s/defn print-line!
-;  [{line     :line
-;    y        :at
-;    padding  :padding
-;    terminal :terminal
-;    [xs xe]  :sub-region
-;    cs       :scheme
-;    styles   :styles} :- PrintInstruction]
-;  (letfn [(put! [ch x y emission]
-;            (let [fg (get cs (coloured-element emission))
-;                  bg (get cs backgrounds)]
-;              (t/put! terminal ch x y fg bg styles)))
-;          (pad! [x]
-;            (when padding
-;              (dotimes [offset padding]
-;                (put! \space (+ x offset) y -text))))
-;          (print-from! [x emission chars]
-;            (reduce-idx
-;              (fn [x' _ input]
-;                (put! input x' y emission)) x nil chars))
-;          (print! [x emission chars]
-;            (print-from! x emission chars)
-;            (+ x (count chars)))
-;          (print-sub! [x emission chars]
-;            (let [x' (+ x (count chars))]
-;              (cond
-;                (and (<= x xs) (>= x' xe)) (->> chars
-;                                                (drop (- xs x)) ;; subvecs
-;                                                (take (- xe xs)) ;; subvecs
-;                                                (print-from! xs emission))
-;                (and (<= x xs) (> x' xs))  (->> chars
-;                                                (drop (- xs x)) ;; subvecs
-;                                                (print-from! xs emission))
-;                (>= x' xe)                 (->> chars
-;                                                (take (- xe x)) ;; subvecs
-;                                                (print-from! x emission))
-;                (> x' xs)                  (->> chars
-;                                                (print-from! x emission))
-;                :else                      nil)
-;              x'))]
-;    (-> (if (and xs xe) print-sub! print!)
-;        (fold 0 line)
-;        (pad!))))
-
-;(s/defn print-line!
-;        [{line     :line
-;          y        :at
-;          xs       :start
-;          xe       :end
-;          padding  :padding
-;          terminal :terminal
-;          cs       :scheme
-;          styles   :styles} :- PrintInstruction]
-;        (let [put!  (fn [char x y emission]
-;                      (let [fg (get cs (coloured-element emission))
-;                            bg (get cs backgrounds)]
-;                        (t/put! terminal char x y fg bg styles)))
-;              pad!  (fn [x]
-;                      (when padding
-;                        (dotimes [offset padding]
-;                          (put! \space (+ x offset) y -text))))
-;              put-from! (fn [x emission chars]
-;                          (reduce-idx
-;                            (fn [x' _ input]
-;                              (put! input x' y emission)) x nil chars))
-;              print!    (fn [x emission chars]
-;                          (let [x' (+ x (count chars))]
-;                            (cond
-;                              (and (<= x xs) (>= x' xe)) (->> chars
-;                                                              (drop (- xs x)) ;; subvecs
-;                                                              (take (- xe xs)) ;; subvecs
-;                                                              (put-from! xs emission))
-;                              (and (<= x xs) (> x' xs))  (->> chars
-;                                                              (drop (- xs x)) ;; subvecs
-;                                                              (put-from! xs emission))
-;                              (>= x' xe)                 (->> chars
-;                                                              (take (- xe x)) ;; subvecs
-;                                                              (put-from! x emission))
-;                              (> x' xs)                  (->> chars
-;                                                              (put-from! x emission)) ;; does this also catch the total case?
-;                              :else                      nil)
-;                            x'))]
-;          (->> line (fold print! 0) (pad!))))
-
 (s/defn prioritise :- [c/Highlight]
   [highlights :- c/Highlights]
   (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
@@ -217,8 +133,8 @@
         (doseq [x' (range xs xe)]
           (put! terminal (nth line x') x' y' -text scheme styles))))))
 
-;; okay, the cleaning previously only looked at the affected highlights, not the entire line
 (s/defn clean-highlights!
+  "Note: Cleaning re-prints the entire line to restore syntax highlighting"
   [terminal :- Terminal,
    ctx      :- Context]
   (let [highlights (c/highlights ctx)
@@ -232,7 +148,12 @@
             [_ ys] (:start region)
             [_ ye] (:end region)]
         (doseq [y (range ys (inc ye))]
-          (print-line! terminal (i/line-at text y) y 0 scheme styles))))))
+          (print-line! terminal
+                       (i/line-at text y)
+                       (h/project-y preview y)
+                       0
+                       scheme
+                       styles))))))
 
 (s/defn render-highlights!
   [terminal :- Terminal,
