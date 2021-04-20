@@ -11,7 +11,7 @@
             [omnia.repl.nrepl :refer [REPLClient]]
             [omnia.config.core :refer [Config]]))
 
-(def prelude [(e/inject-event "(require '[omnia.resolution :refer [retrieve retrieve-from]])")])
+(def prelude [(e/inject-event "(require '[omnia.repl.resolution :refer [retrieve retrieve-from]])")])
 
 (s/defn consume :- Context
         [ctx      :- Context,
