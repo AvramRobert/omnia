@@ -26,11 +26,11 @@ Download it from the AUR:
 ## Features
 
 #### Configurable Keymap
- * Standard keymap can be found here [Keymap](https://github.com/AvramRobert/omnia/blob/master/doc/keymap.md)
- * For configuration,take a look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
+ * Standard keymap can be found here [Keymap](https://github.com/AvramRobert/omnia/blob/master/docs/keymap.md)
+ * For configuration,take a look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md) 
 
 #### Configurable syntax highlighting
- * For configuration please look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md).
+ * For configuration please look at [Configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md).
 
  ![syntax-highlighting](images/syntax-highlighting.gif)
  

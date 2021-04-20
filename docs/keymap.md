@@ -3,7 +3,7 @@
 **MacOS users**: Some of the default key bindings may not work directly, because MacOS assigns them
 to other OS-related actions that have higher priority.
 
-To avoid this, please take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
+To avoid this, please take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md) 
 and just re-bind those omnia actions to other keys.
 
 

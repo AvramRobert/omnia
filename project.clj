@@ -16,8 +16,9 @@
                  [clj-commons/pomegranate "1.2.1"]
                  [org.tcrawley/dynapath "1.1.0"]
                  [org.slf4j/slf4j-simple "1.7.30"]]
+  :resource-paths ["src/omnia/release/templates"]
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
              :dev {:dependencies [[criterium "0.4.4"]]}}
-  :aliases  {"release" ["run" "-m" "omnia.release/release"]})
+  :aliases  {"release" ["run" "-m" "omnia.release.core/release"]})

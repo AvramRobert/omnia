@@ -1,8 +1,8 @@
 ## Configuration 
 
 The default keymap and syntax highlighting colour scheme can be found here:
-* [Keymap](https://github.com/AvramRobert/omnia/blob/master/doc/keymap.md)
-* [Syntax highlighting](https://github.com/AvramRobert/omnia/blob/master/doc/syntax.md)
+* [Keymap](https://github.com/AvramRobert/omnia/blob/master/docs/keymap.md)
+* [Syntax highlighting](https://github.com/AvramRobert/omnia/blob/master/docs/syntax.md)
 
 Omnia has a configuration file called `omnia.edn`, wherein one can configure its key bindings, 
 and syntax highlighting.
