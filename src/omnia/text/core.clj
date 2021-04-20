@@ -464,19 +464,6 @@
         (start)
         (slicer #(drop xs %)))))
 
-(s/defn extract-for :- Seeker
-  [seeker :- Seeker
-   region :- Region]
-  (let [[xs ys] (:start region)
-        [xe ye] (:end region)]
-    (-> seeker
-        (reset-y ys)
-        (reset-x xs)
-        (select)
-        (reset-y ye)
-        (reset-x xe)
-        (extract))))
-
 (s/defn copy :- Seeker
   [seeker :- Seeker]
   (->> seeker (extract) (assoc seeker :clipboard)))
