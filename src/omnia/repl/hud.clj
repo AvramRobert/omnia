@@ -3,6 +3,7 @@
             [omnia.text.core :as i]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.arithmetic :refer [++ -- mod* inc< dec<]]
+            [omnia.util.collection :refer [bounded-subvec]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.text.core :refer [Seeker]]
             [omnia.view.terminal :refer [Terminal]]
@@ -117,17 +118,20 @@
   [hud :- Hud]
   (project-cursor hud (-> hud (text) (:cursor))))
 
+(s/defn project-view :- [i/Line]
+  [hud :- Hud]
+  (let [text           (text hud)
+        fov            (field-of-view hud)
+        v-off          (view-offset hud)
+        s-off          (scroll-offset hud)
+        viewable-chunk (+ fov v-off s-off)
+        y-start        (-- (:height text) viewable-chunk)
+        y-end          (++ y-start fov)]
+    (bounded-subvec (:lines text) y-start y-end)))
+
 (s/defn project-hud :- Seeker
   [hud :- Hud]
-  (let [text          (text hud)
-        fov           (field-of-view hud)
-        v-off         (view-offset hud)
-        s-off         (scroll-offset hud)
-        viewable-chunk (+ fov v-off s-off)
-        cursor         (project-hud-cursor hud)]
-    (-> text
-        (i/rebase #(->> % (take-last viewable-chunk) (take fov)))
-        (i/reset-to cursor))))
+  (-> hud (project-view) (i/seeker) (i/reset-to (project-hud-cursor hud))))
 
 (s/defn clip-selection :- Region
   [hud :- Hud

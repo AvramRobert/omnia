@@ -159,8 +159,8 @@
 (s/defn render-total!
   [terminal :- Terminal
    ctx      :- Context]
-  (let [now      (-> ctx (c/preview-hud) (h/project-hud) (:lines))
-        then     (-> ctx (c/previous-hud) (h/project-hud) (:lines))
+  (let [now      (-> ctx (c/preview-hud) (h/project-view))
+        then     (-> ctx (c/previous-hud) (h/project-view))
         scheme   (-> ctx (c/configuration) (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
@@ -175,8 +175,8 @@
   (let [preview  (c/preview-hud ctx)
         previous (c/previous-hud ctx)
         config   (c/configuration ctx)
-        now      (-> preview (h/project-hud) (:lines))
-        then     (-> previous (h/project-hud) (:lines))
+        now      (h/project-view preview)
+        then     (h/project-view previous)
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (h/view-offset preview) (h/view-offset previous))

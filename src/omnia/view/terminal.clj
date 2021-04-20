@@ -6,7 +6,7 @@
             [omnia.config.components.keys :as i]
             [clojure.set :refer [map-invert]]
             [omnia.config.core :refer [Config]]
-            [omnia.util.collection :refer [map-vals map-keys]]
+            [omnia.util.collection :refer [map-vals]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.util.debug :refer [debug]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
