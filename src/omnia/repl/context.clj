@@ -27,9 +27,7 @@
 
 (def HighlightType (s/enum :selection :open-paren :closed-paren))
 
-(def Highlights {(s/optional-key :selection) Highlight
-                 (s/optional-key :open-paren) Highlight
-                 (s/optional-key :closed-paren) Highlight})
+(def Highlights {(s/optional-key HighlightType) Highlight})
 
 (def Context
   {:repl          REPLClient

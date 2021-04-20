@@ -73,7 +73,7 @@
 
 (s/defn current-line :- [Character]
   [hud :- Hud]
-  (-> hud (text) (i/line)))
+  (-> hud (text) (i/current-line)))
 
 (s/defn engulfed-size :- s/Int
   [hud :- Hud]

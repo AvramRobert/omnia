@@ -452,7 +452,7 @@
                                    (r/preview-hud)
                                    (h/text)
                                    (i/reset-to replaced-point)
-                                   (i/line)))]
+                                   (i/current-line)))]
     (should-be end
                #(= (process-suggestion % 1) (suggestion-at % 0))
                #(= (process-suggestion % 2) (suggestion-at % 1))
@@ -467,7 +467,7 @@
                            (process [suggest suggest (character input)])
                            (r/preview-hud)
                            (h/text)
-                           (i/line))
+                           (i/current-line))
         expected        (-> ctx (suggestion-at 1) (conj input))]
     (is (= expected actual))))
 
@@ -485,14 +485,14 @@
 
 (defn no-override [ctx]
   (let [end            (-> ctx (at-input-end) (at-line-start))
-        current-line   (-> end (r/preview-hud) (h/text) (i/line))
+        current-line   (-> end (r/preview-hud) (h/text) (i/current-line))
         current-cursor (-> end (r/preview-hud) (h/text) (:cursor))
         actual-line    (-> end
                            (process [suggest])
                            (r/preview-hud)
                            (h/text)
                            (i/reset-to current-cursor)
-                           (i/line))]
+                           (i/current-line))]
     (is (= current-line actual-line))))
 
 (defn empty-suggesting [ctx]
@@ -660,8 +660,8 @@
                          (pop-up window)
                          (h/text)
                          (i/rebase #(take-last pop-up-size %)))]
-    (is (= (-> actual (i/start) (i/line)) (i/line h/delimiter)))
-    (is (= (-> actual (i/end) (i/line)) (i/line h/delimiter)))
+    (is (= (-> actual (i/start) (i/current-line)) (i/current-line h/delimiter)))
+    (is (= (-> actual (i/end) (i/current-line)) (i/current-line h/delimiter)))
     (is (i/equivalent? expected actual))))
 
 (defn empty-pop-up-window [ctx]
@@ -674,14 +674,14 @@
   (let [content-size (:height content)
         window       (h/riffle-window content content-size)
         preview      (r/preview-hud ctx)
-        line         #(-> window (h/text) (i/reset-y %) (i/indent 1) (i/line))
+        line         #(-> window (h/text) (i/reset-y %) (i/indent 1) (i/current-line))
         riffled-line #(->> window
                            (iterate h/riffle)
                            (take (inc %))
                            (last)
                            (h/pop-up preview)
                            (h/text)
-                           (i/line))]
+                           (i/current-line))]
     (is (= (line 0) (riffled-line 0)))
     (is (= (line 1) (riffled-line 1)))
     (is (= (line 4) (riffled-line 4)))

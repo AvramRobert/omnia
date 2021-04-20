@@ -70,23 +70,23 @@
   [character :- Character]
   (= \space character))
 
-(s/defn line :- Line
-  ([seeker :- Seeker]
-   (line seeker (:cursor seeker)))
-  ([seeker :- Seeker
-    [_ y]  :- Point]
-   (-> seeker :lines (nth y []))))
-
 (s/defn line-at :- Line
   [seeker :- Seeker, y :- s/Int]
-  (-> seeker :lines (nth y [])))
+  (-> seeker (:lines) (nth y [])))
+
+(s/defn current-line :- Line
+  [seeker :- Seeker]
+  (let [y (-> seeker (:cursor) (nth 1))]
+    (line-at seeker y)))
 
 (s/defn sym-at :- (s/maybe Character)
-  ([seeker :- Seeker]
-   (sym-at seeker (:cursor seeker)))
-  ([seeker :- Seeker
-    [x y]  :- Point]
-   (-> seeker (line [x y]) (nth x nil))))
+  [seeker :- Seeker
+   [x y]  :- Point]
+  (-> seeker (line-at y) (nth x nil)))
+
+(s/defn current-sym :- (s/maybe Character)
+  [seeker :- Seeker]
+  (sym-at seeker (:cursor seeker)))
 
 (s/defn rebase :- Seeker
   [seeker :- Seeker f]
@@ -160,7 +160,7 @@
    f      :- (=> s/Int s/Int)]
   (move seeker
         (fn [[x y]]
-          (let [length (-> seeker line count)
+          (let [length (-> seeker current-line count)
                 nx     (f x)]
             (if (<= 0 nx length)
               [nx y]
@@ -189,7 +189,7 @@
 
 (s/defn end-x :- Seeker
   [seeker :- Seeker]
-  (move seeker (fn [[_ y]] [(-> seeker line count) y])))
+  (move seeker (fn [[_ y]] [(-> seeker current-line count) y])))
 
 (s/defn start-x :- Seeker
   [seeker :- Seeker]
@@ -217,7 +217,7 @@
   [seeker :- Seeker
    f      :- (=> Seeker Seeker)]
   (let [h (-> seeker :height dec)
-        w (-> seeker line count)]
+        w (-> seeker current-line count)]
     (m/match [(:cursor seeker)]
              [[w h]] seeker
              [[w _]] (-> seeker (move-y inc) (start-x) (f))
@@ -242,11 +242,11 @@
 (s/defn left :- (s/maybe Character)
   [seeker :- Seeker]
   (when (not= [0 0] (:cursor seeker))
-    (-> seeker (go-back) (sym-at))))
+    (-> seeker (go-back) (current-sym))))
 
 (s/defn right :- (s/maybe Character)
   [seeker :- Seeker]
-  (sym-at seeker))
+  (current-sym seeker))
 
 (s/defn prev-char :- (s/maybe Character)
   [seeker :- Seeker]
@@ -326,14 +326,14 @@
 (s/defn go-up :- Seeker
         [seeker :- Seeker]
         (let [offset (move-y seeker dec)]
-          (if (sym-at offset)
+          (if (current-sym offset)
             offset
             (-> seeker (start-x) (go-back)))))
 
 (s/defn go-down :- Seeker
         [seeker :- Seeker]
         (let [offset (move-y seeker inc)]
-    (if (sym-at offset)
+    (if (current-sym offset)
       offset
       (-> seeker (move-y inc) (end-x)))))
 

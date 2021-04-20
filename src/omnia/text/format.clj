@@ -44,7 +44,7 @@
               <text>  = #'[^()\\[\\]\\{\\}\\n]*'"))
 
 (defn spaces [seeker]
-  (->> (i/line seeker)
+  (->> (i/current-line seeker)
        (take-while i/space?)
        (count)))
 

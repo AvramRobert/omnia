@@ -12,34 +12,10 @@
             [omnia.util.collection :refer [merge-culling map-vals reduce-idx]])
   (:import (omnia.view.terminal Terminal)))
 
-(def HighlightPattern
-  {:current c/Highlights
-   :former  c/Highlights
-   :hud     h/Hud})
-
 (s/def highlight-priority :- {c/HighlightType s/Int}
   {:selection    3
    :closed-paren 2
    :open-paren   1})
-
-;(s/def PrintInstruction
-;  {:line                        [Character]
-;   :at                          s/Int
-;   :terminal                    t/Terminal
-;   :scheme                      UserHighlighting
-;   :styles                      [Style]
-;   (s/optional-key :sub-region) Point
-;   (s/optional-key :padding)    s/Int})
-
-(s/def PrintInstruction
-  {:line                        [Character]
-   :at                          s/Int
-   :start                       s/Int
-   :end                         s/Int
-   :terminal                    t/Terminal
-   :scheme                      UserHighlighting
-   :styles                      [Style]
-   (s/optional-key :padding)    s/Int})
 
 (s/defn additive-diff :- (s/maybe c/Highlight)
   [current :- c/Highlight, former :- c/Highlight]
@@ -86,7 +62,7 @@
       (prioritise (merge-culling additive-diff current former))
       (prioritise current))))
 
-(s/defn put!
+(s/defn put-char!
   [terminal  :- Terminal
    character :- Character
    x         :- s/Int
@@ -107,11 +83,11 @@
    styles   :- [Style]]
   (let [pad!   (fn [x]
                  (dotimes [offset padding]
-                   (put! terminal \space (+ x offset) y -text scheme styles)))
+                   (put-char! terminal \space (+ x offset) y -text scheme styles)))
         print! (fn [x emission chars]
                  (reduce-idx
                    (fn [x' _ character]
-                     (put! terminal character x' y emission scheme styles)) x nil chars)
+                     (put-char! terminal character x' y emission scheme styles)) x nil chars)
                  (+ x (count chars)))]
     (->> line (fold print! 0) (pad!))))
 
@@ -131,7 +107,7 @@
             xe    (if (= y ye) xe (count line))
             y'    (h/project-y hud y)]
         (doseq [x' (range xs xe)]
-          (put! terminal (nth line x') x' y' -text scheme styles))))))
+          (put-char! terminal (nth line x') x' y' -text scheme styles))))))
 
 (s/defn clean-highlights!
   "Note: Cleaning re-prints the entire line to restore syntax highlighting"
@@ -181,7 +157,7 @@
     (if (> f c) (- f c) 0)))
 
 (s/defn render-total!
-  [terminal :- Terminal,
+  [terminal :- Terminal
    ctx      :- Context]
   (let [now      (-> ctx (c/preview-hud) (h/project-hud) (:lines))
         then     (-> ctx (c/previous-hud) (h/project-hud) (:lines))

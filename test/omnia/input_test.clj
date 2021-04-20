@@ -72,7 +72,7 @@
 (defn peer-inserting-line [seeker line]
   (let [actual (-> seeker
                    (i/peer (fn [a b] (concat a [line] b)))
-                   (i/line))
+                   (i/current-line))
         expected line]
     (is (= expected actual))))
 
@@ -123,22 +123,22 @@
   (let [[x y]    (:cursor seeker)
         actual   (-> seeker
                      (i/split (fn [_ b] [b]))
-                     (i/line))
-        expected (->> seeker (i/line) (drop x))]
+                     (i/current-line))
+        expected (->> seeker (i/current-line) (drop x))]
     (is (= expected actual))))
 
 (defn split-removing-line-end [seeker]
   (let [[x y]    (:cursor seeker)
         actual   (-> seeker
                      (i/split (fn [a _] [a]))
-                     (i/line))
-        expected (->> seeker (i/line) (take x))]
+                     (i/current-line))
+        expected (->> seeker (i/current-line) (take x))]
     (is (= expected actual))))
 
 (defn split-creating-new-line [seeker line]
   (let [actual (-> seeker
                    (i/split (fn [a b] [line (concat a b)]))
-                   (i/line))
+                   (i/current-line))
         expected line]
     (is (= expected actual))))
 
@@ -152,15 +152,15 @@
 (defn split-replacing-line [seeker text]
   (let [actual   (-> seeker
                      (i/split (constantly text))
-                     (i/line))
+                     (i/current-line))
         expected (first text)]
     (is (= expected actual))))
 
 (defn split-creating-line-when-empty [seeker]
   (let [actual   (-> i/empty-seeker
-                     (i/split (fn [a b] [(concat a (i/line seeker) b)]))
-                     (i/line))
-        expected (i/line seeker)]
+                     (i/split (fn [a b] [(concat a (i/current-line seeker) b)]))
+                     (i/current-line))
+        expected (i/current-line seeker)]
     (is (= expected actual))))
 
 (defn splitting [seeker]
@@ -184,37 +184,37 @@
   (let [[x _]    (:cursor seeker)
         actual   (-> seeker
                      (i/slice (fn [a _] a))
-                     (i/line))
-        expected (->> seeker (i/line) (take x))]
+                     (i/current-line))
+        expected (->> seeker (i/current-line) (take x))]
     (is (= expected actual))))
 
 (defn slice-removing-right-of-line [seeker]
   (let [[x _]    (:cursor seeker)
         actual   (-> seeker
                      (i/slice (fn [_ b] b))
-                     (i/line))
-        expected (->> seeker (i/line) (drop x))]
+                     (i/current-line))
+        expected (->> seeker (i/current-line) (drop x))]
     (is (= expected actual))))
 
 (defn slice-enhancing-line [seeker line]
   (let [actual   (-> seeker
                      (i/slice (fn [a b] (concat line a b)))
-                     (i/line))
-        expected (->> seeker (i/line) (concat line))]
+                     (i/current-line))
+        expected (->> seeker (i/current-line) (concat line))]
     (is (= expected actual))))
 
 (defn slice-replacing-line [seeker line]
   (let [actual   (-> seeker
                      (i/slice (constantly line))
-                     (i/line))
+                     (i/current-line))
         expected line]
     (is (= expected actual))))
 
 (defn slice-creating-line-when-empty [seeker]
-  (let [line (i/line seeker)
+  (let [line (i/current-line seeker)
         actual (-> i/empty-seeker
                    (i/slice (fn [a b] (concat a line b)))
-                   (i/line))]
+                   (i/current-line))]
     (is (= line actual))))
 
 (defn slicing [seeker]
@@ -245,7 +245,7 @@
       (i/split (fn [a b] [a line b]))
       (i/move-y inc)
       (i/start-x)
-      (should-be #(= (i/line %) line)
+      (should-be #(= (i/current-line %) line)
                  #(= (i/right %) (first line)))))
 
 (defn moving [seeker]
@@ -427,9 +427,9 @@
     (-> seeker
         (i/peer (fn [a b] (concat a b round brackets squiggly quote))) ;; use split instead of peer to remove (vector) from tests
         (i/end)
-        (should-be #(-> % (remove-line) (i/line) (vector) (= squiggly))
-                   #(-> % (remove-line) (remove-line) (i/line) (vector) (= brackets))
-                   #(-> % (remove-line) (remove-line) (remove-line) (i/line) (vector) (= round))
+        (should-be #(-> % (remove-line) (i/current-line) (vector) (= squiggly))
+                   #(-> % (remove-line) (remove-line) (i/current-line) (vector) (= brackets))
+                   #(-> % (remove-line) (remove-line) (remove-line) (i/current-line) (vector) (= round))
                    #(-> % (remove-line) (remove-line) (remove-line) (remove-line) (i/equivalent? seeker))))))
 
 (defn delete-omitting-single-parens [seeker]
@@ -627,7 +627,7 @@
 (defn join-texts [seeker1 seeker2]
   (-> (i/conjoin seeker1 seeker2)
       (should-be #(i/equivalent? % (i/seeker (concat (:lines seeker1) (:lines seeker2))))
-                 #(-> (i/line %) (= (i/line seeker2))))))
+                 #(-> (i/current-line %) (= (i/current-line seeker2))))))
 
 (defn join-texts-with-selections [seeker1 seeker2]
   (let [s1 (-> seeker1 (i/select) (i/end))
@@ -654,10 +654,10 @@
     (-> seeker
         (i/peer (fn [a b] (concat a some-text b)))
         (i/start-x)
-        (should-be #(-> (i/expand %) (i/extract) (i/line) (= line1))
-                   #(-> (i/jump-right %) (i/expand) (i/extract) (i/line) (= line1))
-                   #(-> (i/end-x %) (i/expand) (i/extract) (i/line) (= line2))
-                   #(-> (i/jump-right %) (i/jump-right) (i/expand) (i/extract) (i/line) (= line2))))))
+        (should-be #(-> (i/expand %) (i/extract) (i/current-line) (= line1))
+                   #(-> (i/jump-right %) (i/expand) (i/extract) (i/current-line) (= line1))
+                   #(-> (i/end-x %) (i/expand) (i/extract) (i/current-line) (= line2))
+                   #(-> (i/jump-right %) (i/jump-right) (i/expand) (i/extract) (i/current-line) (= line2))))))
 
 (defn expand-from-words-to-expr [seeker]
   (reduce
@@ -665,8 +665,8 @@
       (let [some-line [l l \a \b \space \space \c \d r r]]
         (-> seeker
             (i/peer (fn [a b] (concat a [some-line] b)))
-            (should-be #(-> % (i/start-x) (i/expand) (i/extract) (i/line) (= some-line))
-                       #(-> % (i/end-x) (i/expand) (i/extract) (i/line) (= some-line))
+            (should-be #(-> % (i/start-x) (i/expand) (i/extract) (i/current-line) (= some-line))
+                       #(-> % (i/end-x) (i/expand) (i/extract) (i/current-line) (= some-line))
                        #(-> (i/start-x %)
                          (i/jump-right)
                          (i/jump-right)
@@ -675,7 +675,7 @@
                          (i/expand)
                          (i/expand)
                          (i/extract)
-                         (i/line)
+                         (i/current-line)
                          (= some-line))))))
     nil
     [[\( \)] [\[ \]] [\{ \}]]))
@@ -688,8 +688,8 @@
             (i/peer (fn [a b] (concat a [some-line] b)))
             (i/start-x)
             (i/move-x inc)
-            (should-be #(-> % (i/expand) (i/extract) (i/line) (= line))
-                       #(-> % (i/jump-right) (i/expand) (i/extract) (i/line) (= line))))))
+            (should-be #(-> % (i/expand) (i/extract) (i/current-line) (= line))
+                       #(-> % (i/jump-right) (i/expand) (i/extract) (i/current-line) (= line))))))
     nil
     [[\( \)] [\[ \]] [\{ \}]]))
 
@@ -707,9 +707,9 @@
                   (i/jump-right)
                   (i/jump-right)
                   (i/jump-right)
-                  (should-be #(-> (i/expand %) (i/extract) (i/line) (= line1))
-                             #(-> (i/expand %) (i/expand) (i/extract) (i/line) (= inner-expr))
-                             #(-> (i/expand %) (i/expand) (i/expand) (i/extract) (i/line) (= some-line))))))
+                  (should-be #(-> (i/expand %) (i/extract) (i/current-line) (= line1))
+                             #(-> (i/expand %) (i/expand) (i/extract) (i/current-line) (= inner-expr))
+                             #(-> (i/expand %) (i/expand) (i/expand) (i/extract) (i/current-line) (= some-line))))))
           nil
           parens))
       nil
@@ -822,7 +822,7 @@
       (i/select)
       (i/end-x)
       (i/copy)
-      (should-be #(-> % (i/end) (i/break) (i/paste) (i/line) (= line)))))
+      (should-be #(-> % (i/end) (i/break) (i/paste) (i/current-line) (= line)))))
 
 (defn paste-within-line [seeker line]
   (-> seeker
@@ -832,11 +832,11 @@
       (i/jump-right)
       (i/copy)
       (i/deselect)
-      (should-be #(-> (i/paste %) (i/line) (= (concat line line)))
+      (should-be #(-> (i/paste %) (i/current-line) (= (concat line line)))
                  #(-> (i/paste %)
-                   (i/jump-left)
-                   (i/paste)
-                   (i/line) (= (concat line line line))))))
+                      (i/jump-left)
+                      (i/paste)
+                      (i/current-line) (= (concat line line line))))))
 
 (defn paste-concatenating-lines [seeker line1 line2 line3]
   (-> seeker
@@ -847,8 +847,8 @@
       (i/end-x)
       (i/copy)
       (i/deselect)
-      (should-be #(-> % (i/paste) (i/line) (= line2))
-                 #(-> % (i/paste) (i/go-up) (i/line) (= (concat line2 line1))))))
+      (should-be #(-> % (i/paste) (i/current-line) (= line2))
+                 #(-> % (i/paste) (i/go-up) (i/current-line) (= (concat line2 line1))))))
 
 (defn paste-overriding-selection [seeker some-text line2]
   (let [expected (i/peer seeker (fn [a b] (concat a [line2] b)))
@@ -986,7 +986,7 @@
 ;; XX1. Extracting
 
 (defn extract-empty []
-  (let [actual (-> i/empty-seeker (i/expand) (i/extract) (i/line))
+  (let [actual (-> i/empty-seeker (i/expand) (i/extract) (i/current-line))
         expected []]
     (is (= expected actual))))
 

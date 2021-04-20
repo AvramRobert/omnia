@@ -184,7 +184,7 @@
 (s/defn suggestion-at :- i/Line
   [ctx :- Context
    line :- s/Int]
-  (-> ctx (suggestions) (i/reset-y line) (i/line)))
+  (-> ctx (suggestions) (i/reset-y line) (i/current-line)))
 
 (defn server-history [ctx]
   (-> ctx (r/client) (:history)))
