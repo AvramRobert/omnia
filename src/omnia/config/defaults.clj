@@ -59,7 +59,7 @@
    t/commas      t/white})
 
 (s/def default-user-terminal :- UserTerminal
-  {t/font-path "./Hasklig-Regular.otf"
+  {t/font-path "./default_font.otf"
    t/font-size  15})
 
 ;; The default colour should always be the background colour taken from the palette, otherwise a lot of shit may get rendered badly

@@ -9,14 +9,13 @@
                  [fipp "0.6.23"]
                  [prismatic/schema "1.1.12"]
                  [org.clojure/tools.nrepl "0.2.13"]
-                 [halfling "1.1.1"]
+                 [halfling "1.3.0"]
                  [instaparse "1.4.10"]
                  ;[cider/cider-nrepl "0.25.11"]
                  [cider/cider-nrepl "0.15.1"]
                  [clj-commons/pomegranate "1.2.1"]
                  [org.tcrawley/dynapath "1.1.0"]
                  [org.slf4j/slf4j-simple "1.7.30"]]
-  :resource-paths ["src/omnia/release/templates"]
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}

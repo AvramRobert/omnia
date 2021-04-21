@@ -1,59 +1,91 @@
 (ns omnia.release.core
-  (:require [clojure.java.shell :refer [sh]]
-            [clojure.java.io :as io]
+  (:require [clojure.java.shell :as shell]
             [halfling.task :as t]
             [clojure.string :as s]
             [omnia.config.core :refer [default-user-config]]
             [omnia.util.misc :refer [omnia-version]]))
 
 (def release-configuration
-  {:linux   {:template      "executable.sh"
+  {:linux   {:template      "release/templates/executable.sh"
+             :file-type     "sh"
              :configuration default-user-config}
-   :macOS   {:template      "executable.sh"
+   :macOS   {:template      "release/templates/executable.sh"
+             :file-type     "sh"
              :configuration default-user-config}
-   :windows {:template      "executable.bat"
-             :configuration default-user-config}})
+   ;:windows {:template      "release/templates/executable.bat"
+   ;          :file-type     "bat"
+   ;          :configuration default-user-config}
+   ;
+   })
 
-(defn- make-executable [path file-name version]
+(defn- sh [& args]
+  (-> (t/task (apply shell/sh args))
+      (t/then (fn [{:keys [out exit err]}]
+                (if (neg? exit)
+                  (t/failure err)
+                  (println out))))))
+
+(defn- make-executable [path jar-filename version]
   (-> path
-      (io/resource)
-      (s/replace "%%FILENAME%%" file-name)
+      (slurp)
+      (s/replace "%%FILENAME%%" jar-filename)
       (s/replace "%%VERSION%%" version)))
 
-(def prepare-jar
-  (-> (t/task    (println "Running tests.."))
-      (t/then-do (sh "lein" "test"))
-      (t/then-do (println "Creating uberjar.."))
-      (t/then-do (sh "lein" "uberjar"))))
+(defn mkdir [directory]
+  (sh "mkdir" directory))
+
+(defn cp [that there]
+  (sh "cp" that there))
+
+(defn zip-dir [to from]
+  (sh "zip" "-r" to from))
+
+(defn rm-dir [directory]
+  (sh "rm" "-rf" directory))
+
+(defn lein [command]
+  (sh "lein" command))
 
 (defn release-for [os]
-  (let [system      (name os)
-        _           (println "Preparing release for:" system)
-        version     (omnia-version)
-        title       (format "omnia-%s-%s" version system)
-        sa-title    (format "%s-standalone" title)
-        directory   (format "%s/" title)
-        config-file (format "%s/omnia.edn" directory)
-        exec-file   (format "%s/omnia" directory)
-        _           (println "Creating release files..")
-        exec        (-> release-configuration (get os) (:template) (make-executable title version))
-        config      (-> release-configuration (get os) (:configuration))]
-    (sh "mkdir" directory)
-    (sh "cp" (format "target/uberjar/%s.jar" sa-title) directory)
-    (sh "mv" (format "%s%s.jar" directory sa-title) (format "%s%s.jar" directory title))
-    (spit config-file config)
-    (spit exec-file exec)
-    (println "Creating archive..")
-    (sh "zip" "-r" (format "%s.zip" title) (format "./%s" directory))
-    (println "Removing directory..")
-    (sh "rm" "-rf" directory)
-    (println "Done!")))
+  (t/do-tasks
+    [system      (name os)
+     version     (omnia-version)
+     name        "omnia"
+     release     (get release-configuration os)
+     _           (println "Releasing for: " system)
+
+     target-jar  (str name ".jar")
+     target-conf (str name ".edn")
+     target-exec (str name "." (:file-type release))
+     target-font "default_font.otf"
+     target-dir  (format "%s-%s-%s" name version system)
+
+     jar-file    (format "target/uberjar/%s-%s-standalone.jar" name version)
+     executable  (-> release (:template) (make-executable name version))
+     config      (-> release-configuration (get os) (:configuration))
+     font-file   "release/Hasklig-Regular.otf"
+     _           (mkdir (str "./" target-dir))
+     _           (println "Creating release files..")
+     _           (cp jar-file (str target-dir "/" target-jar))
+     _           (cp font-file (str target-dir "/" target-font))
+     _           (spit (str target-dir "/" target-conf) config)
+     _           (spit (str target-dir "/" target-exec) executable)
+     _           (println "Creating archive..")
+     _           (zip-dir (str target-dir ".zip") target-dir)
+     _           (println "Removing directory..")
+     _           (rm-dir target-dir)
+     _           (println "Done!")]))
+
+(def release-task
+  (t/do-tasks
+    [_ (println "Running tests")
+     _ (lein "test")
+     _ (println "--------------")
+     _ (println "Creating jar")
+     _ (lein "uberjar")
+     _ (println "--------------")
+     _ (->> release-configuration (keys) (mapv release-for) (t/sequenced))
+     :recover #(do (.printStackTrace %) (System/exit -1))]))
 
 (defn release []
-  (-> prepare-jar
-      (t/then-do (->> release-configuration (keys) (run! release-for)))
-      (t/recover (fn [{:keys [message trace]}]
-                   (println (format "Release failed with: %s" message))
-                   (run! (comp println str) trace)
-                   (System/exit -1)))
-      (t/run)))
+  (t/run release-task))
