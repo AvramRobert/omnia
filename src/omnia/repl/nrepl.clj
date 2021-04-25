@@ -1,7 +1,5 @@
 (ns omnia.repl.nrepl
-  (:require [clojure.tools.nrepl.server :as server]
-            [clojure.tools.nrepl :as nrepl]
-            [clojure.string :refer [split-lines trim-newline join]]
+  (:require [clojure.string :refer [split-lines trim-newline join]]
             [halfling.task :refer [task]]
             [omnia.util.arithmetic :refer [dec< inc<]]
             [omnia.util.schema :refer [=> StringUUID StringBool]]
@@ -10,11 +8,9 @@
             [omnia.text.core :as i]
             [omnia.text.format :as f]
             [schema.core :as s]
-            [cider.nrepl.middleware.complete]
-            [cider.nrepl.middleware.info]
-            [cider.nrepl.middleware.out]))
-
-;; FIXME: Use version 15 of cider.nrepl until the main line fixes issue #447
+            [nrepl.server :as nrepl-server]
+            [nrepl.core :as nrepl-core]
+            [cider.nrepl :as cider-nrepl]))
 
 (def EvalRequest
   {:op  (s/eq :eval)
@@ -144,11 +140,11 @@
    :result   Seeker})
 
 (def handler
-  (->> '[cider.nrepl.middleware.complete/wrap-complete
-         cider.nrepl.middleware.info/wrap-info
-         cider.nrepl.middleware.out/wrap-out]
+  (->> '[cider-nrepl/wrap-complete
+         cider-nrepl/wrap-info
+         cider-nrepl/wrap-out]
        (map resolve)
-       (apply server/default-handler)))
+       (apply nrepl-server/default-handler)))
 
 (s/defn read-history :- Seeker
   [path :- s/Str]
@@ -297,22 +293,22 @@
 
 (s/defn start-server!
   [config :- REPLConfig]
-  (server/start-server
-    :host (:host config)
+  (nrepl-server/start-server
+    :bind (:host config)
     :port (:port config)
     :handler handler))
 
 (defn stop-server! [server]
-  (server/stop-server server))
+  (nrepl-server/stop-server server))
 
 (s/defn connect :- InternalClient
   [config :- REPLConfig]
   (let [host      (:host config)
         port      (:port config)
         timeout   (:timeout config 10000)
-        transport (nrepl/connect :port port :host host)
-        client    (nrepl/client transport timeout)]
-    (fn [msg] (nrepl/message client msg))))
+        transport (nrepl-core/connect :port port :host host)
+        client    (nrepl-core/client transport timeout)]
+    (fn [msg] (nrepl-core/message client msg))))
 
 (s/defn client :- REPLClient
   [config :- REPLConfig]

@@ -10,8 +10,7 @@
 (s/defn with-server :- s/Any
   [f :- (=> r/REPLClient s/Any)]
   (let [config {:host    "127.0.0.1"
-                :port    11111
-                :timeout 1000}
+                :port    11111}
         server (r/start-server! config)
         client (r/client config)]
     (try
@@ -19,6 +18,7 @@
       (catch Exception e
         (.printStackTrace e))
       (finally
+        (println "I'm closing this")
         (r/stop-server! server)))))
 
 (defn filled-completion [client]

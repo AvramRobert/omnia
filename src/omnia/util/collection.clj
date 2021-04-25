@@ -34,3 +34,9 @@
         start (if (neg? start) 0 start)
         end   (if (> end size) size end)]
     (subvec vector start end)))
+
+(defn firstv [vector]
+  (nth vector 0))
+
+(defn secondv [vector]
+  (nth vector 1))

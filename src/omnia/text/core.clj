@@ -5,7 +5,7 @@
             [clojure.string :refer [join split-lines]]
             [clojure.set :refer [union map-invert]]
             [omnia.util.schema :refer [=> Point Region]]
-            [omnia.util.collection :refer [do-until]]))
+            [omnia.util.collection :refer [firstv do-until]]))
 
 (def Line [Character])
 
@@ -52,11 +52,12 @@
    E.g: '1\n\n' => [[\1] []]"
   [string :- s/Str]
   (let [division  #(if (= \newline %) :newline :other)
-        aggregate #(let [[a _] (first %)]
-                     (m/match [a (count %)]
+        aggregate #(let [amount (count %)
+                         [a _] (first %)]
+                     (m/match [a amount]
                               [:newline 1] []
-                              [:newline _] (vec (repeat (dec (count %)) []))
-                              :else        (vector (mapv second %))))]
+                              [:newline _] (vec (repeat (dec amount) []))
+                              :else (vector (mapv second %))))]
     (if (empty? string)
       empty-seeker
       (->> string
