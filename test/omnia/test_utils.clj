@@ -1,262 +1,288 @@
 (ns omnia.test-utils
-  (:require [clojure.test.check.generators :as gen]
-            [clojure.test :refer [is]]
-            [omnia.more :refer [--]]
-            [omnia.config :refer [default-keymap default-cs]]
-            [omnia.input :as i]
-            [omnia.hud :as h]
-            [omnia.repl :as r]
-            [omnia.terminal :as t]
-            [omnia.render :as rd]
-            [clojure.string :as s]))
+  (:require [clojure.test :refer [is]]
+            [omnia.repl.context :refer [Context HighlightType]]
+            [omnia.text.core :refer [Seeker]]
+            [omnia.config.components.event :refer [Event TextEvent]]
+            [omnia.util.schema :refer [Point Region]]
+            [omnia.util.arithmetic :refer [-- ++]]
+            [omnia.util.generator :refer [do-gen]]
+            [omnia.repl.hud :refer [Hud]]
+            [schema.core :as s]
+            [clojure.test.check.generators :as gen]
+            [omnia.config.defaults :refer [default-user-highlighting]]
+            [omnia.config.core :as c]
+            [omnia.text.core :as i]
+            [omnia.repl.hud :as h]
+            [omnia.repl.context :as r]
+            [omnia.repl.nrepl :as server]
+            [omnia.view.terminal :as t]
+            [omnia.config.components.event :as e]))
 
-(defn one [generator] (rand-nth (gen/sample generator)))
-
-(defn many
-  ([generator] (many generator (rand-int 100)))
-  ([generator n] (vec (repeatedly n #(one generator)))))
-
-(defmacro <=> [this-seeker that-seeker]
-  `(is (= (:lines ~this-seeker) (:lines ~that-seeker))
-       (str "Failed for inputs: \n" ~this-seeker " :: \n" ~that-seeker)))
-
-(defmacro can-be [val & fs]
+(defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
-(defn rand-cursor [seeker]
-  (let [y (-> seeker (:height) (rand-int))
-        x (-> seeker (i/reset-y y) (i/line) (count) (rand-int))]
+(defn gen-coordinate [space]
+  (if (empty? space)
+    (gen/return 0)
+    (gen/elements (range 0 (count space)))))
+
+(defn gen-cursor [text]
+  (do-gen [y (gen-coordinate text)
+           x (gen-coordinate (get text y))]
     [x y]))
 
-(def gen-line
-  (->> gen/char-alphanumeric
-       (gen/vector)
-       (gen/such-that (comp not empty?))))
+(defn gen-line-of [size]
+  (gen/vector gen/char-alphanumeric size))
 
-(def gen-text
-  (->> gen-line
-       (gen/vector)
-       (gen/such-that (comp not empty?))))
+(def gen-nonempty-line
+  (do-gen [size (gen/choose 1 10)
+           line (gen-line-of size)]
+    line))
 
-(def gen-seeker
-  (->> gen-text
-       (gen/fmap i/seeker)
-       (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
+(defn gen-text-of [size]
+  (gen/vector gen-nonempty-line size))
 
-(defn gen-seeker-of [size]
-  (->> (gen/vector gen-line size)
-       (gen/fmap i/seeker)
-       (gen/fmap #(i/move % (fn [_] (rand-cursor %))))))
+(def gen-nonempty-text
+  (do-gen [size (gen/choose 1 10)
+           text (gen-text-of size)]
+    text))
 
-(defn gen-suggestions [size]
-  (->> (gen/vector gen/string-alphanumeric size)
-       (gen/fmap
-         (fn [xs]
-           (list {:completions
-                  (map (fn [s] {:candidate s
-                                :ns ""
-                                :type ""}) xs)})))))
+(def gen-text-area
+  (do-gen [text   gen-nonempty-text
+           cursor (gen-cursor text)]
+    (-> text (i/seeker) (i/reset-to cursor))))
 
-(defn test-terminal [{:keys [background!
-                             foreground!
-                             style!
-                             un-style!
-                             visible!
-                             clear!
-                             size
-                             move!
-                             put!
-                             stop!
-                             start!
-                             get-key!]
-                      :as fns}]
-  (assert (map? fns) "The input to `test-terminal` should be a map (look at omnia.test-utils)")
+(defn gen-text-area-of [size]
+  (do-gen [text   (gen-text-of size)
+           cursor (gen-cursor text)]
+    (-> text (i/seeker) (i/reset-to cursor))))
+
+(defn gen-completion [size]
+  (do-gen [candidates (-> gen/string-alphanumeric (gen/not-empty) (gen/vector size))]
+    {:completions (mapv (fn [s]
+                          {:candidate s
+                           :ns        ""
+                           :type      ""}) candidates)}))
+
+(defn gen-evaluation [string]
+  (gen/return {:value string}))
+
+(defn gen-nrepl-result [gen-response]
+  (do-gen [id       gen/uuid
+           session  gen/uuid
+           ns       gen/string-alphanumeric
+           response gen-response]
+    (-> response
+        (assoc :id (str id)
+               :session (str session)
+               :ns ns
+               :status ["done"])
+        (list))))
+
+(defn gen-history [{:keys [prefilled-size element-size]}]
+  (gen/vector (gen-text-area-of element-size) prefilled-size))
+
+(s/defn test-terminal :- t/Terminal
+  [fns :- t/TerminalSpec]
   (let [unit (constantly nil)]
-    {:background! (or background! unit)
-     :foreground! (or foreground! unit)
-     :style!      (or style! unit)
-     :un-style!   (or un-style! unit)
-     :visible!    (or visible! unit)
-     :clear!      (or clear! unit)
-     :size        (or size (constantly 10))
-     :move!       (or move! unit)
-     :put!        (or put! unit)
-     :stop!       (or stop! unit)
-     :start!      (or start! unit)
-     :get-key!  (or get-key! unit)}))
+    (reify t/Terminal
+      (clear! [t]                 ((:clear! fns unit) t))
+      (refresh! [t]               ((:refresh! fns unit) t))
+      (size [t]                   ((:size fns (constantly 10)) t))
+      (move! [t x y]              ((:move! fns unit) t x y))
+      (stop! [t]                  ((:stop! fns unit) t))
+      (start! [t]                 ((:start! fns unit) t))
+      (put! [t ch x y fg bg stls] ((:put! fns unit) t ch x y fg bg stls))
+      (get-event! [t]             ((:get-event! fns unit) t)))))
 
-(defn gen-context [{:keys [size fov seeker receive history]
-                    :or {size 0
-                         fov 10
-                         seeker i/empty-seeker
-                         history []}}]
-  (->> (gen-seeker-of size)
-       (gen/fmap
-         (fn [hud-seeker]
-           (let [hud (h/hud fov hud-seeker)]
-             (-> (h/context {:terminal (test-terminal {:size (constantly fov)})
-                             :repl (-> (r/repl {:host    ""
-                                                :port    0
-                                                :history history
-                                                :client (constantly receive)}))
-                             :keymap default-keymap
-                             :colourscheme default-cs})
-                 (h/seek seeker)
-                 (h/persist hud)
-                 (h/rebase)
-                 (h/remember)))))))
+(defn gen-context [{:keys [prefilled-size
+                           view-size
+                           text-area
+                           receive
+                           history]
+                    :or   {prefilled-size 0
+                           view-size      10
+                           receive        (gen/return {})
+                           text-area      (gen/return i/empty-seeker)
+                           history        (gen/return [])}}]
+  (do-gen [hud-seeker      (gen-text-area-of prefilled-size)
+           input-seeker    text-area
+           response        (gen-nrepl-result receive)
+           history-seekers history]
+          (-> (r/context (c/convert c/default-user-config)
+                         (server/client {:host    ""
+                                   :port    0
+                                   :history history-seekers
+                                   :client  (constantly response)})
+                         view-size)
+              (r/with-input-area input-seeker)
+              (r/with-hud (h/hud hud-seeker view-size)))))
 
-(defn event [action key]
-  (i/->Event action key))
+(def up (e/event e/up))
+(def down (e/event e/down))
+(def left (e/event e/left))
+(def right (e/event e/right))
+(def select-all (e/event e/select-all))
+(def select-down (e/event e/select-down))
+(def select-up (e/event e/select-up))
+(def select-right (e/event e/select-right))
+(def select-left (e/event e/select-left))
+(def expand (e/event e/expand))
+(def copy (e/event e/copy))
+(def paste (e/event e/paste))
+(def backspace (e/event e/backspace))
+(def enter (e/event e/break))
+(def undo (e/event e/undo))
+(def redo (e/event e/redo))
+(def scroll-up (e/event e/scroll-up))
+(def scroll-down (e/event e/scroll-down))
+(defn character [k] (e/event e/character k))
+(def clear (e/event e/clear))
+(def evaluate (e/event e/evaluate))
+(def prev-eval (e/event e/prev-eval))
+(def next-eval (e/event e/next-eval))
+(def parens-match (e/event e/match))
+(def suggest (e/event e/suggest))
+(def ignore (e/event e/ignore))
+(def backspace (e/event e/backspace))
 
-(def up (event :up :up))
-(def down (event :down :down))
-(def left (event :left :left))
-(def right (event :right :right))
-(def select-all (event :select-all \a))
-(def select-down (event :select-down :down))
-(def select-up (event :select-up :up))
-(def select-right (event :select-right :right))
-(def select-left (event :select-left :left))
-(def expand (event :expand \w))
-(def copy (event :copy \c))
-(def paste (event :paste \v))
-(def backspace (event :backspace :backspace))
-(def enter (event :newline :enter))
-(def scroll-up (event :scroll-up :page-up))
-(def scroll-down (event :scroll-down :page-down))
-(defn char-key [k] (event :char k))
-(def clear (event :clear \r))
-(def evaluate (event :eval \e))
-(def prev-eval (event :prev-eval :up))
-(def next-eval (event :next-eval :down))
-(def parens-match (event :match \p))
-(def suggest (event :suggest :tab))
-(defn gobble [seeker] (event :gobble seeker))
+(s/defn process :- Context
+  [ctx :- Context, events :- [Event]]
+  (reduce (comp :ctx r/process) ctx events))
 
-(defn process
-  ([ctx event]
-   (process ctx event 1))
-  ([ctx event n]
-   (->> (range 0 n)
-        (reduce (fn [nctx _] (-> nctx (h/process event) (.ctx))) ctx))))
+(s/defn process' :- Seeker
+  [seeker :- Seeker, events :- [TextEvent]]
+  (reduce i/process seeker events))
 
-(defn fov [ctx]
-  (get-in ctx [:complete-hud :fov]))
+(s/defn overview :- s/Int
+  [ctx :- Context]
+  (-> ctx (r/preview-hud) (h/view-offset)))
 
-(defn ov [ctx]
-  (get-in ctx [:complete-hud :ov]))
+(s/defn scroll-offset :- s/Int
+  [ctx :- Context]
+  (-> ctx (r/preview-hud) (h/scroll-offset)))
 
-(defn lor [ctx]
-  (get-in ctx [:complete-hud :lor]))
+(s/defn project-y :- s/Int
+  [ctx :- Context]
+  (let [view  (r/preview-hud ctx)
+        [_ y] (-> view (h/text) (:cursor))]
+    (h/project-y view y)))
 
-(defn y [ctx]
-  (get-in ctx [:complete-hud :cursor 1]))
+(s/defn project-preview :- Seeker
+  [ctx :- Context]
+  (h/project-hud (r/preview-hud ctx)))
 
-(defn project-y [ctx]
-  (let [complete (:complete-hud ctx)
-        [_ y] (:cursor complete)]
-    (rd/project-y complete y)))
-
-(defn project-complete [ctx]
-  (rd/project-hud (:complete-hud ctx)))
-
-(defn project-cursor [ctx]
-  (rd/project-cursor (:complete-hud ctx)))
-
-(defn project-highlight [ctx h-key]
-  (let [complete (:complete-hud ctx)
-        selection (-> (:highlights ctx) (get h-key) (:region))]
-    (rd/project-selection complete selection)))
-
-(defn no-projection [ctx]
-  (let [complete (:complete-hud ctx)]
-    {:start [0 (rd/bottom-y complete)]
-     :end   [0 (rd/bottom-y complete)]}))
-
-(defn shrink-by [ctx n]
-  (update ctx :terminal (fn [term] (assoc term :size (constantly (-- (t/size term) n))))))
-
-(defn enlarge-by [ctx n]
-  (update ctx :terminal (fn [term] (assoc term :size (constantly (+ (t/size term) n))))))
-
-(defn make-total [ctx]
-  (let [h (get-in ctx [:complete-hud :height])]
-    (-> ctx
-        (assoc :terminal (test-terminal {:size (fn [] h)}))
-        (assoc-in [:persisted-hud :fov] h)
-        (assoc-in [:persisted-hud :lor] h)
-        (h/rebase)
-        (h/remember))))
+(defn project-preview-cursor [ctx]
+  (-> ctx (r/preview-hud) (h/project-hud-cursor)))
 
 (defn cursor [ctx]
-  (get-in ctx [:complete-hud :cursor]))
+  (-> ctx (r/preview-hud) (h/text) (:cursor)))
 
 (defn suggestions [ctx]
-  (-> (:repl ctx) (r/complete! i/empty-seeker)))
+  (-> ctx (r/client) (server/complete! i/empty-seeker) (server/result)))
 
-(defn signatures [ctx]
-  (letfn [(sign [{:keys [ns name args]}]
-            (->> args
-                 (mapv #(str ns "/" name " " %))
-                 (s/join "\n")
-                 (i/from-string)))]
-    (-> (:repl ctx)
-        (r/info! i/empty-seeker)
-        (sign))))
+(s/defn suggestion-at :- i/Line
+  [ctx :- Context
+   line :- s/Int]
+  (-> ctx (suggestions) (i/reset-y line) (i/current-line)))
 
-(defn evaluation [seeker]
-  {:value (i/stringify seeker)})
+(defn server-history [ctx]
+  (-> ctx (r/client) (:history)))
 
-(defn history [ctx]
-  (get-in ctx [:repl :history]))
-
-(defn highlights? [highlited region]
+(defn highlights? [highlighted region]
   (let [{expected-start :start
          expected-end   :end} region
-        {actual-start   :start
-         actual-end     :end} (:region highlited)]
+        {actual-start :start
+         actual-end   :end} (:region highlighted)]
     (and (= expected-start actual-start)
          (= expected-end actual-end))))
 
-(defn empty-garbage [ctx]
-  (assoc ctx :garbage i/empty-vec))
+(s/defn no-projection :- Region
+  [ctx :- Context]
+  (let [preview (r/preview-hud ctx)]
+    {:start [0 (h/bottom-y preview)]
+     :end   [0 (h/bottom-y preview)]}))
 
-(defn move-start-fov [ctx]
-  (->> (update ctx :seeker (comp i/start-x i/start-y))
-       (h/rebase)
-       (h/remember)))
+(s/defn project-highlight :- Region
+  [ctx :- Context, h-key :- HighlightType]
+  (let [preview   (r/preview-hud ctx)
+        selection (-> ctx (r/highlights) (get h-key) (:region))]
+    (h/clip-selection preview selection)))
 
-(defn move-end-fov [ctx]
-  (->> (update ctx :seeker (comp i/start-x i/end))
-       (h/rebase)
-       (h/remember)))
+(s/defn pop-up :- Hud
+  [ctx :- Context, window :- Hud]
+  (-> ctx (r/preview-hud) (h/pop-up window)))
 
-(defn move-top-fov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
-        top #(-- % (dec fov))]                              ;; (dec) because you want to land on the fov'th line
-    (-> (move-end-fov ctx)
-        (update :seeker #(i/move-y % top))
-        (h/rebase)
-        (h/remember))))
+(s/defn at-input-start :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/start))]
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
-(defn move-bottom-fov [ctx]
-  (let [fov (get-in ctx [:complete-hud :fov])
-        bottom #(+ % (dec fov))]
-    (-> (update ctx :seeker #(i/move-y % bottom))
-        (h/rebase)
-        (h/remember))))
+(s/defn at-input-end :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/end))]
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
-(defn from-start [ctx]
-  (-> ctx
-      (update :persisted-hud i/start-x)
-      (update :seeker i/start-x)
-      (h/rebase)
-      (h/remember)))
+(s/defn at-line-start :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/start-x))]
+    (-> ctx (r/with-input-area text) (r/refresh))))
 
-(defn from-end [ctx]
-  (-> ctx
-      (update :persisted-hud i/end-x)
-      (update :seeker i/end-x)
-      (h/rebase)
-      (h/remember)))
+(s/defn at-line-end :- Context
+  [ctx :- Context]
+  (let [text (-> ctx (r/input-area) (i/end-x))]
+    (-> ctx (r/with-input-area text) (r/refresh))))
+
+(s/defn at-view-top :- Context
+  [ctx :- Context]
+  (let [fov       (r/view-size ctx)
+        top-line #(-- % (dec fov))                          ;; (dec) because we want to land on the fov'th line
+        text      (-> ctx (r/input-area) (i/move-y top-line))]
+    (-> ctx (r/with-input-area text) (r/refresh))))
+
+(s/defn at-view-bottom :- Context
+  [ctx :- Context]
+  (let [fov         (r/view-size ctx)
+        bottom-line #(+ % (dec fov))                        ;; (dec) because we want to land on the last fov'th line
+        text        (-> ctx (r/input-area) (i/move-y bottom-line))]
+    (-> ctx (r/with-input-area text) (r/refresh))))
+
+(s/defn at-main-view-start :- Context
+  [ctx :- Context]
+  (-> ctx (at-input-end) (at-line-start) (at-view-top)))
+
+(s/defn at-main-view-end :- Context
+  [ctx :- Context]
+  (-> ctx (at-input-end) (at-view-bottom)))
+
+(s/defn resize-view-by :- Context
+  [ctx :- Context, n :- s/Int]
+  (let [new-size (-> ctx (r/view-size) (++ n))]
+    (process ctx [(e/resize-event 80 new-size)])))
+
+(s/defn maximise-view :- Context
+  [ctx :- Context]
+  (let [view-size (r/view-size ctx)
+        text-size (-> ctx (r/preview-hud) (h/text) (:height))]
+    (resize-view-by ctx (- text-size view-size))))
+
+(s/defn extend-highlight :- Context
+  [ctx         :- Context,
+   h-type      :- HighlightType,
+   [xoff yoff] :- Point]
+  (let [highlight (-> ctx
+                      (r/highlights)
+                      (get h-type)
+                      (update
+                        :region
+                        (fn [{[xs ys] :start
+                              [xe ye] :end}]
+                          {:start [(+ xs xoff) (+ ys yoff)]
+                           :end   [(+ xe xoff) (+ ye yoff)]})))]
+    (r/with-highlight ctx h-type highlight)))
+
+(s/defn highlight-from :- r/Highlight
+  [region :- Region]
+  {:region region
+   :scheme default-user-highlighting
+   :styles []})

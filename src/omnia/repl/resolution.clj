@@ -1,4 +1,4 @@
-(ns omnia.resolution
+(ns omnia.repl.resolution
   (:require [halfling.task :as t]
             [cemerick.pomegranate :as p]
             [cemerick.pomegranate.aether :refer [maven-central]]))

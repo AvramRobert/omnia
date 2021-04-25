@@ -3,28 +3,50 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [omnia.test-utils :refer [one can-be]]
-            [omnia.highlight :as h]
-            [omnia.config :as c]
-            [halfling.task :as t]))
+            [clojure.set :refer [map-invert]]
+            [omnia.util.generator :refer [do-gen
+                                          one
+                                          gen-user-keymap
+                                          gen-user-terminal
+                                          gen-user-highlighting
+                                          gen-user-key-binding]]
+            [omnia.util.collection :refer [map-vals]]
+            [halfling.task :as t]
+            [omnia.config.components.text :as tc]
+            [omnia.config.components.core :as cc]
+            [omnia.config.components.keys :as kc]
+            [omnia.config.defaults :as d]
+            [omnia.config.core :as c]
+            [schema.core :as s]))
 
-(def gen-keybind (gen/elements c/default-keymap))
-(defn gen-keybind-unlike [k] (gen/such-that (fn [[ik _]] (not= k ik)) gen-keybind))
+(def ^:const NR-OF-TESTS 100)
 
 (defspec detect-duplicate-bindings
-         100
-         (for-all [[ik v] gen-keybind]
-                  (let [[k _] (one (gen-keybind-unlike ik))]
-                    (-> (assoc-in c/default-config [c/keymap k] v)
-                        (c/validate)
-                        (t/task)
-                        (t/run)
-                        (t/broken?)
-                        (is)))))
+         NR-OF-TESTS
+  (let [entries (keys d/default-user-keymap)
+        half    (/ (count entries) 2)]
+    (for-all [binding gen-user-key-binding
+              entry1  (gen/elements (take half entries))
+              entry2  (gen/elements (drop half entries))]
+             (let [result (-> c/default-config
+                              (assoc-in [:keymap entry1] binding)
+                              (assoc-in [:keymap entry2] binding)
+                              (c/validate!)
+                              (t/task)
+                              (t/run))]
+               (is (t/broken? result))))))
 
-(deftest normalise-keymap
-  (run! (fn [[_ v]]
-          (is (contains? v :key))
-          (is (contains? v :ctrl))
-          (is (contains? v :shift))
-          (is (contains? v :alt))) (c/normalise c/default-keymap)))
+(defspec normalise-keymap
+         NR-OF-TESTS
+  (for-all [custom-keymap gen-user-keymap]
+    (is (s/validate cc/KeyMap (c/fix-keymap custom-keymap)))))
+
+(defspec normalise-colours
+         NR-OF-TESTS
+  (for-all [custom-highlighting gen-user-highlighting]
+    (is (s/validate cc/Highlighting (c/fix-highlighting custom-highlighting)))))
+
+(defspec normalise-terminal
+         NR-OF-TESTS
+  (for-all [terminal gen-user-terminal]
+    (is (s/validate cc/Terminal (c/fix-terminal terminal)))))

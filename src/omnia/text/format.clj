@@ -1,10 +1,10 @@
-(ns omnia.format
-  (:require [omnia.input :as i]
-            [omnia.more :refer [--]]
+(ns omnia.text.format
+  (:require [fipp.visit :refer [visit]]
+            [omnia.text.core :as i]
+            [omnia.util.arithmetic :refer [--]]
             [fipp.engine :as e]
-            [clojure.edn :as clj-edn]
             [fipp.edn :as edn]
-            [fipp.visit :refer [visit]]
+            [clojure.edn :as clj-edn]
             [clojure.string :as s]
             [instaparse.core :as p]
             [halfling.task :as t]))
@@ -44,8 +44,8 @@
               <text>  = #'[^()\\[\\]\\{\\}\\n]*'"))
 
 (defn spaces [seeker]
-  (->> (i/line seeker)
-       (take-while i/blank?)
+  (->> (i/current-line seeker)
+       (take-while i/space?)
        (count)))
 
 (defn reselect [original formatted]
@@ -58,19 +58,21 @@
 (defn normalise [original formatted]
   "The update order must be kept!
   First selection, then rebase, then movement!"
-  (let [form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
+  (let [clipboard   (:clipboard original)
+        form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
         real-indent (spaces original)]
     (-> original
         (reselect formatted)
         (i/rebase (fn [_] (:lines formatted)))
-        (i/move-x #(-> % (+ form-indent) (- real-indent))))))
+        (i/move-x #(-> % (+ form-indent) (- real-indent)))
+        (assoc :clipboard clipboard))))
 
 (defn deform [seeker]
   (let [cursor-onset (spaces seeker)
         select-onset (some->> seeker (:selection) (constantly) (i/move seeker) (spaces))]
     (-> seeker
         (i/rebase (fn [lines]
-                    (mapv #(->> % (drop-while i/blank?) (vec)) lines)))
+                    (mapv #(->> % (drop-while i/space?) (vec)) lines)))
         (i/move-x #(-- % cursor-onset))
         (i/reselect (fn [[x y]] [(-- x select-onset) y])))))
 

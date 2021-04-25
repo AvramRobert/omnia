@@ -1,11 +1,11 @@
 (ns omnia.core
   (:gen-class)
-  (:require [omnia.terminal :as t]
-            [omnia.repl :as r]
-            [omnia.hud :as h]
-            [omnia.config :as c]
-            [clojure.string :as s]
-            [halfling.task :as tsk])
+  (:require [clojure.string :as s]
+            [halfling.task :as tsk]
+            [omnia.view.terminal :as t]
+            [omnia.repl.nrepl :as n]
+            [omnia.repl.core :as r]
+            [omnia.config.core :as c])
   (:import (java.util Calendar)))
 
 (defn config-path [dir] (format "%s/omnia.edn" dir))
@@ -48,7 +48,7 @@
       {:dir (or (read "path=") ".")})))
 
 (defn hooks! [{:keys [repl]} {:keys [dir]}]
-  (-> (tsk/task (r/write-history (history-path dir) repl))
+  (-> (tsk/task (n/write-history (history-path dir) repl))
       (tsk/recover (fn [_] ()))))
 
 (defn succeed! [_]
@@ -67,22 +67,20 @@
 (defn -main [& args]
   (-> (tsk/do-tasks
         [argmap       (read-args! args)
-         config       (-> (:dir argmap) (config-path) (c/read-config))
-         history      (-> (:dir argmap) (history-path) (r/read-history))
-         terminal     (t/terminal)
+         config       (-> argmap (:dir) (config-path) (c/read-config))
+         history      (-> argmap (:dir) (history-path) (n/read-history))
+         terminal     (t/terminal config)
          repl-config  {:history history
                        :host    repl-host
                        :port    (rand-port)
                        :ns      repl-ns}
-         server       (r/start-server! repl-config)
-         repl         (r/repl repl-config)
+         server       (n/start-server! repl-config)
+         repl         (n/client repl-config)
          _            (t/start! terminal)
-         ctx          (-> (assoc config :terminal terminal
-                                        :repl repl)
-                          (h/read-eval-print))
+         ctx          (r/read-eval-print config terminal repl)
          _            (hooks! ctx argmap)
          _            (t/stop! terminal)
-         _            (r/stop-server! server)])
+         _            (n/stop-server! server)])
       (tsk/recover fail!)
       (tsk/then succeed!)
       (tsk/run)))

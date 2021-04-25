@@ -3,7 +3,7 @@
 **MacOS users**: Some of the default key bindings may not work directly, because MacOS assigns them
 to other OS-related actions that have higher priority.
 
-To avoid this, please take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/doc/configuration.md) 
+To avoid this, please take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md) 
 and just re-bind those omnia actions to other keys.
 
 
@@ -11,12 +11,12 @@ and just re-bind those omnia actions to other keys.
 |--------------|----------------|-------------|-----------------|
 |Input char| any character key | Inserts character | - |
 |Move up/down/left/right | Arrows UP/DOWN/LEFT/RIGHT | Moves the cursor | :up, :down, :left, :right |
-|Newline | ENTER | Jumps to the next line | :newline |
+|Break | ENTER | Jumps to the next line | :break |
 |Backspace | BACKSPACE | Deletes character to the left or removes selected input | :backspace |
 |Delete | DELETE | Deletes character to the right or removes selected input | :delete |
-|Evaluate| ALT + E | Evaluates the input | :eval |
+|Evaluate| ALT + E | Evaluates the input | :evaluate |
 |Clear | CTRL + R | Clears screen of previous evaluations | :clear |
-|Format| CTRL + ALT + L | Formats input | :format |
+|Indent| CTRL + ALT + L | Indents/formats input | :indent |
 |Match | CTRL + P | Explicitly highlights the parens of the current expression| :match |
 |Suggest | TAB | Displays a list of possible inputs. Inputs can be selected by repeatedly pressing the key | :suggest |
 |Signature | ALT + P | Displays a list of all signatures of the function | :signature |

@@ -5,7 +5,7 @@
 |Function calls | :yellow | :function |
 |Numbers | :blue | :number |
 |Strings | :green | :string |
-|Chars | :green | :char |
+|Chars | :green | :character |
 |Keywords | :cyan | :keyword |
 |Comments | :magenta | :comment |
 |Lists | :white | :list |

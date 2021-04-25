@@ -2,151 +2,167 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
-            [clojure.test.check.generators :as gen]
             [omnia.test-utils :refer :all]
-            [omnia.more :refer [map-vals reduce-idx]]
-            [omnia.render :as r]
-            [omnia.terminal :as t]
-            [omnia.input :as i]))
+            [omnia.view.render :refer :all]
+            [omnia.util.collection :refer [map-vals reduce-idx]]
+            [omnia.util.schema :refer [Point Region]]
+            [omnia.util.generator :refer [one]]
+            [clojure.test.check.generators :as gen]
+            [schema.core :as s]
+            [omnia.repl.context :as r]
+            [omnia.repl.hud :as h]
+            [omnia.view.terminal :as t]
+            [omnia.text.core :as i]
+            [omnia.repl.context :as c]
+            [omnia.config.components.text :as ct]
+            [omnia.config.defaults :as d])
+  (:import (clojure.lang Atom)))
 
-(defn stateful [ctx]
-  (let [chars   (atom [])
-        cursors (atom [])
-        bgs     (atom [])
-        fgs     (atom [])
-        stls    (atom [])
-        unstls  (atom [])
-        acc     (fn [atm val] (swap! atm #(conj % val)))
-        size    (t/size (:terminal ctx))]
-    (assoc ctx
-      :terminal (test-terminal {:background! (fn [colour] (acc bgs colour))
-                                :foreground! (fn [colour] (acc fgs colour))
-                                :style!      (fn [style]  (acc stls style))
-                                :un-style!   (fn [style]  (acc unstls style))
-                                :put!        (fn [ch x y]
-                                               (acc chars ch)
-                                               (acc cursors [x y]))
-                                :size        (fn [] size)})
-      :state {:chars   chars
-              :cursors cursors
-              :bgs     bgs
-              :fgs     fgs
-              :stls    stls
-              :unstls  unstls})))
+(def ^:const NR-OF-TESTS 100)
 
-(defn inspect [ctx p]
-  (when-let [state (:state ctx)]
-    (p (map-vals deref state))))
+(def IndexedCharacter
+  {:char   Character
+   :cursor Point})
 
-(defn execute [ctx f]
-  (f ctx)
-  ctx)
+(def IndexedSeeker
+  (assoc i/Seeker :lines [[IndexedCharacter]]))
 
-(defn index [ctx]
-  (-> (project-complete ctx)
-      (i/rebase #(map-indexed
-                   (fn [y line]
-                     (map-indexed
-                       (fn [x c]
-                         {:cursor [x y] :char c}) line)) %))))
+(def State
+  {:chars   Atom
+   :cursors Atom
+   :bgs     Atom
+   :fgs     Atom
+   :stls    Atom})
 
-(defn aggregate [traversal]
-  (->> (:lines traversal)
-       (reduce concat)
-       (reduce
-         (fn [res item]
-           (-> res
-               (update :cursors #(conj % (:cursor item)))
-               (update :chars #(conj % (:char item))))) {:cursors [] :chars []})))
+(def Accumulate
+  {:ctx r/Context
+   :state State})
 
-(defn discretise [ctx]
-  "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
-   each being the ones the `terminal` prints to the screen."
-  (-> (index ctx)
-      (aggregate)))
+(s/defn accumulative :- Accumulate
+  [ctx  :- r/Context]
+  (let [chars    (atom [])
+        cursors  (atom [])
+        bgs      (atom [])
+        fgs      (atom [])
+        stls     (atom [])
+        acc      (fn [atm val] (swap! atm #(conj % val)))
+        terminal (test-terminal {:put! (fn [_ ch x y fg bg stl]
+                                         (acc bgs bg)
+                                         (acc fgs fg)
+                                         (run! #(acc stls %) stl)
+                                         (acc chars ch)
+                                         (acc cursors [x y]))
+                                 :size (fn [] (r/view-size ctx))})]
+    {:ctx      ctx
+     :terminal terminal
+     :state    {:chars   chars
+                :cursors cursors
+                :bgs     bgs
+                :fgs     fgs
+                :stls    stls}}))
 
-(defn discretise-h [{:keys [complete-hud highlights] :as ctx}]
-  "Discretises the `complete-hud` into a vector of chars and a vector of cursors,
-   each being the ones the `terminal` highlights on the screen."
-  (->> (r/prioritise highlights)
-       (vals)
-       (mapv #(let [{start :start
-                     end   :end} (-> complete-hud
-                                   (r/project-selection (:region %))
-                                   (update :start (fn [[x y]] [x (r/project-y complete-hud y)]))
-                                   (update :end (fn [[x y]] [x (r/project-y complete-hud y)])))]
-                (-> (index ctx)
-                    (assoc :cursor start
-                           :selection end)
-                    (i/extract)
-                    (aggregate))))
-       (apply (partial merge-with concat))))
+(s/defn inspect
+  [acc :- Accumulate p]
+  (->> acc (:state) (map-vals deref) (p)))
+
+(s/defn execute :- Accumulate
+  [acc :- Accumulate, f]
+  (f (:terminal acc) (:ctx acc))
+  acc)
+
+(s/defn index-seeker :- IndexedSeeker
+  [seeker :- i/Seeker]
+  (i/rebase seeker #(map-indexed
+                      (fn [y line]
+                        (vec
+                          (map-indexed
+                            (fn [x c]
+                              {:cursor [x y] :char c}) line))) %)))
+
+(s/defn index :- [IndexedCharacter]
+  ([hud :- h/Hud]
+   (->> hud
+        (h/project-hud)
+        (index-seeker)
+        (:lines)
+        (flatten))))
+
+(s/defn index-at :- [IndexedCharacter]
+  ([hud :- h/Hud, region :- Region]
+   (let [indexed-text (->> hud (h/project-hud) (index-seeker))
+         selection    (h/project-selection hud region)
+         [_ ys]       (:start selection)
+         [_ ye]       (:end selection)]
+     (-> indexed-text (:lines) (subvec ys (inc ye)) (flatten)))))
 
 ;; I. Diffed rendering
 
 (defn padded-diff-render [ctx]
-  (let [selected         (-> (move-end-fov ctx)
-                             (process select-right 100))
-        processed        (process selected backspace)
-        n-last           (-> (:complete-hud ctx) (:lines) (last) (count))
+  (let [selected         (-> ctx
+                             (at-input-end)
+                             (at-line-start)
+                             (process (repeat 100 select-right)))
+        processed        (process selected [backspace])
+        n-last           (-> ctx (r/preview-hud) (h/text) (:lines) (last) (count))
         expected-chars   (repeat n-last \space)
-        expected-cursors (->> (discretise selected)
-                              (:cursors)
-                              (take-last n-last))]
-    (-> (stateful processed)
-        (execute r/diff!)
+        expected-cursors (->> selected
+                              (r/preview-hud)
+                              (index)
+                              (take-last n-last)
+                              (map :cursor))]
+    (-> processed
+        (accumulative)
+        (execute render-diff!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-cursors cursors))
             (is (= expected-chars chars)))))))
 
 (defn projected-diff-render [ctx k]
-  (let [processed        (-> (move-end-fov ctx)
-                             (process (char-key k) 10))
-        last-n           (-> (:complete-hud processed) (:lines) (last) (count))
-        {chars   :chars
-         cursors :cursors} (discretise processed)
-        expected-chars   (take-last last-n chars)
-        expected-cursors (take-last last-n cursors)]
-    (-> (stateful processed)
-        (execute r/diff!)
+  (let [processed        (-> ctx
+                             (at-input-end)
+                             (at-line-start)
+                             (process (repeat 10 (character k))))
+        last-n           (->> processed (r/preview-hud) (h/text) (:lines) (last) (count))
+        expectation      (->> processed (r/preview-hud) (index) (take-last last-n))]
+    (-> (accumulative processed)
+        (execute render-diff!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
-            (is (= expected-cursors cursors))
-            (is (= expected-chars chars)))))))
+            (is (= (map :cursor expectation) cursors))
+            (is (= (map :char expectation) chars)))))))
 
 (defn no-change-diff-render [ctx]
-  (-> (move-end-fov ctx)
-      (process up)
-      (stateful)
-      (execute r/diff!)
+  (-> ctx
+      (at-input-end)
+      (at-line-start)
+      (process [up])
+      (accumulative)
+      (execute render-diff!)
       (inspect
-        (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+        (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? chars))
           (is (empty? cursors))
           (is (empty? fgs))
           (is (empty? bgs))
-          (is (empty? stls))
-          (is (empty? unstls))))))
+          (is (empty? stls))))))
 
 (defn reset-diff-render [ctx]
-  (let [processed (-> (move-top-fov ctx)
-                      (process down)
-                      (process select-up 3)
-                      (process backspace))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise processed)]
+  (let [processed        (-> ctx
+                             (at-main-view-start)
+                             (process [down select-up select-up select-up backspace]))
+        expectation      (-> processed (r/preview-hud) (index))
+        expected-chars   (map :char expectation)
+        expected-cursors (map :cursor expectation)]
     (-> processed
-        (stateful)
-        (execute r/diff!)
+        (accumulative)
+        (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors _ _ _ _]}]
             (->> (map vector chars cursors)
@@ -166,37 +182,36 @@
   (reset-diff-render ctx))
 
 (defspec diff-render-test
-         100
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (diff-render ctx)))
 
 ;; II. No rendering
 
 (defn projected-no-render [ctx]
-  (-> (stateful ctx)
-      (execute r/nothing!)
+  (-> (accumulative ctx)
+      (execute render-nothing!)
       (inspect
-        (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+        (fn [{:keys [chars cursors fgs bgs stls]}]
           (is (empty? bgs))
           (is (empty? fgs))
           (is (empty? chars))
           (is (empty? cursors))
-          (is (empty? stls))
-          (is (empty? unstls))))))
+          (is (empty? stls))))))
 
 (defn nothing-to-diff-render [ctx]
-  (let [processed (-> (move-top-fov ctx)
-                      (process up))]
-    (-> (stateful processed)
-        (execute r/nothing!)
+  (let [processed (-> ctx
+                      (at-main-view-start)
+                      (process [up]))]
+    (-> (accumulative processed)
+        (execute render-nothing!)
         (inspect
-          (fn [{:keys [chars cursors fgs bgs stls unstls]}]
+          (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (not (empty? chars)))
             (is (not (empty? cursors))))))))
 
@@ -205,247 +220,344 @@
   (nothing-to-diff-render ctx))
 
 (defspec no-render-test
-         100
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (no-render ctx)))
 
 ;; III. Selection highlighting
 
 (defn total-selection-render-right [ctx]
-  (let [processed (-> (move-end-fov ctx)
-                      (process select-right))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
-        (execute r/selections!)
+  (let [adapted          (-> ctx
+                             (at-input-end)
+                             (at-line-start))
+        text             (-> adapted (r/preview-hud) (h/project-hud))
+        expected-chars   [(i/current-char text)]
+        expected-cursors [(:cursor text)]]
+    (-> adapted
+        (process [select-right])
+        (accumulative)
+        (execute render-highlights!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
 (defn total-selection-render-left [ctx]
-  (let [processed (-> (move-end-fov ctx)
-                      (process right)
-                      (process select-left))
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
-        (execute r/selections!)
+  (let [adapted          (-> ctx
+                             (at-input-end)
+                             (at-line-start))
+        text             (-> adapted (c/preview-hud) (h/project-hud))
+        cursor           (:cursor text)
+        expected-chars   [(i/current-char text)]
+        expected-cursors [cursor]]
+    (-> adapted
+        (process [right select-left])
+        (accumulative)
+        (execute render-highlights!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= chars expected-chars))
             (is (= cursors expected-cursors)))))))
 
 (defn projected-selection-render [ctx]
-  (let [processed (process ctx select-all)
-        {expected-chars   :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
-        (execute r/selections!)
+  (let [processed        (process ctx [select-all])
+        projected        (project-preview processed)
+        expected-chars   (->> projected (:lines) (flatten))
+        expected-cursors (->> projected (index-seeker) (:lines) (flatten) (map :cursor))]
+    (-> processed
+        (accumulative)
+        (execute render-highlights!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
-(defn projected-stylelised-render [ctx]
-  (let [processed (-> ctx (process (char-key \()) (process left))
-        {expected-chars :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
-        (execute r/selections!)
+(defn projected-stylised-render [ctx]
+  (let [processed (process ctx [(character \()
+                                (character \a)
+                                left
+                                left])
+        [x y]     (project-preview-cursor processed)
+        expected-chars   [\( \)]
+        expected-cursors [[x y] [(+ x 2) y]]
+        expected-styles  [:underline :underline]]
+    (-> processed
+        (accumulative)
+        (execute render-highlights!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
-            (is (not (empty? stls)))
-            (is (not (empty? unstls)))
+            (is (= expected-styles stls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
 
-(defn projected-prioritised-render [ctx]
-  (let [processed (-> ctx
-                      (process (char-key \())
-                      (process (char-key \a))
-                      (process left)
-                      (process left)
-                      (process expand)
-                      (empty-garbage))
-        {expected-chars :chars
-         expected-cursors :cursors} (discretise-h processed)]
-    (-> (stateful processed)
-        (execute r/selections!)
+(defn additive-exclusion-render [ctx]
+  (let [adapted (process ctx [(character \()
+                              (character \a)
+                              left
+                              left])
+        [x y]     (project-preview-cursor adapted)
+        expected-chars   [\( \a \)]
+        expected-cursors [[x y] [(+ x 1) y] [(+ x 2) y]]]
+    (-> adapted
+        (process [expand])
+        (accumulative)
+        (execute render-highlights!)
         (inspect
-          (fn [{:keys [chars cursors bgs fgs stls unstls]}]
+          (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
             (is (not (empty? fgs)))
             (is (empty? stls))
-            (is (empty? unstls))
             (is (= expected-chars chars))
             (is (= expected-cursors cursors)))))))
+
+(defn expansive-render [ctx]
+  (let [characters [\d \e \f]
+        processed (-> ctx
+                      (at-input-end)
+                      (at-line-start)
+                      (process (->> characters (cons \() (map character))))]
+    (-> processed
+        (process [left left expand])
+        (accumulative)
+        (execute render-highlights!)
+        (inspect
+          (fn [{:keys [chars bgs fgs stls]}]
+            (is (not (empty? bgs)))
+            (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (= chars characters)))))))
 
 (defn selection-render [ctx]
+  (expansive-render ctx)
   (total-selection-render-right ctx)
   (total-selection-render-left ctx)
   (projected-selection-render ctx)
-  (projected-stylelised-render ctx)
-  (projected-prioritised-render ctx))
+  (projected-stylised-render ctx)
+  (additive-exclusion-render ctx))
 
 (defspec selection-render-test
-         100
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (selection-render ctx)))
 
 ;; IV. Clean-up highlighting
 
 (defn arbitrary-line-clean-up [ctx]
-  (let [selected  (-> (move-top-fov ctx)
-                      (process right)
-                      (process select-right 2))
-        {expected-chars :chars
-         expected-cursors :cursors} (discretise-h selected)]
-    (-> selected
-        (process left)
-        (stateful)
-        (execute r/collect!)
+  (let [adapted     (-> ctx
+                        (at-main-view-start)
+                        (process [right
+                                  select-right
+                                  select-right
+                                  left]))
+        expectation (->> adapted
+                         (r/garbage)
+                         (vals)
+                         (map :region)
+                         (mapcat #(index-at (r/preview-hud adapted) %)))
+        expected-bg (get d/default-colours ct/default)]
+    (-> adapted
+        (accumulative)
+        (execute clean-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
-            (is (= (flatten expected-chars) chars))
-            (is (= expected-cursors cursors))
-            (is (= :default (first (distinct bgs))))
+            (is (= (map :char expectation) chars))
+            (is (= (map :cursor expectation) cursors))
+            (is (= expected-bg (first (distinct bgs))))
             (is (not (empty? bgs)))
             (is (not (empty? fgs))))))))
 
 (defn clean-up-render [ctx]
   (arbitrary-line-clean-up ctx))
 
+;; Even though previously I only put the highlighted characters, I still started at the beginning of the line an iterated over it entirely
 (defspec clean-up-render-test
-         100
-         (for-all [ctx (gen-context {:size   5
-                                     :fov    27
-                                     :seeker (one (gen-seeker-of 29))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 5
+                                     :view-size      27
+                                     :text-area      (gen-text-area-of 29)})]
                   (clean-up-render ctx)))
 
 ;; V. Hud projection
 
-(defn move-with [ctx {:keys [scroll ov]
-                      :or   {scroll 0
-                             ov     0}}]
-  (let [fov (get-in ctx [:complete-hud :fov])]
-    (i/rebase (:complete-hud ctx) #(->> (take-last (+ fov scroll ov) %)
-                                        (take fov)))))
+(defn move-with [ctx {:keys [scroll-offset
+                             view-offset]
+                      :or   {scroll-offset 0
+                             view-offset   0}}]
+  (let [fov  (r/view-size ctx)
+        text (-> ctx (r/preview-hud) (h/text))]
+    (i/rebase text #(->> % (take-last (+ fov scroll-offset view-offset)) (take fov)))))
 
 (defn total-hud-projection [ctx]
-  (let [total (make-total ctx)]
-    (-> total
-        (process scroll-up 10)
-        (project-complete)
-        (<=> (:complete-hud total)))))
+  (let [complete-view       (maximise-view ctx)
+        expected-projection (-> ctx (r/preview-hud) (h/text))
+        projected           (-> complete-view
+                                (process (repeat 10 scroll-up))
+                                (project-preview))]
+    (is (i/equivalent? projected expected-projection))))
+
+(defn fov-hud-projection [ctx]
+  (let [fov      (r/view-size ctx)
+        actual   (-> ctx
+                     (at-main-view-end)
+                     (project-preview))
+        expected (-> ctx
+                     (r/preview-hud)
+                     (h/text)
+                     (i/rebase #(take-last fov %)))]
+    (is (i/equivalent? actual expected))))
+
+(defn fov-with-overview-hud-projection [ctx]
+  (let [offset   2
+        fov      (r/view-size ctx)
+        actual   (-> ctx
+                     (at-main-view-start)
+                     (process (repeat offset up))
+                     (project-preview))
+        expected (-> ctx
+                     (r/preview-hud)
+                     (h/text)
+                     (i/rebase #(->> % (drop-last offset) (take-last fov))))]
+    (is (i/equivalent? actual expected))))
 
 (defn scrolled-hud-projection [ctx]
-  (can-be ctx
-          #(-> % (process scroll-up 1) (project-complete) (<=> (move-with % {:scroll 1})))
-          #(-> % (process scroll-up 4) (project-complete) (<=> (move-with % {:scroll 4})))
-          #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=> (move-with % {:scroll 3})))))
+  (should-be ctx
+             #(-> %
+               (process [scroll-up])
+               (project-preview)
+               (i/equivalent? (move-with % {:scroll-offset 1})))
+             #(-> %
+               (process [scroll-up
+                         scroll-up
+                         scroll-up
+                         scroll-up])
+               (project-preview)
+               (i/equivalent? (move-with % {:scroll-offset 4})))
+             #(-> %
+               (process [scroll-up
+                         scroll-up
+                         scroll-up
+                         scroll-up
+                         scroll-down])
+               (project-preview)
+               (i/equivalent? (move-with % {:scroll-offset 3})))))
 
 (defn paged-hud-projection [ctx]
-  (-> (move-top-fov ctx)
-      (process up 2)
-      (can-be
-        #(-> % (process scroll-up 1) (project-complete) (<=> (move-with % {:scroll 1 :ov 2})))
-        #(-> % (process scroll-up 4) (project-complete) (<=> (move-with % {:scroll 4 :ov 2})))
-        #(-> % (process scroll-up 4) (process scroll-down) (project-complete) (<=> (move-with % {:scroll 3 :ov 2}))))))
+  (-> ctx
+      (at-main-view-start)
+      (process [up up])
+      (should-be
+        #(-> %
+             (process [scroll-up])
+             (project-preview)
+             (i/equivalent? (move-with % {:scroll-offset 1
+                                          :view-offset 2})))
+        #(-> %
+             (process [scroll-up
+                       scroll-up
+                       scroll-up
+                       scroll-up])
+             (project-preview)
+             (i/equivalent? (move-with % {:scroll-offset 4
+                                          :view-offset 2})))
+        #(-> %
+             (process [scroll-up
+                       scroll-up
+                       scroll-up
+                       scroll-up
+                       scroll-down])
+             (project-preview)
+             (i/equivalent? (move-with % {:scroll-offset 3
+                                          :view-offset 2}))))))
 
 (defn hud-projection [ctx]
   (total-hud-projection ctx)
+  (fov-hud-projection ctx)
+  (fov-with-overview-hud-projection ctx)
   (scrolled-hud-projection ctx)
   (paged-hud-projection ctx))
 
 (defspec hud-projection-test
-         100
-         (for-all [ctx (gen-context {:size   20
-                                     :fov    7
-                                     :seeker (one (gen-seeker-of 10))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 20
+                                     :view-size      7
+                                     :text-area      (gen-text-area-of 10)})]
                   (hud-projection ctx)))
 
 ;; VI. Selection projection
 
 (defn total-selection-projection [ctx]
-  (let [total (move-end-fov (make-total ctx))
+  (let [total (-> ctx (at-input-end) (at-line-start) (maximise-view))
         [x y] (cursor total)]
-    (can-be total
-            #(-> (process % select-up 5)
-                 (:highlights)
+    (should-be total
+               #(-> %
+                 (process [select-up
+                           select-up
+                           select-up
+                           select-up
+                           select-up])
+                 (r/highlights)
                  (:selection)
                  (highlights? {:start [x (- y 5)]
                                :end   [x y]})))))
 
 (defn paged-selection-extension [ctx]
-  (let [start-bottom (-> (move-top-fov ctx) (:complete-hud) (i/start-x) (:cursor))
-        end-bottom (-> (move-end-fov ctx) (:complete-hud) (i/end-x) (:cursor))
-        start-top  (-> (move-start-fov ctx) (:complete-hud) (:cursor))
-        end-top (-> (move-start-fov ctx) (move-bottom-fov) (:complete-hud) (i/end-x) (:cursor))]
-    (can-be ctx
-            #(-> (move-top-fov %)
-                 (process select-all)
+  (let [from-top-start    (-> ctx (at-main-view-start) (r/preview-hud) (h/text) (:cursor))
+        top-clip-end      (-> ctx (at-main-view-end) (r/preview-hud) (h/text) (:cursor))
+        bottom-clip-start (-> ctx (at-input-start) (r/preview-hud) (h/text) (:cursor))
+        bottom-clip-end   (-> ctx (at-input-start) (at-view-bottom) (at-line-end) (r/preview-hud) (h/text) (:cursor))]
+    (should-be ctx
+               #(-> %
+                 (at-main-view-start)
+                 (process [select-all])
                  (project-highlight :selection)
-                 (= {:start start-bottom
-                     :end   end-bottom}))
-            #(-> (move-top-fov %)
-                 (process up 2)
-                 (process select-down 100)
-                 (process select-right 10)
+                 (= {:start from-top-start
+                     :end   top-clip-end}))
+               #(-> %
+                 (at-input-start)
+                 (process (repeat 100 select-down))
+                 (process (repeat 100 select-right))
                  (project-highlight :selection)
-                 (= {:start start-bottom
-                     :end   end-bottom}))
-            #(-> (move-end-fov %)
-                 (process select-up 100)
+                 (= {:start from-top-start
+                     :end   top-clip-end}))
+               #(-> %
+                 (at-input-end)
+                 (process (repeat 100 select-up))
+                 (process (repeat 100 select-left))
                  (project-highlight :selection)
-                 (= {:start start-top
-                     :end   end-top})))))
+                 (= {:start bottom-clip-start
+                     :end   bottom-clip-end})))))
 
 (defn paged-selection-lower-clip [ctx]
-  (let [complete (:complete-hud ctx)
-        fov      (:fov complete)]
-    (-> (move-top-fov ctx)
-        (process up 2)
-        (process select-right)
-        (update-in [:highlights :selection :region]
-                   #(let [{[xs ys] :start
-                           [xe ye] :end} %]
-                      {:start [xs (+ ys fov)]
-                       :end   [xe (+ ye fov)]}))
-        (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
+  (let [fov       (r/view-size ctx)
+        processed (-> ctx
+                      (at-main-view-start)
+                      (process [up up select-right])
+                      (extend-highlight :selection [0 fov]))]
+    (is (= (project-highlight processed :selection) (no-projection processed)))))
 
 (defn paged-selection-upper-clip [ctx]
-  (let [complete (:complete-hud ctx)
-        fov      (:fov complete)]
-    (-> (move-end-fov ctx)
-        (process select-right)
-        (update-in [:highlights :selection :region]
-                   #(let [{[xs ys] :start
-                           [xe ye] :end} %]
-                      {:start [xs (- ys fov)]
-                       :end   [xe (- ye fov)]}))
-        (can-be #(-> % (project-highlight :selection) (= (no-projection %)))))))
-
-; selection is currently reset when scrolling
-;(defn scrolled-selection-projection [ctx] true)
+  (let [fov       (r/view-size ctx)
+        processed (-> ctx
+                      (at-input-end)
+                      (at-line-start)
+                      (process [select-right])
+                      (extend-highlight :selection [0 (- fov)]))]
+    (is (= (project-highlight processed :selection) (no-projection processed)))))
 
 (defn selection-projection [ctx]
   (total-selection-projection ctx)
@@ -454,86 +566,89 @@
   (paged-selection-upper-clip ctx))
 
 (defspec selection-projection-test
-         100
-         (for-all [ctx (gen-context {:size   20
-                                     :fov    7
-                                     :seeker (one (gen-seeker-of 10))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 20
+                                     :view-size      7
+                                     :text-area      (gen-text-area-of 10)})]
                   (selection-projection ctx)))
 
 ;; VII. Cursor projection
 
 (defn total-cursor-projection [ctx]
-  (let [total (move-end-fov (make-total ctx))
+  (let [total (-> ctx (at-input-end) (at-line-start) (maximise-view))
         [x y] (cursor total)
-        hp    (get-in total [:persisted-hud :height])
-        hc    (get-in total [:complete-hud :height])]
-    (can-be total
-            #(-> % (process up) (project-cursor) (= [x (dec y)]))
-            #(-> % (process up 4) (project-cursor) (= [x (- y 4)]))
-            #(-> % (process up 100) (project-cursor) (= [x hp]))
-            #(-> % (process down 100) (project-cursor) (= [x (dec hc)]))))) ;; starts with 0
+        hp    (-> total (r/persisted-hud) (h/text) (:height))
+        hc    (-> total (r/preview-hud) (h/text) (:height))]
+    (should-be total
+               #(-> % (process [up]) (project-preview-cursor) (= [x (dec y)]))
+               #(-> % (process [up up up up]) (project-preview-cursor) (= [x (- y 4)]))
+               #(-> % (process (repeat 100 up)) (project-preview-cursor) (= [x hp]))
+               #(-> % (process (repeat 100 down)) (project-preview-cursor) (= [x (dec hc)]))))) ;; starts with 0
 
 (defn paged-cursor-projection [ctx]
-  (let [end-y (dec (fov ctx))]                              ;; starts from 0
-    (-> (move-top-fov ctx)
-        (from-start)
-        (can-be
-          #(-> % (process up) (project-cursor) (= [0 0]))
-          #(-> % (process up 2) (project-cursor) (= [0 0]))
-          #(-> % (process down 1) (project-cursor) (= [0 1]))
-          #(-> % (process down 2) (project-cursor) (= [0 2]))
-          #(-> % (move-bottom-fov) (process down) (project-cursor) (= [0 end-y]))
-          #(-> % (move-bottom-fov) (process down 2) (project-cursor) (= [0 end-y]))))))
+  (let [end-y (dec (r/view-size ctx))]                              ;; starts from 0
+    (-> ctx
+        (at-main-view-start)
+        (should-be
+          #(-> % (process [up]) (project-preview-cursor) (= [0 0]))
+          #(-> % (process [up up]) (project-preview-cursor) (= [0 0]))
+          #(-> % (process [down]) (project-preview-cursor) (= [0 1]))
+          #(-> % (process [down down]) (project-preview-cursor) (= [0 2]))
+          #(-> % (at-view-bottom) (process [down]) (project-preview-cursor) (= [0 end-y]))
+          #(-> % (at-view-bottom) (process [down down]) (project-preview-cursor) (= [0 end-y]))))))
 
 (defn cursor-projection [ctx]
   (total-cursor-projection ctx)
   (paged-cursor-projection ctx))
 
 (defspec cursor-projection-test
-         100
-         (for-all [ctx (gen-context {:size   20
-                                     :fov    7
-                                     :seeker (one (gen-seeker-of 10))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 20
+                                     :view-size      7
+                                     :text-area      (gen-text-area-of 10)})]
                   (cursor-projection ctx)))
 
 ;; VIII. Y Projection
 
 (defn- bounded? [ctx y]
-  (<= 0 y (fov ctx)))
+  (<= 0 y (r/view-size ctx)))
 
 (defn top-bounded-y-projection [ctx]
-  (-> (move-end-fov ctx)
-      (can-be #(bounded? % (-> % (process up 5) (project-y)))
-              #(= 0 (-> % (process up 15) (project-y)))
-              #(= 0 (-> % (process up 100) (project-y))))))
+  (-> ctx
+      (at-input-end)
+      (at-line-start)
+      (should-be #(bounded? % (-> % (process (repeat 5 up)) (project-y)))
+                 #(= 0 (-> % (process (repeat 15 up)) (project-y)))
+                 #(= 0 (-> % (process (repeat 100 up)) (project-y))))))
 
 (defn bottom-bounded-y-projection [ctx]
-  (let [end-y (dec (fov ctx))]                              ;; starts from 0
-    (-> (move-top-fov ctx)
-        (process up 5)
-        (can-be #(bounded? % (-> % (process down 10) (project-y)))
-                #(= end-y (-> % (process down 15) (project-y)))
-                #(= end-y (-> % (process down 100) (project-y)))))))
+  (let [end-y (dec (r/view-size ctx))]                              ;; starts from 0
+    (-> ctx
+        (at-main-view-start)
+        (process [up up up up up])
+        (should-be #(bounded? % (-> % (process (repeat 10 down)) (project-y)))
+                   #(= end-y (-> % (process (repeat 15 down)) (project-y)))
+                   #(= end-y (-> % (process (repeat 100 down)) (project-y)))))))
 
 (defn y-projection [ctx]
   (top-bounded-y-projection ctx)
   (bottom-bounded-y-projection ctx))
 
 (defspec y-projection-test
-         100
-         (for-all [ctx (gen-context {:size   30
-                                     :fov    10
-                                     :seeker (one (gen-seeker-of 20))})]
+         NR-OF-TESTS
+         (for-all [ctx (gen-context {:prefilled-size 30
+                                     :view-size      10
+                                     :text-area      (gen-text-area-of 20)})]
                   (y-projection ctx)))
 
 
 ;; IX. Region diff
 
 (defn- check-diff [{:keys [now then expected]}]
-  (let [current {:region now}
-        former {:region then}
-        result  (if expected {:region expected} expected)]
-    (is (= result (r/additive-diff current former)))))
+  (let [current (highlight-from now)
+        former  (highlight-from then)
+        result  (additive-diff current former)]
+    (is (= expected (:region result)))))
 
 (defn upper-x-diff []
   (let [a {:start [4 1] :end [4 3]}
@@ -600,3 +715,21 @@
   (scissor-lower-y)
   (keep-diff)
   (no-diff))
+
+
+(defn total-selection-law [ctx]
+  "extract (clip-sel (select-all (hud))) == project-hud (hud)"
+  (is true))
+
+(defn distributive-projection-law [ctx]
+  "project-sel (select (hud)) = map project-cursor (select (hud))"
+  (is true))
+
+(defn projection-containment-law [ctx]
+  "extract (select (hud)) `contains` extract (project-hud (hud)) (project-sel (select (hud))"
+  (is true))
+
+(defn projection-laws [ctx]
+  (total-selection-law ctx)
+  (distributive-projection-law ctx)
+  (projection-containment-law ctx))
