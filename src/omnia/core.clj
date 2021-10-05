@@ -16,11 +16,11 @@
 (def ^:const repl-host "127.0.0.1")
 (defn rand-port [] (rand-int 65535))
 
-(defn error-msg [{:keys [message trace]}]
+(defn error-msg [{:keys [cause trace]}]
   (format
     "Time: %s\nMessage: %s\n%s"
     (-> (Calendar/getInstance) (.getTime) (str))
-    (or message "Unknown message")
+    (or cause "Unknown cause")
     (->> trace
          (mapv #(str "   " (.toString %)))
          (s/join "\n"))))
@@ -31,12 +31,12 @@
      "-----"
      "I don't have the heart to tell you.. but something went wrong internally"
      (format "Take a look at ~/%s for a complete trace of the error" error-path)
-     (format "Message - %s" (:message result))
+     (format "Message - %s" (:cause result))
      "-----"
      ""]
     (s/join "\n")))
 
-(defn log! [result]
+(defn log-error! [result]
   (tsk/task (spit error-path (error-msg result))))
 
 (defn read-args! [args]
@@ -57,7 +57,7 @@
 (defn fail! [result]
   (-> (tsk/do-tasks
         [msg (failure-msg result)
-         _   (log! result)
+         _   (log-error! result)
          _   (println msg)
          _   (Thread/sleep 3000)]
         (System/exit -1))

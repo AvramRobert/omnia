@@ -8,7 +8,7 @@
                  [org.clojure/core.match "0.3.0-alpha5"]
                  [fipp "0.6.23"]
                  [prismatic/schema "1.1.12"]
-                 [halfling "1.3.0"]
+                 [halfling "1.3.1"]
                  [instaparse "1.4.10"]
                  [cider/cider-nrepl "0.25.11"]
                  [clj-commons/pomegranate "1.2.1"]

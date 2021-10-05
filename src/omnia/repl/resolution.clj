@@ -16,7 +16,7 @@
          (-> (p/add-dependencies :coordinates releases
                                  :repositories repos)
              (make-output)))
-       (t/recover #(symbol (str "An error occurred during retrieval\nMessage: " (:message %))))
+       (t/recover #(symbol (str "An error occurred during retrieval\nMessage: " (:cause %))))
        (t/run)))
 
 (defn retrieve [& releases]
