@@ -5,9 +5,6 @@
             [omnia.config.components.event :as e]
             [omnia.config.components.text :as t]))
 
-(s/def default-os :- OS
-  :linux)
-
 (s/def default-user-keymap :- UserKeyMap
   {e/docs              {:key \i :alt true}
    e/signature         {:key \p :alt true}

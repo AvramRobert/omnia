@@ -3,7 +3,7 @@
             [schema.core :as s]
             [halfling.task :as t]
             [clojure.string :as string]
-            [omnia.config.core :refer [UserConfig default-user-config]]
+            [omnia.config.core :refer [UserConfig read-config]]
             [omnia.util.misc :refer [omnia-version]]))
 
 (def OS (s/enum :linux :macOS :windows))
@@ -18,17 +18,17 @@
 (def Releases {OS ReleaseConfig})
 
 (s/def releases :- Releases
-  {:linux   {:template      "release/templates/executable.sh"
-             :file-type     :sh
-             :configuration default-user-config}
-   :windows {:template      "release/templates/executable.bat"
-             :file-type     :bat
-             :configuration default-user-config}
+  {:linux   {:file-type     :sh
+             :template      "resources/release/templates/linux/executable.sh"
+             :configuration (read-config "resources/release/templates/linux/config.edn")}
 
-   ;:macOS   {:template      "release/templates/executable.sh"
-   ;          :file-type     :sh
-   ;          :configuration default-user-config}
-   })
+   :windows {:file-type     :bat
+             :template      "resources/release/templates/windows/executable.bat"
+             :configuration (read-config "resources/release/templates/windows/config.edn")}
+
+   :macOS   {:file-type     :sh
+             :template      "resources/release/templates/mac/executable.sh"
+             :configuration (read-config "resources/release/templates/mac/config.edn")}})
 
 (defn- sh [& args]
   (let [{:keys [out exit err]} (apply shell/sh args)]
@@ -74,7 +74,7 @@
         jar-file    (format "target/uberjar/%s-%s-standalone.jar" file-name version)
         executable  (-> release (:template) (make-executable file-name version))
         config      (-> release (:configuration))
-        font-file   "release/Hasklig-Regular.otf"
+        font-file   "resources/release/Hasklig-Regular.otf"
         _           (mkdir (str "./" target-dir))
         _           (println "Creating release files..")
         _           (cp jar-file (str target-dir "/" target-jar))

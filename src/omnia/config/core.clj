@@ -8,14 +8,12 @@
             [omnia.config.components.text :as t]))
 
 (def UserConfig
-  {:os                        c/OS
-   :keymap                    c/UserKeyMap
+  {:keymap                    c/UserKeyMap
    :syntax                    c/UserHighlighting
    (s/optional-key :terminal) c/UserTerminal})
 
 (def Config
-  {:os       c/OS
-   :keymap   c/KeyMap
+  {:keymap   c/KeyMap
    :syntax   c/Syntax
    :terminal c/Terminal})
 
@@ -96,14 +94,12 @@
 
 (s/defn convert :- Config
   [config :- UserConfig]
-  {:os       (:os config d/default-os)                      ;; I should statically write a field with the os upon release
-   :keymap   (-> config (:keymap) (fix-keymap))
+  {:keymap   (-> config (:keymap) (fix-keymap))
    :syntax   (-> config (:syntax) (fix-highlighting) (create-syntax))
    :terminal (-> config (:terminal) (fix-terminal))})
 
 (s/def default-user-config :- UserConfig
-  {:os       d/default-os
-   :keymap   d/default-user-keymap
+  {:keymap   d/default-user-keymap
    :syntax   d/default-user-highlighting
    :terminal d/default-user-terminal})
 
