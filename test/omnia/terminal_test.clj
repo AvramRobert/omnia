@@ -89,14 +89,31 @@
            colours           {fg (t/to-text-colour fg)
                               bg (t/to-text-colour bg)}
            styles            t/style->sgr
+           chars             t/char->event
            expected-colours  (map-invert colours)
            expected-styles   (map-invert styles)
-           _                 (t/impl-put! screen char x y fg bg style styles colours)
-           text-char         ^TextCharacter (.getBackCharacter screen x y)
-           actual-style      (->> text-char (.getModifiers) (mapv expected-styles) (set))
-           actual-background (->> text-char (.getBackgroundColor) (expected-colours))
-           actual-foreground (->> text-char (.getForegroundColor) (expected-colours))]
-       (is (= char (.getCharacter text-char)))
+           _                 (t/impl-put! screen char x y fg bg style chars styles colours)
+           actual-char        ^TextCharacter (.getBackCharacter screen x y)
+           actual-style      (->> actual-char (.getModifiers) (mapv expected-styles) (set))
+           actual-background (->> actual-char (.getBackgroundColor) (expected-colours))
+           actual-foreground (->> actual-char (.getForegroundColor) (expected-colours))]
+       (is (= char (.getCharacter actual-char)))
        (is (= style actual-style))
        (is (= bg actual-background))
        (is (= fg actual-foreground)))))
+
+(deftest ignore-control-char
+  (let [screen        ^TerminalScreen (terminal-screen-with {:terminal-size [10 10]})
+        [x y]         [0 0]
+        fg            [255 255 255]
+        bg            [0 0 0]
+        colours       {fg (t/to-text-colour fg)
+                       bg (t/to-text-colour bg)}
+        styles        t/style->sgr
+        chars         t/char->event
+        print         (fn [char]
+                        (t/impl-put! screen char x y fg bg [] chars styles colours))
+        control-chars (->> 32 (range 0) (mapv char))]
+    (doseq [char control-chars]
+      (print char)
+      (is (= TextCharacter/DEFAULT_CHARACTER (.getBackCharacter screen x y))))))

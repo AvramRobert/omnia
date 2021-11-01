@@ -18,7 +18,6 @@
       (catch Exception e
         (.printStackTrace e))
       (finally
-        (println "I'm closing this")
         (r/stop-server! server)))))
 
 (defn filled-completion [client]

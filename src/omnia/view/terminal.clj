@@ -8,7 +8,8 @@
             [omnia.config.core :refer [Config]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.util.misc :refer [omnia-version]]
-            [omnia.util.debug :refer [debug]])
+            [omnia.util.debug :refer [debug]]
+            [omnia.util.debug :as d])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory TerminalResizeListener)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -16,6 +17,7 @@
            (com.googlecode.lanterna.terminal.swing TerminalEmulatorColorConfiguration TerminalEmulatorPalette SwingTerminalFontConfiguration)
            (java.awt Font)
            (java.io File)
+           (java.util EnumSet Collection)
            (clojure.lang IPersistentVector Keyword Atom)))
 
 (def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event!))
@@ -40,6 +42,9 @@
   (stop! [_])
   (start! [_])
   (get-event! [_]))
+
+(s/def empty-sgr :- EnumSet
+  (EnumSet/noneOf SGR))
 
 (s/def style->sgr :- {t/Style SGR}
   {t/bold          SGR/BOLD
@@ -122,14 +127,18 @@
    foreground  :- t/RGBColour
    background  :- t/RGBColour
    styles      :- [t/Style]
+   char-map    :- {Character e/Event}
    style-map   :- {t/Style SGR}
    colour-map  :- {t/RGBColour TextColor}]
-  (let [styles ^IPersistentVector styles
-        text-char ^TextCharacter (-> (TextCharacter. char)
-                                     (.withBackgroundColor (colour-map background))
-                                     (.withForegroundColor (colour-map foreground)))]
-    (if (> (.count styles) 0)
-      (->> styles (mapv style-map) (.withModifiers text-char) (.setCharacter terminal x y))
+  (when (contains? char-map char)
+    (let [styles    ^EnumSet (if (> (.count styles) 0)
+                               (EnumSet/copyOf ^Collection (mapv style-map styles))
+                               empty-sgr)
+          text-char ^TextCharacter (TextCharacter.
+                                     ^Character char
+                                     ^TextColor (colour-map foreground)
+                                     ^TextColor (colour-map background)
+                                     ^EnumSet styles)]
       (.setCharacter terminal x y text-char))))
 
 ;; uses a memoised hashmap of all objects to reduce overhead
@@ -208,7 +217,7 @@
   (let [resizing-sink           (atom false)
         screen ^TerminalScreen  (create-screen config resizing-sink)
         memoised-context-events (-> config (:keymap) (key-stroke->event))
-        memoised-text-events    char->event
+        memoised-char-events    char->event
         memoised-styles         style->sgr
         memoised-colours        (-> config (:syntax) (rgb->text-colour))]
     (reify Terminal
@@ -226,6 +235,6 @@
         (impl-size! screen))
       (get-event! [_]
         (or (impl-get-resize-event! screen resizing-sink)
-            (impl-get-input-event! screen memoised-context-events memoised-text-events)))
+            (impl-get-input-event! screen memoised-context-events memoised-char-events)))
       (put! [_ ch x y fg bg stls]
-        (impl-put! screen ch x y fg bg stls memoised-styles memoised-colours)))))
+        (impl-put! screen ch x y fg bg stls memoised-char-events memoised-styles memoised-colours)))))

@@ -246,7 +246,6 @@
   [ctx :- Context]
   (assoc ctx :render :total))
 
-; FIXME: don't assoc if it's already `diff`
 (s/defn diff-render :- Context
   [ctx :- Context]
   (assoc ctx :render :diff))
