@@ -13,4 +13,4 @@
      v#))
 
 (defmacro debug [body]
-  `(spit "debug" ~body))
+  `(spit "debug" (str ~body "\n") :append true))
