@@ -259,7 +259,7 @@
 
 (s/defn selected? :- s/Bool
   [seeker :- Seeker]
-  (-> seeker :selection nil? not))
+  (-> seeker :selection some?))
 
 (s/defn reselect :- Seeker
   [seeker   :- Seeker

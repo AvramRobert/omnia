@@ -3,7 +3,7 @@
             [omnia.text.core :as i]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.arithmetic :refer [++ -- mod* inc< dec<]]
-            [omnia.util.collection :refer [bounded-subvec]]
+            [omnia.util.collection :refer [bounded-subvec assoc-new]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.text.core :refer [Seeker]]
             [omnia.view.terminal :refer [Terminal]]
@@ -230,17 +230,17 @@
         chunk-size (engulfed-size hud)
         text-size  (-> hud (text) (:height))
         result     (if (>= chunk-size text-size) text-size (inc offset))]
-    (assoc hud :scroll-offset result)))
+    (assoc-new hud :scroll-offset result)))
 
 (s/defn scroll-down :- Hud
   [hud :- Hud]
   (let [offset (scroll-offset hud)
         result (if (zero? offset) offset (dec offset))]
-    (assoc hud :scroll-offset result)))
+    (assoc-new hud :scroll-offset result)))
 
 (s/defn scroll-stop :- Hud
   [hud :- Hud]
-  (assoc hud :scroll-offset 0))
+  (assoc-new hud :scroll-offset 0))
 
 (s/defn view :- String
   [hud :- Hud]
@@ -250,11 +250,15 @@
   [hud :- Hud]
   (update hud :text i/deselect))
 
+(s/defn selection? :- s/Bool
+  [hud :- Hud]
+  (-> hud (text) (i/selected?)))
+
 (s/defn reset-view :- Hud
   ([hud :- Hud]
    (reset-view hud 0))
   ([hud :- Hud, overview :- s/Int]
-   (assoc hud :view-offset overview)))
+   (assoc-new hud :view-offset overview)))
 
 (s/defn resize :- Hud
   [hud :- Hud, size :- s/Int]

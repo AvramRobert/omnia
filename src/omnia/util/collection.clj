@@ -40,3 +40,11 @@
 
 (defn secondv [vector]
   (nth vector 1))
+
+(defmacro assoc-new [map key val]
+  `(let [m# ~map
+         k# ~key
+         v# ~val]
+     (if (= (get m# k#) v#)
+       m#
+       (assoc m# k# v#))))

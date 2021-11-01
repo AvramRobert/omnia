@@ -10,7 +10,7 @@
             [omnia.text.core :refer [Seeker]]
             [omnia.repl.nrepl :refer [REPLClient]]
             [omnia.util.schema :refer [=> Region]]
-            [omnia.util.collection :refer [map-vals]]
+            [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.config.components.text :refer [Style]]
             [omnia.config.components.core :refer [UserHighlighting]]
@@ -18,7 +18,7 @@
             [omnia.util.debug :as d]))
 
 (def Render
-  (s/enum :diff :total :clear :nothing))
+  (s/enum :diff :total :clear))
 
 (def Highlight
   {:region Region
@@ -107,10 +107,6 @@
   [ctx :- Context]
   (-> ctx (persisted-hud) (h/field-of-view)))
 
-(s/defn client :- REPLClient
-  [ctx :- Context]
-  (:repl ctx))
-
 (s/defn suggestions :- Hud
   [ctx :- Context]
   (:suggestions ctx))
@@ -142,8 +138,8 @@
 (s/defn refresh :- Context
   [ctx :- Context]
   (assoc ctx
-    :previous-hud (:preview-hud ctx)
-    :preview-hud (-> ctx (:persisted-hud) (h/enrich-with [(:input-area ctx)]))))
+    :previous-hud (preview-hud ctx)
+    :preview-hud (-> ctx (persisted-hud) (h/enrich-with [(:input-area ctx)]))))
 
 (s/defn with-preview :- Context
   [ctx :- Context, hud :- Hud]
@@ -165,7 +161,7 @@
 
 (s/defn reset-highlights :- Context
   [ctx :- Context]
-  (assoc ctx :highlights {}))
+  (assoc-new ctx :highlights {}))
 
 (s/defn with-garbage :- Context
   [ctx :- Context, highlights :- Highlights]
@@ -215,20 +211,24 @@
     (assoc ctx :input-area new-text)))
 
 (s/defn with-client :- Context
-        [ctx :- Context, repl :- REPLClient]
-        (assoc ctx :repl repl))
+  [ctx :- Context, repl :- REPLClient]
+  (assoc ctx :repl repl))
 
 (s/defn with-suggestions :- Context
   [ctx :- Context, suggestions :- Hud]
-  (assoc ctx :suggestions suggestions))
+  (assoc-new ctx :suggestions suggestions))
 
 (s/defn with-documentation :- Context
   [ctx :- Context, documentation :- Hud]
-  (assoc ctx :documentation documentation))
+  (assoc-new ctx :documentation documentation))
 
 (s/defn with-signatures :- Context
   [ctx :- Context, signatures :- Hud]
-  (assoc ctx :signatures signatures))
+  (assoc-new ctx :signatures signatures))
+
+(s/defn with-render :- Context
+  [ctx :- Context, render :- Render]
+  (assoc-new ctx :render render))
 
 (s/defn reset-suggestions :- Context
   [ctx :- Context]
@@ -244,15 +244,15 @@
 
 (s/defn re-render :- Context
   [ctx :- Context]
-  (assoc ctx :render :total))
+  (with-render ctx :total))
 
 (s/defn diff-render :- Context
   [ctx :- Context]
-  (assoc ctx :render :diff))
+  (with-render ctx :diff))
 
 (s/defn clear-render :- Context
   [ctx :- Context]
-  (assoc ctx :render :clear))
+  (with-render ctx :clear))
 
 (s/defn highlight :- Context
   [ctx :- Context]
@@ -263,10 +263,12 @@
 
 (s/defn gc :- Context
   [ctx :- Context]
-  (let [garbage (->> ctx
-                     (highlights)
-                     (map-vals #(->> % (:region) (make-garbage ctx))))]
-    (-> ctx (with-garbage garbage) (reset-highlights))))
+  (if (-> ctx (highlights) (empty?))
+    ctx
+    (let [garbage (->> ctx
+                       (highlights)
+                       (map-vals #(->> % (:region) (make-garbage ctx))))]
+      (-> ctx (with-garbage garbage) (reset-highlights)))))
 
 (s/defn match :- Context
   [ctx :- Context]
@@ -348,6 +350,17 @@
         (with-persisted persisted)
         (with-input-area input))))
 
+;(s/defn deselect :- Context
+;  [ctx :- Context]
+;  (if (or (-> ctx (preview-hud) (h/selection?))
+;          (-> ctx (persisted-hud) (h/selection?))
+;          (-> ctx (input-area) (h/selection?)))
+;    (-> ctx
+;        (with-unrefreshed-preview (-> ctx (preview-hud) (h/deselect)))
+;        (with-persisted (-> ctx (persisted-hud) (h/deselect)))
+;        (with-input-area (-> ctx (input-area) (h/deselect))))
+;    ctx))
+
 (s/defn scroll-up :- Context
   [ctx :- Context]
   (let [preview (-> ctx (preview-hud) (h/scroll-up))]
@@ -360,21 +373,24 @@
 
 (s/defn scroll-stop :- Context
   [ctx :- Context]
-  (let [preview   (-> ctx (preview-hud) (h/scroll-stop))
-        persisted (-> ctx (persisted-hud) (h/scroll-stop))]
+  (if (-> ctx (preview-hud) (h/scroll-offset) (zero?))
+    ctx
     (-> ctx
-        (with-unrefreshed-preview preview)
-        (with-persisted persisted))))
+        (with-persisted (-> ctx (persisted-hud) (h/scroll-stop)))
+        (with-unrefreshed-preview (-> ctx (preview-hud) (h/scroll-stop))))))
 
 (s/defn eval-at :- Context
-        [ctx :- Context,
-   f :- (=> REPLClient REPLClient)]
-        (let [clipboard   (-> ctx (input-area) (:clipboard))
+  [ctx :- Context,
+   f   :- (=> REPLClient REPLClient)]
+  (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (client) f)
         then-seeker (-> (r/then then-server)
                         (i/end)
                         (assoc :clipboard clipboard))]
-          (-> ctx (with-client then-server) (with-input-area then-seeker) (refresh))))
+    (-> ctx
+        (with-client then-server)
+        (with-input-area then-seeker)
+        (refresh))))
 
 (s/defn prev-eval :- Context
   [ctx :- Context]
