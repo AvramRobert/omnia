@@ -214,9 +214,9 @@
         new-text  (assoc input :clipboard clipboard)]
     (assoc ctx :input-area new-text)))
 
-(s/defn with-server :- Context
-  [ctx :- Context, repl :- REPLClient]
-  (assoc ctx :repl repl))
+(s/defn with-client :- Context
+        [ctx :- Context, repl :- REPLClient]
+        (assoc ctx :repl repl))
 
 (s/defn with-suggestions :- Context
   [ctx :- Context, suggestions :- Hud]
@@ -246,6 +246,7 @@
   [ctx :- Context]
   (assoc ctx :render :total))
 
+; FIXME: don't assoc if it's already `diff`
 (s/defn diff-render :- Context
   [ctx :- Context]
   (assoc ctx :render :diff))
@@ -367,14 +368,14 @@
         (with-persisted persisted))))
 
 (s/defn eval-at :- Context
-  [ctx :- Context,
+        [ctx :- Context,
    f :- (=> REPLClient REPLClient)]
-  (let [clipboard   (-> ctx (input-area) (:clipboard))
+        (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (client) f)
         then-seeker (-> (r/then then-server)
                         (i/end)
                         (assoc :clipboard clipboard))]
-    (-> ctx (with-server then-server) (with-input-area then-seeker) (refresh))))
+          (-> ctx (with-client then-server) (with-input-area then-seeker) (refresh))))
 
 (s/defn prev-eval :- Context
   [ctx :- Context]
@@ -387,13 +388,13 @@
 (s/defn evaluate :- Context
   [ctx :- Context]
   (let [current-input (input-area ctx)
-        server'       (-> ctx (client) (r/evaluate! current-input))
-        result        (r/result server')
+        client'       (-> ctx (client) (r/evaluate! current-input))
+        result        (r/result client')
         new-hud       (-> ctx
                           (persisted-hud)
                           (h/enrich-with [current-input result caret]))]
     (-> ctx
-        (with-server server')
+        (with-client client')
         (with-input-area i/empty-line)
         (with-hud new-hud))))
 
@@ -498,7 +499,7 @@
     e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
     e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (match-parens) (diff-render) (continue))
     e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
-    e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight)  (diff-render) (continue))
+    e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (diff-render) (continue))
     e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
     e/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
     e/ignore      (continue ctx)

@@ -22,7 +22,7 @@
              :file-type     :sh
              :configuration default-user-config}
    :windows {:template      "release/templates/executable.bat"
-             :file-type     "bat"
+             :file-type     :bat
              :configuration default-user-config}
 
    ;:macOS   {:template      "release/templates/executable.sh"
@@ -85,8 +85,7 @@
         _           (zip-dir (str target-dir ".zip") target-dir)
         _           (println "Removing directory..")
         _           (rm-dir target-dir)
-        _           (rm-dir "target")
-        _           (println "Done!")]))
+        _           (println (name os) ": done!")]))
 
 (def release-task
   (t/do-tasks
@@ -97,6 +96,7 @@
      _ (lein "uberjar")
      _ (println "--------------")
      _ (->> releases (keys) (run! release-for))
+     _ (rm-dir "target")
      :recover #(do (.printStackTrace %) (System/exit -1))]))
 
 (defn release []
