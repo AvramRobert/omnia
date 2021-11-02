@@ -1,6 +1,6 @@
 (ns omnia.config.core
   (:require [omnia.util.collection :refer [map-vals merge-from-both]]
-            [omnia.util.misc :refer [gulp-or-else]]
+            [omnia.util.misc :refer [slurp-or-else]]
             [clojure.string :refer [join]]
             [schema.core :as s]
             [omnia.config.defaults :as d]
@@ -106,8 +106,12 @@
 (s/def default-config :- Config
   (convert default-user-config))
 
-(s/defn read-config :- UserConfig
+(s/defn read-user-config! :- UserConfig
   [path :- String]
-  (let [config (gulp-or-else path default-user-config)
+  (let [config (slurp-or-else path default-user-config)
         _      (validate! config)]
-    (convert config)))
+    config))
+
+(s/defn read-config! :- Config
+  [path :- String]
+  (-> path (read-user-config!) (convert)))

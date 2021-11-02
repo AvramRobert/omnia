@@ -3,7 +3,7 @@
             [schema.core :as s]
             [halfling.task :as t]
             [clojure.string :as string]
-            [omnia.config.core :refer [UserConfig read-config]]
+            [omnia.config.core :refer [UserConfig read-user-config!]]
             [omnia.util.misc :refer [omnia-version]]))
 
 (def OS (s/enum :linux :macOS :windows))
@@ -11,24 +11,24 @@
 (def Executable (s/enum :sh :bat))
 
 (def ReleaseConfig
-  {:template      s/Str
-   :file-type     Executable
-   :configuration UserConfig})
+  {:file-type     Executable
+   :template      s/Str
+   :configuration s/Str})
 
 (def Releases {OS ReleaseConfig})
 
 (s/def releases :- Releases
   {:linux   {:file-type     :sh
              :template      "resources/release/templates/linux/executable.sh"
-             :configuration (read-config "resources/release/templates/linux/config.edn")}
+             :configuration "resources/release/templates/linux/config.edn"}
 
    :windows {:file-type     :bat
              :template      "resources/release/templates/windows/executable.bat"
-             :configuration (read-config "resources/release/templates/windows/config.edn")}
+             :configuration "resources/release/templates/windows/config.edn"}
 
    :macOS   {:file-type     :sh
              :template      "resources/release/templates/mac/executable.sh"
-             :configuration (read-config "resources/release/templates/mac/config.edn")}})
+             :configuration "resources/release/templates/mac/config.edn"}})
 
 (defn- sh [& args]
   (let [{:keys [out exit err]} (apply shell/sh args)]
@@ -36,7 +36,7 @@
       (throw (Exception. err))
       (println out))))
 
-(defn- make-executable [path file-name version]
+(defn- make-executable! [path file-name version]
   (-> path
       (slurp)
       (string/replace "%%FILENAME%%" file-name)
@@ -58,11 +58,10 @@
   (sh "lein" command))
 
 
-(defn release-for [os]
+(defn release-for [[os release]]
   (let [system      (name os)
         version     (omnia-version)
         file-name   "omnia"
-        release     (get releases os)
         _           (println "Releasing for: " system)
         target-ext  (-> release (:file-type) (name))
         target-jar  (str file-name ".jar")
@@ -72,8 +71,8 @@
         target-dir  (format "%s-%s-%s" file-name version system)
 
         jar-file    (format "target/uberjar/%s-%s-standalone.jar" file-name version)
-        executable  (-> release (:template) (make-executable file-name version))
-        config      (-> release (:configuration))
+        executable  (-> release (:template) (make-executable! file-name version))
+        config      (-> release (:configuration) (read-user-config!))
         font-file   "resources/release/Hasklig-Regular.otf"
         _           (mkdir (str "./" target-dir))
         _           (println "Creating release files..")
@@ -95,9 +94,9 @@
      _ (println "Creating jar")
      _ (lein "uberjar")
      _ (println "--------------")
-     _ (->> releases (keys) (run! release-for))
+     _ (run! release-for releases)
      _ (rm-dir "target")
      :recover #(do (.printStackTrace %) (System/exit -1))]))
 
-(defn release []
+(defn release! []
   (t/run release-task))

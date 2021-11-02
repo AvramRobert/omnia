@@ -67,7 +67,7 @@
 (defn -main [& args]
   (-> (tsk/do-tasks
         [argmap       (read-args! args)
-         config       (-> argmap (:dir) (config-path) (c/read-config))
+         config       (-> argmap (:dir) (config-path) (c/read-config!))
          history      (-> argmap (:dir) (history-path) (n/read-history))
          terminal     (t/terminal config)
          repl-config  {:history history

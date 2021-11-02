@@ -3,7 +3,7 @@
             [halfling.task :refer [task]]
             [omnia.util.arithmetic :refer [dec< inc<]]
             [omnia.util.schema :refer [=> StringUUID StringBool]]
-            [omnia.util.misc :refer [gulp-or-else]]
+            [omnia.util.misc :refer [slurp-or-else]]
             [omnia.text.core :refer [Seeker]]
             [omnia.text.core :as i]
             [omnia.text.format :as f]
@@ -149,7 +149,7 @@
 (s/defn read-history :- Seeker
   [path :- s/Str]
   (->> [""]
-       (gulp-or-else path)
+       (slurp-or-else path)
        (mapv i/from-string)))
 
 (s/defn write-history
