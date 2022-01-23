@@ -9,7 +9,7 @@
             [omnia.util.collection :refer [map-vals]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.util.debug :refer [debug]]
-            [omnia.util.debug :as d])
+            [clojure.java.data :refer [from-java-deep]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory TerminalResizeListener)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -147,6 +147,7 @@
    context-events :- {KeyStroke e/ContextEvent}
    text-events    :- {Character e/TextEvent}]
   (let [input ^KeyStroke (.readInput screen)]
+    (debug (from-java-deep input {}))
     (or (get context-events input)
         (get text-events (.getCharacter input))
         e/ignore-event)))
