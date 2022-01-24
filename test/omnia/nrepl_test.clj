@@ -18,7 +18,7 @@
       (catch Exception e
         (.printStackTrace e))
       (finally
-        (r/stop-server! server)))))
+          (r/stop-server! server)))))
 
 (defn filled-completion [client]
   (let [expected (i/from-string "println\nprintln-str")]
@@ -127,17 +127,17 @@
          (is))))
 
 (defn exception-evaluation [client]
-  (let [expected   "Exception bla"
-        evaluation (->> '(throw (Exception. "bla"))
+  (let [evaluation (->> '(throw (IllegalArgumentException. "bla"))
                         (str)
                         (i/from-string)
                         (r/evaluate! client)
                         (r/result)
                         (i/stringify))]
-    (-> evaluation (includes? expected) (is))))
+    (is (includes? evaluation "bla"))
+    (is (includes? evaluation "IllegalArgumentException"))))
 
 (defn empty-evaluation [client]
-  (let [expected i/empty-line]
+  (let [expected (i/from-string "\n\n")]
     (->> ""
          (i/from-string)
          (r/evaluate! client)

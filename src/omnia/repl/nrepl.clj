@@ -115,7 +115,7 @@
     :else       TerminatingResponse))
 
 (def NReplRequest
-  (let [eval? #(-> % (:op) (= :eval))]
+  (let [eval?  #(-> % (:op) (= :eval))]
     (s/conditional
       eval? EvalRequest
       :else InfoRequest)))
@@ -162,27 +162,19 @@
        (vec)
        (spit path)))
 
-(s/defn response->seeker :- Seeker
-  [response :- NReplResponse]
-  (cond
-    (out? response) (-> response (:out) (f/format-str) (i/from-string))
-    (err? response) (-> response (:err) (i/from-string))
-    (val? response) (-> response (:value) (f/format-str) (i/from-string))
-    :else i/empty-seeker))
-
 (s/defn send! :- [NReplResponse]
   [repl :- REPLClient
    req :- NReplRequest]
   ((:client repl) req))
 
-(s/defn eval-msg :- EvalRequest
+(s/defn make-eval-request :- EvalRequest
   [seeker :- Seeker]
   {:op   :eval
    :code (i/stringify seeker)})
 
-(s/defn complete-msg :- InfoRequest
+(s/defn make-complete-request :- InfoRequest
   [seeker :- Seeker
-   ns     :- s/Symbol]
+   ns :- s/Symbol]
   {:op     :complete
    :ns     ns
    :symbol (-> seeker
@@ -191,16 +183,16 @@
                (i/stringify)
                (trim-newline))})
 
-(s/defn info-msg :- InfoRequest
+(s/defn make-info-request :- InfoRequest
   [seeker :- Seeker
-   ns     :- s/Symbol]
-  {:op      :info
-   :ns      ns
-   :symbol  (-> seeker
-                (i/expand)
-                (i/extract)
-                (i/stringify)
-                (trim-newline))})
+   ns :- s/Symbol]
+  {:op     :info
+   :ns     ns
+   :symbol (-> seeker
+               (i/expand)
+               (i/extract)
+               (i/stringify)
+               (trim-newline))})
 
 (s/defn with-result :- REPLClient
   [repl   :- REPLClient
@@ -241,7 +233,7 @@
   [repl :- REPLClient
    seeker :- Seeker]
   (let [result (->> (:ns repl)
-                    (complete-msg seeker)
+                    (make-complete-request seeker)
                     (send! repl)
                     (first)
                     (:completions)
@@ -249,15 +241,25 @@
                     (i/conjoined))]
     (-> repl (with-result result) (reset-timeline))))
 
+(s/defn accrete-response :- s/Str
+        [output :- s/Str
+         response :- NReplResponse]
+        (cond
+          (out? response) (->> response (:out) (f/format-str) (format "%s%s" output))
+          (err? response) (->> response (:err) (format "%s%s" output))
+          (exc? response) (->> response (:ex) (format "%sType: %s" output))
+          (val? response) (->> response (:value) (f/format-str) (format "%s%s" output))
+          :else output))
+
 (s/defn evaluate! :- REPLClient
   [repl   :- REPLClient
    seeker :- Seeker]
-  (let [new-line #(conj % i/empty-line)
-        result    (->> (eval-msg seeker)
-                       (send! repl)
-                       (mapv response->seeker)
-                       (new-line)
-                       (i/conjoined))]
+  (let [result (->> (make-eval-request seeker)
+                    (send! repl)
+                    (reduce accrete-response "")
+                    (i/from-string)
+                    (i/end)
+                    (i/break))]
     (-> repl
         (remember seeker)
         (with-result result)
@@ -266,7 +268,7 @@
 (s/defn info! :- (s/maybe NReplResponse)
   [repl   :- REPLClient
    seeker :- Seeker]
-  (let [result      (->> (:ns repl) (info-msg seeker) (send! repl) (first))
+  (let [result      (->> (:ns repl) (make-info-request seeker) (send! repl) (first))
         [_ no-info] (:status result)]
     (when (nil? no-info) result)))
 

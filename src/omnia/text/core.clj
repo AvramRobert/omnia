@@ -49,23 +49,21 @@
 
 (s/defn from-string :- Seeker
   "This has to create empty vectors from new lines.
-   E.g: '1\n\n' => [[\1] []]"
+   E.g: '1\n\n' => [[\1] []]; '\n\n' => [[] []]"
   [string :- s/Str]
-  (let [division  #(if (= \newline %) :newline :other)
-        aggregate #(let [amount (count %)
-                         [a _] (first %)]
-                     (m/match [a amount]
-                              [:newline 1] []
-                              [:newline _] (vec (repeat (dec amount) []))
-                              :else (vector (mapv second %))))]
-    (if (empty? string)
-      empty-seeker
-      (->> string
-           (mapv (juxt division identity))
-           (partition-by first)
-           (mapcat aggregate)
-           (vec)
-           (seeker)))))
+  (if (empty? string)
+    empty-seeker
+    (loop [lines []
+           rem   string]
+      (if (empty? rem)
+        (seeker lines)
+        (recur (->> rem
+                    (take-while #(not= % \newline))
+                    (vec)
+                    (conj lines))
+               (->> rem
+                    (drop-while #(not= % \newline))
+                    (drop 1)))))))
 
 (s/defn space? :- s/Bool
   [character :- Character]

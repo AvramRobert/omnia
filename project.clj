@@ -3,20 +3,21 @@
   :url "https://github.com/AvramRobert/omnia"
   :license {:name "Apache-2.0 License"
             :url  "https://www.apache.org/licenses/LICENSE-2.0"}
-  :dependencies [[org.clojure/clojure "1.9.0"]
-                 [com.googlecode.lanterna/lanterna "3.0.3"]
-                 [org.clojure/core.match "0.3.0-alpha5"]
-                 [fipp "0.6.23"]
-                 [prismatic/schema "1.1.12"]
+  :dependencies [[org.clojure/clojure "1.10.3"]
+                 [com.googlecode.lanterna/lanterna "3.1.1"]
+                 [org.clojure/core.match "1.0.0"]
+                 [fipp "0.6.24"]
+                 [prismatic/schema "1.2.0"]
                  [halfling "1.3.1"]
                  [instaparse "1.4.10"]
-                 [cider/cider-nrepl "0.25.11"]
+                 [cider/cider-nrepl "0.28.1"]
                  [clj-commons/pomegranate "1.2.1"]
                  [org.tcrawley/dynapath "1.1.0"]
                  [org.slf4j/slf4j-simple "1.7.30"]
-                 [org.clojure/java.data "1.0.95"]]
+                 [nrepl "0.9.0"]]
   :main ^:skip-aot omnia.core
   :target-path "target/%s"
   :profiles {:uberjar {:aot :all}
-             :dev {:dependencies [[criterium "0.4.4"]]}}
+             :dev {:dependencies [[criterium "0.4.4"]
+                                  [org.clojure/java.data "1.0.95"]]}}
   :aliases  {"release" ["run" "-m" "omnia.release.core/release!"]})
