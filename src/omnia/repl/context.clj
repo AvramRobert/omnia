@@ -13,21 +13,21 @@
             [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]
             [omnia.config.components.text :refer [Style]]
-            [omnia.config.components.core :refer [UserHighlighting]]
+            [omnia.config.components.core :refer [Highlighting]]
             [omnia.config.core :refer [Config]]
             [omnia.util.debug :as d]))
 
 (def Render
   (s/enum :diff :total :clear))
 
-(def Highlight
+(def HighlightInfo
   {:region Region
-   :scheme UserHighlighting
+   :scheme Highlighting
    :styles [Style]})
 
 (def HighlightType (s/enum :selection :open-paren :closed-paren))
 
-(def Highlights {(s/optional-key HighlightType) Highlight})
+(def Highlights {HighlightType HighlightInfo})
 
 (def Context
   {:repl          REPLClient
@@ -163,6 +163,10 @@
   [ctx :- Context]
   (assoc-new ctx :highlights {}))
 
+(s/defn reset-garbage :- Context
+  [ctx :- Context]
+  (assoc-new ctx :garbage {}))
+
 (s/defn with-garbage :- Context
   [ctx :- Context, highlights :- Highlights]
   (assoc ctx :garbage highlights))
@@ -170,36 +174,36 @@
 (s/defn with-highlight :- Context
   [ctx :- Context,
    h-type :- HighlightType,
-   highlight :- Highlight]
+   highlight :- HighlightInfo]
   (assoc-in ctx [:highlights h-type] highlight))
 
 (s/defn with-selection :- Context
-  [ctx :- Context, highlight :- Highlight]
+  [ctx :- Context, highlight :- HighlightInfo]
   (with-highlight ctx :selection highlight))
 
 (s/defn with-parens :- Context
-  [ctx :- Context, open :- Highlight, closed :- Highlight]
+  [ctx :- Context, open :- HighlightInfo, closed :- HighlightInfo]
   (-> ctx
       (with-highlight :open-paren open)
       (with-highlight :closed-paren closed)))
 
-(s/defn make-selection :- Highlight
-  [ctx :- Context, region :- Region]
-  (let [scheme (-> ctx (configuration) (:syntax) (:selection))]
+(s/defn make-selection :- HighlightInfo
+        [ctx :- Context, region :- Region]
+        (let [scheme (-> ctx (configuration) (:syntax) (:selection))]
     {:region region
      :scheme scheme
      :styles []}))
 
-(s/defn make-paren :- Highlight
-  [ctx :- Context, region :- Region]
-  (let [scheme (-> ctx (configuration) (:syntax) (:clean-up))]
+(s/defn make-paren :- HighlightInfo
+        [ctx :- Context, region :- Region]
+        (let [scheme (-> ctx (configuration) (:syntax) (:clean-up))]
     {:region region
      :scheme scheme
      :styles [:underline]}))
 
-(s/defn make-garbage :- Highlight
-  [ctx :- Context, region :- Region]
-  (let [scheme (-> ctx (configuration) (:syntax) (:clean-up))]
+(s/defn make-garbage :- HighlightInfo
+        [ctx :- Context, region :- Region]
+        (let [scheme (-> ctx (configuration) (:syntax) (:clean-up))]
     {:region region
      :scheme scheme
      :styles []}))
@@ -263,12 +267,10 @@
 
 (s/defn gc :- Context
   [ctx :- Context]
-  (if (-> ctx (highlights) (empty?))
-    ctx
-    (let [garbage (->> ctx
-                       (highlights)
-                       (map-vals #(->> % (:region) (make-garbage ctx))))]
-      (-> ctx (with-garbage garbage) (reset-highlights)))))
+  (let [garbage (->> ctx
+                     (highlights)
+                     (map-vals #(->> % (:region) (make-garbage ctx))))]
+    (-> ctx (with-garbage garbage) (reset-highlights))))
 
 (s/defn match :- Context
   [ctx :- Context]
@@ -286,8 +288,8 @@
   [ctx :- Context]
   (let [text (-> ctx (preview-hud) (h/text))]
     (cond
-      (i/open-pairs (i/right text)) (match ctx)
-      (i/closed-pairs (i/left text)) (match ctx)
+      (i/open-pairs (i/current-char text)) (match ctx)
+      (i/closed-pairs (i/previous-char text)) (match ctx)
       :else ctx)))
 
 (s/def Step
@@ -512,10 +514,10 @@
     e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (continue))
     e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (continue))
     e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
-    e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (reformat) (highlight) (match-parens) (diff-render) (continue))
+    e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight) (match-parens) (diff-render) (continue))
     e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
     e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (diff-render) (continue))
     e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
     e/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
     e/ignore      (continue ctx)
-    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (continue))))
+                  (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (continue))))

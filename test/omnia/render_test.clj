@@ -577,8 +577,8 @@
 (defn total-cursor-projection [ctx]
   (let [total (-> ctx (at-input-end) (at-line-start) (maximise-view))
         [x y] (cursor total)
-        hp    (-> total (r/persisted-hud) (h/text) (:height))
-        hc    (-> total (r/preview-hud) (h/text) (:height))]
+        hp    (-> total (r/persisted-hud) (h/text) (:size))
+        hc    (-> total (r/preview-hud) (h/text) (:size))]
     (should-be total
                #(-> % (process [up]) (project-preview-cursor) (= [x (dec y)]))
                #(-> % (process [up up up up]) (project-preview-cursor) (= [x (- y 4)]))

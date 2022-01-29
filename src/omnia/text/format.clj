@@ -48,13 +48,6 @@
        (take-while i/space?)
        (count)))
 
-(defn reselect [original formatted]
-  (i/reselect original
-    (fn [[xs ys]]
-      (let [spaces-start (- (-> formatted (i/reset-y ys) (spaces))
-                            (-> original (i/reset-y ys) (spaces)))]
-        [(+ xs spaces-start) ys]))))
-
 (defn normalise [original formatted]
   "The update order must be kept!
   First selection, then rebase, then movement!"
@@ -62,19 +55,16 @@
         form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
         real-indent (spaces original)]
     (-> original
-        (reselect formatted)
         (i/rebase (fn [_] (:lines formatted)))
         (i/move-x #(-> % (+ form-indent) (- real-indent)))
         (assoc :clipboard clipboard))))
 
 (defn deform [seeker]
-  (let [cursor-onset (spaces seeker)
-        select-onset (some->> seeker (:selection) (constantly) (i/move seeker) (spaces))]
+  (let [cursor-onset (spaces seeker)]
     (-> seeker
         (i/rebase (fn [lines]
                     (mapv #(->> % (drop-while i/space?) (vec)) lines)))
-        (i/move-x #(-- % cursor-onset))
-        (i/reselect (fn [[x y]] [(-- x select-onset) y])))))
+        (i/move-x #(-- % cursor-onset)))))
 
 (defn edn-document
   ([x] (edn-document x {}))

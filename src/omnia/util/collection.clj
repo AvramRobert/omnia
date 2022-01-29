@@ -1,6 +1,6 @@
 (ns omnia.util.collection)
 
-(defn merge-culling [f m1 m2]
+(defn merge-common-with [f m1 m2]
   "Merges two maps. Keeps just the common elements.
    Removes any element that is `nil` either by itself
    or as a result of applying `f`."
@@ -23,11 +23,16 @@
   (merge-with (fn [a b] (or a b)) map1 map2))
 
 (defn map-vals [f hmap]
-  (reduce (fn [nmap [k v]]
-            (assoc nmap k (f v))) {} hmap))
+  (if (empty? hmap)
+    hmap
+    (reduce (fn [nmap [k v]]
+              (assoc nmap k (f v))) {} hmap)))
 
 (defn do-until [elm f p]
-  (if (p elm) elm (recur (f elm) f p)))
+  (let [elm' (f elm)]
+    (if (p elm')
+      elm'
+      (recur elm' f p))))
 
 (defn bounded-subvec [vector start end]
   (let [size  (count vector)

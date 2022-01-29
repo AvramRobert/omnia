@@ -135,3 +135,15 @@
 (s/defn resize-event :- ContextEvent
   [width :- s/Int height :- s/Int]
   (event resize [width height]))
+
+(s/def right-event :- TextEvent
+  (event right))
+
+(s/def left-event :- TextEvent
+  (event right))
+
+(s/def select-left-event :- TextEvent
+  (event select-left))
+
+(s/def select-right-event :- TextEvent
+  (event select-right))

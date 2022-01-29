@@ -1,0 +1,10 @@
+0. Fix selection issue in text.core (details found in omnia.text-test(line:578))
+1. Fix highlighting issue specified in omnia.repl-test (line:530)
+2. Fix tests for highlighting in that file
+3. Fix print-line to include sub-regions in omnia.view.render (line:78)
+4. Write additional tests if necessary
+5. Add previous node to transition evaluator of syntax highlighter
+    -> can be part of the transition function of every node. Should allow me to make context-based transitions
+6. Fix number highlighter based on #5
+7. Possibly add set-highlighting
+8. Remove config from context. Use a separate parameter to the functions

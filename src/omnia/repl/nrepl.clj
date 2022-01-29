@@ -248,7 +248,7 @@
           (out? response) (->> response (:out) (f/format-str) (format "%s%s" output))
           (err? response) (->> response (:err) (format "%s%s" output))
           (exc? response) (->> response (:ex) (format "%sType: %s" output))
-          (val? response) (->> response (:value) (f/format-str) (format "%s%s" output))
+          (val? response) (->> response (:value) (f/format-str) (format "%s\n%s" output))
           :else output))
 
 (s/defn evaluate! :- REPLClient

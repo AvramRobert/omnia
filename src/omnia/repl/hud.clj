@@ -89,7 +89,7 @@
   bottom-y = height - view-offset - 1
   Subtract 1 because we count from 0"
   (let [v-off  (view-offset hud)
-        height (-> hud (text) (:height))]
+        height (-> hud (text) (:size))]
     (-- height v-off 1)))
 
 (s/defn top-y :- s/Int
@@ -98,7 +98,7 @@
   top-y = (height - fov - ov)"
   (let [fov    (field-of-view hud)
         v-off  (view-offset hud)
-        height (-> hud (text) (:height))]
+        height (-> hud (text) (:size))]
     (-- height fov v-off)))
 
 (s/defn project-y :- s/Int
@@ -106,7 +106,7 @@
   "given hud-y, screen-y = hud-y - top-y
    given screen-y, hud-y = screen-y + top-y"
   (let [fov (field-of-view hud)
-        h   (-> hud (text) (:height))
+        h   (-> hud (text) (:size))
         ys  (top-y hud)]
     (if (> h fov) (- y ys) y)))
 
@@ -125,7 +125,7 @@
         v-off          (view-offset hud)
         s-off          (scroll-offset hud)
         viewable-chunk (+ fov v-off s-off)
-        y-start        (-- (:height text) viewable-chunk)
+        y-start        (-- (:size text) viewable-chunk)
         y-end          (++ y-start fov)]
     (bounded-subvec (:lines text) y-start y-end)))
 
@@ -137,7 +137,7 @@
   [hud :- Hud
    selection :- Region]
   (let [fov             (field-of-view hud)
-        h               (-> hud (text) (:height))
+        h               (-> hud (text) (:size))
         [xs ys]         (:start selection)
         [xe ye]         (:end selection)
         top             (top-y hud)
@@ -177,10 +177,10 @@
    previous-hud :- Hud]
   (let [fov         (field-of-view hud)
         v-off       (view-offset hud)
-        h           (-> hud (text) (:height))
+        h           (-> hud (text) (:size))
         [_ y]       (-> hud (text) (:cursor))
         pfov        (field-of-view previous-hud)
-        ph          (-> previous-hud (text) (:height))
+        ph          (-> previous-hud (text) (:size))
         upper-y     (top-y hud)                             ;; the top viewable y
         lower-y     (bottom-y hud)                          ;; the lower viewable y
         over-upper? (< y upper-y)
@@ -220,7 +220,7 @@
 
 (s/defn riffle [hud :- Hud] :- Hud
   (let [[_ y]  (-> hud (text) :cursor)
-        height (-> hud (text) :height)
+        height (-> hud (text) :size)
         y'     (mod* (inc y) height)]
     (-> hud (update :text #(i/reset-y % y')) (corrected))))
 
@@ -228,7 +228,7 @@
   [hud :- Hud]
   (let [offset     (scroll-offset hud)
         chunk-size (engulfed-size hud)
-        text-size  (-> hud (text) (:height))
+        text-size  (-> hud (text) (:size))
         result     (if (>= chunk-size text-size) text-size (inc offset))]
     (assoc-new hud :scroll-offset result)))
 
@@ -277,7 +277,7 @@
   [hud :- Hud, embedded :- Hud]
   (let [text      (text hud)
         paginated (paginate embedded)
-        ph        (:height text)
+        ph        (:size text)
         top       (-> text (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> text (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (assoc hud :text (-> (i/conjoin top delimiter paginated)

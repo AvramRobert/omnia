@@ -4,12 +4,13 @@
             [omnia.text.core :as i]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
-            [omnia.config.components.core :refer [UserHighlighting]]
+            [omnia.util.debug :as d]
+            [omnia.config.components.core :refer [Highlighting]]
             [omnia.config.components.text :refer [backgrounds coloured-element Style ColouredElement]]
             [omnia.text.highlighting :refer [fold -text]]
             [omnia.repl.context :refer [Context]]
             [omnia.util.schema :refer [Point Region]]
-            [omnia.util.collection :refer [merge-culling map-vals reduce-idx]])
+            [omnia.util.collection :refer [merge-common-with map-vals reduce-idx]])
   (:import (omnia.view.terminal Terminal)))
 
 (s/def highlight-priority :- {c/HighlightType s/Int}
@@ -17,8 +18,8 @@
    :closed-paren 2
    :open-paren   1})
 
-(s/defn additive-diff :- (s/maybe c/Highlight)
-  [current :- c/Highlight, former :- c/Highlight]
+(s/defn additive-diff :- (s/maybe c/HighlightInfo)
+  [current :- c/HighlightInfo, former :- c/HighlightInfo]
   (let [{[xs ys]   :start
          [xe ye]   :end} (:region current)
         {[xs' ys'] :start
@@ -49,17 +50,17 @@
           (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
       :else current)))
 
-(s/defn prioritise :- [c/Highlight]
+(s/defn prioritise :- [c/HighlightInfo]
   [highlights :- c/Highlights]
   (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
 
-(s/defn cull :- [c/Highlight]
-  [ctx :- Context, current :- c/Highlight, former :- c/Highlight]
+(s/defn cull :- [c/HighlightInfo]
+  [ctx :- Context, current :- c/Highlights, former :- c/Highlights]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (if (= preview-ov previous-ov)
       ;; additive-diff nils highlights that don't have a diff
-      (prioritise (merge-culling additive-diff current former))
+      (prioritise (merge-common-with additive-diff current former))
       (prioritise current))))
 
 (s/defn put-char!
@@ -68,18 +69,19 @@
    x         :- s/Int
    y         :- s/Int
    emission  :- ColouredElement
-   scheme    :- UserHighlighting
+   scheme    :- Highlighting
    styles    :- [Style]]
   (let [fg (get scheme (coloured-element emission))
         bg (get scheme backgrounds)]
     (t/put! terminal character x y fg bg styles)))
 
+;; FIXME: there are subregions which are not printed
 (s/defn print-line!
   [terminal :- Terminal
    line     :- i/Line
    y        :- s/Int
    padding  :- s/Int
-   scheme   :- UserHighlighting
+   scheme   :- Highlighting
    styles   :- [Style]]
   (let [pad!   (fn [x]
                  (dotimes [offset padding]
@@ -94,7 +96,7 @@
 (s/defn print-highlight!
   [terminal  :- Terminal
    hud       :- h/Hud
-   highlight :- c/Highlight]
+   highlight :- c/HighlightInfo]
   (let [selection (->> highlight (:region) (h/clip-selection hud))
         scheme    (->> highlight (:scheme))
         styles    (->> highlight (:styles))
@@ -199,6 +201,7 @@
 (s/defn render!
   [ctx      :- Context,
    terminal :- Terminal]
+        (d/debug (select-keys ctx [:highlights :garbage]))
   (case (c/rendering ctx)
     :diff (doto terminal (clean-highlights! ctx) (render-diff! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
     :clear (doto terminal (t/clear!) (render-total! ctx) (set-position! ctx) (t/refresh!))

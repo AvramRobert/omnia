@@ -127,6 +127,8 @@
 (def select-up (e/event e/select-up))
 (def select-right (e/event e/select-right))
 (def select-left (e/event e/select-left))
+(def jump-select-left (e/event e/jump-select-left))
+(def jump-select-right (e/event e/jump-select-right))
 (def expand (e/event e/expand))
 (def copy (e/event e/copy))
 (def paste (e/event e/paste))
@@ -263,7 +265,7 @@
 (s/defn maximise-view :- Context
   [ctx :- Context]
   (let [view-size (r/view-size ctx)
-        text-size (-> ctx (r/preview-hud) (h/text) (:height))]
+        text-size (-> ctx (r/preview-hud) (h/text) (:size))]
     (resize-view-by ctx (- text-size view-size))))
 
 (s/defn extend-highlight :- Context
@@ -281,8 +283,8 @@
                            :end   [(+ xe xoff) (+ ye yoff)]})))]
     (r/with-highlight ctx h-type highlight)))
 
-(s/defn highlight-from :- r/Highlight
-  [region :- Region]
-  {:region region
+(s/defn highlight-from :- r/HighlightInfo
+        [region :- Region]
+        {:region region
    :scheme default-user-highlighting
    :styles []})

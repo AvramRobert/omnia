@@ -5,11 +5,12 @@
             [omnia.util.generator :refer [one]]
             [omnia.test-utils :refer :all]
             [schema.core :as s]
+            [omnia.util.arithmetic :as a]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as r]
             [omnia.text.core :as i]))
 
-(def ^:const NR-OF-TESTS 100)
+(def ^:const NR-OF-TESTS 1)
 
 ;; 0. Manipulation
 
@@ -24,29 +25,29 @@
     (is (= expected-preview actual-preview))))
 
 (defn clipboard-propagation [ctx text]
-  (let [expected-clipboard  (i/from-string "content")
-        text-full-clip      (assoc text :clipboard expected-clipboard)
-        actual-clipboard    (-> ctx
-                                (process [select-all copy])
-                                (r/with-input-area text-full-clip)
-                                (r/input-area)
-                                (:clipboard))]
+  (let [expected-clipboard (i/from-string "content")
+        text-full-clip     (assoc text :clipboard expected-clipboard)
+        actual-clipboard   (-> ctx
+                               (process [select-all copy])
+                               (r/with-input-area text-full-clip)
+                               (r/input-area)
+                               (:clipboard))]
     (is (i/equivalent? expected-clipboard actual-clipboard))))
 
 (defn clipboard-preservation [ctx text]
   (let [text-empty-clip    (assoc text :clipboard nil)
         expected-clipboard (r/input-area ctx)
-        actual-clipboard    (-> ctx
-                                (process [select-all copy])
+        actual-clipboard   (-> ctx
+                               (process [select-all copy])
                                (r/with-input-area text-empty-clip)
                                (r/input-area)
                                (:clipboard))]
     (is (i/equivalent? expected-clipboard actual-clipboard))))
 
 (s/defn manipulations [ctx :- r/Context, seeker :- i/Seeker]
-  (automatic-preview-refresh ctx seeker)
-  (clipboard-propagation ctx seeker)
-  (clipboard-preservation ctx seeker))
+        (automatic-preview-refresh ctx seeker)
+        (clipboard-propagation ctx seeker)
+        (clipboard-preservation ctx seeker))
 
 (defspec manipulating-test
          NR-OF-TESTS
@@ -261,7 +262,7 @@
 ;; II. Scrolling
 
 (defn scroll-upwards [ctx]
-  (let [offset 4
+  (let [offset        4
         actual-offset (-> ctx (process (repeat offset scroll-up)) (scroll-offset))]
     (is (= offset actual-offset))))
 
@@ -273,7 +274,7 @@
     (is (= 0 actual-offset))))
 
 (defn stop-upward-scroll [ctx]
-  (let [text-size (-> ctx (r/preview-hud) (h/text) (:height))
+  (let [text-size (-> ctx (r/preview-hud) (h/text) (:size))
         offset    (-> ctx (process (repeat 100 scroll-up)) (scroll-offset))]
     (is (= text-size offset))))
 
@@ -315,8 +316,8 @@
       (at-input-end)
       (at-line-start)
       (process [(character \a)])
-      (should-be #(= \a (-> % (r/preview-hud) (h/text) (i/left)))
-                 #(= \a (-> % (r/input-area) (i/left)))
+      (should-be #(= \a (-> % (r/preview-hud) (h/text) (i/previous-char)))
+                 #(= \a (-> % (r/input-area) (i/previous-char)))
                  #(h/equivalent? (r/previous-hud %) (r/preview-hud ctx)))))
 
 (defn capturing [ctx]
@@ -360,6 +361,7 @@
         expected-persisted (-> ctx
                                (r/persisted-hud)
                                (h/enrich-with [current-input
+                                               i/empty-line
                                                result
                                                i/empty-line
                                                r/caret]))
@@ -425,7 +427,7 @@
     (should-be processed
                #(i/equivalent? (r/input-area %) (r/input-area ctx))
                #(h/equivalent? (-> % (process [next-eval]) (r/previous-hud))
-                            (r/preview-hud %)))))
+                               (r/preview-hud %)))))
 
 (defn rolling-forward [ctx]
   (roll-rebase-remember-forward ctx))
@@ -442,17 +444,17 @@
 ;; VIII. Suggesting
 
 (defn suggestion-continuation [ctx]
-  (let [suggestions     (suggestions ctx)
-        suggestion-size (:height suggestions)
-        end             (-> ctx (at-input-end) (at-line-start))
-        replaced-point  (cursor end)
+  (let [suggestions        (suggestions ctx)
+        suggestion-size    (:size suggestions)
+        end                (-> ctx (at-input-end) (at-line-start))
+        replaced-point     (cursor end)
         process-suggestion (fn [ctx n]
-                               (-> ctx
-                                   (process (repeat n suggest))
-                                   (r/preview-hud)
-                                   (h/text)
-                                   (i/reset-to replaced-point)
-                                   (i/current-line)))]
+                             (-> ctx
+                                 (process (repeat n suggest))
+                                 (r/preview-hud)
+                                 (h/text)
+                                 (i/reset-to replaced-point)
+                                 (i/current-line)))]
     (should-be end
                #(= (process-suggestion % 1) (suggestion-at % 0))
                #(= (process-suggestion % 2) (suggestion-at % 1))
@@ -460,15 +462,15 @@
                #(= (process-suggestion % (inc suggestion-size)) (suggestion-at % 0)))))
 
 (defn suggestion-override [ctx]
-  (let [input          \a
-        actual         (-> ctx
-                           (at-input-end)
-                           (at-line-start)
-                           (process [suggest suggest (character input)])
-                           (r/preview-hud)
-                           (h/text)
-                           (i/current-line))
-        expected        (-> ctx (suggestion-at 1) (conj input))]
+  (let [input    \a
+        actual   (-> ctx
+                     (at-input-end)
+                     (at-line-start)
+                     (process [suggest suggest (character input)])
+                     (r/preview-hud)
+                     (h/text)
+                     (i/current-line))
+        expected (-> ctx (suggestion-at 1) (conj input))]
     (is (= expected actual))))
 
 (defn suggesting [ctx]
@@ -507,83 +509,181 @@
 
 ;; IX. Highlighting
 
-(defn queue-highlights [ctx]
-  (let [top     (-> ctx (at-main-view-start))
-        bottom  (-> ctx (at-main-view-end) (at-line-start))
-        [xt yt] (-> top (r/preview-hud) (h/text) (:cursor))
-        [xb yb] (-> bottom (r/preview-hud) (h/text) (:cursor))]
-    (should-be top
-               #(-> %
-                 (process [select-down
-                           select-down
-                           select-down
-                           select-down])
-                 (r/highlights)
-                 (:selection)
-                 (highlights? {:start [xt yt]
-                               :end   [xt (+ yt 4)]}))
-               #(-> %
-                 (at-view-bottom)
-                 (process [select-up
-                           select-up
-                           select-up
-                           select-up])
-                 (r/highlights)
-                 (:selection)
-                 (highlights? {:start [xb (- yb 4)]
-                               :end   [xb yb]})))))
+(defn gc-same-line-moving-left [ctx]
+  (let [test-ctx  (-> ctx (at-main-view-end) (at-line-start))
+        text      (-> test-ctx (r/preview-hud) (h/text))
+        y         (-> text (:size) (dec))
+        x         0
+        line-size (-> text (i/line-at y) (count))
+        gc-end-x  (-> x (a/inc< line-size) (a/inc< line-size))
+        hl-end-x  (-> x (a/inc< line-size) (a/inc< line-size) (a/dec< 0))]
 
-(defn garbage-collect-highlights [ctx]
-  (let [top     (-> ctx (at-main-view-start))
-        bottom  (-> ctx (at-main-view-end) (at-line-start))
-        [xt yt] (-> top (r/preview-hud) (h/text) (:cursor))
-        [xb yb] (-> bottom (r/preview-hud) (h/text) (:cursor))]
-    (should-be top
-               #(-> %
-                 (process [select-down
-                           select-down
-                           select-down
-                           select-down
-                           enter])
-                 (r/garbage)
-                 (:selection)
-                 (highlights? {:start [xt yt]
-                               :end   [xt (+ yt 4)]}))
-               #(-> %
-                 (at-view-bottom)
-                 (process [select-up
-                           select-up
-                           select-up
-                           select-up
-                           enter])
-                 (r/garbage)
-                 (:selection)
-                 (highlights? {:start [xb (- yb 4)]
-                               :end   [xb yb]}))
-               #(-> %
-                 (process [select-down
-                           select-down
-                           select-down
-                           select-down
-                           enter])
-                 (r/highlights)
-                 (= {}))
-               #(-> %
-                 (at-view-bottom)
-                 (process [select-up
-                           select-up
-                           select-up
-                           select-up
-                           enter])
-                 (r/highlights)
-                 (= {})))))
+    (let [result    (process test-ctx [select-right select-right select-left])
+          hl-region (-> result (r/highlights) (:selection) (:region))
+          gc-region (-> result (r/garbage) (:selection) (:region))]
+      (is (= (:start gc-region) [x y]) "GC start mismatch")
+      (is (= (:end gc-region) [gc-end-x y]) "GC end mismatch")
+
+      (is (= (:start hl-region) [x y]) "HL start mismatch")
+      (is (= (:end hl-region) [hl-end-x y]) "HL end mismatch"))))
+
+;;FIXME
+(defn gc-same-line-moving-right [ctx]
+  "Interesting behaviour:
+  Given text: 1
+  Perform:
+    right -> {:hl {}, :gc {}}
+    right -> {:hl {}, :gc {}}
+    select-left -> {:hl {:start [0, 6] :end [1, 6]} :gc {}}
+    select-left -> {:hl {:start [0, 6] :end [1, 6]} :gc {:start [0, 6] :end [1, 6]}}}
+    select-right -> {:hl {:start [1, 6] :end [1, 6]} :gc {:start [0, 6] :end [0, 6]}}}
+    "
+  (let [test-ctx   (-> ctx (at-main-view-end) (at-line-start))
+        text       (-> test-ctx (r/preview-hud) (h/text))
+        x          0
+        y          (-> text (:size) (dec))
+        line-size  (-> text (i/line-at y) (count))
+        gc-start-x (-> x (a/inc< line-size) (a/inc< line-size) (a/dec< 0) (a/dec< 0))
+        gc-end-x   (-> x (a/inc< line-size) (a/inc< line-size))
+        hl-start-x (-> x (a/inc< line-size) (a/inc< line-size) (a/dec< 0))
+        hl-end-x   (-> x (a/inc< line-size) (a/inc< line-size))]
+
+    (let [result    (process test-ctx [right right select-left select-left select-right])
+          hl-region (-> result (r/highlights) (:selection) (:region))
+          gc-region (-> result (r/garbage) (:selection) (:region))]
+      (is (= (:start gc-region) [gc-start-x y]) "GC start mismatch")
+      (is (= (:end gc-region) [gc-end-x y]) "GC end mismatch")
+
+      (is (= (:start hl-region) [hl-start-x y]) "HL start mismatch")
+      (is (= (:end hl-region) [hl-end-x y]) "HL end mismatch"))))
+
+(defn gc-same-line-complete-selection-moving-left [ctx]
+  (let [test-ctx (-> ctx (at-main-view-end) (at-line-end))
+        init-y   (-> test-ctx (r/persisted-hud) (h/text) (:size))
+        [end-x end-y] (-> test-ctx (r/preview-hud) (h/text) (:cursor))]
+
+    (let [result    (process test-ctx [select-all select-left])
+          hl-region (-> result (r/highlights) (:selection) (:region))
+          gc-region (-> result (r/garbage) (:selection) (:region))]
+      (is (= (:start gc-region) [0 init-y]) "GC start mismatch")
+      (is (= (:end gc-region) [end-x end-y]) "GC end mismatch")
+
+      (is (= (:start hl-region) [0 init-y]) "HL start mismatch")
+      (is (= (:end hl-region) [(- end-x 1) end-y]) "HL end mismatch"))))
+
+(defn gc-same-line-complete-selection-moving-right [ctx]
+  (let [test-ctx  (-> ctx (at-main-view-end) (at-line-end))
+        text      (-> test-ctx (r/preview-hud) (h/text))
+        init-y    (-> test-ctx (r/persisted-hud) (h/text) (:size))
+        [end-x end-y] (:cursor text)]
+
+    (let [result    (process test-ctx [select-all select-left select-left select-right])
+          hl-region (-> result (r/highlights) (:selection) (:region))
+          gc-region (-> result (r/garbage) (:selection) (:region))]
+      (is (= (:start gc-region) [0 init-y]) "GC start mismatch")
+      (is (= (:end gc-region) [(- end-x 2) end-y]) "GC end mismatch")
+
+      (is (= (:start hl-region) [0 init-y]) "HL start mismatch")
+      (is (= (:end hl-region) [(- end-x 1) end-y]) "HL end mismatch"))))
+
+(defn gc-multi-line-complete-selection-moving-up [ctx]
+  (let [test-ctx (-> ctx (at-main-view-end) (at-line-end))
+        text     (-> test-ctx (r/preview-hud) (h/text))
+        init-y   (-> test-ctx (r/persisted-hud) (h/text) (:size))
+        [_ end-y] (:cursor text)
+        exp-hl-x (count (i/line-at text (- end-y 2)))
+        exp-gc-x (count (i/line-at text (- end-y 1)))]
+
+    (let [result    (process test-ctx [select-all select-up select-up])
+          hl-region (-> result (r/highlights) (:selection) (:region))
+          gc-region (-> result (r/garbage) (:selection) (:region))]
+      (is (= (:start gc-region) [0 init-y]) "GC start mismatch")
+      (is (= (:end gc-region) [exp-gc-x (- end-y 1)]) "GC end mismatch")
+      (println (:end (i/line-at text (-> gc-region :end :y)))
+               (:end (i/line-at text (- end-y 1))))
+      (is (= (:start hl-region) [0 init-y]) "HL start mismatch")
+      (is (= (:end hl-region) [exp-hl-x (- end-y 2)]) "HL end mismatch"))))
+
+(defn gc-multi-line-complete-selection-moving-down [ctx]
+  (let [bottom (-> ctx (at-main-view-end) (at-line-end))
+        [x y] (-> bottom (r/preview-hud) (h/text) (:cursor))
+        region (-> bottom
+                   (process [select-all select-up select-up select-down])
+                   (r/garbage)
+                   (:selection)
+                   (:region))]
+    (is (:start region) [x y])
+    (is (:end region) [x (+ y 1)])))
+
+(defn gc-multi-line-complete-selection-moving-up-left [ctx]
+  (let [bottom (-> ctx (at-main-view-end) (at-line-end))
+        [x y] (-> bottom (r/preview-hud) (h/text) (:cursor))
+        region (-> bottom
+                   (process [select-all select-up select-left])
+                   (r/garbage)
+                   (:selection)
+                   (:region))]
+    (is (:start region) [(- x 1) y])
+    (is (:end region) [x (+ y 1)])))
+
+(defn gc-multi-line-complete-selection-moving-up-right [ctx]
+  (let [bottom (-> ctx (at-main-view-end) (at-line-end))
+        [x y] (-> bottom (r/preview-hud) (h/text) (:cursor))
+        region (-> bottom
+                   (process [select-all select-up select-left select-left select-right])
+                   (r/garbage)
+                   (:selection)
+                   (:region))]
+    (is (:start region) [(- x 1) y])
+    (is (:end region) [x (+ y 1)])))
+
+(defn gc-multi-line-complete-selection-moving-down-left [ctx]
+  (let [bottom (-> ctx (at-main-view-end) (at-line-end))
+        [x y] (-> bottom (r/preview-hud) (h/text) (:cursor))
+        region (-> bottom
+                   (process [select-all select-up select-up select-down select-left])
+                   (r/garbage)
+                   (:selection)
+                   (:region))]
+    (is (:start region) [(- x 1) y])
+    (is (:end region) [x (+ y 1)])))
+
+(defn gc-multi-line-complete-selection-moving-down-right [ctx]
+  (let [bottom (-> ctx (at-main-view-end) (at-line-end))
+        [x y] (-> bottom (r/preview-hud) (h/text) (:cursor))
+        region (-> bottom
+                   (process [select-all select-up select-up select-down select-left select-left select-right])
+                   (r/garbage)
+                   (:selection)
+                   (:region))]
+    (is (:start region) [(- x 1) y])
+    (is (:end region) [x (+ y 1)])))
+
+(defn gc-reset [ctx]
+  (let [bottom (-> ctx (at-main-view-end) (at-line-end))
+        [x y] (-> bottom (r/preview-hud) (h/text) (:cursor))
+        region (-> bottom
+                   (process [select-all left select-all])
+                   (r/garbage))]
+    (is (empty? region))))
 
 (defn highlighting [ctx]
-  (queue-highlights ctx)
-  (garbage-collect-highlights ctx))
+  #_(gc-same-line-moving-left ctx)
+  (gc-same-line-moving-right ctx)
+  ;(gc-same-line-complete-selection-moving-left ctx)
+  ;(gc-same-line-complete-selection-moving-right ctx)
+  ;(gc-multi-line-complete-selection-moving-up ctx)
+  ;(gc-multi-line-complete-selection-moving-down ctx)
+  ;(gc-multi-line-complete-selection-moving-up-left ctx)
+  ;(gc-multi-line-complete-selection-moving-up-right ctx)
+  ;(gc-multi-line-complete-selection-moving-down-left ctx)
+  ;(gc-multi-line-complete-selection-moving-down-right ctx)
+  ;(gc-reset ctx)
+  ;
+  )
 
 (defspec highlighting-test
-         NR-OF-TESTS
+         20
   (for-all [tctx (gen-context {:prefilled-size 20
                                :view-size      7
                                :text-area      (gen-text-area-of 10)})]
@@ -639,7 +739,7 @@
 ;; XI. Pop-ups
 
 (defn pop-up-with-calibration [ctx content]
-  (let [window  (->> content (:height) (h/riffle-window content))
+  (let [window  (->> content (:size) (h/riffle-window content))
         context (-> ctx (at-main-view-start) (process [up up]))]
     (is (= 2 (-> context (pop-up window) (h/view-offset))))
     (is (= 2 (-> context (process [down down]) (pop-up window) (h/view-offset))))
@@ -648,7 +748,7 @@
 
 
 (defn pop-up-window [ctx content]
-  (let [content-size (:height content)
+  (let [content-size (:size content)
         window       (h/riffle-window content content-size)
         text         (r/input-area ctx)
         pop-up-size  (+ content-size 2)
@@ -671,7 +771,7 @@
   (pop-up-window ctx (one (gen-text-area-of 5))))
 
 (defn pop-up-riffled [ctx content]
-  (let [content-size (:height content)
+  (let [content-size (:size content)
         window       (h/riffle-window content content-size)
         preview      (r/preview-hud ctx)
         line         #(-> window (h/text) (i/reset-y %) (i/indent 1) (i/current-line))
