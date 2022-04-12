@@ -238,7 +238,7 @@
                     (first)
                     (:completions)
                     (mapv (comp i/from-string :candidate))
-                    (i/conjoined))]
+                    (i/joined))]
     (-> repl (with-result result) (reset-timeline))))
 
 (s/defn accrete-response :- s/Str
@@ -259,7 +259,7 @@
                     (reduce accrete-response "")
                     (i/from-string)
                     (i/end)
-                    (i/break))]
+                    (i/new-line))]
     (-> repl
         (remember seeker)
         (with-result result)
@@ -289,7 +289,7 @@
 (s/defn signature! :- REPLClient
   [repl :- REPLClient
    seeker :- Seeker]
-  (let [result (or (some-> repl (info! seeker) (make-candidates) (i/conjoined))
+  (let [result (or (some-> repl (info! seeker) (make-candidates) (i/joined))
                    i/empty-seeker)]
     (-> repl (with-result result) (reset-timeline))))
 

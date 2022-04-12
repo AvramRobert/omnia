@@ -25,8 +25,8 @@
    e/select-down       {:key :down :shift true}
    e/select-left       {:key :left :shift true}
    e/select-right      {:key :right :shift true}
-   e/jump-select-left  {:key :left :shift true :ctrl true}
-   e/jump-select-right {:key :right :shift true :ctrl true}
+   e/select-jump-left  {:key :left :shift true :ctrl true}
+   e/select-jump-right {:key :right :shift true :ctrl true}
    e/backspace         {:key :backspace}
    e/delete            {:key :delete}
    e/break             {:key :enter}

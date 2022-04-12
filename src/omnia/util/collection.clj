@@ -19,6 +19,9 @@
        (reduce [from seed] coll)
        (nth 1))))
 
+(defn run-indexed! [f coll]
+  (reduce-idx (fn [idx _ a] (f idx a)) nil coll))
+
 (defn merge-from-both [map1 map2]
   (merge-with (fn [a b] (or a b)) map1 map2))
 
@@ -39,12 +42,6 @@
         start (if (neg? start) 0 start)
         end   (if (> end size) size end)]
     (subvec vector start end)))
-
-(defn firstv [vector]
-  (nth vector 0))
-
-(defn secondv [vector]
-  (nth vector 1))
 
 (defmacro assoc-new [map key val]
   `(let [m# ~map

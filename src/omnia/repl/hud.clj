@@ -210,7 +210,7 @@
 
 (s/defn enrich-with :- Hud
   [hud :- Hud, seekers :- [Seeker]]
-  (update hud :text #(apply i/conjoin % seekers)))
+  (update hud :text #(apply i/join-many % seekers)))
 
 (s/defn riffle-window :- Hud
   [seeker :- Seeker
@@ -252,7 +252,7 @@
 
 (s/defn selection? :- s/Bool
   [hud :- Hud]
-  (-> hud (text) (i/selected?)))
+  (-> hud (text) (i/selecting?)))
 
 (s/defn reset-view :- Hud
   ([hud :- Hud]
@@ -267,7 +267,7 @@
 (s/defn paginate :- Seeker
   [hud :- Hud]
   (let [truncated? (-> hud (view-offset) (zero?) (not))
-        extend    #(if truncated? (i/adjoin % continuation) %)]
+        extend    #(if truncated? (i/append % continuation) %)]
     (-> hud
         (project-hud)
         (extend)
@@ -280,6 +280,6 @@
         ph        (:size text)
         top       (-> text (i/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> text (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (assoc hud :text (-> (i/conjoin top delimiter paginated)
+    (assoc hud :text (-> (i/join-many top delimiter paginated)
                          (i/end-x)
-                         (i/adjoin delimiter bottom)))))
+                         (i/append delimiter bottom)))))

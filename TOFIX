@@ -1,4 +1,27 @@
+CURRENT TASK:
+
+- The selection adjustment has been ineffective and broken from the start
+- Selections in the new implementation should be kept intact and updated with each change in cursor
+(whilst there is a selection running)
+- The current problem seems to be the fact that, when adjusting selections, I cannot discern,
+in certain circumstances, if the selection is decreasing or increasing and if I'm coming from the left
+going right, right going left, down going up or up going down.
+- I can theoretically solve this by means of calculating it every time the cursor changes position.
+
 0. Fix selection issue in text.core (details found in omnia.text-test(line:578))
+    - Check the cursors when selecting :: use clojure.string/testing for more descriptions of cases
+    - Rewrite the entire tests in text.test using simpler concepts
+    - Check to see if everything still works afterwards
+    - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
+    - Rename the functions in text.core to something more straightforward (break -> new-line etc.)
+    - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives)
+        (peer [previous current next])
+    - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
+    - Change the end-selection function in text.core to take into account the cursor selection error
+    - Patch chunk-delete, make it more efficient
+    - Use process' with events for text tests
+    - Replace process' and process with the proper `process` functions from the core and context namespaces
+
 1. Fix highlighting issue specified in omnia.repl-test (line:530)
 2. Fix tests for highlighting in that file
 3. Fix print-line to include sub-regions in omnia.view.render (line:78)

@@ -102,7 +102,7 @@
                              (at-input-end)
                              (at-line-start)
                              (process (repeat 100 select-right)))
-        processed        (process selected [backspace])
+        processed        (process selected [delete-previous])
         n-last           (-> ctx (r/preview-hud) (h/text) (:lines) (last) (count))
         expected-chars   (repeat n-last \space)
         expected-cursors (->> selected
@@ -156,7 +156,7 @@
 (defn reset-diff-render [ctx]
   (let [processed        (-> ctx
                              (at-main-view-start)
-                             (process [down select-up select-up select-up backspace]))
+                             (process [down select-up select-up select-up delete-previous]))
         expectation      (-> processed (r/preview-hud) (index))
         expected-chars   (map :char expectation)
         expected-cursors (map :cursor expectation)]

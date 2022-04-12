@@ -2,25 +2,18 @@
   (:require [clojure.core.match :as m]
             [schema.core :as s]
             [omnia.config.components.event :as e]
-            [clojure.string :refer [join split-lines]]
+            [clojure.string :as string]
             [clojure.set :refer [union map-invert]]
             [omnia.util.schema :refer [=> Point Region]]
-            [omnia.util.collection :refer [firstv do-until]]))
+            [omnia.util.arithmetic :refer [inc<]]
+            [omnia.util.collection :refer [do-until reduce-idx]]))
 
 (def Line [Character])
 
 (def ExpansionScope (s/enum :word :expr))
 
-(comment
-  "General problem:
-  The cursor on the x axis is currently off by 1, so to speak.
-  The current character, in it's case, is the one _after_ the cursor
-  Which means that in the x axis, length == last index, even though it starts from 0
-  Theoretically, I should need to change it so the current character equeals the one _before_ the cursor.
-  This should make the end basically unreachable.
-  The only question is: can the cursor the actually go to the end?
+(def Selection {:region (s/maybe Region)})
 
-  I should view the cursor as a box, instead of a line. I only render it as a line")
 (def Seeker
   {:lines     [Line]
    ;; position in text, the cursor is placed at the index where a character can be input
@@ -54,29 +47,114 @@
         (assoc seeker :size (-> seeker :lines count)))
 
 (s/defn seeker :- Seeker
-  [lines :- [Line]]
-  (-> empty-seeker (assoc :lines lines) (resize)))
+  ([lines :- [Line]]
+   (seeker lines [0 0]))
+  ([lines :- [Line]
+    cursor :- Point]
+   (-> empty-seeker (assoc :lines (vec lines) :cursor cursor) (resize))))
 
 (s/def empty-line :- Seeker
   (seeker [[]]))
 
 (s/defn from-string :- Seeker
-  "This has to create empty vectors from new lines.
-   E.g: '1\n\n' => [[\1] []]; '\n\n' => [[] []]"
-  [string :- s/Str]
-  (if (empty? string)
-    empty-seeker
-    (loop [lines []
-           rem   string]
-      (if (empty? rem)
-        (seeker lines)
-        (recur (->> rem
-                    (take-while #(not= % \newline))
-                    (vec)
-                    (conj lines))
-               (->> rem
-                    (drop-while #(not= % \newline))
-                    (drop 1)))))))
+  "Examples:
+    1. 'ab\nc' => [[a b] [c]]
+    2. '1\n\n' => [[a] []];
+    3. '\n\n' => [[] []]"
+  [input :- s/Str]
+  (loop [lines  []
+         rem    input]
+    (if (empty? rem)
+      (seeker lines)
+      (recur (->> rem
+                  (take-while #(not= % \newline))
+                  (vec)
+                  (conj lines))
+             (->> rem
+                  (drop-while #(not= % \newline))
+                  (drop 1))))))
+
+(defn from-marked-text [strings]
+  "Reads inputs strings into a seeker.
+   The strings are allowed markers specifying a cursor position and a possible selection range.
+
+   The cursor is identified through the character: `|`
+   The selection is identified through:
+      a) Start: `<`
+      b.1) End: `>
+        -> indicating all characters up to `>`
+      b.2) End: `^`
+        -> indicating all characters up to `^` and the one next to it
+
+   Examples:
+    1. (from-marked-text \"hel|lo\" \"world\")
+        => [[h e l l o] [w o r l d]] : [3 0] : nil
+
+    2. (from-marked-text \"he<ll|o\" \"worl>d\")
+        => [[h e l l o] [w o r l d]] : [4 0] : { :start [2 0] :end [3 1] }
+
+    3. (from-marked-text \"he<ll|o\" \"worl^d\")
+        => [[h e l l o] [w o r l d]] : [4 0] : { :start [2 0] :end [4 1] }"
+  (letfn [(point [{:keys [y find line latest acc]}]
+            (-> (fn [[x char]]
+                  (when (find char)
+                    (m/match [x y char (count line)]
+                             [0 0 \> _] [0 0]
+                             [_ _ \^ 1] [(count (acc (dec y))) (dec y)]
+                             [0 _ \> _] [(count (acc (dec y))) (dec y)]
+                             [_ _ \> _] [(dec x) y]
+                             :else [x y])))
+                (some (map-indexed vector line))
+                (or latest)))]
+    (loop [[s & ss] strings
+           lines  []
+           cursor [0 0]
+           start  nil
+           end    nil]
+      (if (some? s)
+        (recur
+          ss
+          (->> s (filter #(not (contains? #{\| \< \> \^} %))) (vec) (conj lines))
+          (point {:y      (count lines)
+                  :find   #{\|}
+                  :line   (filter #(not (contains? #{\^ \< \>} %)) s)
+                  :latest cursor
+                  :acc    lines})
+          (point {:y      (count lines)
+                  :find   #{\<}
+                  :line   (filter #(not (contains? #{\| \^ \>} %)) s)
+                  :latest start
+                  :acc    lines})
+          (point {:y      (count lines)
+                  :find   #{\^ \>}
+                  :line   (filter #(not (contains? #{\| \<} %)) s)
+                  :latest end
+                  :acc    lines}))
+        (cond-> (seeker lines cursor)
+                (and start end) (assoc :selection {:start start :end end}))))))
+
+(s/defn from-cursored-string :- Seeker
+  "Examples:
+    1. 'ab|c\nd' => [[a b c] [d]], [2 0]
+    2. 'abc|\nd' => [[a b c] [d]], [3 0]"
+  [input :- s/Str]
+  (loop [lines  []
+         rem    input
+         cursor nil]
+    (if (empty? rem)
+      (seeker lines cursor)
+      (let [line?  #(not= % \newline)
+            caret? #(= % \|)
+            lit?   #(not (caret? %))
+            line   (take-while line? rem)]
+        (recur (->> line (filter lit?) (vec) (conj lines))
+               (->> rem (drop-while line?) (drop 1))
+               (or cursor
+                   (->> line
+                        (map-indexed (fn [idx c]
+                                       (when (caret? c)
+                                         [idx (count lines)])))
+                        (some #(when % %)))))))))
 
 (s/defn space? :- s/Bool
   [character :- Character]
@@ -92,7 +170,7 @@
 
 (s/defn current-line :- Line
   [seeker :- Seeker]
-  (let [y (-> seeker (:cursor) (nth 1))]                    ;; FIXME: why is it 1?
+  (let [y (-> seeker (:cursor) (nth 1))]
     (line-at seeker y)))
 
 (s/defn char-at :- (s/maybe Character)
@@ -131,9 +209,16 @@
                    (let [lines (->> line (split-at x) (mapv vec) (apply f))]
                      (concat l lines r))))))
 
+(s/defn enrich :- Seeker
+  "Looks at the current line. Applies a function `f` on it
+  that should more than one line."
+  [seeker :- Seeker
+   f      :- (=> Line [Line])]
+  (split seeker (fn [l r] (f (vec (concat l r))))))
+
 (s/defn switch :- Seeker
   "Looks at the line where the cursor is currently.
-  Applies a binary function `f` on that line.
+  Applies a function `f` on that line.
   `f` is expected to return a new line of text and
   replaces the one line on which it was applied."
   [seeker :- Seeker
@@ -265,18 +350,26 @@
 
 (s/defn move-up :- Seeker
   [seeker :- Seeker]
-  (let [[_ y] (:cursor seeker)]
-    (if (zero? y)
+  (let [[x y] (:cursor seeker)
+        y'    (dec y)]
+    (if (< y' 0)
       seeker
-      (move-y seeker dec))))
+      (let [x' (-> seeker (line-at y') (count))]
+        (if (> x x')
+          (reset-to seeker [x' y'])
+          (reset-to seeker [x y']))))))
 
 (s/defn move-down :- Seeker
   [seeker :- Seeker]
-  (let [[_ y] (:cursor seeker)
-        size  (:size seeker)]
-    (if (>= (inc y) size)
+  (let [[x y] (:cursor seeker)
+        y'   (inc y)
+        size (:size seeker)]
+    (if (>= y' size)
       seeker
-      (move-y seeker inc))))
+      (let [x' (-> seeker (line-at y') (count))]
+        (if (> x x')
+          (reset-to seeker [x' y'])
+          (reset-to seeker [x y']))))))
 
 (s/defn current-char :- (s/maybe Character)
   [seeker :- Seeker]
@@ -320,71 +413,114 @@
    scope :- ExpansionScope]
   (assoc seeker :expansion scope))
 
-(s/defn selected? :- s/Bool
+(s/defn selecting? :- s/Bool
   [seeker :- Seeker]
   (-> seeker :selection some?))
 
 (s/defn reset-selection :- Seeker
   [seeker :- Seeker
-   region :- (s/maybe Region)]
+   region :- (s/maybe Selection)]
   (assoc seeker :selection region))
 
-(s/defn reset-selection-to-point :- Seeker
+(s/defn reset-clipboard :- Seeker
   [seeker :- Seeker
-   point :- Point]
-  (reset-selection seeker {:start point :end point}))
+   content :- (s/maybe Seeker)]
+  (assoc seeker :clipboard content))
 
-(s/defn selection :- Region
-  [seeker :- Seeker]
-  (:selection seeker))
+(s/defn reset-history :- Seeker
+  [seeker :- Seeker
+   undo-history :- [Seeker]
+   redo-history :- [Seeker]]
+  (assoc seeker :history undo-history :rhistory redo-history))
 
-(s/defn adjust-selection :- Seeker
-  [seeker :- Seeker]
-  (if (selected? seeker)
-    (let [norm   (fn [[x y]] (+ x (* y 2)))
-          cursor (:cursor seeker)
-          start  (-> seeker :selection :start)
-          end    (-> seeker :selection :end)
-          region {:start (min-key norm cursor start end)
-                  :end   (max-key norm cursor start end)}]
-      (reset-selection seeker region))
-    seeker))
+(s/defn adjust-against :- (s/maybe Region)
+  [initial   :- Seeker
+   displaced :- Seeker]
+  (let [[xi yi] (:cursor initial)                           ;; [5 0]
+        [xc yc] (:cursor displaced)                         ;; [0 1]
+        [xs ys] (-> initial (:selection) (:start))          ;; [5 0]
+        [xe ye] (-> initial (:selection) (:end))            ;; [5 0]
+        ]
+    (cond
+      (= yc ye ys) (cond
+                     (> xc xe)       (if (= xi xe)
+                                       nil
+                                       {:start [xs ys] :end (-> displaced (move-left) (:cursor))})
+                     (and (> xc xs)
+                          (< xc xe)) (if (< xc xi) {:start [xs ys] :end [xc yc]}
+                                                   {:start [xc yc] :end [xe ye]})
 
-(s/defn continue-selection :- Seeker
-  [seeker :- Seeker]
-  (if (selected? seeker)
-    seeker
-    (reset-selection-to-point seeker (:cursor seeker))))
+                     (= xc xs)        nil
+                     (= xc xe)       (cond (and (= yi yc)
+                                                (< xc xi)) {:start [xs ys] :end (-> displaced (move-left) (:cursor))}
+                                           (and (= yi yc)
+                                                (> xc xi)) {:start [xs ys] :end [xc yc]}
+                                           :else {:start [xs ys] :end (-> displaced (move-left) (:cursor))})
+                     (< xc xs)       {:start [xc yc] :end [xe ye]})
+      (< yc ys)                      {:start [xc yc] :end [xe ye]}
+      (= yc ys)                      (if (> yi yc)
+                                       (cond (= xc xs) nil
+                                             (> xc xs) {:start [xs ys] :end (-> displaced (move-left) (:cursor))}
+                                             (< xc xs) {:start [xc yc] :end [xs ys]})
+                                       {:start [xc yc] :end [xe ye]})
+      (and (> yc ys) (< yc ye))      (if (> yi yc)
+                                       {:start [xs ys] :end (-> displaced (move-left) (:cursor))}
+                                       {:start [xc yc] :end [xe ye]})
+      (= yc ye)                      (if (< yi yc)
+                                       (cond (= (Math/abs (- xc xe)) 1) nil
+                                             (> xc xe)                  {:start [xe ye] :end (-> displaced (move-left) (:cursor))}
+                                             (<= xc xe)                 {:start [xc yc] :end [xe ye]})
+                                       {:start [xs ys] :end (-> displaced (move-left) (:cursor))})
+      (> yc ye)                      (cond
+                                       (and (< yi yc) (= yi ye) (= xi xc 0)) nil
+                                       (and (< yi yc) (= yi ye) (= xi xe))   nil
+                                       :else {:start [xs ys] :end (-> displaced (move-left) (:cursor))}))))
 
-(s/defn start-selection :- Seeker
-  [seeker :- Seeker]
-  (-> seeker
-      (reset-selection-to-point (:cursor seeker))
-      (reset-expansion :word)))
+(s/defn initial-region :- (s/maybe Region)
+  [initial :- Seeker
+   displaced :- Seeker]
+  (let [[xi yi] (:cursor initial)
+        [xc yc] (:cursor displaced)]
+    (cond
+      (= yc yi) (cond
+                  (> xc xi) {:start [xi yi] :end (-> displaced (move-left) (:cursor))}
+                  (= xc xi) nil
+                  (< xc xi) {:start [xc yc] :end (-> initial (move-left) (:cursor))})
+      (< yc yi)             {:start [xc yc] :end (-> initial (move-left) (:cursor))}
+      (> yc yi)             {:start [xi yi] :end (-> displaced (move-left) (:cursor))})))
 
-(s/defn select-left :- Seeker
-        [seeker :- Seeker]
-        (-> seeker (continue-selection) (move-left)))
+
+(s/defn select-with :- Seeker
+  [seeker :- Seeker
+   f      :- (=> Seeker Seeker)]
+  (let [seeker' (f seeker)]
+    (if (selecting? seeker)
+      (reset-selection seeker' (adjust-against seeker seeker'))
+      (reset-selection seeker' (initial-region seeker seeker')))))
 
 (s/defn select-right :- Seeker
-        [seeker :- Seeker]
-        (-> seeker (continue-selection) (move-right)))
+  [seeker :- Seeker]
+  (select-with seeker move-right))
+
+(s/defn select-left :- Seeker
+  [seeker :- Seeker]
+  (select-with seeker move-left))
 
 (s/defn select-up :- Seeker
-        [seeker :- Seeker]
-        (-> seeker (continue-selection) (move-up)))
+  [seeker :- Seeker]
+  (select-with seeker move-up))
 
 (s/defn select-down :- Seeker
-        [seeker :- Seeker]
-        (-> seeker (continue-selection) (move-down)))
-
-(s/defn select-jump-left :- Seeker
-        [seeker :- Seeker]
-        (-> seeker (continue-selection) (jump-left)))
+  [seeker :- Seeker]
+  (select-with seeker move-down))
 
 (s/defn select-jump-right :- Seeker
-        [seeker :- Seeker]
-        (-> seeker (continue-selection) (jump-right)))
+  [seeker :- Seeker]
+  (select-with seeker jump-right))
+
+(s/defn select-jump-left :- Seeker
+  [seeker :- Seeker]
+  (select-with seeker jump-left))
 
 (s/defn deselect :- Seeker
   [seeker :- Seeker]
@@ -392,35 +528,32 @@
       (reset-selection nil)
       (reset-expansion :word)))
 
-(s/defn adjoin' :- Seeker
-  [this :- Seeker
-   that :- Seeker]
-  (rebase this #(concat % (:lines that))))
+(s/defn append :- Seeker
+  [seeker :- Seeker, & seekers :- [Seeker]]
+  (-> (fn [this that]
+        (rebase this #(concat % (:lines that))))
+      (reduce seeker seekers)))
 
-(s/defn conjoin' :- Seeker
+(s/defn join :- Seeker
   [this-seeker :- Seeker
    that-seeker :- Seeker]
-  (let [[x y] (:cursor that-seeker)
-        ths   (:size this-seeker)]
-    (-> (adjoin' this-seeker that-seeker)
-        (reset-to [x (+ y ths)])
-        (reset-selection (:selection that-seeker)))))
+  (let [ths       (:size this-seeker)
+        move      (fn [[x y]] [x (+ y ths)])
+        cursor    (:cursor that-seeker)
+        selection (:selection that-seeker)]
+    (-> (append this-seeker that-seeker)
+        (reset-to (move cursor))
+        (reset-selection (when-let [{start :start end :end} selection]
+                           {:start (move start)
+                            :end   (move end)})))))
 
-(s/defn conjoin :- Seeker
+(s/defn join-many :- Seeker
   [seeker :- Seeker, & seekers :- [Seeker]]
-  (reduce conjoin' seeker seekers))
+  (reduce join seeker seekers))
 
-(s/defn conjoined :- Seeker
+(s/defn joined :- Seeker
   [seekers :- [Seeker]]
-  (reduce conjoin' empty-seeker seekers))
-
-(s/defn adjoin :- Seeker
-  [seeker :- Seeker, & seekers :- [Seeker]]
-  (reduce adjoin' seeker seekers))
-
-(s/defn adjoined :- Seeker
-  [seekers :- [Seeker]]
-  (reduce adjoin' empty-seeker seekers))
+  (reduce join empty-seeker seekers))
 
 (s/defn merge-lines :- Seeker
   [seeker :- Seeker]
@@ -428,7 +561,7 @@
                  (-> (conj l (concat a b))
                      (concat t)))))
 
-(s/defn break :- Seeker
+(s/defn new-line :- Seeker
   [seeker :- Seeker]
   (-> seeker
       (split vector)
@@ -447,14 +580,15 @@
       (slice #(concat (drop-last %1) (rest %2)))
       (move-x dec)))
 
-;; FIXME: This is wrong
+;; FIXME: Don't use simple delete, do a dedicated transformation on the lines
 (s/defn chunk-delete :- Seeker
   [seeker :- Seeker]
-  (let [start (-> seeker (:selection) (:start))
-        end   (-> seeker (:selection) (:end))]
+  (let [start     (-> seeker (:selection) (:start))
+        end       (-> seeker (:selection) (:end))]
     (-> seeker
         (reset-to end)
-        (do-until simple-delete #(-> % (:cursor) (= start))))))
+        (move-right)
+        (do-until simple-delete #(= (:cursor %) start)))))
 
 (s/defn pair? :- s/Bool
   [seeker :- Seeker]
@@ -465,13 +599,29 @@
            [\" \"] true
            :else false))
 
-(s/defn backspace :- Seeker
+(s/defn at-end? :- s/Bool
+  [seeker :- Seeker]
+  (let [[x y]     (:cursor seeker)
+        text-size (:size seeker)
+        line-size (-> seeker (current-line) (count))]
+    (and (= x line-size) (= y (dec text-size)))))
+
+(s/defn delete-previous :- Seeker
   [seeker :- Seeker]
   (cond
-    (selected? seeker)                     (chunk-delete seeker)
-    (pair? seeker)                         (pair-delete seeker)
+    (selecting? seeker) (chunk-delete seeker)
+    (pair? seeker) (pair-delete seeker)
     (paired-tokens (previous-char seeker)) (move-left seeker)
-    :else                                  (simple-delete seeker)))
+    :else (simple-delete seeker)))
+
+(s/defn delete-current :- Seeker
+  [seeker :- Seeker]
+  (cond
+    (selecting? seeker) (chunk-delete seeker)
+    (pair? seeker) (-> seeker (pair-delete) (move-left))
+    (paired-tokens (current-char seeker)) seeker
+    (at-end? seeker) seeker
+    :else (-> seeker (move-right) (simple-delete))))
 
 (s/defn simple-insert :- Seeker
   [seeker :- Seeker
@@ -485,8 +635,9 @@
 
 (s/defn overwrite :- Seeker
   [seeker :- Seeker]
-  (cond-> seeker
-          (selected? seeker) backspace))
+  (if (selecting? seeker)
+    (delete-previous seeker)
+    seeker))
 
 (s/defn insert :- Seeker
   [seeker :- Seeker
@@ -507,34 +658,40 @@
              [\space _] (simple-insert seeker input)
              :else      (simple-insert overwritten input))))
 
-(s/defn delete :- Seeker
+(s/defn extract :- (s/maybe Seeker)
   [seeker :- Seeker]
-  (let [x (move-right seeker)]
-    (cond
-      (= (:cursor seeker) (:cursor x)) seeker
-      (pair? seeker) (-> seeker (pair-delete) (move-left))
-      :else (backspace x))))
-
-(s/defn extract :- Seeker
-  "The general formula is: drop M_start . take (M_end + 1)"
-  [seeker :- Seeker]
-  (let [[xs ys] (-> seeker (:selection) (:start))
-        [xe ye] (-> seeker (:selection) (:end))]
-    (-> seeker
-        (rebase #(->> % (take (inc ye)) (drop ys)))
-        (end)
-        (switch #(take (inc xe) %))
-        (start)
-        (switch #(drop xs %)))))
+  (when (selecting? seeker)
+    (let [[xs ys] (-> seeker (:selection) (:start))
+          [xe ye] (-> seeker (:selection) (:end))
+          size       (:size seeker)
+          take-lines (fn [line]
+                       (let [selected-amount (inc xe)
+                             within-bounds?  (> size (inc ye))
+                             entire-line?    (= xe (count line))]
+                         (if (and within-bounds? entire-line?)
+                           (if (and (= ye ys)
+                                    (= xs xe))
+                             [[]]
+                             [line []])
+                           [(take selected-amount line)])))]
+      (-> seeker
+          (rebase #(->> % (take (inc ye)) (drop ys)))
+          (end)
+          (enrich take-lines)
+          (start)
+          (switch #(drop xs %))))))
 
 (s/defn copy :- Seeker
   [seeker :- Seeker]
-  (->> seeker (extract) (assoc seeker :clipboard)))
+  (if (selecting? seeker)
+    (->> seeker (extract) (reset-clipboard seeker))
+    seeker))
 
 (s/defn cut :- Seeker
-        [seeker :- Seeker]
-        (cond-> (copy seeker)
-                (selected? seeker) (backspace)))
+  [seeker :- Seeker]
+  (if (selecting? seeker)
+    (-> seeker (copy) (delete-previous))
+    seeker))
 
 (s/defn paste :- Seeker
   [seeker :- Seeker]
@@ -559,7 +716,10 @@
 
 (s/defn select-all :- Seeker
   [seeker :- Seeker]
-  (-> seeker (start) (start-selection) (end) (adjust-selection)))
+  (-> seeker
+      (reset-selection {:start [0 0]
+                        :end   (-> seeker (end) (move-left) (:cursor))})
+      (end)))
 
 (defn- pairs? [this that]
   (or (= (get open-pairs this :none) that)
@@ -668,15 +828,15 @@
         (reset-selection expansion)
         (reset-expansion :expr))))
 
-(s/defn forget :- Seeker
+(s/defn forget-everything :- Seeker
   [seeker :- Seeker]
-  (assoc seeker :history '() :rhistory '()))
+  (reset-history seeker '() '()))
 
 (s/defn remember :- Seeker
   [seeker :- Seeker]
   (let [history (:history seeker)]
     (->> history
-         (cons (forget seeker))
+         (cons (forget-everything seeker))
          (take 50)
          (assoc seeker :history))))
 
@@ -691,7 +851,7 @@
           (first)
           (assoc :clipboard clipboard)
           (assoc :history (rest history))
-          (assoc :rhistory (-> seeker (forget) (cons rhistory)))))))
+          (assoc :rhistory (-> seeker (forget-everything) (cons rhistory)))))))
 
 (s/defn redo [seeker :- Seeker]
   (let [history   (:history seeker)
@@ -703,7 +863,7 @@
           (first)
           (assoc :clipboard clipboard)
           (assoc :rhistory (rest rhistory))
-          (assoc :history (-> seeker (forget) (cons history)))))))
+          (assoc :history (-> seeker (forget-everything) (cons history)))))))
 
 (s/defn auto-complete :- Seeker
   [seeker :- Seeker, input :- [Character]]
@@ -711,7 +871,7 @@
     seeker
     (-> seeker
         (expand)
-        (backspace)
+        (delete-previous)
         (slicer #(concat input %))
         (move-x #(+ % (count input))))))
 
@@ -720,7 +880,7 @@
   (->> seeker
        (:lines)
        (mapv #(apply str %))
-       (join "\n")))
+       (string/join "\n")))
 
 (s/defn debug-string :- String
   [seeker :- Seeker]
@@ -755,15 +915,15 @@
     e/right             (-> seeker (move-right) (deselect))
     e/jump-left         (-> seeker (jump-left) (deselect))
     e/jump-right        (-> seeker (jump-right) (deselect))
-    e/select-up         (-> seeker (continue-selection) (move-up) (adjust-selection))
-    e/select-down       (-> seeker (continue-selection) (move-down) (adjust-selection))
-    e/select-left       (-> seeker (continue-selection) (move-left) (adjust-selection))
-    e/select-right      (-> seeker (continue-selection) (move-right) (adjust-selection))
-    e/jump-select-left  (-> seeker (continue-selection) (jump-left) (adjust-selection))
-    e/jump-select-right (-> seeker (continue-selection) (jump-right) (adjust-selection))
-    e/backspace         (-> seeker (remember) (backspace) (deselect))
-    e/delete            (-> seeker (remember) (delete) (deselect))
-    e/break             (-> seeker (remember) (break) (deselect))
+    e/select-up         (-> seeker (select-up))
+    e/select-down       (-> seeker (select-down))
+    e/select-left       (-> seeker (select-left))
+    e/select-right      (-> seeker (select-right))
+    e/select-jump-left  (-> seeker (select-jump-left))
+    e/select-jump-right (-> seeker (select-jump-right))
+    e/backspace         (-> seeker (remember) (delete-previous) (deselect))
+    e/delete            (-> seeker (remember) (delete-current) (deselect))
+    e/break             (-> seeker (remember) (new-line) (deselect))
     e/undo              (-> seeker (undo) (deselect))
     e/redo              (-> seeker (redo) (deselect))
     e/character         (-> seeker (remember) (insert (:value event)) (deselect))

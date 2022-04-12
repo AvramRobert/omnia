@@ -261,8 +261,8 @@
 (s/defn highlight :- Context
   [ctx :- Context]
   (let [text (-> ctx (preview-hud) (h/text))]
-    (if (i/selected? text)
-      (with-selection ctx (make-selection ctx (i/selection text)))
+    (if (i/selecting? text)
+      (with-selection ctx (make-selection ctx (:selection text)))
       ctx)))
 
 (s/defn gc :- Context

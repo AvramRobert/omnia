@@ -127,12 +127,11 @@
 (def select-up (e/event e/select-up))
 (def select-right (e/event e/select-right))
 (def select-left (e/event e/select-left))
-(def jump-select-left (e/event e/jump-select-left))
-(def jump-select-right (e/event e/jump-select-right))
+(def jump-select-left (e/event e/select-jump-left))
+(def jump-select-right (e/event e/select-jump-right))
 (def expand (e/event e/expand))
 (def copy (e/event e/copy))
 (def paste (e/event e/paste))
-(def backspace (e/event e/backspace))
 (def enter (e/event e/break))
 (def undo (e/event e/undo))
 (def redo (e/event e/redo))
@@ -146,7 +145,8 @@
 (def parens-match (e/event e/match))
 (def suggest (e/event e/suggest))
 (def ignore (e/event e/ignore))
-(def backspace (e/event e/backspace))
+(def delete-previous (e/event e/backspace))
+(def delete-current (e/event e/delete))
 
 (s/defn process :- Context
   [ctx :- Context, events :- [Event]]

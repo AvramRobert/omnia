@@ -34,8 +34,8 @@
    e/select-down       UserKeyBinding
    e/select-left       UserKeyBinding
    e/select-right      UserKeyBinding
-   e/jump-select-left  UserKeyBinding
-   e/jump-select-right UserKeyBinding
+   e/select-jump-left  UserKeyBinding
+   e/select-jump-right UserKeyBinding
    e/backspace         UserKeyBinding
    e/delete            UserKeyBinding
    e/break             UserKeyBinding

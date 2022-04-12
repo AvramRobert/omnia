@@ -18,8 +18,8 @@
 (def select-down :select-down)
 (def select-left :select-left)
 (def select-right :select-right)
-(def jump-select-left :jump-select-left)
-(def jump-select-right :jump-select-right)
+(def select-jump-left :jump-select-left)
+(def select-jump-right :jump-select-right)
 (def backspace :backspace)
 (def delete :delete)
 (def break :break)
@@ -63,8 +63,8 @@
     backspace
     jump-left
     jump-right
-    jump-select-left
-    jump-select-right})
+    select-jump-left
+    select-jump-right})
 
 (def context-actions
   #{docs
