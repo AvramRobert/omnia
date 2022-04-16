@@ -902,17 +902,17 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "after decreasing"
-        (let [actual    (-> ["hel|<lo"
+        (let [actual    (-> ["hel<lo"
                              "world"
                              "d>|ay"]
                             (i/from-marked-text)
                             (process' [select-up select-up]))
-              expected (-> ["h|<ell>o"
+              expected (-> ["h|<el>lo"
                             "world"
                             "day"]
                            (i/from-marked-text))
               extracted (-> actual (i/extract) (:lines))]
-          (is (= extracted [[\e \l \l]]))
+          (is (= extracted [[\e \l]]))
           (is (= (:cursor actual) (:cursor expected)))
           (is (= (:selection actual) (:selection expected))))))
 
@@ -1365,10 +1365,10 @@
                             (process' [select-down select-down]))
               expected  (-> ["hello"
                              "some"
-                             "<som>|eday"]
+                             "s<om>|eday"]
                             (i/from-marked-text))
               extracted (-> actual (i/extract) (:lines))]
-          (is (= extracted [[\s \o \m]]))
+          (is (= extracted [[\o \m]]))
           (is (= (:cursor actual) (:cursor expected)))
           (is (= (:selection actual) (:selection expected))))))
 
@@ -1456,22 +1456,22 @@
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted nil))
           (is (= (:cursor actual) (:cursor expected)))
-          (is (= (:selection actual) (:selection expected))))))
+          (is (= (:selection actual) (:selection expected)))))
 
-    (testing "continuous"
-      (let [actual    (-> ["hel|<lo"
-                           "world"
-                           "some>"]
-                          (i/from-marked-text)
-                          (process' [select-down select-down]))
-            expected  (-> ["hello"
-                           "world"
-                           "som|<e>"]
-                          (i/from-marked-text))
-            extracted (-> actual (i/extract) (:lines))]
-        (is (= extracted [[\e]]))
-        (is (= (:cursor actual) (:cursor expected)))
-        (is (= (:selection actual) (:selection expected))))))
+      (testing "continuous"
+        (let [actual    (-> ["hel|<lo"
+                             "world"
+                             "some>"]
+                            (i/from-marked-text)
+                            (process' [select-down select-down]))
+              expected  (-> ["hello"
+                             "world"
+                             "som|<e>"]
+                            (i/from-marked-text))
+              extracted (-> actual (i/extract) (:lines))]
+          (is (= extracted [[\e]]))
+          (is (= (:cursor actual) (:cursor expected)))
+          (is (= (:selection actual) (:selection expected)))))))
 
   (testing "LINE END -"
     (testing "INCREASE -"

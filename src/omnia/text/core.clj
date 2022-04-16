@@ -433,62 +433,145 @@
    redo-history :- [Seeker]]
   (assoc seeker :history undo-history :rhistory redo-history))
 
-(s/defn adjust-against :- (s/maybe Region)
-  [initial   :- Seeker
-   displaced :- Seeker]
-  (let [[xi yi] (:cursor initial)                           ;; [5 0]
-        [xc yc] (:cursor displaced)                         ;; [0 1]
-        [xs ys] (-> initial (:selection) (:start))          ;; [5 0]
-        [xe ye] (-> initial (:selection) (:end))            ;; [5 0]
-        ]
+(s/defn distance :- s/Int
+  "Function that quantises the distance and direction of point
+   Ve = [xe, ye] relative to point Vs = [xs, ys] in the text space.
+   Positive numbers represent a distance after Vs, whilst negative ones represent a distance before Vs."
+  [[xs ys] :- Point
+   [xe ye] :- Point
+   text :- Seeker]
+  (letfn [(chars-between [[xs ys] [xe ye]]
+            (let [lower     xe
+                  upper     (-> text (line-at ys) (count) (- xs))
+                  middle    (->> (range (inc ys) ye)
+                                 (reduce (fn [sum y] (-> text (line-at y) (count) (+ sum))) 0))
+                  new-lines (- ye ys)]
+              (+ upper lower middle new-lines)))]
     (cond
-      (= yc ye ys) (cond
-                     (> xc xe)       (if (= xi xe)
-                                       nil
-                                       {:start [xs ys] :end (-> displaced (move-left) (:cursor))})
-                     (and (> xc xs)
-                          (< xc xe)) (if (< xc xi) {:start [xs ys] :end [xc yc]}
-                                                   {:start [xc yc] :end [xe ye]})
+      (= ys ye) (- xe xs)
+      (> ys ye) (- (chars-between [xe ye] [xs ys]))
+      :else     (chars-between [xs ys] [xe ye]))))
 
-                     (= xc xs)        nil
-                     (= xc xe)       (cond (and (= yi yc)
-                                                (< xc xi)) {:start [xs ys] :end (-> displaced (move-left) (:cursor))}
-                                           (and (= yi yc)
-                                                (> xc xi)) {:start [xs ys] :end [xc yc]}
-                                           :else {:start [xs ys] :end (-> displaced (move-left) (:cursor))})
-                     (< xc xs)       {:start [xc yc] :end [xe ye]})
-      (< yc ys)                      {:start [xc yc] :end [xe ye]}
-      (= yc ys)                      (if (> yi yc)
-                                       (cond (= xc xs) nil
-                                             (> xc xs) {:start [xs ys] :end (-> displaced (move-left) (:cursor))}
-                                             (< xc xs) {:start [xc yc] :end [xs ys]})
-                                       {:start [xc yc] :end [xe ye]})
-      (and (> yc ys) (< yc ye))      (if (> yi yc)
-                                       {:start [xs ys] :end (-> displaced (move-left) (:cursor))}
-                                       {:start [xc yc] :end [xe ye]})
-      (= yc ye)                      (if (< yi yc)
-                                       (cond (= (Math/abs (- xc xe)) 1) nil
-                                             (> xc xe)                  {:start [xe ye] :end (-> displaced (move-left) (:cursor))}
-                                             (<= xc xe)                 {:start [xc yc] :end [xe ye]})
-                                       {:start [xs ys] :end (-> displaced (move-left) (:cursor))})
-      (> yc ye)                      (cond
-                                       (and (< yi yc) (= yi ye) (= xi xc 0)) nil
-                                       (and (< yi yc) (= yi ye) (= xi xe))   nil
-                                       :else {:start [xs ys] :end (-> displaced (move-left) (:cursor))}))))
+(s/defn adjust-against :- (s/maybe Region)
+  "Algorithm for figuring out new region.
+   Given
+      Cc = current cursor
+      Cd = displaced cursor
+      Cs = region start cursor
+      Ce = region end cursor
+
+   a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
+      The coordinate (Cm) closest to the current cursor (Cc) is the one move:
+
+        Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
+
+   b. Determine which coordinate hasn't moved.
+      The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
+
+        Ck = {Cs, Ce} - Cr
+
+   c. Determine if the cursor moved backwards or forwards.
+      The sign of the distance (dm) between the moved coordinate (Cm) and the displaced coordinate (Cd):
+
+        dm = distance (Cm, Cd) { left, if dm < 0
+                               { right, if dm > 0
+
+   d. Determine if the moved coordinate exceeded the unmoved coordinate.
+      The sign of the distance (dkm) between the unmoved coordinate (Ck) and the displaced coordinate (Cd):
+
+        dmk = distance (Ck, Cd) { true, if dm < 0 && Cm = Cs
+                                { true, if dm > 0 && Cm = Ce
+
+   e. Determine new region area.
+
+        if Cm = Cs && dm > 0 && dmk < 0               ; start overlapped end
+           let start = Ce
+               end   = move-left Cd
+               if start = end                         ; start cancelled-out end
+                  nil
+                  {:start start :end end}
+
+        if Cm = Cs && dm > 0                          ; start going towards end (shrinking)
+           {:start Cd :end Ce}
+
+        if Cm = Cs && dm < 0                          ; start going away from end (increasing)
+           {:start Cd :end Ce}
+
+        if Cm = Ce && dm <= 0 && dmk > 0              ; end overlapped start
+           let start = Cd
+               end   = move-left Cs
+               if start = end                         ; end cancelled-out start
+                  nil
+                  {:start start :end end}
+
+        if Cm = Ce && dm <= 0                         ; end going towards start (shrinking)
+           {:start Cs :end (move-left Cd)}
+
+        if Cm = Ce && dm > 0                          ; end going away from start (increasing)
+           {:start Cs :end (move-left Cd)}
+
+        else nil"
+
+  [text :- Seeker
+   displaced :- Seeker]
+  (let [Cc (:cursor text)
+        Cd (:cursor displaced)
+        Cs (-> text (:selection) (:start))
+        Ce (-> text (:selection) (:end))
+        Cm (min-key #(Math/abs ^long (distance % Cc text)) Cs Ce)
+        Ck (if (= Cm Cs) Ce Cs)
+        dm (distance Cm Cd text)
+        dk (distance Cd Ck text)
+        di (distance Cs Cd text)
+        M  (cond
+             (and (= Cs Ce) (=> di 0)) :end
+             (and (= Cs Ce) (< di 0)) :start
+             (= Cm Cs)                :start
+             (= Cm Ce)                :end)]
+    (cond
+      (and (= M :start) (> dm 0) (= dk 0))
+      {:start Cd :end Cd}
+
+      (and (= M :start) (> dm 0) (< dk 0))
+      (let [Cs' (-> text (reset-to Ce) (move-right) (:cursor))]
+        (if (= Cs' Cd)
+          nil
+          {:start Cs'
+           :end   (-> text (reset-to Cd) (move-left) (:cursor))}))
+
+      (and (= M :start) (> dm 0))
+      {:start Cd :end Ce}
+
+      (and (= M :start) (< dm 0))
+      {:start Cd :end Ce}
+
+      (and (= M :end) (<= dm 0) (>= dk 0))
+      (let [Ce' (-> text (reset-to Cs) (move-left) (:cursor))]
+        (if (= Cs Cd)
+          nil
+          {:start Cd
+           :end   Ce'}))
+
+      (and (= M :end) (<= dm 0))
+      {:start Cs :end (-> text (reset-to Cd) (move-left) (:cursor))}
+
+      (and (= M :end) (> dm 0))
+      (let [r (distance Cc Ce text)]
+        (if (= r 0)
+          nil
+          {:start Cs :end (-> text (reset-to Cd) (move-left) (:cursor))}))
+
+      :else {:start Cs :end Ce})))
 
 (s/defn initial-region :- (s/maybe Region)
-  [initial :- Seeker
+  [text :- Seeker
    displaced :- Seeker]
-  (let [[xi yi] (:cursor initial)
-        [xc yc] (:cursor displaced)]
-    (cond
-      (= yc yi) (cond
-                  (> xc xi) {:start [xi yi] :end (-> displaced (move-left) (:cursor))}
-                  (= xc xi) nil
-                  (< xc xi) {:start [xc yc] :end (-> initial (move-left) (:cursor))})
-      (< yc yi)             {:start [xc yc] :end (-> initial (move-left) (:cursor))}
-      (> yc yi)             {:start [xi yi] :end (-> displaced (move-left) (:cursor))})))
-
+  (let [Cc (:cursor text)
+        Cd (:cursor displaced)]
+    (when (not= Cc Cd)
+      (let [[start end] (sort-by (juxt second first) [Cc Cd])]
+        {:start start
+         :end   (-> text (reset-to end) (move-left) (:cursor))}))))
 
 (s/defn select-with :- Seeker
   [seeker :- Seeker
@@ -679,7 +762,8 @@
           (end)
           (enrich take-lines)
           (start)
-          (switch #(drop xs %))))))
+          (switch #(drop xs %))
+          (reset-selection nil)))))
 
 (s/defn copy :- Seeker
   [seeker :- Seeker]
@@ -884,10 +968,27 @@
 
 (s/defn debug-string :- String
   [seeker :- Seeker]
-  (-> seeker
+  #_(-> seeker
       (slicer (fn [[current-char & rest]]
                 (vec (concat [\| current-char \|] rest))))
-      (stringify)))
+      (stringify))
+  (letfn [(show-selection [text]
+            (if (selecting? text)
+              (-> text
+                  (reset-to (-> text (:selection) (:start)))
+                  (slice (fn [l r] (vec (concat l "<" r))))
+                  (reset-to (-> text (:selection) (:end)))
+                  (slice (fn [l [a & rest]] (vec (concat l [a] ">" rest))))
+                  (reset-to (:cursor text)))
+              text))]
+    (-> seeker
+        (show-selection)
+        (slice (fn [l r] (vec (concat l "|" r))))
+        (stringify))))
+
+(s/defn printed :- nil
+  [seeker :- Seeker]
+  (println (debug-string seeker)))
 
 (s/defn indent :- Seeker
   [seeker :- Seeker
