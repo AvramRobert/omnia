@@ -860,15 +860,14 @@
         init-cursor     (:cursor seeker)
         text-end-cursor (:cursor (end seeker))]
     (loop [open-parens 1
-           end-cursor  nil
            current     (move-right seeker)]
       (let [char (current-char current)]
         (cond
-          (zero? open-parens)                    {:start init-cursor :end end-cursor}
-          (pairs? init-char char)                (recur (dec open-parens) (:cursor current) (move-right current))
+          (zero? open-parens)                    {:start init-cursor :end (:cursor current)}
+          (pairs? init-char char)                (recur (dec open-parens) (move-right current))
           (= text-end-cursor (:cursor current))  nil
-          (= init-char char)                     (recur (inc open-parens) nil (move-right current))
-          :else                                  (recur open-parens nil (move-right current)))))))
+          (= init-char char)                     (recur (inc open-parens) (move-right current))
+          :else                                  (recur open-parens (move-right current)))))))
 
 (s/defn closed-paren-match :- (s/maybe Region)
   [seeker :- Seeker]
@@ -902,7 +901,7 @@
    Jumps forward to encapsulate the word it was facing: ( <- | -> func"
   [seeker :- Seeker]
   {:start (:cursor seeker)
-   :end   (:cursor (-> seeker (jump-right) (move-left)))})
+   :end   (:cursor (jump-right seeker))})
 
 (s/defn word-expansion-left :- Region
   "This assumes the cursor is facing a closed paren.

@@ -1908,40 +1908,44 @@
 ;; XI. Expanding
 
 (deftest expands-to-words
-  (let [word1-start     (-> "|some line" (i/from-cursored-string) (i/expand) (i/extract) (i/current-line))
-        word1-middle    (-> "so|me line" (i/from-cursored-string) (i/expand) (i/extract) (i/current-line))
-        sentence-middle (-> "some| line" (i/from-cursored-string) (i/expand) (i/extract) (:lines))
-        word2-start     (-> "some |line" (i/from-cursored-string) (i/expand) (i/extract) (i/current-line))
-        word2-middle    (-> "some li|ne" (i/from-cursored-string)  (i/expand) (i/extract) (i/current-line))
-        word2-end       (-> "some line|" (i/from-cursored-string)  (i/expand) (i/extract) (i/current-line))]
-    (is (= word1-start word1-middle [\s \o \m \e]))
-    (is (= word2-start word2-middle word2-end [\l \i \n \e]))
+  (let [word1-start     (-> ["|some line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
+        word1-middle    (-> ["so|me line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
+        sentence-middle (-> ["some| line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
+        word2-start     (-> ["some |line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
+        word2-middle    (-> ["some li|ne"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
+        word2-end       (-> ["some line|"] (i/from-marked-text) (i/expand) (i/extract) (:lines))]
+    (is (= word1-start word1-middle [[\s \o \m \e]]))
+    (is (= word2-start word2-middle word2-end [[\l \i \n \e]]))
     (is (= sentence-middle [[\s \o \m \e \space \l \i \n \e]]))))
 
 (deftest expands-over-multiple-lines-from-space
-  (let [from-space (-> "first| \nsecond" (i/from-cursored-string) (i/expand) (i/extract) (:lines))]
+  (let [from-space (-> ["first| \nsecond"]
+                       (i/from-marked-text)
+                       (i/expand)
+                       (i/extract)
+                       (:lines))]
     (is (= from-space  [[\f \i \r \s \t \space] [\s \e \c \o \n \d]]))))
 
 (deftest expands-over-exprs
   (->> [[\( \)] [\[ \]] [\{ \}]]
        (run! (fn [[l r]]
-               (let [from-start  (-> (str "|" l l "some  word" r r)
-                                     (i/from-cursored-string)
+               (let [from-start  (-> [(str "|" l l "some  word" r r)]
+                                     (i/from-marked-text)
                                      (i/expand)
                                      (i/extract)
-                                     (i/current-line))
-                     from-end    (-> (str l l "some  word" r r "|")
-                                     (i/from-cursored-string)
+                                     (:lines))
+                     from-end    (-> [(str l l "some  word" r r "|")]
+                                     (i/from-marked-text)
                                      (i/expand)
                                      (i/extract)
-                                     (i/current-line))
-                     from-middle (-> (str l l "some | word" r r)
-                                     (i/from-cursored-string)
+                                     (:lines))
+                     from-middle (-> [(str l l "some | word" r r)]
+                                     (i/from-marked-text)
                                      (i/expand)
                                      (i/extract)
-                                     (i/current-line))]
-                 (is (= from-start from-end [l l \s \o \m \e \space \space \w \o \r \d r r]))
-                 (is (= from-middle [l \s \o \m \e \space \space \w \o \r \d r])))))))
+                                     (:lines))]
+                 (is (= from-start from-end [[l l \s \o \m \e \space \space \w \o \r \d r r]]))
+                 (is (= from-middle [[l \s \o \m \e \space \space \w \o \r \d r]])))))))
 
 (deftest expands-from-words-to-exprs
   (let [parens [[\( \)] [\[ \]] [\{ \}]]]
@@ -1949,8 +1953,8 @@
       (fn [[ol or]]
         (run!
           (fn [[il ir]]
-            (let [text   (-> (str ol il "|some word" ir or)
-                             (i/from-cursored-string))
+            (let [text   (-> [(str ol il "|some word" ir or)]
+                             (i/from-marked-text))
                   word   (-> text
                              (i/expand)
                              (i/extract)
