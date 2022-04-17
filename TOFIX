@@ -21,6 +21,7 @@ going right, right going left, down going up or up going down.
     - Patch chunk-delete, make it more efficient
     - Use process' with events for text tests
     - Replace process' and process with the proper `process` functions from the core and context namespaces
+    - debug-string should also dispaly the selection and cursor
 
 1. Fix highlighting issue specified in omnia.repl-test (line:530)
 2. Fix tests for highlighting in that file

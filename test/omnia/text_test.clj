@@ -1197,12 +1197,12 @@
                              "world>|"]
                             (i/from-marked-text)
                             (process' [select-up select-up]))
-              expected  (-> ["fanta|<stic>"
+              expected  (-> ["fanta|<sti>c"
                              "bonjour"
                              "world"]
                             (i/from-marked-text))
               extracted (-> actual (i/extract) (:lines))]
-          (is (= extracted [[\s \t \i \c]]))
+          (is (= extracted [[\s \t \i]]))
           (is (= (:cursor actual) (:cursor expected)))
           (is (= (:selection actual) (:selection expected))))))
 
@@ -1606,23 +1606,23 @@
   (testing "LINE MIDDLE -"
     (testing "INCREASING -"
       (testing "initial"
-        (let [actual    (-> ["hell|o"
+        (let [actual    (-> ["hello|"
                              "world"]
                             (i/from-marked-text)
                             (process' [select-left]))
-              expected  (-> ["hel|<l>o"
+              expected  (-> ["hell|<o>"
                              "world"]
                             (i/from-marked-text))
               extracted (-> actual (i/extract) (:lines))]
-          (is (= extracted [[\l]]))
+          (is (= extracted [[\o]]))
           (is (= (:cursor actual) (:cursor expected)))
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["hell|<o>"
+        (let [actual    (-> ["hello|"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-left]))
+                            (process' [select-left select-left]))
               expected  (-> ["hel|<lo>"
                              "world"]
                             (i/from-marked-text))

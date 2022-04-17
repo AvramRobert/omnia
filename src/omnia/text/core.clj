@@ -559,10 +559,24 @@
         {:start start
          :end   (-> text (reset-to end) (move-left) (:cursor))}))))
 
+(comment
+  "If I can accurately figure out which end moved and in which direction. In ALL circumstances, then I can
+  fairly simply figure out how to replace it.
+
+  I've said previously that the coordinate nearest the cursor is the one to move.
+  Previously, this approach had a couple of flaws given that the start and the end
+  could, at some point, be the exact same coordinate and represent a valid region.
+  Now, start and end can never be equal. If they are, then that region gets cancelled out.
+  So theoretically, the assumption made above, namely that the nearest one is going to move, might hold
+  for everything")
 (s/defn select-with :- Seeker
-  [seeker :- Seeker
-   f      :- (=> Seeker Seeker)]
-  (let [seeker' (f seeker)]
+  [text :- Seeker
+   f :- (=> Seeker Seeker)]
+  (let [text' (f text)]
+    (if (selecting? text)
+
+      ))
+  #_(let [seeker' (f seeker)]
     (if (selecting? seeker)
       (reset-selection seeker' (adjust-against seeker seeker'))
       (reset-selection seeker' (initial-region seeker seeker')))))
