@@ -6,7 +6,7 @@
             [clojure.set :refer [union map-invert]]
             [omnia.util.schema :refer [=> Point Region]]
             [omnia.util.arithmetic :refer [inc<]]
-            [omnia.util.collection :refer [do-until reduce-idx]]))
+            [omnia.util.collection :refer [do-until reduce-idx dissoc-idx]]))
 
 (def Line [Character])
 
@@ -208,10 +208,11 @@
   `f` is expected to return a new line of text and
   replaces the one line on which it was applied."
   [seeker :- Seeker
-   f :- (=> Line Line)]
-  (let [[_ y] (:cursor seeker)
-        line' (vec (f (current-line seeker)))]
-    (rebase seeker #(assoc % y line'))))
+   f :- (=> Line (s/maybe Line))]
+  (let [[_ y] (:cursor seeker)]
+    (if-let [line' (f (current-line seeker))]
+      (rebase seeker #(assoc % y (vec line')))
+      (rebase seeker #(dissoc-idx y %)))))
 
 (s/defn slice :- Seeker
  "Looks at the line where the cursor is currently placed.
@@ -462,6 +463,57 @@
         dm = distance (Cm, Cd) { left, if dm < 0
                                { right, if dm > 0
 
+   d. Determine new region area.
+"
+
+  [text :- Seeker
+   displaced :- Seeker]
+  (let [Cc (:cursor text)
+        Cd (:cursor displaced)
+        Cs (-> text (:selection) (:start))
+        Ce (-> text (:selection) (:end))
+        Cm (min-key #(Math/abs ^long (distance % Cc text)) Cs Ce)
+        Ck (if (= Cm Cs) Ce Cs)
+        [start end] (sort-by (juxt second first) [Cd Ck])]
+    (if (= start end)
+      nil
+      {:start start :end end})))
+
+(s/defn initial-region :- (s/maybe Region)
+  [text :- Seeker
+   displaced :- Seeker]
+  (let [Cc (:cursor text)
+        Cd (:cursor displaced)
+        [start end] (sort-by (juxt second first) [Cc Cd])]
+    (if (= start end)
+      nil
+      {:start start
+       :end   end})))
+
+#_(s/defn adjust-against :- (s/maybe Region)
+  "Algorithm for figuring out new region.
+   Given
+      Cc = current cursor
+      Cd = displaced cursor
+      Cs = region start cursor
+      Ce = region end cursor
+
+   a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
+      The coordinate (Cm) closest to the current cursor (Cc) is the one move:
+
+        Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
+
+   b. Determine which coordinate hasn't moved.
+      The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
+
+        Ck = {Cs, Ce} - Cr
+
+   c. Determine if the cursor moved backwards or forwards.
+      The sign of the distance (dm) between the moved coordinate (Cm) and the displaced coordinate (Cd):
+
+        dm = distance (Cm, Cd) { left, if dm < 0
+                               { right, if dm > 0
+
    d. Determine if the moved coordinate exceeded the unmoved coordinate.
       The sign of the distance (dkm) between the unmoved coordinate (Ck) and the displaced coordinate (Cd):
 
@@ -549,7 +601,7 @@
 
       :else {:start Cs :end Ce})))
 
-(s/defn initial-region :- (s/maybe Region)
+#_(s/defn initial-region :- (s/maybe Region)
   [text :- Seeker
    displaced :- Seeker]
   (let [Cc (:cursor text)
@@ -570,13 +622,9 @@
   So theoretically, the assumption made above, namely that the nearest one is going to move, might hold
   for everything")
 (s/defn select-with :- Seeker
-  [text :- Seeker
+  [seeker :- Seeker
    f :- (=> Seeker Seeker)]
-  (let [text' (f text)]
-    (if (selecting? text)
-
-      ))
-  #_(let [seeker' (f seeker)]
+  (let [seeker' (f seeker)]
     (if (selecting? seeker)
       (reset-selection seeker' (adjust-against seeker seeker'))
       (reset-selection seeker' (initial-region seeker seeker')))))
@@ -748,11 +796,17 @@
           [xe ye] (-> seeker (:selection) (:end))]
       (-> seeker
           (reset-selection nil)
-          (rebase #(->> % (take (inc ye)) (drop ys)))
+          (rebase (fn [lines]
+                    (->> lines (take (inc ye)) (drop ys))))
           (end)
-          (enrich #(vector (take xe %)))
+          (enrich (fn [line] [(take xe line)]))
           (start)
-          (switch #(drop xs %))))))
+          (switch (fn [line]
+                    (let [entire-line?        (= xs (count line))
+                          start-of-next-line? (and (= xe 0) (= (- ye ys 1)))]
+                      (if (and entire-line? start-of-next-line?)
+                        nil
+                        (drop xs line)))))))))
 
 (s/defn copy :- Seeker
   [seeker :- Seeker]
@@ -957,23 +1011,9 @@
 
 (s/defn debug-string :- String
   [seeker :- Seeker]
-  #_(-> seeker
-      (slicer (fn [[current-char & rest]]
-                (vec (concat [\| current-char \|] rest))))
-      (stringify))
-  (letfn [(show-selection [text]
-            (if (selecting? text)
-              (-> text
-                  (reset-to (-> text (:selection) (:start)))
-                  (slice (fn [l r] (vec (concat l "<" r))))
-                  (reset-to (-> text (:selection) (:end)))
-                  (slice (fn [l [a & rest]] (vec (concat l [a] ">" rest))))
-                  (reset-to (:cursor text)))
-              text))]
-    (-> seeker
-        (show-selection)
-        (slice (fn [l r] (vec (concat l "|" r))))
-        (stringify))))
+  (-> seeker
+      (slice (fn [l r] (vec (concat l "|" r))))
+      (stringify)))
 
 (s/defn printed :- nil
   [seeker :- Seeker]

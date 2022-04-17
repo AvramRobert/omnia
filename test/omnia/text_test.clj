@@ -1567,7 +1567,7 @@
                             (i/from-marked-text)
                             (process' [select-down]))
               expected  (-> ["howdy"
-                             "thurs|<day>|"]
+                             "thurs|<day>"]
                             (i/from-marked-text))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\d \a \y]]))
@@ -1582,7 +1582,7 @@
                             (process' [select-down select-down]))
               expected  (-> ["howdy"
                              "some"
-                             "thur|<sday>|"]
+                             "thur|<sday>"]
                             (i/from-marked-text))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\s \d \a \y]]))

@@ -19,6 +19,9 @@
        (reduce [from seed] coll)
        (nth 1))))
 
+(defn dissoc-idx [idx vector]
+  (vec (concat (take idx vector) (drop (inc idx) vector))))
+
 (defn run-indexed! [f coll]
   (reduce-idx (fn [idx _ a] (f idx a)) nil coll))
 
