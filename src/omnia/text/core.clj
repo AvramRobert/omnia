@@ -421,9 +421,7 @@
   (assoc seeker :history undo-history :rhistory redo-history))
 
 (s/defn distance :- s/Int
-  "Function that quantises the distance and direction of point
-   Ve = [xe, ye] relative to point Vs = [xs, ys] in the text space.
-   Positive numbers represent a distance after Vs, whilst negative ones represent a distance before Vs."
+  "Amount of characters between two points in the text space."
   [[xs ys] :- Point
    [xe ye] :- Point
    text :- Seeker]
@@ -435,8 +433,8 @@
                   new-lines (- ye ys)]
               (+ upper lower middle new-lines)))]
     (cond
-      (= ys ye) (- xe xs)
-      (> ys ye) (- (chars-between [xe ye] [xs ys]))
+      (= ys ye) (Math/abs ^long (- xe xs))
+      (> ys ye) (chars-between [xe ye] [xs ys])
       :else     (chars-between [xs ys] [xe ye]))))
 
 (s/defn adjust-against :- (s/maybe Region)
@@ -457,22 +455,20 @@
 
         Ck = {Cs, Ce} - Cr
 
-   c. Determine if the cursor moved backwards or forwards.
-      The sign of the distance (dm) between the moved coordinate (Cm) and the displaced coordinate (Cd):
+   c. Determine new region area.
+      Sort the remainder coordinate (Ck) and the displaced coordinate (Cd) ascendingly.
+      The lower coordinate becomes start and the other the end. Equality implies a cancelled out-region:
 
-        dm = distance (Cm, Cd) { left, if dm < 0
-                               { right, if dm > 0
-
-   d. Determine new region area.
-"
-
+        { start, end } = sort (Cd, Ck) { nil, iff start = end
+                                       { {start, end}, iff start =/ end"
+  ; FIXME: Merge this with `initial-region` and put in `select-with`
   [text :- Seeker
    displaced :- Seeker]
   (let [Cc (:cursor text)
         Cd (:cursor displaced)
         Cs (-> text (:selection) (:start))
         Ce (-> text (:selection) (:end))
-        Cm (min-key #(Math/abs ^long (distance % Cc text)) Cs Ce)
+        Cm (min-key #(distance % Cc text) Cs Ce)
         Ck (if (= Cm Cs) Ce Cs)
         [start end] (sort-by (juxt second first) [Cd Ck])]
     (if (= start end)
@@ -490,137 +486,6 @@
       {:start start
        :end   end})))
 
-#_(s/defn adjust-against :- (s/maybe Region)
-  "Algorithm for figuring out new region.
-   Given
-      Cc = current cursor
-      Cd = displaced cursor
-      Cs = region start cursor
-      Ce = region end cursor
-
-   a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
-      The coordinate (Cm) closest to the current cursor (Cc) is the one move:
-
-        Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
-
-   b. Determine which coordinate hasn't moved.
-      The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
-
-        Ck = {Cs, Ce} - Cr
-
-   c. Determine if the cursor moved backwards or forwards.
-      The sign of the distance (dm) between the moved coordinate (Cm) and the displaced coordinate (Cd):
-
-        dm = distance (Cm, Cd) { left, if dm < 0
-                               { right, if dm > 0
-
-   d. Determine if the moved coordinate exceeded the unmoved coordinate.
-      The sign of the distance (dkm) between the unmoved coordinate (Ck) and the displaced coordinate (Cd):
-
-        dmk = distance (Ck, Cd) { true, if dm < 0 && Cm = Cs
-                                { true, if dm > 0 && Cm = Ce
-
-   e. Determine new region area.
-
-        if Cm = Cs && dm > 0 && dmk < 0               ; start overlapped end
-           let start = Ce
-               end   = move-left Cd
-               if start = end                         ; start cancelled-out end
-                  nil
-                  {:start start :end end}
-
-        if Cm = Cs && dm > 0                          ; start going towards end (shrinking)
-           {:start Cd :end Ce}
-
-        if Cm = Cs && dm < 0                          ; start going away from end (increasing)
-           {:start Cd :end Ce}
-
-        if Cm = Ce && dm <= 0 && dmk > 0              ; end overlapped start
-           let start = Cd
-               end   = move-left Cs
-               if start = end                         ; end cancelled-out start
-                  nil
-                  {:start start :end end}
-
-        if Cm = Ce && dm <= 0                         ; end going towards start (shrinking)
-           {:start Cs :end (move-left Cd)}
-
-        if Cm = Ce && dm > 0                          ; end going away from start (increasing)
-           {:start Cs :end (move-left Cd)}
-
-        else nil"
-
-  [text :- Seeker
-   displaced :- Seeker]
-  (let [Cc (:cursor text)
-        Cd (:cursor displaced)
-        Cs (-> text (:selection) (:start))
-        Ce (-> text (:selection) (:end))
-        Cm (min-key #(Math/abs ^long (distance % Cc text)) Cs Ce)
-        Ck (if (= Cm Cs) Ce Cs)
-        dm (distance Cm Cd text)
-        dk (distance Cd Ck text)
-        di (distance Cs Cd text)
-        M  (cond
-             (and (= Cs Ce) (=> di 0)) :end
-             (and (= Cs Ce) (< di 0)) :start
-             (= Cm Cs)                :start
-             (= Cm Ce)                :end)]
-    (cond
-      (and (= M :start) (> dm 0) (= dk 0))
-      {:start Cd :end Cd}
-
-      (and (= M :start) (> dm 0) (< dk 0))
-      (let [Cs' (-> text (reset-to Ce) (move-right) (:cursor))]
-        (if (= Cs' Cd)
-          nil
-          {:start Cs'
-           :end   (-> text (reset-to Cd) (move-left) (:cursor))}))
-
-      (and (= M :start) (> dm 0))
-      {:start Cd :end Ce}
-
-      (and (= M :start) (< dm 0))
-      {:start Cd :end Ce}
-
-      (and (= M :end) (<= dm 0) (>= dk 0))
-      (let [Ce' (-> text (reset-to Cs) (move-left) (:cursor))]
-        (if (= Cs Cd)
-          nil
-          {:start Cd
-           :end   Ce'}))
-
-      (and (= M :end) (<= dm 0))
-      {:start Cs :end (-> text (reset-to Cd) (move-left) (:cursor))}
-
-      (and (= M :end) (> dm 0))
-      (let [r (distance Cc Ce text)]
-        (if (= r 0)
-          nil
-          {:start Cs :end (-> text (reset-to Cd) (move-left) (:cursor))}))
-
-      :else {:start Cs :end Ce})))
-
-#_(s/defn initial-region :- (s/maybe Region)
-  [text :- Seeker
-   displaced :- Seeker]
-  (let [Cc (:cursor text)
-        Cd (:cursor displaced)]
-    (when (not= Cc Cd)
-      (let [[start end] (sort-by (juxt second first) [Cc Cd])]
-        {:start start
-         :end   (-> text (reset-to end) (move-left) (:cursor))}))))
-
-(comment
-  "If I can accurately figure out which end moved and in which direction. In ALL circumstances, then I can
-  fairly simply figure out how to replace it.
-
-  I've said previously that the coordinate nearest the cursor is the one to move.
-  Previously, this approach had a couple of flaws given that the start and the end
-  could, at some point, be the exact same coordinate and represent a valid region.
-  Now, start and end can never be equal. If they are, then that region gets cancelled out.
-  So theoretically, the assumption made above, namely that the nearest one is going to move, might hold
-  for everything")
 (s/defn select-with :- Seeker
   [seeker :- Seeker
    f :- (=> Seeker Seeker)]
@@ -700,10 +565,10 @@
       (start-x)))
 
 (s/defn simple-delete :- Seeker
-        [seeker :- Seeker]
-        (-> seeker
-            (slicel drop-last)
-            (move-left-with merge-lines)))
+  [seeker :- Seeker]
+  (-> seeker
+      (slicel drop-last)
+      (move-left-with merge-lines)))
 
 (s/defn pair-delete :- Seeker
   [seeker :- Seeker]
@@ -718,7 +583,6 @@
         end       (-> seeker (:selection) (:end))]
     (-> seeker
         (reset-to end)
-        (move-right)
         (do-until simple-delete #(= (:cursor %) start)))))
 
 (s/defn pair? :- s/Bool
@@ -845,7 +709,7 @@
   [seeker :- Seeker]
   (-> seeker
       (reset-selection {:start [0 0]
-                        :end   (-> seeker (end) (move-left) (:cursor))})
+                        :end   (-> seeker (end) (:cursor))})
       (end)))
 
 (defn- pairs? [this that]

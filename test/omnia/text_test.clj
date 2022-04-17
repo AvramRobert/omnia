@@ -542,13 +542,13 @@
         [\{ \}]
         [\" \"]]
        (run! (fn [[l r]]
-               (let [text           (-> (str l "|" r) (i/from-cursored-string))
-                     previous-left  (-> text (i/select-left) (i/delete-previous) (i/current-line))
-                     current-left   (-> text (i/select-left) (i/delete-current) (i/current-line))
-                     previous-right (-> text (i/select-right) (i/delete-previous) (i/current-line))
-                     current-right  (-> text (i/select-right) (i/delete-current) (i/current-line))]
-                 (is (= previous-left current-left [r]))
-                 (is (= previous-right current-right [l])))))))
+               (let [text           (-> [(str l "|" r)] (i/from-marked-text))
+                     previous-left  (-> text (process' [select-left delete-previous]) (:lines))
+                     current-left   (-> text (process' [select-left delete-current]) (:lines))
+                     previous-right (-> text (process' [select-right delete-previous]) (:lines))
+                     current-right  (-> text (process' [select-right delete-current]) (:lines))]
+                 (is (= previous-left current-left [[r]]))
+                 (is (= previous-right current-right [[l]])))))))
 
 (deftest deletes-selections-over-multiple-lines-and-merges
   (let [text     (-> "hello\nworld\nto|day" (i/from-cursored-string) (i/select-up))
@@ -716,14 +716,11 @@
 
 ;; IX. Selecting
 (deftest selects-indempotently-over-single-chars
-  (let [region (-> "|12"
-                   (i/from-cursored-string)
-                   (i/move-right)
-                   (i/select-left)
-                   (i/select-left)
-                   (i/select-right)
+  (let [region (-> ["|12"]
+                   (i/from-marked-text)
+                   (process' [right select-left select-left select-right])
                    (:selection))]
-    (is (= (:start region) (:end region) [0 0]))))
+    (is (nil? region))))
 
 (deftest selects-when-jumping-right
   (testing "Selects jumping right within a line"
@@ -1892,8 +1889,8 @@
 ;; X. Joining
 
 (deftest joins
-  (let [text1     (-> "hel|lo\nworld" (i/from-cursored-string) (i/select-right))
-        text2     (-> "n|ew\nlines" (i/from-cursored-string) (i/select-right))
+  (let [text1     (-> ["hel|lo" "world"] (i/from-marked-text) (process' [select-right]))
+        text2     (-> ["n|ew" "lines"] (i/from-marked-text) (process' [select-right]))
         conjoined (i/join-many text1 text2)
         text      (:lines conjoined)
         cursor    (:cursor conjoined)
@@ -1903,7 +1900,7 @@
                  [\n \e \w]
                  [\l \i \n \e \s]]))
     (is (= cursor [2 2]))
-    (is (= selection {:start [1 2] :end [1 2]}))))
+    (is (= selection {:start [1 2] :end [2 2]}))))
 
 ;; XI. Expanding
 
@@ -1919,7 +1916,8 @@
     (is (= sentence-middle [[\s \o \m \e \space \l \i \n \e]]))))
 
 (deftest expands-over-multiple-lines-from-space
-  (let [from-space (-> ["first| \nsecond"]
+  (let [from-space (-> ["first| "
+                        "second"]
                        (i/from-marked-text)
                        (i/expand)
                        (i/extract)
