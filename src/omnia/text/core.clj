@@ -22,7 +22,7 @@
    :expansion ExpansionScope
    :history   [(s/recursive #'Seeker)]
    :rhistory  [(s/recursive #'Seeker)]
-   ;; range of text selected. Inclusive both in the start and end
+   ;; range of text selected. Inclusive start and exclusive in end
    :selection (s/maybe Region)
    :clipboard (s/maybe (s/recursive #'Seeker))})
 
@@ -81,11 +81,7 @@
    The cursor is identified through the character: `|`
    The selection is identified through:
       a) Start: `<`
-      b.1) End: `>
-        -> indicating all characters up to `>`
-      b.2) End: `^`
-        -> indicating all characters up to `^` and the one next to it
-
+      b) End: `> (inclusive)
    Examples:
     1. (from-marked-text \"hel|lo\" \"world\")
         => [[h e l l o] [w o r l d]] : [3 0] : nil
@@ -93,19 +89,12 @@
     2. (from-marked-text \"he<ll|o\" \"worl>d\")
         => [[h e l l o] [w o r l d]] : [4 0] : { :start [2 0] :end [3 1] }
 
-    3. (from-marked-text \"he<ll|o\" \"worl^d\")
-        => [[h e l l o] [w o r l d]] : [4 0] : { :start [2 0] :end [4 1] }"
-  (letfn [(point [{:keys [y find line latest acc]}]
-            (-> (fn [[x char]]
-                  (when (find char)
-                    (m/match [x y char (count line)]
-                             [0 0 \> _] [0 0]
-                             [_ _ \^ 1] [(count (acc (dec y))) (dec y)]
-                             [0 _ \> _] [(count (acc (dec y))) (dec y)]
-                             [_ _ \> _] [(dec x) y]
-                             :else [x y])))
-                (some (map-indexed vector line))
-                (or latest)))]
+    3. (from-marked-text \"he<ll|o\" \">world\")
+        => [[h e l l o] []] : [4 0] : { :start [2 0] :end [0 1] }"
+  (letfn [(point [{:keys [y find remove latest]} line]
+            (->> line
+                 (filter #(not (contains? remove %)))
+                 (reduce-idx (fn [x p c] (if (= c find) [x, y] p)) latest)))]
     (loop [[s & ss] strings
            lines  []
            cursor [0 0]
@@ -114,24 +103,21 @@
       (if (some? s)
         (recur
           ss
-          (->> s (filter #(not (contains? #{\| \< \> \^} %))) (vec) (conj lines))
-          (point {:y      (count lines)
-                  :find   #{\|}
-                  :line   (filter #(not (contains? #{\^ \< \>} %)) s)
+          (->> s (filter #(not (contains? #{\| \< \>} %))) (vec) (conj lines))
+          (point {:remove #{\< \>}
+                  :find   \|
                   :latest cursor
-                  :acc    lines})
-          (point {:y      (count lines)
-                  :find   #{\<}
-                  :line   (filter #(not (contains? #{\| \^ \>} %)) s)
-                  :latest start
-                  :acc    lines})
-          (point {:y      (count lines)
-                  :find   #{\^ \>}
-                  :line   (filter #(not (contains? #{\| \<} %)) s)
+                  :y      (count lines)} s)
+          (point {:remove #{\| \>}
+                  :find   \<
+                  :y      (count lines)
+                  :latest start} s)
+          (point {:remove #{\| \<}
+                  :find   \>
                   :latest end
-                  :acc    lines}))
+                  :y      (count lines)} s))
         (cond-> (seeker lines cursor)
-                (and start end) (assoc :selection {:start start :end end}))))))
+                (and start end (not= start end)) (assoc :selection {:start start :end end}))))))
 
 (s/defn from-cursored-string :- Seeker
   "Examples:
@@ -211,7 +197,7 @@
 
 (s/defn enrich :- Seeker
   "Looks at the current line. Applies a function `f` on it
-  that should more than one line."
+  that should return more than one line."
   [seeker :- Seeker
    f      :- (=> Line [Line])]
   (split seeker (fn [l r] (f (vec (concat l r))))))
@@ -745,25 +731,14 @@
   [seeker :- Seeker]
   (when (selecting? seeker)
     (let [[xs ys] (-> seeker (:selection) (:start))
-          [xe ye] (-> seeker (:selection) (:end))
-          size       (:size seeker)
-          take-lines (fn [line]
-                       (let [selected-amount (inc xe)
-                             within-bounds?  (> size (inc ye))
-                             entire-line?    (= xe (count line))]
-                         (if (and within-bounds? entire-line?)
-                           (if (and (= ye ys)
-                                    (= xs xe))
-                             [[]]
-                             [line []])
-                           [(take selected-amount line)])))]
+          [xe ye] (-> seeker (:selection) (:end))]
       (-> seeker
+          (reset-selection nil)
           (rebase #(->> % (take (inc ye)) (drop ys)))
           (end)
-          (enrich take-lines)
+          (enrich #(vector (take xe %)))
           (start)
-          (switch #(drop xs %))
-          (reset-selection nil)))))
+          (switch #(drop xs %))))))
 
 (s/defn copy :- Seeker
   [seeker :- Seeker]

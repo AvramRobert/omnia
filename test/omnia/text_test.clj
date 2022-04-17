@@ -63,43 +63,24 @@
                   :cursor    [1 2]
                   :selection nil}}
 
-        {:input  ["1<|2>3"]
+        {:input  ["1<2>|3"]
          :expect {:lines     [[\1 \2 \3]]
-                  :cursor    [1 0]
-                  :selection {:start [1 0] :end [1 0]}}}
-
-        {:input  ["1<|2^3"]
-         :expect {:lines     [[\1 \2 \3]]
-                  :cursor    [1 0]
+                  :cursor    [2 0]
                   :selection {:start [1 0] :end [2 0]}}}
 
-        {:input  ["1<|23" "45>"]
+        {:input  ["1<23" ">|45"]
          :expect {:lines     [[\1 \2 \3] [\4 \5]]
-                  :cursor    [1 0]
-                  :selection {:start [1 0] :end [1 1]}}}
+                  :cursor    [0 1]
+                  :selection {:start [1 0] :end [0 1]}}}
 
-        {:input  ["1<|23" "45^"]
+        {:input  ["123<" ">|45"]
          :expect {:lines     [[\1 \2 \3] [\4 \5]]
-                  :cursor    [1 0]
-                  :selection {:start [1 0] :end [2 1]}}}
-        {:input  ["1<|23" ">"]
+                  :cursor    [0 1]
+                  :selection {:start [3 0] :end [0 1]}}}
+
+        {:input  ["1<23" ">|"]
          :expect {:lines     [[\1 \2 \3] []]
-                  :cursor    [1 0]
-                  :selection {:start [1 0] :end [3 0]}}}
-
-        {:input  ["1<|23" "^"]
-         :expect {:lines     [[\1 \2 \3] []]
-                  :cursor    [1 0]
-                  :selection {:start [1 0] :end [3 0]}}}
-
-        {:input  ["1<|23" ">1"]
-         :expect {:lines     [[\1 \2 \3] [\1]]
-                  :cursor    [1 0]
-                  :selection {:start [1 0] :end [3 0]}}}
-
-        {:input  ["1<|23" "^1"]
-         :expect {:lines     [[\1 \2 \3] [\1]]
-                  :cursor    [1 0]
+                  :cursor    [0 1]
                   :selection {:start [1 0] :end [0 1]}}}]
        (run! (fn [{:keys [input expect]}]
                (let [text (i/from-marked-text input)]
@@ -2184,42 +2165,60 @@
   (is (not= nil (-> "ab4()|" (i/from-cursored-string) (i/find-pair)))))
 
 ;; XVI. Extracting
-
 (deftest extracts-regions
-  (->> [{:select {:start [4 0]
-                  :end   [5 0]}
-         :expect [[\o] []]}
-        {:select {:start [5 0]
-                  :end   [5 0]}
-         :expect [[]]}
-        {:select {:start [4 0]
-                  :end   [0 1]}
-         :expect [[\o] [\w]]}
-        {:select {:start [3 0]
-                  :end   [3 0]}
-         :expect [[\l]]}
-        {:select {:start [5 0]
-                  :end   [0 1]}
-         :expect [[] [\w]]}
-        {:select {:start [3 0]
-                  :end   [4 0]}
-         :expect [[\l \o]]}
-        {:select {:start [3 0]
-                  :end   [2 1]}
-         :expect [[\l \o] [\w \o \r]]}
-        {:select {:start [0 0]
-                  :end   [5 0]}
-         :expect [[\h \e \l \l \o] []]}
-        {:select {:start [0 0]
-                  :end   [5 1]}
-         :expect [[\h \e \l \l \o] [\w \o \r \l \d]]}]
-       (run! (fn [{:keys [select expect]}]
-               (let [text (-> "hello\nworld"
-                              (i/from-string)
-                              (i/reset-selection select)
-                              (i/extract)
-                              (:lines))]
-                 (is (= text expect)))))))
+  (testing "Extracts with new lines lower"
+    (let [text (-> ["he<llo"
+                    ">|world"]
+                   (i/from-marked-text)
+                   (i/extract))
+          expected (-> ["llo" ""]
+                       (i/from-marked-text))]
+      (is (:lines text) (:lines expected))))
+
+  (testing "Extracts with new lines upper"
+    (let [text (-> ["hello<"
+                    "wor>|ld"]
+                   (i/from-marked-text)
+                   (i/extract))
+          expected (-> ["" "wor"]
+                       (i/from-marked-text))]
+      (is (:lines text) (:lines expected))))
+
+  (testing "Extracts single characters"
+    (let [text (-> ["he<l>|lo"
+                    "world"]
+                   (i/from-marked-text)
+                   (i/extract))
+          expected (-> ["l"]
+                       (i/from-marked-text))]
+      (is (:lines text) (:lines expected))))
+
+  (testing "Extracts words"
+    (let [text (-> ["<hello>|"
+                    "world"]
+                   (i/from-marked-text)
+                   (i/extract))
+          expected (-> ["hello"]
+                       (i/from-marked-text))]
+      (is (:lines text) (:lines expected))))
+
+  (testing "Extracts over lines"
+    (let [text (-> ["hel<lo"
+                    "wor>|ld"]
+                   (i/from-marked-text)
+                   (i/extract))
+          expected (-> ["lo" "wor"]
+                       (i/from-marked-text))]
+      (is (:lines text) (:lines expected))))
+
+  (testing "Extracts until end"
+    (let [text (-> ["<hello"
+                    "world>|"]
+                   (i/from-marked-text)
+                   (i/extract))
+          expected (-> ["hello" "world"]
+                       (i/from-marked-text))]
+      (is (:lines text) (:lines expected)))))
 
 ;; XVII. Undoing / Redoing
 
