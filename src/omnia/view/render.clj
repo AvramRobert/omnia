@@ -88,6 +88,8 @@
   [terminal :- Terminal
    line     :- i/Line
    y        :- s/Int
+   xs       :- s/Int
+   xe       :- s/Int
    padding  :- s/Int
    scheme   :- Highlighting
    styles   :- [Style]]
@@ -97,8 +99,8 @@
         print! (fn [x emission chars]
                  (reduce-idx
                    (fn [x' _ character]
-                     (d/debug (str "Printing: " [x' y]))
-                     (put-char! terminal character x' y emission scheme styles)) x nil chars)
+                     (when (and (>= x' xs) (< x' xe))
+                       (put-char! terminal character x' y emission scheme styles))) x nil chars)
                  (+ x (count chars)))]
     (->> line (fold print! 0) (pad!))))
 
@@ -132,12 +134,14 @@
       (let [region (->> highlight (:region) (h/clip-selection preview))
             scheme (->> highlight (:scheme))
             styles (->> highlight (:styles))
-            [_ ys] (:start region)
-            [_ ye] (:end region)]
+            [xs ys] (:start region)
+            [xe ye] (:end region)]
         (doseq [y (range ys (inc ye))]
           (print-line! terminal
                        (i/line-at text y)
                        (h/project-y preview y)
+                       xs
+                       xe
                        0
                        scheme
                        styles))))))
@@ -178,7 +182,14 @@
       (let [a   (nth now y nil)
             b   (nth then y nil)
             pad (padding a b)]
-        (print-line! terminal a y pad scheme [])))))
+        (print-line! terminal
+                     a
+                     y
+                     0
+                     (count a)
+                     pad
+                     scheme
+                     [])))))
 
 (s/defn render-diff!
   [terminal :- Terminal
@@ -197,7 +208,14 @@
               b   (nth then y nil)
               pad (padding a b)]
           (when (not= a b)
-            (print-line! terminal a y pad scheme [])))))))
+            (print-line! terminal
+                         a
+                         y
+                         0
+                         (count a)
+                         pad
+                         scheme
+                         [])))))))
 
 (s/defn render-nothing!
   [terminal :- Terminal,

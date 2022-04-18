@@ -91,7 +91,7 @@
 (s/defn selected-cursors :- [Point]
   [text :- i/Seeker]
   (->> text
-       (index-seeker)
+       (index-text)
        (i/extract)
        (:lines)
        (mapcat #(map :cursor %))
@@ -375,7 +375,7 @@
 
 ;; IV. Clean-up highlighting
 
-(defn culled-line-clean-up [ctx]
+(defn culled-partial-clean-up [ctx]
   (let [context (-> ["|this is a context"]
                     (i/from-marked-text)
                     (context-from)
@@ -391,35 +391,28 @@
             (is (= cleanup-background (first (distinct bgs))))
             (is (not (empty? fgs))))))))
 
-(defn arbitrary-line-clean-up [ctx]
-  (let [adapted     (-> ctx
-                        (at-main-view-start)
-                        (process [right
-                                  select-right
-                                  select-right
-                                  left]))
-        expectation (->> adapted
-                         (r/garbage)
-                         (vals)
-                         (map :region)
-                         (mapcat #(index-at (r/preview-hud adapted) %)))
-        expected-bg (get d/default-colours ct/default)]
-    (-> adapted
+(defn culled-complete-clean-up [ctx]
+  (let [context (-> ["|This is a context"]
+                    (i/from-marked-text)
+                    (context-from)
+                    (process [right select-right select-right left]))
+        expected (-> ["T<hi>s is a context"]
+                     (i/from-marked-text))]
+    (-> context
         (accumulative)
         (execute clean-highlights!)
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
-            (is (= (map :char expectation) chars))
-            (is (= (map :cursor expectation) cursors))
-            (is (= expected-bg (first (distinct bgs))))
-            (is (not (empty? bgs)))
+            (is (= (selected-chars expected) chars))
+            (is (= (selected-cursors expected) cursors))
+            (is (= cleanup-background (first (distinct bgs))))
             (is (not (empty? fgs))))))))
 
 (defn clean-up-render [ctx]
-  (culled-line-clean-up ctx)
-  (arbitrary-line-clean-up ctx))
+  (culled-complete-clean-up ctx)
+  (culled-partial-clean-up ctx))
 
-(defspec clean-up-render-test
+#_(defspec clean-up-render-test
          NR-OF-TESTS
          (for-all [ctx (gen-context {:prefilled-size 5
                                      :view-size      27
