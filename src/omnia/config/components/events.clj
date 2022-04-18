@@ -1,4 +1,4 @@
-(ns omnia.config.components.event
+(ns omnia.config.components.events
   (:require [schema.core :as s]))
 
 (def delete :delete)

@@ -12,7 +12,7 @@
             [omnia.config.core :as c]
             [omnia.config.components.text :as tc]
             [omnia.config.components.keys :as kc]
-            [omnia.config.components.event :as e])
+            [omnia.config.components.events :as e])
   (:import (com.googlecode.lanterna.terminal Terminal)
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna TerminalSize TextCharacter)

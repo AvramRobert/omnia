@@ -1,7 +1,7 @@
 (ns omnia.text.core
   (:require [clojure.core.match :as m]
             [schema.core :as s]
-            [omnia.config.components.event :as e]
+            [omnia.config.components.events :as e]
             [clojure.string :as string]
             [clojure.set :refer [union map-invert]]
             [omnia.util.schema :refer [=> Point Region Pair]]

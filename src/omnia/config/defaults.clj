@@ -2,7 +2,7 @@
   (:require [schema.core :as s]
             [omnia.util.collection :refer [map-vals]]
             [omnia.config.components.core :refer :all]
-            [omnia.config.components.event :as e]
+            [omnia.config.components.events :as e]
             [omnia.config.components.text :as t]))
 
 (s/def default-user-keymap :- UserKeyMap

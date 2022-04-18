@@ -1,6 +1,6 @@
 (ns omnia.view.terminal
   (:require [schema.core :as s]
-            [omnia.config.components.event :as e]
+            [omnia.config.components.events :as e]
             [omnia.config.components.text :as t]
             [omnia.config.components.core :as c]
             [omnia.config.components.keys :as i]

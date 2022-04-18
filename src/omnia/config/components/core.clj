@@ -2,7 +2,7 @@
   (:require [schema.core :as s]
             [omnia.config.components.text :as t]
             [omnia.config.components.keys :as i]
-            [omnia.config.components.event :as e]
+            [omnia.config.components.events :as e]
             [omnia.util.collection :refer [map-vals]]))
 
 (def OS

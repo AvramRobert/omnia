@@ -30,3 +30,6 @@ omnia.text.syntax issues:
 omnia.repl.context issues:
   - Remove config from context. Use a separate parameter to the functions
 
+Finishing touches:
+
+  - Rewrite README, replace logo, keep it a bit simple

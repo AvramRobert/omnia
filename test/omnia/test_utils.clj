@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [is]]
             [omnia.repl.context :refer [Context HighlightType]]
             [omnia.text.core :refer [Seeker]]
-            [omnia.config.components.event :refer [Event TextEvent]]
+            [omnia.config.components.events :refer [Event TextEvent]]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.arithmetic :refer [-- ++]]
             [omnia.util.generator :refer [do-gen one]]
@@ -16,7 +16,7 @@
             [omnia.repl.context :as r]
             [omnia.repl.nrepl :as server]
             [omnia.view.terminal :as t]
-            [omnia.config.components.event :as e]))
+            [omnia.config.components.events :as e]))
 
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
