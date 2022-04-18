@@ -3,7 +3,7 @@
             [clojure.string :refer [split]]
             [clojure.set :refer [difference]]
             [omnia.util.collection :refer [map-vals]]
-            [omnia.text.highlighting :as h]))
+            [omnia.text.syntax :as h]))
 
 (def triggers
   (assoc h/triggers

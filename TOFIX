@@ -1,29 +1,32 @@
 CURRENT TASK:
 
-0. Fix selection issue in text.core (details found in omnia.text-test(line:578))
-    - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
-    - Rewrite the entire tests in text.test using simpler concepts
-    - Check to see if everything still works afterwards
-    - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
-    - Rename the functions in text.core to something more straightforward (break -> new-line etc.)
-    - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives)
-        (peer [previous current next])
-    - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
-    - Change the end-selection function in text.core to take into account the cursor selection error
-    - Patch chunk-delete, make it more efficient
-    - Use process' with events for text tests
-    - Replace process' and process with the proper `process` functions from the core and context namespaces
-    - debug-string should also display the selection and cursor
-    - rename region coordinates "from" and "until" instead of "start" "end"
-    - the `omnia.text-test/matches-parens` test doesn't really check the selected regions. It should.
-    - use `with-marked-text` everywhere. Instead of `from-string` or `from-cursored-string`
+Move all events to the `events` namespace
 
-1. Write additional tests if necessary
-2. Add previous node to transition evaluator of syntax highlighter
+Global issues:
+1. Move all events to the `events` namespace. Write functions for creating them.
+2. Rename events after what they do, not what the keys generally associated with these operations do.
+3. Use events from #2 in tests directly with the `process` function of the input or context
+4. Rewrite tests using deftest and the more straightforward concept of `from-marked-text`. (context, text, render, nrepl)
+5. Remove `from-cursored-string` and `from-string`
+6. Chuck away most of the context helpers from `test-utils` after simplifying tests using `from-marked-text`.
+
+omnia.text.core issues:
+  - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
+  - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
+  - Rename the functions in text.core to something more straightforward (break -> new-line etc.)
+  - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
+  - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
+  - Patch chunk-delete, make it more efficient
+  - rename region coordinates "from" and "until" instead of "start" "end"
+  - the `omnia.text-test/matches-parens` test doesn't really check the selected regions. It should.
+  - debug-string should also display the selection and cursor
+
+omnia.text.syntax issues:
+  - Add previous node to transition evaluator of syntax highlighter
     -> can be part of the transition function of every node. Should allow me to make context-based transitions
-3. Fix number highlighter based on #2
-4. Possibly add set-highlighting
-5. Remove config from context. Use a separate parameter to the functions
-6. Rewrite tests using deftest and explicit `from-marked-text` usage: context, text, render, nrepl.
-7. Chuck away most of the context helpers from `test-utils` after simplifying tests using
-`from-marked-text`.
+  - Fix number highlighter based on #2
+  - Add set-highlighting
+
+omnia.repl.context issues:
+  - Remove config from context. Use a separate parameter to the functions
+

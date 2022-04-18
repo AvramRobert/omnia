@@ -7,7 +7,7 @@
             [omnia.util.debug :as d]
             [omnia.config.components.core :refer [Highlighting]]
             [omnia.config.components.text :refer [backgrounds coloured-element Style ColouredElement]]
-            [omnia.text.highlighting :refer [fold -text]]
+            [omnia.text.syntax :refer [fold -text]]
             [omnia.repl.context :refer [Context]]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.collection :refer [merge-common-with map-vals reduce-idx]])

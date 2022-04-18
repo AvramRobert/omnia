@@ -1,4 +1,4 @@
-(ns omnia.text.highlighting
+(ns omnia.text.syntax
   (:require [schema.core :as s]
             [omnia.util.schema :refer [=>]]
             [clojure.set :refer [intersection]]))

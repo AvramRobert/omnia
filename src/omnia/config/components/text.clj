@@ -1,6 +1,6 @@
 (ns omnia.config.components.text
   (:require [schema.core :as s]
-            [omnia.text.highlighting :as h]))
+            [omnia.text.syntax :as h]))
 
 (def lists h/-list)
 (def vectors h/-vector)
