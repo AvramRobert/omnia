@@ -716,7 +716,7 @@
   (or (= (get open-pairs this :none) that)
       (= (get closed-pairs this :none) that)))
 
-(s/defn open-paren-match :- (s/maybe Region)
+(s/defn open-paren-expansion :- (s/maybe Region)
   [seeker :- Seeker]
   "This assumes that the cursor is currently facing an open paren, i.e: (current-char seeker) = open-paren
    Moves forward to match the open paren: | <-> (func.."
@@ -733,12 +733,12 @@
           (= init-char char)                     (recur (inc open-parens) (move-right current))
           :else                                  (recur open-parens (move-right current)))))))
 
-(s/defn closed-paren-match :- (s/maybe Region)
+(s/defn closed-paren-expansion :- (s/maybe Region)
   [seeker :- Seeker]
-  "This assumes that the cursor is behind  a closed paren, i.e: (current-char seeker) = closed-paren
-   Moves backward to match the closing paren: ..on | <-> )"
+  "This assumes that the cursor is behind a closed paren (i.e: |<->),  (current-char seeker) = closed-paren)
+   Moves backward to match the closing paren"
   (let [init-char         (current-char seeker)
-        init-cursor       (:cursor seeker)
+        init-cursor       (-> seeker (move-right) (:cursor))
         text-start-cursor (:cursor (start seeker))]
     (loop [closed-parens 1
            end-cursor    nil
@@ -751,14 +751,23 @@
           (= init-char char)                      (recur (inc closed-parens) nil (move-left current))
           :else                                   (recur closed-parens nil (move-left current)))))))
 
-(s/defn find-pair :- (s/maybe Region)
+(s/defn free-expansion :- (s/maybe Region)
   [seeker :- Seeker]
-  (cond
-    (contains? open-pairs (current-char seeker))    (-> seeker (open-paren-match))
-    (contains? open-pairs (previous-char seeker))   (-> seeker (move-left) (open-paren-match))
-    (contains? closed-pairs (current-char seeker))  (-> seeker (closed-paren-match))
-    (contains? closed-pairs (previous-char seeker)) (-> seeker (move-left) (closed-paren-match))
-    :else                                           nil))
+  "This assumes that the cursor isn't neighbouring any parens.
+   It moves backwards until it finds an open parens and proceeds with an opened-parens-expansion."
+  (let [init-cursor (:cursor (start seeker))
+        expand-from (-> seeker (:selection) (:start) (or (:cursor seeker)))]
+    (loop [seen-chars ()
+           current    (reset-to seeker expand-from)]
+      (let [char      (previous-char current)
+            last-seen (first seen-chars)]
+        (cond
+          (and (empty? seen-chars)
+               (contains? open-pairs char))   (-> current (move-left) (open-paren-expansion))
+          (pairs? char last-seen)             (recur (rest seen-chars) (move-left current))
+          (= init-cursor (:cursor current))   nil
+          (contains? closed-pairs char)       (recur (cons char seen-chars) (move-left current))
+          :else                               (recur seen-chars (move-left current)))))))
 
 (s/defn word-expansion-right :- Region
   "This assumes the cursor is after an open paren.
@@ -773,24 +782,6 @@
   [seeker :- Seeker]
   (-> seeker (jump-left) (word-expansion-right)))
 
-(s/defn free-expansion :- (s/maybe Region)
-  [seeker :- Seeker]
-  "This assumes that the cursor isn't neighbouring any parens.
-   It moves backwards until it finds an open parens and proceeds with an opened-parens-expansion."
-  (let [init-cursor (:cursor (start seeker))
-        expand-from (-> seeker (:selection) (:start) (or (:cursor seeker)))]
-    (loop [seen-chars ()
-           current    (reset-to seeker expand-from)]
-      (let [char      (previous-char current)
-            last-seen (first seen-chars)]
-        (cond
-          (and (empty? seen-chars)
-               (contains? open-pairs char))   (-> current (move-left) (open-paren-match))
-          (pairs? char last-seen)             (recur (rest seen-chars) (move-left current))
-          (= init-cursor (:cursor current))   nil
-          (contains? closed-pairs char)       (recur (cons char seen-chars) (move-left current))
-          :else                               (recur seen-chars (move-left current)))))))
-
 (s/defn derive-expansion :- (s/maybe Region)
   [seeker :- Seeker]
   (let [expansion (:expansion seeker)
@@ -801,12 +792,31 @@
              [:word \[ \]]                          (free-expansion seeker)
              [:word \{ \}]                          (free-expansion seeker)
              [:word _ \space]                       (free-expansion seeker)
-             [:word (:or \" \space) (:or \) \] \})] (closed-paren-match (move-right seeker))
-             [:word (:or \) \] \}) _]               (closed-paren-match seeker)
-             [(:or :word :expr) _ (:or \( \[ \{)]   (open-paren-match seeker)
+             [:word (:or \" \space) (:or \) \] \})] (closed-paren-expansion seeker)
+             [:word (:or \) \] \}) _]               (closed-paren-expansion (move-left seeker))
+             [(:or :word :expr) _ (:or \( \[ \{)]   (open-paren-expansion seeker)
              [:word (:or \( \[ \{ \" \space nil) _] (word-expansion-right seeker)
              [:word _ _]                            (word-expansion-left seeker)
              :else                                  (free-expansion seeker))))
+
+(comment
+  "In order for region selections to work properly, I've decided to make
+   region start -> inclusive
+   region end -> exclusive.
+   this matches the cursor position when moving about.
+
+   However: when it comes to these pairs here, the matched pair is associated with where
+   the cursor lands AFTER it expanded.
+   Now the cursor lands after the closing character, because the region end is exclusive.
+   This means that the pair itself is one character BEHIND the cursor.")
+(s/defn find-pair :- (s/maybe Region)
+  [seeker :- Seeker]
+  (cond
+    (contains? open-pairs (current-char seeker))    (-> seeker (open-paren-expansion))
+    (contains? open-pairs (previous-char seeker))   (-> seeker (move-left) (open-paren-expansion))
+    (contains? closed-pairs (current-char seeker))  (-> seeker (closed-paren-expansion))
+    (contains? closed-pairs (previous-char seeker)) (-> seeker (move-left) (closed-paren-expansion))
+    :else                                           nil))
 
 (s/defn expand :- Seeker
   [seeker :- Seeker]

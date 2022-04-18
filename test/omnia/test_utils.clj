@@ -5,7 +5,7 @@
             [omnia.config.components.event :refer [Event TextEvent]]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.arithmetic :refer [-- ++]]
-            [omnia.util.generator :refer [do-gen]]
+            [omnia.util.generator :refer [do-gen one]]
             [omnia.repl.hud :refer [Hud]]
             [schema.core :as s]
             [clojure.test.check.generators :as gen]
@@ -111,12 +111,16 @@
            history-seekers history]
           (-> (r/context (c/convert c/default-user-config)
                          (server/client {:host    ""
-                                   :port    0
-                                   :history history-seekers
-                                   :client  (constantly response)})
+                                         :port    0
+                                         :history history-seekers
+                                         :client  (constantly response)})
                          view-size)
               (r/with-input-area input-seeker)
               (r/with-hud (h/hud hud-seeker view-size)))))
+
+(s/defn context-from :- Context
+  [text :- Seeker]
+  (-> {:text-area (gen/return text)} (gen-context) (one)))
 
 (def up (e/event e/up))
 (def down (e/event e/down))

@@ -1,5 +1,9 @@
 CURRENT TASK:
-Fix tests after changing selection
+The change in selection behaviour has influenced how parens pairs are interpreted.
+The selection goes up until the `end` (exclusive)
+When `i/find-pair` - the expansion goes until the `end` (exclusive)
+which means that the pair itself is not where the `end` is, but behind it.!
+See comment in omnia.text.core:754
 
 0. Fix selection issue in text.core (details found in omnia.text-test(line:578))
     - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`

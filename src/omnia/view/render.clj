@@ -108,6 +108,8 @@
             xs    (if (= y ys) xs 0)
             xe    (if (= y ye) xe (count line))
             y'    (h/project-y hud y)]
+        (d/debug selection)
+        (d/debug line)
         (doseq [x' (range xs xe)]
           (put-char! terminal (nth line x') x' y' -text scheme styles))))))
 
@@ -201,7 +203,6 @@
 (s/defn render!
   [ctx      :- Context,
    terminal :- Terminal]
-        (d/debug (select-keys ctx [:highlights :garbage]))
   (case (c/rendering ctx)
     :diff (doto terminal (clean-highlights! ctx) (render-diff! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
     :clear (doto terminal (t/clear!) (render-total! ctx) (set-position! ctx) (t/refresh!))

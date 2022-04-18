@@ -1902,15 +1902,32 @@
     (is (= cursor [2 2]))
     (is (= selection {:start [1 2] :end [2 2]}))))
 
-;; XI. Expanding
+;; XI. Expansion
+
+(deftest proper-match-parens
+  (testing "Closed pair expansion"
+    (let [pair     (-> ["[1 2 3|]"]
+                       (i/from-marked-text)
+                       (i/find-pair))
+          expected {:start [0 0]
+                    :end   [7 0]}]
+      (is (= pair expected))))
+
+  (testing "open pair expansion"
+    (let [pair     (-> ["|[1 2 3]"]
+                       (i/from-marked-text)
+                       (i/find-pair))
+          expected {:start [0 0]
+                    :end   [7 0]}]
+      (is (= pair expected)))))
 
 (deftest expands-to-words
-  (let [word1-start     (-> ["|some line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
-        word1-middle    (-> ["so|me line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
-        sentence-middle (-> ["some| line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
-        word2-start     (-> ["some |line"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
-        word2-middle    (-> ["some li|ne"] (i/from-marked-text) (i/expand) (i/extract) (:lines))
-        word2-end       (-> ["some line|"] (i/from-marked-text) (i/expand) (i/extract) (:lines))]
+  (let [word1-start     (-> ["|some line"] (i/from-marked-text) (process' [expand]) (i/extract) (:lines))
+        word1-middle    (-> ["so|me line"] (i/from-marked-text) (process' [expand]) (i/extract) (:lines))
+        sentence-middle (-> ["some| line"] (i/from-marked-text) (process' [expand]) (i/extract) (:lines))
+        word2-start     (-> ["some |line"] (i/from-marked-text) (process' [expand]) (i/extract) (:lines))
+        word2-middle    (-> ["some li|ne"] (i/from-marked-text) (process' [expand]) (i/extract) (:lines))
+        word2-end       (-> ["some line|"] (i/from-marked-text) (process' [expand]) (i/extract) (:lines))]
     (is (= word1-start word1-middle [[\s \o \m \e]]))
     (is (= word2-start word2-middle word2-end [[\l \i \n \e]]))
     (is (= sentence-middle [[\s \o \m \e \space \l \i \n \e]]))))
@@ -1919,7 +1936,7 @@
   (let [from-space (-> ["first| "
                         "second"]
                        (i/from-marked-text)
-                       (i/expand)
+                       (process' [expand])
                        (i/extract)
                        (:lines))]
     (is (= from-space  [[\f \i \r \s \t \space] [\s \e \c \o \n \d]]))))
@@ -1927,23 +1944,33 @@
 (deftest expands-over-exprs
   (->> [[\( \)] [\[ \]] [\{ \}]]
        (run! (fn [[l r]]
-               (let [from-start  (-> [(str "|" l l "some  word" r r)]
-                                     (i/from-marked-text)
-                                     (i/expand)
-                                     (i/extract)
-                                     (:lines))
-                     from-end    (-> [(str l l "some  word" r r "|")]
-                                     (i/from-marked-text)
-                                     (i/expand)
-                                     (i/extract)
-                                     (:lines))
-                     from-middle (-> [(str l l "some | word" r r)]
-                                     (i/from-marked-text)
-                                     (i/expand)
-                                     (i/extract)
-                                     (:lines))]
-                 (is (= from-start from-end [[l l \s \o \m \e \space \space \w \o \r \d r r]]))
-                 (is (= from-middle [[l \s \o \m \e \space \space \w \o \r \d r]])))))))
+               (let [start         (-> [(str "|" l l "some  word" r r)]
+                                       (i/from-marked-text)
+                                       (process' [expand])
+                                       (i/extract)
+                                       (:lines))
+                     end           (-> [(str l l "some  word" r r "|")]
+                                       (i/from-marked-text)
+                                       (process' [expand])
+                                       (i/extract)
+                                       (:lines))
+                     middle        (-> [(str l l "some | word" r r)]
+                                       (i/from-marked-text)
+                                       (process' [expand])
+                                       (i/extract)
+                                       (:lines))
+                     between-start (-> [(str l "|" l "some  word" r r)]
+                                       (i/from-marked-text)
+                                       (process' [expand])
+                                       (i/extract)
+                                       (:lines))
+                     between-end   (-> [(str l l "some  word" r "|" r)]
+                                       (i/from-marked-text)
+                                       (process' [expand])
+                                       (i/extract)
+                                       (:lines))]
+                 (is (= start end [[l l \s \o \m \e \space \space \w \o \r \d r r]]))
+                 (is (= middle between-start between-end [[l \s \o \m \e \space \space \w \o \r \d r]])))))))
 
 (deftest expands-from-words-to-exprs
   (let [parens [[\( \)] [\[ \]] [\{ \}]]]
@@ -1954,18 +1981,15 @@
             (let [text   (-> [(str ol il "|some word" ir or)]
                              (i/from-marked-text))
                   word   (-> text
-                             (i/expand)
+                             (process' [expand])
                              (i/extract)
                              (i/current-line))
                   expr   (-> text
-                             (i/expand)
-                             (i/expand)
+                             (process' [expand expand])
                              (i/extract)
                              (i/current-line))
                   o-expr (-> text
-                             (i/expand)
-                             (i/expand)
-                             (i/expand)
+                             (process' [expand expand expand])
                              (i/extract)
                              (i/current-line))]
               (is (= word [\s \o \m \e]))
@@ -1983,18 +2007,15 @@
             (let [text   (-> (str ol "\n" il "|some\nword" ir "\n" or)
                              (i/from-cursored-string))
                   word   (-> text
-                             (i/expand)
+                             (process' [expand])
                              (i/extract)
                              (:lines))
                   expr   (-> text
-                             (i/expand)
-                             (i/expand)
+                             (process' [expand expand])
                              (i/extract)
                              (:lines))
                   o-expr (-> text
-                             (i/expand)
-                             (i/expand)
-                             (i/expand)
+                             (process' [expand expand expand])
                              (i/extract)
                              (:lines))]
               (is (= word [[\s \o \m \e]]))
@@ -2112,12 +2133,19 @@
                  (:lines))]
     (is (= text [[\h \e \l \l \o] [\w \o] [\w \r \l \d] [\t \o \d \a \y]]))))
 
+(deftest what-parens
+  (-> ["|()"]
+      (i/from-marked-text)
+      (i/find-pair)
+      (println)))
+
 ;; XV. Parens matching
 
 (deftest matches-parens
+  "This doesn't test anything properly"
   ;; s1 mismatches
-  (is (= nil (-> "|[[[45[]]" (i/from-cursored-string) (i/find-pair))))
-  (is (= nil (-> "[|[[45[]]" (i/from-cursored-string) (i/find-pair))))
+  (is (= nil (-> ["|[[[45[]]"] (i/from-marked-text) (i/find-pair))))
+  (is (= nil (-> ["[|[[45[]]"] (i/from-marked-text) (i/find-pair))))
 
   ;; s1 matches
   (is (not= nil (-> "[[|[45[]]" (i/from-cursored-string) (i/find-pair))))

@@ -3,6 +3,7 @@
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [omnia.util.generator :refer [one]]
+            [clojure.test.check.generators :as g]
             [omnia.test-utils :refer :all]
             [schema.core :as s]
             [omnia.util.arithmetic :as a]
@@ -509,6 +510,18 @@
 
 ;; IX. Highlighting
 
+(defn failing-case []
+  (let [context (-> {:prefilled-size 0
+                     :view-size      7
+                     :text-area      (g/return (i/from-marked-text ["1"]))}
+                    (gen-context)
+                    (one))]
+    (-> context
+        (process [left left select-right select-right select-left]))
+    (-> context
+        (process [right right select-left select-left select-right]))
+    (is true)))
+
 (defn gc-same-line-moving-left [ctx]
   (let [test-ctx  (-> ctx (at-main-view-end) (at-line-start))
         text      (-> test-ctx (r/preview-hud) (h/text))
@@ -586,23 +599,47 @@
       (is (= (:start hl-region) [0 init-y]) "HL start mismatch")
       (is (= (:end hl-region) [(- end-x 1) end-y]) "HL end mismatch"))))
 
-(defn gc-multi-line-complete-selection-moving-up [ctx]
-  (let [test-ctx (-> ctx (at-main-view-end) (at-line-end))
-        text     (-> test-ctx (r/preview-hud) (h/text))
-        init-y   (-> test-ctx (r/persisted-hud) (h/text) (:size))
-        [_ end-y] (:cursor text)
-        exp-hl-x (count (i/line-at text (- end-y 2)))
-        exp-gc-x (count (i/line-at text (- end-y 1)))]
+;(defn gc-multi-line-complete-selection-moving-up [ctx]
+;  (let [test-ctx (-> ctx (at-main-view-end) (at-line-end))
+;        text     (-> test-ctx (r/preview-hud) (h/text))
+;        init-y   (-> test-ctx (r/persisted-hud) (h/text) (:size))
+;        [_ end-y] (:cursor text)
+;        exp-hl-x (count (i/line-at text (- end-y 2)))
+;        exp-gc-x (count (i/line-at text (- end-y 1)))]
+;
+;    (let [result    (process test-ctx [select-all select-up select-up])
+;          hl-region (-> result (r/highlights) (:selection) (:region))
+;          gc-region (-> result (r/garbage) (:selection) (:region))]
+;      (is (= (:start gc-region) [0 init-y]) "GC start mismatch")
+;      (is (= (:end gc-region) [exp-gc-x (- end-y 1)]) "GC end mismatch")
+;      (is (= (:start hl-region) [0 init-y]) "HL start mismatch")
+;      (is (= (:end hl-region) [exp-hl-x (- end-y 2)]) "HL end mismatch"))))
 
-    (let [result    (process test-ctx [select-all select-up select-up])
-          hl-region (-> result (r/highlights) (:selection) (:region))
-          gc-region (-> result (r/garbage) (:selection) (:region))]
-      (is (= (:start gc-region) [0 init-y]) "GC start mismatch")
-      (is (= (:end gc-region) [exp-gc-x (- end-y 1)]) "GC end mismatch")
-      (println (:end (i/line-at text (-> gc-region :end :y)))
-               (:end (i/line-at text (- end-y 1))))
-      (is (= (:start hl-region) [0 init-y]) "HL start mismatch")
-      (is (= (:end hl-region) [exp-hl-x (- end-y 2)]) "HL end mismatch"))))
+(defn gc-multi-line-complete-selection-moving-up [ctx]
+  (let [result     (-> ["This is"
+                        "a |large"
+                        "context"
+                        "from the depths"
+                        "of hell"]
+                       (i/from-marked-text)
+                       (context-from)
+                       (process [select-all select-up select-up]))
+        highlights (-> ["<This is"
+                        "a large"
+                        "context>"
+                        "from the depths"
+                        "of hell"]
+                       (i/from-marked-text)
+                       (:selection))
+        garbage    (-> ["<This is"
+                        "a large"
+                        "context"
+                        "from th>e depths"
+                        "of hell"]
+                       (i/from-marked-text)
+                       (:selection))]
+    (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights don't match")
+    (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Highlights don't match")))
 
 (defn gc-multi-line-complete-selection-moving-down [ctx]
   (let [bottom (-> ctx (at-main-view-end) (at-line-end))
@@ -668,13 +705,14 @@
     (is (empty? region))))
 
 (defn highlighting [ctx]
+  #_(failing-case)
   #_(gc-same-line-moving-left ctx)
-  (gc-same-line-moving-right ctx)
-  ;(gc-same-line-complete-selection-moving-left ctx)
-  ;(gc-same-line-complete-selection-moving-right ctx)
-  ;(gc-multi-line-complete-selection-moving-up ctx)
-  ;(gc-multi-line-complete-selection-moving-down ctx)
-  ;(gc-multi-line-complete-selection-moving-up-left ctx)
+  #_(gc-same-line-moving-right ctx)
+  (gc-same-line-complete-selection-moving-left ctx)
+  #_(gc-same-line-complete-selection-moving-right ctx)
+  #_(gc-multi-line-complete-selection-moving-up ctx)
+  #_(gc-multi-line-complete-selection-moving-down ctx)
+  #_(gc-multi-line-complete-selection-moving-up-left ctx)
   ;(gc-multi-line-complete-selection-moving-up-right ctx)
   ;(gc-multi-line-complete-selection-moving-down-left ctx)
   ;(gc-multi-line-complete-selection-moving-down-right ctx)
@@ -682,10 +720,10 @@
   ;
   )
 
-(defspec highlighting-test 1
+(defspec highlighting-test 100
   (for-all [tctx (gen-context {:prefilled-size 20
                                :view-size      7
-                               :text-area      (gen-text-area-of 10)})]#_
+                               :text-area      (gen-text-area-of 10)})]
            (highlighting tctx)))
 
 ;; X. Parenthesis matching

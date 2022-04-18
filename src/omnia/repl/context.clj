@@ -501,6 +501,15 @@
         _    (->> event (:value) (i/from-string) (r/evaluate! repl))]
     ctx))
 
+(s/defn show-highs :- Context
+  [ctx :- Context]
+  (-> ctx
+      (select-keys [:highlights :garbage])
+      (update :highlights #(if (empty? %) {} (:region (:selection %))))
+      (update :garbage #(if (empty? %) {} (:region (:selection %))))
+      (println))
+  ctx)
+
 (s/defn process :- Step
   [ctx :- Context
    event :- Event]
