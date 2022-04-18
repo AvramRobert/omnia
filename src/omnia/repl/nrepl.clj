@@ -242,14 +242,16 @@
     (-> repl (with-result result) (reset-timeline))))
 
 (s/defn accrete-response :- s/Str
-        [output :- s/Str
-         response :- NReplResponse]
-        (cond
-          (out? response) (->> response (:out) (f/format-str) (format "%s%s" output))
-          (err? response) (->> response (:err) (format "%s%s" output))
-          (exc? response) (->> response (:ex) (format "%sType: %s" output))
-          (val? response) (->> response (:value) (f/format-str) (format "%s\n%s" output))
-          :else output))
+  "Accretes repl responses to a string.
+   Pads value responses with empty lines before and after."
+  [output :- s/Str
+   response :- NReplResponse]
+  (cond
+    (out? response) (->> response (:out) (f/format-str) (format "%s%s" output))
+    (err? response) (->> response (:err) (format "%s%s" output))
+    (exc? response) (->> response (:ex) (format "%sType: %s" output))
+    (val? response) (->> response (:value) (f/format-str) (format "%s\n%s" output))
+    :else output))
 
 (s/defn evaluate! :- REPLClient
   [repl   :- REPLClient

@@ -109,22 +109,20 @@
   (empty-documentation client))
 
 (defn value-evaluation [client]
-  (let [expected (i/from-string "2\n\n")]
-    (->> "(+ 1 1)"
-         (i/from-string)
-         (r/evaluate! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [result (->> ["(+ 1 1)"]
+                    (i/from-marked-text)
+                    (r/evaluate! client)
+                    (r/result))
+        expected (i/from-marked-text ["" "2" ""])]
+    (is (= (:lines expected) (:lines result)))))
 
 (defn out-evaluation [client]
-  (let [expected (i/from-string "2\nnil\n\n")]
-    (->> "(println (+ 1 1))"
-         (i/from-string)
-         (r/evaluate! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [result   (->> ["(println (+ 1 1))"]
+                      (i/from-marked-text)
+                      (r/evaluate! client)
+                      (r/result))
+        expected (i/from-marked-text ["2" "" "nil" ""])]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn exception-evaluation [client]
   (let [evaluation (->> '(throw (IllegalArgumentException. "bla"))
