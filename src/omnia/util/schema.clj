@@ -9,6 +9,10 @@
   {:start Point
    :end   Point})
 
+(def Pair
+  {:left  Region
+   :right Region})
+
 (def StringUUID
   (s/pred #(try (UUID/fromString %) true (catch Exception _ false))))
 

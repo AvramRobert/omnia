@@ -275,12 +275,8 @@
 (s/defn match :- Context
   [ctx :- Context]
   (if-let [pair (-> ctx (preview-hud) (h/text) (i/find-pair))]
-    (let [[xs ys] (:start pair)
-          [xe ye] (:end pair)
-          open   (make-paren ctx {:start [xs ys]
-                                  :end   [(inc xs) ys]})
-          closed (make-paren ctx {:start [xe ye]
-                                  :end   [(inc xe) ye]})]
+    (let [open   (make-paren ctx (:left pair))
+          closed (make-paren ctx (:right pair))]
       (with-parens ctx open closed))
     ctx))
 
@@ -289,6 +285,7 @@
   (let [text (-> ctx (preview-hud) (h/text))]
     (cond
       (i/open-pairs (i/current-char text)) (match ctx)
+      (i/closed-pairs (i/current-char text)) (match ctx)
       (i/closed-pairs (i/previous-char text)) (match ctx)
       :else ctx)))
 

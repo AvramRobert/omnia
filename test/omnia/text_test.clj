@@ -1909,16 +1909,16 @@
     (let [pair     (-> ["[1 2 3|]"]
                        (i/from-marked-text)
                        (i/find-pair))
-          expected {:start [0 0]
-                    :end   [7 0]}]
+          expected {:left  {:start [0 0] :end [1 0]}
+                    :right {:start [6 0] :end [7 0]}}]
       (is (= pair expected))))
 
   (testing "open pair expansion"
     (let [pair     (-> ["|[1 2 3]"]
                        (i/from-marked-text)
                        (i/find-pair))
-          expected {:start [0 0]
-                    :end   [7 0]}]
+          expected {:left  {:start [0 0] :end [1 0]}
+                    :right {:start [6 0] :end [7 0]}}]
       (is (= pair expected)))))
 
 (deftest expands-to-words
@@ -2133,16 +2133,10 @@
                  (:lines))]
     (is (= text [[\h \e \l \l \o] [\w \o] [\w \r \l \d] [\t \o \d \a \y]]))))
 
-(deftest what-parens
-  (-> ["|()"]
-      (i/from-marked-text)
-      (i/find-pair)
-      (println)))
-
 ;; XV. Parens matching
 
+;; FIXME: This doesn't test anything properly
 (deftest matches-parens
-  "This doesn't test anything properly"
   ;; s1 mismatches
   (is (= nil (-> ["|[[[45[]]"] (i/from-marked-text) (i/find-pair))))
   (is (= nil (-> ["[|[[45[]]"] (i/from-marked-text) (i/find-pair))))

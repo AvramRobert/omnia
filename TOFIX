@@ -1,9 +1,6 @@
 CURRENT TASK:
-The change in selection behaviour has influenced how parens pairs are interpreted.
-The selection goes up until the `end` (exclusive)
-When `i/find-pair` - the expansion goes until the `end` (exclusive)
-which means that the pair itself is not where the `end` is, but behind it.!
-See comment in omnia.text.core:754
+
+The fucking highlighter is still broken
 
 0. Fix selection issue in text.core (details found in omnia.text-test(line:578))
     - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
@@ -18,8 +15,10 @@ See comment in omnia.text.core:754
     - Patch chunk-delete, make it more efficient
     - Use process' with events for text tests
     - Replace process' and process with the proper `process` functions from the core and context namespaces
-    - debug-string should also dispaly the selection and cursor
+    - debug-string should also display the selection and cursor
     - rename region coordinates "from" and "until" instead of "start" "end"
+    - the `omnia.text-test/matches-parens` test doesn't really check the selected regions. It should.
+    - use `with-marked-text` everywhere. Instead of `from-string` or `from-cursored-string`
 
 1. Fix highlighting issue specified in omnia.repl-test (line:530)
 2. Fix tests for highlighting in that file

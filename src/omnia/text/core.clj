@@ -4,7 +4,7 @@
             [omnia.config.components.event :as e]
             [clojure.string :as string]
             [clojure.set :refer [union map-invert]]
-            [omnia.util.schema :refer [=> Point Region]]
+            [omnia.util.schema :refer [=> Point Region Pair]]
             [omnia.util.arithmetic :refer [inc<]]
             [omnia.util.collection :refer [do-until reduce-idx dissoc-idx]]))
 
@@ -770,15 +770,11 @@
           :else                               (recur seen-chars (move-left current)))))))
 
 (s/defn word-expansion-right :- Region
-  "This assumes the cursor is after an open paren.
-   Jumps forward to encapsulate the word it was facing: ( <- | -> func"
   [seeker :- Seeker]
   {:start (:cursor seeker)
    :end   (:cursor (jump-right seeker))})
 
 (s/defn word-expansion-left :- Region
-  "This assumes the cursor is facing a closed paren.
-  Jumps backward to encapsulate the word it was back to: tion <- | -> )"
   [seeker :- Seeker]
   (-> seeker (jump-left) (word-expansion-right)))
 
@@ -799,24 +795,21 @@
              [:word _ _]                            (word-expansion-left seeker)
              :else                                  (free-expansion seeker))))
 
-(comment
-  "In order for region selections to work properly, I've decided to make
-   region start -> inclusive
-   region end -> exclusive.
-   this matches the cursor position when moving about.
-
-   However: when it comes to these pairs here, the matched pair is associated with where
-   the cursor lands AFTER it expanded.
-   Now the cursor lands after the closing character, because the region end is exclusive.
-   This means that the pair itself is one character BEHIND the cursor.")
-(s/defn find-pair :- (s/maybe Region)
+(s/defn find-pair :- (s/maybe Pair)
   [seeker :- Seeker]
-  (cond
-    (contains? open-pairs (current-char seeker))    (-> seeker (open-paren-expansion))
-    (contains? open-pairs (previous-char seeker))   (-> seeker (move-left) (open-paren-expansion))
-    (contains? closed-pairs (current-char seeker))  (-> seeker (closed-paren-expansion))
-    (contains? closed-pairs (previous-char seeker)) (-> seeker (move-left) (closed-paren-expansion))
-    :else                                           nil))
+  (letfn [(to-pair [region]
+            (let [[xs ys] (:start region)
+                  [xe ye] (:end region)]
+              {:left  {:start [xs ys]
+                       :end   [(inc xs) ys]}
+               :right {:start [(dec xe) ye]
+                       :end   [xe ye]}}))]
+    (cond
+      (contains? open-pairs (current-char seeker))    (some-> seeker (open-paren-expansion) (to-pair))
+      (contains? open-pairs (previous-char seeker))   (some-> seeker (move-left) (open-paren-expansion) (to-pair))
+      (contains? closed-pairs (current-char seeker))  (some-> seeker (closed-paren-expansion) (to-pair))
+      (contains? closed-pairs (previous-char seeker)) (some-> seeker (move-left) (closed-paren-expansion) (to-pair))
+      :else                                           nil)))
 
 (s/defn expand :- Seeker
   [seeker :- Seeker]
