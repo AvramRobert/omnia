@@ -375,7 +375,7 @@
 
 ;; IV. Clean-up highlighting
 
-(defn culled-partial-clean-up [ctx]
+(deftest culled-single-line-partial-clean-up
   (let [context (-> ["|this is a context"]
                     (i/from-marked-text)
                     (context-from)
@@ -391,7 +391,7 @@
             (is (= cleanup-background (first (distinct bgs))))
             (is (not (empty? fgs))))))))
 
-(defn culled-complete-clean-up [ctx]
+(deftest culled-single-line-complete-clean-up
   (let [context (-> ["|This is a context"]
                     (i/from-marked-text)
                     (context-from)
@@ -408,16 +408,43 @@
             (is (= cleanup-background (first (distinct bgs))))
             (is (not (empty? fgs))))))))
 
-(defn clean-up-render [ctx]
-  (culled-complete-clean-up ctx)
-  (culled-partial-clean-up ctx))
+(deftest culled-multi-line-complete-clean-up
+  (let [context (-> ["These |are"
+                     "multiple lines"]
+                    (i/from-marked-text)
+                    (context-from)
+                    (process [select-down right]))
+        expected (-> ["These <are"
+                      "multip>le lines"]
+                     (i/from-marked-text))]
+    (-> context
+        (accumulative)
+        (execute clean-highlights!)
+        (inspect
+          (fn [{:keys [chars cursors bgs fgs]}]
+            (is (= (selected-chars expected) chars))
+            (is (= (selected-cursors expected) cursors))
+            (is (= cleanup-background (first (distinct bgs))))
+            (is (not (empty? fgs))))))))
 
-#_(defspec clean-up-render-test
-         NR-OF-TESTS
-         (for-all [ctx (gen-context {:prefilled-size 5
-                                     :view-size      27
-                                     :text-area      (gen-text-area-of 29)})]
-                  (clean-up-render ctx)))
+(deftest culled-multi-line-partial-clean-up
+  (let [context (-> ["These |are"
+                     "multiple lines"]
+                    (i/from-marked-text)
+                    (context-from)
+                    (process [select-down select-left]))
+        expected (-> ["These are"
+                      "multi<p>le lines"]
+                     (i/from-marked-text))]
+    (-> context
+        (accumulative)
+        (execute clean-highlights!)
+        (inspect
+          (fn [{:keys [chars cursors bgs fgs]}]
+            (is (= (selected-chars expected) chars))
+            (is (= (selected-cursors expected) cursors))
+            (is (= cleanup-background (first (distinct bgs))))
+            (is (not (empty? fgs))))))))
 
 ;; V. Hud projection
 

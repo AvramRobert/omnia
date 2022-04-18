@@ -1,22 +1,5 @@
 CURRENT TASK:
 
-The highlighter is fucking broken because I forgot to add the exclusive printing
-of subregions when printing a line in `omnia.view.render/print-line`.
-The technical diffing mechanism in the context works (finally), the problem
-lies in the actual printing to the screen.
-
-When cleaning highlights, the entire line gets newly printed in order
-to recreate proper syntax highlighting when cleaning up.
-That printing of the entire line does not (yet) support only actually putting
-certain chars on the screen and ignoring others.
-So even though the whole entire system works, i.e: calculating the correct region,
-culling the garbage so that only the necessary gets printed, the fucking print-line
-goes ahead and recreates THE ENTIRE FUCKING LINE.
-
-As far as i remember, i had actually written this to do somewhere, but've forgotten.
-Fucking idiot.
-That's the problem with these fucking highlights.
-
 0. Fix selection issue in text.core (details found in omnia.text-test(line:578))
     - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
     - Rewrite the entire tests in text.test using simpler concepts
@@ -45,3 +28,5 @@ That's the problem with these fucking highlights.
 7. Possibly add set-highlighting
 8. Remove config from context. Use a separate parameter to the functions
 9. Rewrite tests using deftest and explicit `from-marked-text` usage. In context, text, render.
+10. Chuck away most of the context helpers from `test-utils` after simplifying tests using
+`from-marked-text`.

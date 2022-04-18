@@ -54,21 +54,16 @@
   [highlights :- c/Highlights]
   (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
 
-(def Culling (s/enum :garbage :highlights))
-
 (s/defn cull :- [c/HighlightInfo]
   "Diffs the `current` highlight against the `former` highlight.
   Returns only the diffed region from the `current` that doesn't overlap
   with anything in the `former`."
-  [ctx :- Context, cur :- Culling, current :- c/Highlights, former :- c/Highlights]
+  [ctx :- Context, current :- c/Highlights, former :- c/Highlights]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (if (= preview-ov previous-ov)
-      ;; additive-diff nils highlights that don't have a diff
-      (let [diffed (merge-common-with additive-diff current former)
-            _ (d/debug (str "Removed during " cur ": " (->> diffed (mapv (fn [[_ h]] (:region h))))))
-            _ (d/debug "--------------------------------------------------\n")]
-        (prioritise diffed))
+      ;; a nil from additive-diff means the highlights that don't have a diff
+      (prioritise (merge-common-with additive-diff current former))
       (prioritise current))))
 
 (s/defn put-char!
@@ -83,8 +78,10 @@
         bg (get scheme backgrounds)]
     (t/put! terminal character x y fg bg styles)))
 
-;; FIXME: there are subregions which are not printed
 (s/defn print-line!
+  "Prints a line with syntax highlighting and styles.
+   To keep syntax highlighting correct, iterates through the whole line.
+   It however explicitly prints only the sub-regions specified by [xs xe]."
   [terminal :- Terminal
    line     :- i/Line
    y        :- s/Int
@@ -130,21 +127,18 @@
         garbage    (c/garbage ctx)
         preview    (c/preview-hud ctx)
         text       (h/text preview)]
-    (doseq [highlight (cull ctx :garbage garbage highlights)]
+    (doseq [highlight (cull ctx garbage highlights)]
       (let [region (->> highlight (:region) (h/clip-selection preview))
             scheme (->> highlight (:scheme))
             styles (->> highlight (:styles))
             [xs ys] (:start region)
             [xe ye] (:end region)]
-        (doseq [y (range ys (inc ye))]
-          (print-line! terminal
-                       (i/line-at text y)
-                       (h/project-y preview y)
-                       xs
-                       xe
-                       0
-                       scheme
-                       styles))))))
+        (doseq [y (range ys (inc ye))
+                :let [line (i/line-at text y)
+                      xs   (if (= y ys) xs 0)
+                      xe   (if (= y ye) xe (count line))
+                      y    (h/project-y preview y)]]
+          (print-line! terminal line y xs xe 0 scheme styles))))))
 
 (s/defn render-highlights!
   [terminal :- Terminal,
@@ -152,7 +146,7 @@
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
         preview    (c/preview-hud ctx)]
-    (doseq [highlight (cull ctx :highlights highlights garbage)]
+    (doseq [highlight (cull ctx highlights garbage)]
       (print-highlight! terminal preview highlight))))
 
 (s/defn set-position!
@@ -179,17 +173,12 @@
         scheme   (-> ctx (c/configuration) (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
-      (let [a   (nth now y nil)
-            b   (nth then y nil)
-            pad (padding a b)]
-        (print-line! terminal
-                     a
-                     y
-                     0
-                     (count a)
-                     pad
-                     scheme
-                     [])))))
+      (let [line      (nth now y nil)
+            line-then (nth then y nil)
+            pad       (padding line line-then)
+            xs        0
+            xe        (count line)]
+        (print-line! terminal line y xs xe pad scheme [])))))
 
 (s/defn render-diff!
   [terminal :- Terminal
@@ -204,18 +193,13 @@
     (if (not= (h/view-offset preview) (h/view-offset previous))
       (render-total! terminal ctx)
       (dotimes [y limit]
-        (let [a   (nth now y nil)
-              b   (nth then y nil)
-              pad (padding a b)]
-          (when (not= a b)
-            (print-line! terminal
-                         a
-                         y
-                         0
-                         (count a)
-                         pad
-                         scheme
-                         [])))))))
+        (let [line      (nth now y nil)
+              line-then (nth then y nil)
+              pad       (padding line line-then)
+              xs        0
+              xe        (count line)]
+          (when (not= line line-then)
+            (print-line! terminal line y xs xe pad scheme [])))))))
 
 (s/defn render-nothing!
   [terminal :- Terminal,
