@@ -54,13 +54,21 @@
   [highlights :- c/Highlights]
   (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
 
+(def Culling (s/enum :garbage :highlights))
+
 (s/defn cull :- [c/HighlightInfo]
-  [ctx :- Context, current :- c/Highlights, former :- c/Highlights]
+  "Diffs the `current` highlight against the `former` highlight.
+  Returns only the diffed region from the `current` that doesn't overlap
+  with anything in the `former`."
+  [ctx :- Context, cur :- Culling, current :- c/Highlights, former :- c/Highlights]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (if (= preview-ov previous-ov)
       ;; additive-diff nils highlights that don't have a diff
-      (prioritise (merge-common-with additive-diff current former))
+      (let [diffed (merge-common-with additive-diff current former)
+            _ (d/debug (str "Removed during " cur ": " (->> diffed (mapv (fn [[_ h]] (:region h))))))
+            _ (d/debug "--------------------------------------------------\n")]
+        (prioritise diffed))
       (prioritise current))))
 
 (s/defn put-char!
@@ -89,6 +97,7 @@
         print! (fn [x emission chars]
                  (reduce-idx
                    (fn [x' _ character]
+                     (d/debug (str "Printing: " [x' y]))
                      (put-char! terminal character x' y emission scheme styles)) x nil chars)
                  (+ x (count chars)))]
     (->> line (fold print! 0) (pad!))))
@@ -119,7 +128,7 @@
         garbage    (c/garbage ctx)
         preview    (c/preview-hud ctx)
         text       (h/text preview)]
-    (doseq [highlight (cull ctx garbage highlights)]
+    (doseq [highlight (cull ctx :garbage garbage highlights)]
       (let [region (->> highlight (:region) (h/clip-selection preview))
             scheme (->> highlight (:scheme))
             styles (->> highlight (:styles))
@@ -139,7 +148,7 @@
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
         preview    (c/preview-hud ctx)]
-    (doseq [highlight (cull ctx highlights garbage)]
+    (doseq [highlight (cull ctx :highlights highlights garbage)]
       (print-highlight! terminal preview highlight))))
 
 (s/defn set-position!
