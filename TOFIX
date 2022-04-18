@@ -44,3 +44,4 @@ That's the problem with these fucking highlights.
 6. Fix number highlighter based on #5
 7. Possibly add set-highlighting
 8. Remove config from context. Use a separate parameter to the functions
+9. Rewrite tests using deftest and explicit `from-marked-text` usage. In context, text, render.

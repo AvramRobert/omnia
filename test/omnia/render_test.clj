@@ -61,6 +61,8 @@
                 :fgs     fgs
                 :stls    stls}}))
 
+(def cleanup-background (get d/default-colours ct/default))
+
 (s/defn inspect
   [acc :- Accumulate p]
   (->> acc (:state) (map-vals deref) (p)))
@@ -70,26 +72,42 @@
   (f (:terminal acc) (:ctx acc))
   acc)
 
-(s/defn index-seeker :- IndexedSeeker
-  [seeker :- i/Seeker]
-  (i/rebase seeker #(map-indexed
+(s/defn index-text :- IndexedSeeker
+  [text :- i/Seeker]
+  (i/rebase text #(map-indexed
                       (fn [y line]
                         (vec
                           (map-indexed
                             (fn [x c]
                               {:cursor [x y] :char c}) line))) %)))
 
+(s/defn selected-chars :- [Character]
+  [text :- i/Seeker]
+  (->> text
+       (i/extract)
+       (:lines)
+       (mapcat identity)))
+
+(s/defn selected-cursors :- [Point]
+  [text :- i/Seeker]
+  (->> text
+       (index-seeker)
+       (i/extract)
+       (:lines)
+       (mapcat #(map :cursor %))
+       (vec)))
+
 (s/defn index :- [IndexedCharacter]
   ([hud :- h/Hud]
    (->> hud
         (h/project-hud)
-        (index-seeker)
+        (index-text)
         (:lines)
         (flatten))))
 
 (s/defn index-at :- [IndexedCharacter]
   ([hud :- h/Hud, region :- Region]
-   (let [indexed-text (->> hud (h/project-hud) (index-seeker))
+   (let [indexed-text (->> hud (h/project-hud) (index-text))
          selection    (h/project-selection hud region)
          [_ ys]       (:start selection)
          [_ ye]       (:end selection)]
@@ -271,7 +289,7 @@
   (let [processed        (process ctx [select-all])
         projected        (project-preview processed)
         expected-chars   (->> projected (:lines) (flatten))
-        expected-cursors (->> projected (index-seeker) (:lines) (flatten) (map :cursor))]
+        expected-cursors (->> projected (index-text) (:lines) (flatten) (map :cursor))]
     (-> processed
         (accumulative)
         (execute render-highlights!)
@@ -357,6 +375,22 @@
 
 ;; IV. Clean-up highlighting
 
+(defn culled-line-clean-up [ctx]
+  (let [context (-> ["|this is a context"]
+                    (i/from-marked-text)
+                    (context-from)
+                    (process [select-right select-right select-right select-left]))
+        expected (-> ["th<i>s is a context"] (i/from-marked-text))]
+    (-> context
+        (accumulative)
+        (execute clean-highlights!)
+        (inspect
+          (fn [{:keys [chars cursors bgs fgs]}]
+            (is (= (selected-chars expected) chars))
+            (is (= (selected-cursors expected) cursors))
+            (is (= cleanup-background (first (distinct bgs))))
+            (is (not (empty? fgs))))))))
+
 (defn arbitrary-line-clean-up [ctx]
   (let [adapted     (-> ctx
                         (at-main-view-start)
@@ -382,9 +416,9 @@
             (is (not (empty? fgs))))))))
 
 (defn clean-up-render [ctx]
+  (culled-line-clean-up ctx)
   (arbitrary-line-clean-up ctx))
 
-;; Even though previously I only put the highlighted characters, I still started at the beginning of the line an iterated over it entirely
 (defspec clean-up-render-test
          NR-OF-TESTS
          (for-all [ctx (gen-context {:prefilled-size 5
