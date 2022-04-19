@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [is]]
             [omnia.repl.context :refer [Context HighlightType]]
             [omnia.text.core :refer [Seeker]]
-            [omnia.config.components.events :refer [Event TextEvent]]
+            [omnia.components.events :refer [Event]]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.arithmetic :refer [-- ++]]
             [omnia.util.generator :refer [do-gen one]]
@@ -16,7 +16,7 @@
             [omnia.repl.context :as r]
             [omnia.repl.nrepl :as server]
             [omnia.view.terminal :as t]
-            [omnia.config.components.events :as e]))
+            [omnia.components.events :as e]))
 
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -122,42 +122,42 @@
   [text :- Seeker]
   (-> {:text-area (gen/return text)} (gen-context) (one)))
 
-(def up (e/event e/up))
-(def down (e/event e/down))
-(def left (e/event e/left))
-(def right (e/event e/right))
-(def select-all (e/event e/select-all))
-(def select-down (e/event e/select-down))
-(def select-up (e/event e/select-up))
-(def select-right (e/event e/select-right))
-(def select-left (e/event e/select-left))
-(def jump-select-left (e/event e/select-jump-left))
-(def jump-select-right (e/event e/select-jump-right))
-(def expand (e/event e/expand))
-(def copy (e/event e/copy))
-(def paste (e/event e/paste))
-(def enter (e/event e/break))
-(def undo (e/event e/undo))
-(def redo (e/event e/redo))
-(def scroll-up (e/event e/scroll-up))
-(def scroll-down (e/event e/scroll-down))
-(defn character [k] (e/event e/character k))
-(def clear (e/event e/clear))
-(def evaluate (e/event e/evaluate))
-(def prev-eval (e/event e/prev-eval))
-(def next-eval (e/event e/next-eval))
-(def parens-match (e/event e/match))
-(def suggest (e/event e/suggest))
-(def ignore (e/event e/ignore))
-(def delete-previous (e/event e/backspace))
-(def delete-current (e/event e/delete))
+(def up e/move-up)
+(def down e/move-down)
+(def left e/move-left)
+(def right e/move-right)
+(def select-all e/select-all)
+(def select-down e/select-down)
+(def select-up e/select-up)
+(def select-right e/select-right)
+(def select-left e/select-left)
+(def jump-select-left e/jump-select-left)
+(def jump-select-right e/jump-select-right)
+(def expand e/expand)
+(def copy e/copy)
+(def paste e/paste)
+(def enter e/new-line)
+(def undo e/undo)
+(def redo e/redo)
+(def scroll-up e/scroll-up)
+(def scroll-down e/scroll-down)
+(defn character [k] (e/character k))
+(def clear e/clear)
+(def evaluate e/evaluate)
+(def prev-eval e/prev-eval)
+(def next-eval e/next-eval)
+(def parens-match e/paren-match)
+(def suggest e/suggest)
+(def ignore e/ignore)
+(def delete-previous e/delete-previous)
+(def delete-current e/delete-current)
 
 (s/defn process :- Context
   [ctx :- Context, events :- [Event]]
   (reduce (comp :ctx r/process) ctx events))
 
 (s/defn process' :- Seeker
-  [seeker :- Seeker, events :- [TextEvent]]
+  [seeker :- Seeker, events :- [Event]]
   (reduce i/process seeker events))
 
 (s/defn overview :- s/Int
@@ -264,7 +264,7 @@
 (s/defn resize-view-by :- Context
   [ctx :- Context, n :- s/Int]
   (let [new-size (-> ctx (r/view-size) (++ n))]
-    (process ctx [(e/resize-event 80 new-size)])))
+    (process ctx [(e/resize 80 new-size)])))
 
 (s/defn maximise-view :- Context
   [ctx :- Context]

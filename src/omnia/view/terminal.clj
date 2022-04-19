@@ -1,14 +1,12 @@
 (ns omnia.view.terminal
   (:require [schema.core :as s]
-            [omnia.config.components.events :as e]
-            [omnia.config.components.text :as t]
-            [omnia.config.components.core :as c]
-            [omnia.config.components.keys :as i]
+            [omnia.components.events :as e]
+            [omnia.components.syntax :as t]
+            [omnia.config.schema :as c]
+            [omnia.components.keys :as i]
             [clojure.set :refer [map-invert]]
-            [omnia.config.core :refer [Config]]
             [omnia.util.collection :refer [map-vals]]
-            [omnia.util.misc :refer [omnia-version]]
-            [omnia.util.debug :refer [debug]])
+            [omnia.util.misc :refer [omnia-version]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory TerminalResizeListener)
            (com.googlecode.lanterna.input KeyType KeyStroke)
@@ -93,10 +91,13 @@
 
 (s/defn to-key-stroke :- KeyStroke
   [{:keys [key ctrl alt shift]} :- c/KeyBinding]
-   (let [key-type (cond (char? key) key
-                        (contains? key->key-type key) (key->key-type key)
-                        :else KeyType/Unknown)]
-     (KeyStroke. key-type ctrl alt shift)))
+  (cond (char? key)
+        (KeyStroke. ^Character key ^Boolean ctrl ^Boolean alt ^Boolean shift)
+
+        (contains? key->key-type key)
+        (KeyStroke. ^KeyType (get key->key-type key) ^Boolean ctrl ^Boolean alt ^Boolean shift)
+
+        :else KeyType/Unknown))
 
 (s/defn rgb->text-colour :- {t/RGBColour TextColor}
    [syntax :- c/Syntax]
@@ -107,7 +108,7 @@
 ;; the supported ones are already mapped by lanterna to special keys
 (s/def char->event :- {Character e/Event}
   (->> (range 32 65535)
-       (map (juxt char (comp e/char-event char)))
+       (map (juxt char (comp e/character char)))
        (into {})))
 
 (s/defn key-stroke->event :- {KeyStroke e/Event}
@@ -143,12 +144,12 @@
 ;; uses a memoised hashmap of all objects to reduce overhead
 (s/defn impl-get-input-event! :- e/Event
   [screen         :- TerminalScreen
-   context-events :- {KeyStroke e/ContextEvent}
-   text-events    :- {Character e/TextEvent}]
+   context-events :- {KeyStroke e/Event}
+   text-events    :- {Character e/Event}]
   (let [input ^KeyStroke (.readInput screen)]
     (or (get context-events input)
         (get text-events (.getCharacter input))
-        e/ignore-event)))
+        e/ignore)))
 
 (s/defn impl-get-resize-event! :- (s/maybe e/Event)
   [screen   :- TerminalScreen
@@ -156,8 +157,8 @@
   (when @resized?
     (reset! resized? false)
     (.doResizeIfNecessary screen)
-    (e/resize-event (-> screen (.getTerminalSize) (.getColumns))
-                    (-> screen (.getTerminalSize) (.getRows)))))
+    (e/resize (-> screen (.getTerminalSize) (.getColumns))
+              (-> screen (.getTerminalSize) (.getRows)))))
 
 (s/defn impl-move! [t :- TerminalScreen
                     x :- s/Int
@@ -185,13 +186,13 @@
   (.refresh screen))
 
 (s/defn derive-palette :- TerminalEmulatorColorConfiguration
-  [config :- Config]
+  [config :- c/Config]
   (if-let [palette (-> config (:terminal) (t/palette))]
     (TerminalEmulatorColorConfiguration/newInstance palette)
     (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)))
 
 (s/defn derive-font :- SwingTerminalFontConfiguration
-  [config :- Config]
+  [config :- c/Config]
   (let [font-path ^String (-> config (:terminal) (t/font-path))
         font-size ^Float  (-> config (:terminal) (t/font-size) (float))
         font      ^Font   (-> Font/TRUETYPE_FONT
@@ -200,7 +201,7 @@
     (SwingTerminalFontConfiguration/newInstance (into-array Font [font]))))
 
 (s/defn create-screen :- TerminalScreen
-  [config        :- Config
+  [config        :- c/Config
    resizing-sink :- Atom]
   (let [listener (reify TerminalResizeListener (onResized [_ _ _] (reset! resizing-sink true)))]
     (-> (DefaultTerminalFactory.)
@@ -212,7 +213,7 @@
         (TerminalScreen.))))
 
 (s/defn terminal :- Terminal
-  [config :- Config]
+  [config :- c/Config]
   (let [resizing-sink           (atom false)
         screen ^TerminalScreen  (create-screen config resizing-sink)
         memoised-context-events (-> config (:keymap) (key-stroke->event))

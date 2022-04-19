@@ -4,18 +4,8 @@
             [clojure.string :refer [join]]
             [schema.core :as s]
             [omnia.config.defaults :as d]
-            [omnia.config.components.core :as c]
-            [omnia.config.components.text :as t]))
-
-(def UserConfig
-  {:keymap                    c/UserKeyMap
-   :syntax                    c/UserHighlighting
-   (s/optional-key :terminal) c/UserTerminal})
-
-(def Config
-  {:keymap   c/KeyMap
-   :syntax   c/Syntax
-   :terminal c/Terminal})
+            [omnia.config.schema :as c]
+            [omnia.components.syntax :as t]))
 
 (s/defn check-duplicates! [keymap :- c/UserKeyMap]
   (letfn [(report! [errs]
@@ -92,26 +82,26 @@
   [provided-terminal :- c/UserTerminal]
   (merge-from-both provided-terminal d/default-user-terminal))
 
-(s/defn convert :- Config
-  [config :- UserConfig]
+(s/defn convert :- c/Config
+  [config :- c/UserConfig]
   {:keymap   (-> config (:keymap) (fix-keymap))
    :syntax   (-> config (:syntax) (fix-highlighting) (create-syntax))
    :terminal (-> config (:terminal) (fix-terminal))})
 
-(s/def default-user-config :- UserConfig
+(s/def default-user-config :- c/UserConfig
   {:keymap   d/default-user-keymap
    :syntax   d/default-user-highlighting
    :terminal d/default-user-terminal})
 
-(s/def default-config :- Config
+(s/def default-config :- c/Config
   (convert default-user-config))
 
-(s/defn read-user-config! :- UserConfig
+(s/defn read-user-config! :- c/UserConfig
   [path :- String]
   (let [config (slurp-or-else path default-user-config)
         _      (validate! config)]
     config))
 
-(s/defn read-config! :- Config
+(s/defn read-config! :- c/Config
   [path :- String]
   (-> path (read-user-config!) (convert)))

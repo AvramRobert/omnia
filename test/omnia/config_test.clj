@@ -12,9 +12,9 @@
                                           gen-user-key-binding]]
             [omnia.util.collection :refer [map-vals]]
             [halfling.task :as t]
-            [omnia.config.components.text :as tc]
-            [omnia.config.components.core :as cc]
-            [omnia.config.components.keys :as kc]
+            [omnia.components.syntax :as tc]
+            [omnia.config.schema :as cc]
+            [omnia.components.keys :as kc]
             [omnia.config.defaults :as d]
             [omnia.config.core :as c]
             [schema.core :as s]))

@@ -11,10 +11,9 @@
             [schema.core :as s]
             [omnia.repl.context :as r]
             [omnia.repl.hud :as h]
-            [omnia.view.terminal :as t]
             [omnia.text.core :as i]
             [omnia.repl.context :as c]
-            [omnia.config.components.text :as ct]
+            [omnia.components.syntax :as ct]
             [omnia.config.defaults :as d])
   (:import (clojure.lang Atom)))
 

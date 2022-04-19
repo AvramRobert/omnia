@@ -1,4 +1,4 @@
-(ns omnia.config.components.text
+(ns omnia.components.syntax
   (:require [schema.core :as s]
             [omnia.text.syntax :as h]))
 
@@ -37,18 +37,47 @@
 (def yellow :yellow)
 (def default :default)
 
-(def elements #{lists vectors maps numbers characters strings keywords comments
-                words functions texts commas selections backgrounds foregrounds})
-(def styles #{bold blinking strikethrough underline})
-(def colours #{black white red blue cyan magenta yellow green default})
+(def elements
+  #{lists
+    vectors
+    maps
+    numbers
+    characters
+    strings
+    keywords
+    comments
+    words
+    functions
+    texts
+    commas
+    selections
+    backgrounds
+    foregrounds})
 
-(def ColouredElement
+(def styles
+  #{bold
+    blinking
+    strikethrough
+    underline})
+
+(def colours
+  #{black
+    white
+    red
+    blue
+    cyan
+    magenta
+    yellow
+    green
+    default})
+
+(def SyntaxElement
   (apply s/enum elements))
+
+(def Style (apply s/enum styles))
 
 (def PresetColour
   (apply s/enum colours))
-
-(def Style (apply s/enum styles))
 
 (def RGBColour
   (s/constrained [(s/pred #(<= % 255))] #(= 3 (count %))))
@@ -62,6 +91,6 @@
 
 (def FontSize s/Num)
 
-(s/defn coloured-element :- ColouredElement
+(s/defn syntax-element :- SyntaxElement
   [emission :- h/Emission]
   emission)

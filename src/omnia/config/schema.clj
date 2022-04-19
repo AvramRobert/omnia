@@ -1,12 +1,9 @@
-(ns omnia.config.components.core
+(ns omnia.config.schema
   (:require [schema.core :as s]
-            [omnia.config.components.text :as t]
-            [omnia.config.components.keys :as i]
-            [omnia.config.components.events :as e]
+            [omnia.components.syntax :as t]
+            [omnia.components.keys :as i]
+            [omnia.components.actions :as e]
             [omnia.util.collection :refer [map-vals]]))
-
-(def OS
-  (s/enum :linux :mac :windows))
 
 (def UserKeyBinding
   {:key                    i/Key
@@ -24,22 +21,22 @@
    e/copy              UserKeyBinding
    e/cut               UserKeyBinding
    e/select-all        UserKeyBinding
-   e/up                UserKeyBinding
-   e/down              UserKeyBinding
-   e/left              UserKeyBinding
-   e/right             UserKeyBinding
+   e/move-up           UserKeyBinding
+   e/move-down         UserKeyBinding
+   e/move-left         UserKeyBinding
+   e/move-right        UserKeyBinding
    e/jump-left         UserKeyBinding
    e/jump-right        UserKeyBinding
    e/select-up         UserKeyBinding
    e/select-down       UserKeyBinding
    e/select-left       UserKeyBinding
    e/select-right      UserKeyBinding
-   e/select-jump-left  UserKeyBinding
-   e/select-jump-right UserKeyBinding
-   e/backspace         UserKeyBinding
-   e/delete            UserKeyBinding
-   e/break             UserKeyBinding
-   e/match             UserKeyBinding
+   e/jump-select-left  UserKeyBinding
+   e/jump-select-right UserKeyBinding
+   e/delete-previous   UserKeyBinding
+   e/delete-current    UserKeyBinding
+   e/new-line          UserKeyBinding
+   e/paren-match       UserKeyBinding
    e/suggest           UserKeyBinding
    e/scroll-up         UserKeyBinding
    e/scroll-down       UserKeyBinding
@@ -69,6 +66,11 @@
    (s/optional-key t/font-size) t/FontSize
    (s/optional-key t/palette)   t/Palette})
 
+(def UserConfig
+  {:keymap                    UserKeyMap
+   :syntax                    UserHighlighting
+   (s/optional-key :terminal) UserTerminal})
+
 (def KeyBinding
   {:key   i/Key
    :alt   s/Bool
@@ -79,11 +81,7 @@
   (map-vals (constantly KeyBinding) UserKeyMap))
 
 (def Highlighting
-  (->> {t/selections  t/Colour
-        t/backgrounds t/Colour
-        t/foregrounds t/Colour}
-       (merge UserHighlighting)
-       (map-vals (constantly t/RGBColour))))
+  {t/SyntaxElement t/RGBColour})
 
 (def Syntax
   {:standard  Highlighting
@@ -94,3 +92,8 @@
   {t/font-path                t/FontPath
    t/font-size                t/FontSize
    (s/optional-key t/palette) t/Palette})
+
+(def Config
+  {:keymap   KeyMap
+   :syntax   Syntax
+   :terminal Terminal})

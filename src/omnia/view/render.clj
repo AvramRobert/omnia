@@ -4,10 +4,9 @@
             [omnia.text.core :as i]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
-            [omnia.util.debug :as d]
-            [omnia.config.components.core :refer [Highlighting]]
-            [omnia.config.components.text :refer [backgrounds coloured-element Style ColouredElement]]
-            [omnia.text.syntax :refer [fold -text]]
+            [omnia.config.schema :refer [Highlighting]]
+            [omnia.components.syntax :refer [backgrounds syntax-element Style SyntaxElement]]
+            [omnia.text.syntax :refer [Emission fold -text]]
             [omnia.repl.context :refer [Context]]
             [omnia.util.schema :refer [Point Region]]
             [omnia.util.collection :refer [merge-common-with map-vals reduce-idx]])
@@ -71,10 +70,10 @@
    character :- Character
    x         :- s/Int
    y         :- s/Int
-   emission  :- ColouredElement
+   emission  :- Emission
    scheme    :- Highlighting
    styles    :- [Style]]
-  (let [fg (get scheme (coloured-element emission))
+  (let [fg (get scheme (syntax-element emission))
         bg (get scheme backgrounds)]
     (t/put! terminal character x y fg bg styles)))
 

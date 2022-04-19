@@ -3,7 +3,8 @@
             [schema.core :as s]
             [halfling.task :as t]
             [clojure.string :as string]
-            [omnia.config.core :refer [UserConfig read-user-config!]]
+            [omnia.config.core :refer [read-user-config!]]
+            [omnia.config.schema :refer [UserConfig]]
             [omnia.util.misc :refer [omnia-version]]))
 
 (def OS (s/enum :linux :macOS :windows))
@@ -33,7 +34,7 @@
 (defn- sh [& args]
   (let [{:keys [out exit err]} (apply shell/sh args)]
     (if (neg? exit)
-      (throw (Exception. err))
+      (throw (Exception. ^String err))
       (println out))))
 
 (defn- make-executable! [path file-name version]

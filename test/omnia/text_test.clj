@@ -607,7 +607,7 @@
 (deftest inserts-replacing-selection-in-line
   (let [text (-> "|one line"
                  (i/from-cursored-string)
-                 (i/select-jump-right)
+                 (i/jump-select-right)
                  (i/insert \a)
                  (i/current-line))]
     (is (= text [\a \space \l \i \n \e]))))
@@ -615,9 +615,9 @@
 (deftest inserts-replacing-selection-between-lines
   (let [text (-> "one |line\ntwo lines"
                  (i/from-cursored-string)
-                 (i/select-jump-right)
-                 (i/select-jump-right)
-                 (i/select-jump-right)
+                 (i/jump-select-right)
+                 (i/jump-select-right)
+                 (i/jump-select-right)
                  (i/insert \a)
                  (:lines))]
     (is (= text [[\o \n \e \space \a \space \l \i \n \e \s]]))))
@@ -2039,8 +2039,8 @@
 (deftest copies-over-lines
   (let [text (-> "hel|lo\nworld"
                  (i/from-cursored-string)
-                 (i/select-jump-right)
-                 (i/select-jump-right)
+                 (i/jump-select-right)
+                 (i/jump-select-right)
                  (i/select-right)
                  (i/copy)
                  (:clipboard)
@@ -2070,8 +2070,8 @@
 (deftest cuts-over-lines
   (let [text    (-> "hello\nwor|ld\ntoday"
                     (i/from-cursored-string)
-                    (i/select-jump-right)
-                    (i/select-jump-right)
+                    (i/jump-select-right)
+                    (i/jump-select-right)
                     (i/select-right)
                     (i/cut))
         section (-> text (:clipboard) (:lines))
@@ -2091,7 +2091,7 @@
 ;;; XIV. Pasting
 
 (deftest pastes-within-line
-  (let [text   (-> "hel|lo world" (i/from-cursored-string) (i/select-jump-right))
+  (let [text   (-> "hel|lo world" (i/from-cursored-string) (i/jump-select-right))
         copied (-> text (i/copy) (i/deselect) (i/paste) (:lines))
         cut    (-> text (i/cut) (i/deselect) (i/paste) (:lines))]
     (is (= copied [[\h \e \l \l \o \l \o \space \w \o \r \l \d]]))
@@ -2100,8 +2100,8 @@
 (deftest pastes-over-lines
   (let [text   (-> "hello\nwor|ld\ntoday"
                    (i/from-cursored-string)
-                   (i/select-jump-right)
-                   (i/select-jump-right)
+                   (i/jump-select-right)
+                   (i/jump-select-right)
                    (i/select-right))
         copied (-> text (i/copy) (i/deselect) (i/paste) (:lines))
         cut    (-> text (i/cut) (i/deselect) (i/paste) (:lines))]
@@ -2295,7 +2295,7 @@
 (deftest undos-and-redos-dont-affect-clipboard
   (let [text     (-> "hel|lo world"
                      (i/from-cursored-string)
-                     (i/select-jump-right)
+                     (i/jump-select-right)
                      (i/remember)
                      (i/insert \a))
         original (:clipboard text)

@@ -1,7 +1,7 @@
 (ns omnia.util.generator
   (:require [clojure.test.check.generators :as gen]
-            [omnia.config.components.keys :as kc]
-            [omnia.config.components.text :as tc]
+            [omnia.components.keys :as kc]
+            [omnia.components.syntax :as tc]
             [omnia.config.defaults :as d]))
 
 (defmacro do-gen [binding & body]
@@ -49,5 +49,5 @@
   (do-gen [font-path (gen/one-of [(gen/return {})
                                   (gen/map (gen/return tc/font-path) gen/string-alphanumeric)])
            font-size (gen/one-of [(gen/return {})
-                                  (gen/map (gen/return tc/font-size) gen/pos-int)])]
+                                  (gen/map (gen/return tc/font-size) gen/nat)])]
     (merge font-path font-size)))

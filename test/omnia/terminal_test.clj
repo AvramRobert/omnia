@@ -10,9 +10,9 @@
             [clojure.test.check.generators :as gen]
             [omnia.view.terminal :as t]
             [omnia.config.core :as c]
-            [omnia.config.components.text :as tc]
-            [omnia.config.components.keys :as kc]
-            [omnia.config.components.events :as e])
+            [omnia.components.syntax :as tc]
+            [omnia.components.keys :as kc]
+            [omnia.components.events :as e])
   (:import (com.googlecode.lanterna.terminal Terminal)
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna TerminalSize TextCharacter)
@@ -76,7 +76,7 @@
                            (difference kc/key-set)
                            (gen-key-binding-from))]
              (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
-               (is (= e/ignore-event (t/impl-get-input-event! screen context-strokes text-events)))))))
+               (is (= e/ignore (t/impl-get-input-event! screen context-strokes text-events)))))))
 
 (defspec put-char NR-OF-TESTS
   (for-all [char  gen/char-alphanumeric

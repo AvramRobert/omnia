@@ -1,14 +1,11 @@
 CURRENT TASK:
 
-Move all events to the `events` namespace
+ - Use events from #2 in tests directly with the `process` function of the input or context
 
 Global issues:
-1. Move all events to the `events` namespace. Write functions for creating them.
-2. Rename events after what they do, not what the keys generally associated with these operations do.
-3. Use events from #2 in tests directly with the `process` function of the input or context
-4. Rewrite tests using deftest and the more straightforward concept of `from-marked-text`. (context, text, render, nrepl)
-5. Remove `from-cursored-string` and `from-string`
-6. Chuck away most of the context helpers from `test-utils` after simplifying tests using `from-marked-text`.
+ - Rewrite tests using deftest and the more straightforward concept of `from-marked-text`. (context, text, render, nrepl)
+ - Remove `from-cursored-string` and `from-string`
+ - Chuck away most of the context helpers from `test-utils` after simplifying tests using `from-marked-text`.
 
 omnia.text.core issues:
   - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
@@ -29,6 +26,12 @@ omnia.text.syntax issues:
 
 omnia.repl.context issues:
   - Remove config from context. Use a separate parameter to the functions
+
+omnia.view.terminal issues:
+  - Fix lanterna deprecation of `TextCharacter`
+
+general concept:
+  - define a `schema` namespace in every package for better separation of data and specification?
 
 Finishing touches:
 

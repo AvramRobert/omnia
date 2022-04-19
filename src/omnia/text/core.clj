@@ -1,7 +1,8 @@
 (ns omnia.text.core
   (:require [clojure.core.match :as m]
             [schema.core :as s]
-            [omnia.config.components.events :as e]
+            [omnia.components.events :as e]
+            [omnia.components.actions :as a]
             [clojure.string :as string]
             [clojure.set :refer [union map-invert]]
             [omnia.util.schema :refer [=> Point Region Pair]]
@@ -510,11 +511,11 @@
   [seeker :- Seeker]
   (select-with seeker move-down))
 
-(s/defn select-jump-right :- Seeker
+(s/defn jump-select-right :- Seeker
   [seeker :- Seeker]
   (select-with seeker jump-right))
 
-(s/defn select-jump-left :- Seeker
+(s/defn jump-select-left :- Seeker
   [seeker :- Seeker]
   (select-with seeker jump-left))
 
@@ -898,29 +899,29 @@
 
 (s/defn process :- Seeker
   [seeker :- Seeker
-   event :- e/TextEvent]
+   event :- e/Event]
   (condp = (:action event)
-    e/expand            (-> seeker (expand))
-    e/select-all        (-> seeker (select-all))
-    e/copy              (-> seeker (copy) (deselect))
-    e/cut               (-> seeker (remember) (cut) (deselect))
-    e/paste             (-> seeker (remember) (paste) (deselect))
-    e/up                (-> seeker (move-up) (deselect))
-    e/down              (-> seeker (move-down) (deselect))
-    e/left              (-> seeker (move-left) (deselect))
-    e/right             (-> seeker (move-right) (deselect))
-    e/jump-left         (-> seeker (jump-left) (deselect))
-    e/jump-right        (-> seeker (jump-right) (deselect))
-    e/select-up         (-> seeker (select-up))
-    e/select-down       (-> seeker (select-down))
-    e/select-left       (-> seeker (select-left))
-    e/select-right      (-> seeker (select-right))
-    e/select-jump-left  (-> seeker (select-jump-left))
-    e/select-jump-right (-> seeker (select-jump-right))
-    e/backspace         (-> seeker (remember) (delete-previous) (deselect))
-    e/delete            (-> seeker (remember) (delete-current) (deselect))
-    e/break             (-> seeker (remember) (new-line) (deselect))
-    e/undo              (-> seeker (undo) (deselect))
-    e/redo              (-> seeker (redo) (deselect))
-    e/character         (-> seeker (remember) (insert (:value event)) (deselect))
+    a/expand            (-> seeker (expand))
+    a/select-all        (-> seeker (select-all))
+    a/copy              (-> seeker (copy) (deselect))
+    a/cut               (-> seeker (remember) (cut) (deselect))
+    a/paste             (-> seeker (remember) (paste) (deselect))
+    a/move-up           (-> seeker (move-up) (deselect))
+    a/move-down         (-> seeker (move-down) (deselect))
+    a/move-left         (-> seeker (move-left) (deselect))
+    a/move-right        (-> seeker (move-right) (deselect))
+    a/jump-left         (-> seeker (jump-left) (deselect))
+    a/jump-right        (-> seeker (jump-right) (deselect))
+    a/select-up         (-> seeker (select-up))
+    a/select-down       (-> seeker (select-down))
+    a/select-left       (-> seeker (select-left))
+    a/select-right      (-> seeker (select-right))
+    a/jump-select-left  (-> seeker (jump-select-left))
+    a/jump-select-right (-> seeker (jump-select-right))
+    a/delete-previous   (-> seeker (remember) (delete-previous) (deselect))
+    a/delete-current    (-> seeker (remember) (delete-current) (deselect))
+    a/new-line          (-> seeker (remember) (new-line) (deselect))
+    a/undo              (-> seeker (undo) (deselect))
+    a/redo              (-> seeker (redo) (deselect))
+    a/character         (-> seeker (remember) (insert (:value event)) (deselect))
     seeker))
