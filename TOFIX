@@ -31,7 +31,8 @@ omnia.view.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
 
 general concept:
-  - define a `schema` namespace in every package for better separation of data and specification?
+  - define a `schema` package. For every namespace that defines its own schema, define
+    a namespace in the `schema` package for it and add them there
 
 Finishing touches:
 
