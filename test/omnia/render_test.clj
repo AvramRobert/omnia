@@ -1,20 +1,23 @@
 (ns omnia.render-test
-  (:require [clojure.test :refer [deftest is]]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check.properties :refer [for-all]]
-            [omnia.test-utils :refer :all]
-            [omnia.view.render :refer :all]
-            [omnia.util.collection :refer [map-vals reduce-idx]]
-            [omnia.util.schema :refer [Point Region]]
-            [omnia.util.generator :refer [one]]
-            [clojure.test.check.generators :as gen]
+  (:require [clojure.test.check.generators :as gen]
             [schema.core :as s]
             [omnia.repl.context :as r]
             [omnia.repl.hud :as h]
-            [omnia.text.core :as i]
+            [omnia.repl.text :as i]
             [omnia.repl.context :as c]
-            [omnia.components.syntax :as ct]
-            [omnia.config.defaults :as d])
+            [omnia.schema.syntax :as ct]
+            [omnia.config.defaults :as d]
+            [omnia.test-utils :refer :all]
+            [omnia.view.render :refer :all]
+            [clojure.test :refer [deftest is]]
+            [clojure.test.check.clojure-test :refer [defspec]]
+            [clojure.test.check.properties :refer [for-all]]
+            [omnia.util.collection :refer [map-vals reduce-idx]]
+            [omnia.util.generator :refer [one]]
+            [omnia.schema.text :refer [Seeker]]
+            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.context :refer [Context]]
+            [omnia.schema.common :refer [Point Region]])
   (:import (clojure.lang Atom)))
 
 (def ^:const NR-OF-TESTS 100)
@@ -24,7 +27,7 @@
    :cursor Point})
 
 (def IndexedSeeker
-  (assoc i/Seeker :lines [[IndexedCharacter]]))
+  (assoc Seeker :lines [[IndexedCharacter]]))
 
 (def State
   {:chars   Atom
@@ -34,11 +37,11 @@
    :stls    Atom})
 
 (def Accumulate
-  {:ctx r/Context
+  {:ctx Context
    :state State})
 
 (s/defn accumulative :- Accumulate
-  [ctx  :- r/Context]
+  [ctx  :- Context]
   (let [chars    (atom [])
         cursors  (atom [])
         bgs      (atom [])
@@ -72,7 +75,7 @@
   acc)
 
 (s/defn index-text :- IndexedSeeker
-  [text :- i/Seeker]
+  [text :- Seeker]
   (i/rebase text #(map-indexed
                       (fn [y line]
                         (vec
@@ -81,14 +84,14 @@
                               {:cursor [x y] :char c}) line))) %)))
 
 (s/defn selected-chars :- [Character]
-  [text :- i/Seeker]
+  [text :- Seeker]
   (->> text
        (i/extract)
        (:lines)
        (mapcat identity)))
 
 (s/defn selected-cursors :- [Point]
-  [text :- i/Seeker]
+  [text :- Seeker]
   (->> text
        (index-text)
        (i/extract)
@@ -97,7 +100,7 @@
        (vec)))
 
 (s/defn index :- [IndexedCharacter]
-  ([hud :- h/Hud]
+  ([hud :- Hud]
    (->> hud
         (h/project-hud)
         (index-text)
@@ -105,7 +108,7 @@
         (flatten))))
 
 (s/defn index-at :- [IndexedCharacter]
-  ([hud :- h/Hud, region :- Region]
+  ([hud :- Hud, region :- Region]
    (let [indexed-text (->> hud (h/project-hud) (index-text))
          selection    (h/project-selection hud region)
          [_ ys]       (:start selection)

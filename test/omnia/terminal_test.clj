@@ -1,18 +1,18 @@
 (ns omnia.terminal-test
-  (:require [clojure.test :refer :all]
+  (:require [schema.core :as s]
+            [clojure.test.check.generators :as gen]
+            [omnia.view.terminal :as t]
+            [omnia.config.core :as c]
+            [omnia.schema.syntax :as tc]
+            [omnia.schema.keymap :as kc]
+            [omnia.repl.events :as e]
+            [clojure.test :refer :all]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.set :refer [difference map-invert]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.util.generator :refer [do-gen gen-rgb]]
-            [omnia.util.schema :refer [Point]]
-            [schema.core :as s]
-            [clojure.test.check.generators :as gen]
-            [omnia.view.terminal :as t]
-            [omnia.config.core :as c]
-            [omnia.components.syntax :as tc]
-            [omnia.components.keys :as kc]
-            [omnia.components.events :as e])
+            [omnia.schema.common :refer [Point]])
   (:import (com.googlecode.lanterna.terminal Terminal)
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna TerminalSize TextCharacter)
@@ -77,7 +77,7 @@
                            (gen-key-binding-from))]
              (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
                (is (= e/ignore (t/impl-get-input-event! screen context-strokes text-events)))))))
-
+/
 (defspec put-char NR-OF-TESTS
   (for-all [char  gen/char-alphanumeric
             fg    gen-rgb

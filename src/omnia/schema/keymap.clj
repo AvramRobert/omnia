@@ -1,4 +1,4 @@
-(ns omnia.components.keys
+(ns omnia.schema.keymap
   (:require [schema.core :as s]))
 
 (def up :up)

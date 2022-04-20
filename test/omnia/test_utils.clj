@@ -1,22 +1,24 @@
 (ns omnia.test-utils
-  (:require [clojure.test :refer [is]]
-            [omnia.repl.context :refer [Context HighlightType]]
-            [omnia.text.core :refer [Seeker]]
-            [omnia.components.events :refer [Event]]
-            [omnia.util.schema :refer [Point Region]]
-            [omnia.util.arithmetic :refer [-- ++]]
-            [omnia.util.generator :refer [do-gen one]]
-            [omnia.repl.hud :refer [Hud]]
-            [schema.core :as s]
+  (:require [schema.core :as s]
             [clojure.test.check.generators :as gen]
-            [omnia.config.defaults :refer [default-user-highlighting]]
             [omnia.config.core :as c]
-            [omnia.text.core :as i]
+            [omnia.repl.text :as i]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as r]
             [omnia.repl.nrepl :as server]
             [omnia.view.terminal :as t]
-            [omnia.components.events :as e]))
+            [omnia.repl.events :as e]
+            [clojure.test :refer [is]]
+            [omnia.schema.context :refer [Context]]
+            [omnia.schema.render :refer [HighlightInfo HighlightType]]
+            [omnia.schema.terminal :refer [TerminalSpec]]
+            [omnia.schema.text :refer [Seeker Line]]
+            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.event :refer [Event]]
+            [omnia.schema.common :refer [Point Region]]
+            [omnia.util.arithmetic :refer [-- ++]]
+            [omnia.util.generator :refer [do-gen one]]
+            [omnia.config.defaults :refer [default-user-highlighting]]))
 
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -83,17 +85,17 @@
   (gen/vector (gen-text-area-of element-size) prefilled-size))
 
 (s/defn test-terminal :- t/Terminal
-  [fns :- t/TerminalSpec]
+  [fns :- TerminalSpec]
   (let [unit (constantly nil)]
     (reify t/Terminal
-      (clear! [t]                 ((:clear! fns unit) t))
-      (refresh! [t]               ((:refresh! fns unit) t))
-      (size [t]                   ((:size fns (constantly 10)) t))
-      (move! [t x y]              ((:move! fns unit) t x y))
-      (stop! [t]                  ((:stop! fns unit) t))
-      (start! [t]                 ((:start! fns unit) t))
+      (clear! [t] ((:clear! fns unit) t))
+      (refresh! [t] ((:refresh! fns unit) t))
+      (size [t] ((:size fns (constantly 10)) t))
+      (move! [t x y] ((:move! fns unit) t x y))
+      (stop! [t] ((:stop! fns unit) t))
+      (start! [t] ((:start! fns unit) t))
       (put! [t ch x y fg bg stls] ((:put! fns unit) t ch x y fg bg stls))
-      (get-event! [t]             ((:get-event! fns unit) t)))))
+      (get-event! [t] ((:get-event! fns unit) t)))))
 
 (defn gen-context [{:keys [prefilled-size
                            view-size
@@ -109,14 +111,14 @@
            input-seeker    text-area
            response        (gen-nrepl-result receive)
            history-seekers history]
-          (-> (r/context (c/convert c/default-user-config)
-                         (server/client {:host    ""
-                                         :port    0
-                                         :history history-seekers
-                                         :client  (constantly response)})
-                         view-size)
-              (r/with-input-area input-seeker)
-              (r/with-hud (h/hud hud-seeker view-size)))))
+    (-> (r/context (c/convert c/default-user-config)
+                   (server/client {:host    ""
+                                   :port    0
+                                   :history history-seekers
+                                   :client  (constantly response)})
+                   view-size)
+        (r/with-input-area input-seeker)
+        (r/with-hud (h/hud hud-seeker view-size)))))
 
 (s/defn context-from :- Context
   [text :- Seeker]
@@ -170,7 +172,7 @@
 
 (s/defn project-y :- s/Int
   [ctx :- Context]
-  (let [view  (r/preview-hud ctx)
+  (let [view (r/preview-hud ctx)
         [_ y] (-> view (h/text) (:cursor))]
     (h/project-y view y)))
 
@@ -187,7 +189,7 @@
 (defn suggestions [ctx]
   (-> ctx (r/client) (server/complete! i/empty-seeker) (server/result)))
 
-(s/defn suggestion-at :- i/Line
+(s/defn suggestion-at :- Line
   [ctx :- Context
    line :- s/Int]
   (-> ctx (suggestions) (i/reset-y line) (i/current-line)))
@@ -241,9 +243,9 @@
 
 (s/defn at-view-top :- Context
   [ctx :- Context]
-  (let [fov       (r/view-size ctx)
+  (let [fov      (r/view-size ctx)
         top-line #(-- % (dec fov))                          ;; (dec) because we want to land on the fov'th line
-        text      (-> ctx (r/input-area) (i/move-y top-line))]
+        text     (-> ctx (r/input-area) (i/move-y top-line))]
     (-> ctx (r/with-input-area text) (r/refresh))))
 
 (s/defn at-view-bottom :- Context
@@ -273,8 +275,8 @@
     (resize-view-by ctx (- text-size view-size))))
 
 (s/defn extend-highlight :- Context
-  [ctx         :- Context,
-   h-type      :- HighlightType,
+  [ctx :- Context,
+   h-type :- HighlightType,
    [xoff yoff] :- Point]
   (let [highlight (-> ctx
                       (r/highlights)
@@ -287,8 +289,8 @@
                            :end   [(+ xe xoff) (+ ye yoff)]})))]
     (r/with-highlight ctx h-type highlight)))
 
-(s/defn highlight-from :- r/HighlightInfo
-        [region :- Region]
-        {:region region
+(s/defn highlight-from :- HighlightInfo
+  [region :- Region]
+  {:region region
    :scheme default-user-highlighting
    :styles []})

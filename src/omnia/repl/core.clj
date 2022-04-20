@@ -4,12 +4,12 @@
             [omnia.view.terminal :as t]
             [omnia.view.render :as r]
             [omnia.repl.context :as c]
-            [omnia.components.events :as e]
-            [omnia.components.events :refer [Event]]
+            [omnia.repl.events :as e]
+            [omnia.schema.event :refer [Event]]
             [omnia.view.terminal :refer [Terminal]]
-            [omnia.repl.context :refer [Context]]
-            [omnia.repl.nrepl :refer [REPLClient]]
-            [omnia.config.schema :refer [Config]]))
+            [omnia.schema.context :refer [Context]]
+            [omnia.schema.nrepl :refer [REPLClient]]
+            [omnia.schema.config :refer [Config]]))
 
 (def prelude [(e/inject "(require '[omnia.repl.resolution :refer [retrieve retrieve-from]])")])
 

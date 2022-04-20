@@ -1,24 +1,27 @@
 (ns omnia.view.render
   (:require [schema.core :as s]
             [omnia.view.terminal :as t]
-            [omnia.text.core :as i]
+            [omnia.repl.text :as i]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
-            [omnia.config.schema :refer [Highlighting]]
-            [omnia.components.syntax :refer [backgrounds syntax-element Style SyntaxElement]]
-            [omnia.text.syntax :refer [Emission fold -text]]
-            [omnia.repl.context :refer [Context]]
-            [omnia.util.schema :refer [Point Region]]
-            [omnia.util.collection :refer [merge-common-with map-vals reduce-idx]])
+            [omnia.repl.syntax :as st]
+            [omnia.util.collection :refer [merge-common-with map-vals reduce-idx]]
+            [omnia.schema.render :refer :all]
+            [omnia.schema.text :refer [Line]]
+            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.config :refer [Highlighting]]
+            [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
+            [omnia.schema.context :refer [Context]]
+            [omnia.schema.common :refer [Point Region]])
   (:import (omnia.view.terminal Terminal)))
 
-(s/def highlight-priority :- {c/HighlightType s/Int}
+(s/def highlight-priority :- {HighlightType s/Int}
   {:selection    3
    :closed-paren 2
    :open-paren   1})
 
-(s/defn additive-diff :- (s/maybe c/HighlightInfo)
-  [current :- c/HighlightInfo, former :- c/HighlightInfo]
+(s/defn additive-diff :- (s/maybe HighlightInfo)
+  [current :- HighlightInfo, former :- HighlightInfo]
   (let [{[xs ys]   :start
          [xe ye]   :end} (:region current)
         {[xs' ys'] :start
@@ -49,15 +52,15 @@
           (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
       :else current)))
 
-(s/defn prioritise :- [c/HighlightInfo]
-  [highlights :- c/Highlights]
+(s/defn prioritise :- [HighlightInfo]
+  [highlights :- Highlights]
   (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
 
-(s/defn cull :- [c/HighlightInfo]
+(s/defn cull :- [HighlightInfo]
   "Diffs the `current` highlight against the `former` highlight.
   Returns only the diffed region from the `current` that doesn't overlap
   with anything in the `former`."
-  [ctx :- Context, current :- c/Highlights, former :- c/Highlights]
+  [ctx :- Context, current :- Highlights, former :- Highlights]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (if (= preview-ov previous-ov)
@@ -70,10 +73,10 @@
    character :- Character
    x         :- s/Int
    y         :- s/Int
-   emission  :- Emission
+   emission  :- SyntaxElement
    scheme    :- Highlighting
    styles    :- [Style]]
-  (let [fg (get scheme (syntax-element emission))
+  (let [fg (get scheme emission)
         bg (get scheme backgrounds)]
     (t/put! terminal character x y fg bg styles)))
 
@@ -82,7 +85,7 @@
    To keep syntax highlighting correct, iterates through the whole line.
    It however explicitly prints only the sub-regions specified by [xs xe]."
   [terminal :- Terminal
-   line     :- i/Line
+   line     :- Line
    y        :- s/Int
    xs       :- s/Int
    xe       :- s/Int
@@ -91,19 +94,19 @@
    styles   :- [Style]]
   (let [pad!   (fn [x]
                  (dotimes [offset padding]
-                   (put-char! terminal \space (+ x offset) y -text scheme styles)))
+                   (put-char! terminal \space (+ x offset) y texts scheme styles)))
         print! (fn [x emission chars]
                  (reduce-idx
                    (fn [x' _ character]
                      (when (and (>= x' xs) (< x' xe))
                        (put-char! terminal character x' y emission scheme styles))) x nil chars)
                  (+ x (count chars)))]
-    (->> line (fold print! 0) (pad!))))
+    (->> line (st/fold print! 0) (pad!))))
 
 (s/defn print-highlight!
   [terminal  :- Terminal
-   hud       :- h/Hud
-   highlight :- c/HighlightInfo]
+   hud       :- Hud
+   highlight :- HighlightInfo]
   (let [selection (->> highlight (:region) (h/clip-selection hud))
         scheme    (->> highlight (:scheme))
         styles    (->> highlight (:styles))
@@ -116,7 +119,7 @@
             xe    (if (= y ye) xe (count line))
             y'    (h/project-y hud y)]
         (doseq [x' (range xs xe)]
-          (put-char! terminal (nth line x') x' y' -text scheme styles))))))
+          (put-char! terminal (nth line x') x' y' texts scheme styles))))))
 
 (s/defn clean-highlights!
   "Note: Cleaning re-prints the entire line to restore syntax highlighting"

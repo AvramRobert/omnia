@@ -1,13 +1,14 @@
 (ns omnia.config.core
-  (:require [omnia.util.collection :refer [map-vals merge-from-both]]
+  (:require [schema.core :as s]
+            [omnia.util.collection :refer [map-vals merge-from-both]]
             [omnia.util.misc :refer [slurp-or-else]]
             [clojure.string :refer [join]]
-            [schema.core :as s]
             [omnia.config.defaults :as d]
-            [omnia.config.schema :as c]
-            [omnia.components.syntax :as t]))
+            [omnia.schema.config :as c]
+            [omnia.schema.syntax :as t]))
 
-(s/defn check-duplicates! [keymap :- c/UserKeyMap]
+(s/defn check-duplicates! :- nil
+  [keymap :- c/UserKeyMap]
   (letfn [(report! [errs]
             (if (empty? errs)
               keymap
@@ -43,8 +44,8 @@
 
 (s/defn selection-highlighting :- c/Highlighting
   [standard :- c/Highlighting]
-  (let [select-colour (standard t/selections)]
-    (-> (standard t/texts)
+  (let [select-colour (get standard t/selections)]
+    (-> (get standard t/texts)
         (constantly)
         (map-vals standard)
         (assoc t/backgrounds select-colour

@@ -1,22 +1,16 @@
 (ns omnia.repl.hud
   (:require [schema.core :as s]
-            [omnia.text.core :as i]
-            [omnia.util.schema :refer [Point Region]]
+            [omnia.repl.text :as t]
             [omnia.util.arithmetic :refer [++ -- mod* inc< dec<]]
             [omnia.util.collection :refer [bounded-subvec assoc-new]]
             [omnia.util.misc :refer [omnia-version]]
-            [omnia.text.core :refer [Seeker]]
-            [omnia.view.terminal :refer [Terminal]]
-            [omnia.repl.nrepl :refer [REPLClient]]))
+            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.common :refer [Point Region]]
+            [omnia.schema.text :refer [Seeker Line]]
+            [omnia.schema.nrepl :refer [REPLClient]]))
 
-(def continuation (i/from-string "..."))
-(def delimiter (i/from-string "------"))
-
-(def Hud
-  {:text          Seeker
-   :field-of-view s/Int
-   :scroll-offset s/Int
-   :view-offset   s/Int})
+(def continuation (t/from-string "..."))
+(def delimiter (t/from-string "------"))
 
 (s/defn hud :- Hud
   "A hud is a structure enclosing some form of text that supports
@@ -43,7 +37,7 @@
 
 (s/defn hud-of :- Hud
   [fov :- s/Int]
-  (hud i/empty-seeker fov))
+  (hud t/empty-seeker fov))
 
 (s/def empty-hud :- Hud
   (hud-of 0))
@@ -70,11 +64,11 @@
 
 (s/defn equivalent? :- s/Bool
   [this :- Hud, that :- Hud]
-  (i/equivalent? (text this) (text that)))
+  (t/equivalent? (text this) (text that)))
 
 (s/defn current-line :- [Character]
   [hud :- Hud]
-  (-> hud (text) (i/current-line)))
+  (-> hud (text) (t/current-line)))
 
 (s/defn engulfed-size :- s/Int
   [hud :- Hud]
@@ -118,7 +112,7 @@
   [hud :- Hud]
   (project-cursor hud (-> hud (text) (:cursor))))
 
-(s/defn project-view :- [i/Line]
+(s/defn project-view :- [Line]
   [hud :- Hud]
   (let [text           (text hud)
         fov            (field-of-view hud)
@@ -131,7 +125,7 @@
 
 (s/defn project-hud :- Seeker
   [hud :- Hud]
-  (-> hud (project-view) (i/seeker) (i/reset-to (project-hud-cursor hud))))
+  (-> hud (project-view) (t/seeker) (t/reset-to (project-hud-cursor hud))))
 
 (s/defn clip-selection :- Region
   [hud :- Hud
@@ -147,7 +141,7 @@
         clipped-bottom? (> ye bottom)
         visible-top?    (<= top ys bottom)
         visible-bottom? (<= top ye bottom)
-        end-bottom      (-> hud (text) (i/reset-y bottom) (i/end-x) (:cursor))]
+        end-bottom      (-> hud (text) (t/reset-y bottom) (t/end-x) (:cursor))]
     (cond
       unpaged?              selection
       (and visible-top?
@@ -210,19 +204,19 @@
 
 (s/defn enrich-with :- Hud
   [hud :- Hud, seekers :- [Seeker]]
-  (update hud :text #(apply i/join-many % seekers)))
+  (update hud :text #(apply t/join-many % seekers)))
 
 (s/defn riffle-window :- Hud
   [seeker :- Seeker
    size :- s/Int]
-  (let [content (->> seeker (i/start) (i/end-x))]
+  (let [content (->> seeker (t/start) (t/end-x))]
     (-> (hud-of size) (enrich-with [content]) (corrected))))
 
 (s/defn riffle [hud :- Hud] :- Hud
   (let [[_ y]  (-> hud (text) :cursor)
         height (-> hud (text) :size)
         y'     (mod* (inc y) height)]
-    (-> hud (update :text #(i/reset-y % y')) (corrected))))
+    (-> hud (update :text #(t/reset-y % y')) (corrected))))
 
 (s/defn scroll-up :- Hud
   [hud :- Hud]
@@ -244,15 +238,15 @@
 
 (s/defn view :- String
   [hud :- Hud]
-  (-> hud (text) (i/debug-string)))
+  (-> hud (text) (t/debug-string)))
 
 (s/defn deselect :- Hud
   [hud :- Hud]
-  (update hud :text i/deselect))
+  (update hud :text t/deselect))
 
 (s/defn selection? :- s/Bool
   [hud :- Hud]
-  (-> hud (text) (i/selecting?)))
+  (-> hud (text) (t/selecting?)))
 
 (s/defn reset-view :- Hud
   ([hud :- Hud]
@@ -267,19 +261,19 @@
 (s/defn paginate :- Seeker
   [hud :- Hud]
   (let [truncated? (-> hud (view-offset) (zero?) (not))
-        extend    #(if truncated? (i/append % continuation) %)]
+        extend    #(if truncated? (t/append % continuation) %)]
     (-> hud
         (project-hud)
         (extend)
-        (i/indent 1))))
+        (t/indent 1))))
 
 (s/defn pop-up :- Hud
   [hud :- Hud, embedded :- Hud]
   (let [text      (text hud)
         paginated (paginate embedded)
         ph        (:size text)
-        top       (-> text (i/peer (fn [l [x & _]] (conj l x))))
-        bottom    (-> text (i/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (assoc hud :text (-> (i/join-many top delimiter paginated)
-                         (i/end-x)
-                         (i/append delimiter bottom)))))
+        top       (-> text (t/peer (fn [l [x & _]] (conj l x))))
+        bottom    (-> text (t/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
+    (assoc hud :text (-> (t/join-many top delimiter paginated)
+                         (t/end-x)
+                         (t/append delimiter bottom)))))

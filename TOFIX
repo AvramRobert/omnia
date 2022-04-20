@@ -6,8 +6,13 @@ Global issues:
  - Rewrite tests using deftest and the more straightforward concept of `from-marked-text`. (context, text, render, nrepl)
  - Remove `from-cursored-string` and `from-string`
  - Chuck away most of the context helpers from `test-utils` after simplifying tests using `from-marked-text`.
+ - Rename Highlighting schemas. There's:
+    * omnia.schema.config/Highlighting - represents the Highlighting configuration
+    * omnia.schema.render/HighlightInfo - a block used to tell the rendering engine what to highlight
+    * omnia.schema.render/HighlightType - what sort of types the rendering engine knows how to highlight
+    * omnia.schema.render/Highlights - an association between a HighlightType and a HighlightInfo
 
-omnia.text.core issues:
+omnia.repl.text issues:
   - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
   - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
   - Rename the functions in text.core to something more straightforward (break -> new-line etc.)
@@ -18,7 +23,7 @@ omnia.text.core issues:
   - the `omnia.text-test/matches-parens` test doesn't really check the selected regions. It should.
   - debug-string should also display the selection and cursor
 
-omnia.text.syntax issues:
+omnia.repl.syntax issues:
   - Add previous node to transition evaluator of syntax highlighter
     -> can be part of the transition function of every node. Should allow me to make context-based transitions
   - Fix number highlighter based on #2
@@ -29,10 +34,6 @@ omnia.repl.context issues:
 
 omnia.view.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
-
-general concept:
-  - define a `schema` package. For every namespace that defines its own schema, define
-    a namespace in the `schema` package for it and add them there
 
 Finishing touches:
 

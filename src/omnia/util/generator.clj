@@ -1,7 +1,7 @@
 (ns omnia.util.generator
   (:require [clojure.test.check.generators :as gen]
-            [omnia.components.keys :as kc]
-            [omnia.components.syntax :as tc]
+            [omnia.schema.keymap :as km]
+            [omnia.schema.syntax :as s]
             [omnia.config.defaults :as d]))
 
 (defmacro do-gen [binding & body]
@@ -20,10 +20,10 @@
   (gen/vector (gen/choose 0 255) 3))
 
 (def gen-colour
-  (gen/one-of [(gen/elements tc/colours) gen-rgb]))
+  (gen/one-of [(gen/elements s/colours) gen-rgb]))
 
 (def gen-input-key
-  (gen/one-of [gen/char-alphanumeric (gen/elements kc/key-set)]))
+  (gen/one-of [gen/char-alphanumeric (gen/elements km/key-set)]))
 
 (def gen-user-highlighting
   (->> d/default-user-highlighting
@@ -47,7 +47,7 @@
 
 (def gen-user-terminal
   (do-gen [font-path (gen/one-of [(gen/return {})
-                                  (gen/map (gen/return tc/font-path) gen/string-alphanumeric)])
+                                  (gen/map (gen/return s/font-path) gen/string-alphanumeric)])
            font-size (gen/one-of [(gen/return {})
-                                  (gen/map (gen/return tc/font-size) gen/nat)])]
+                                  (gen/map (gen/return s/font-size) gen/nat)])]
     (merge font-path font-size)))

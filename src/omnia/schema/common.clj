@@ -1,4 +1,4 @@
-(ns omnia.util.schema
+(ns omnia.schema.common
   (:require [schema.core :as s])
   (:import (java.util UUID)))
 
@@ -25,4 +25,3 @@
    (s/->FnSchema out [in1 in2]))
   ([in1 in2 in3 out]
    (s/->FnSchema out [in1 in2 in3])))
-

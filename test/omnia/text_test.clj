@@ -1,6 +1,6 @@
 (ns omnia.text-test
   (:require [clojure.test :refer [deftest is testing]]
-            [omnia.text.core :as i]
+            [omnia.repl.text :as i]
             [omnia.util.debug :refer [time-return]]
             [omnia.util.generator :refer [one many]]
             [omnia.util.collection :refer [run-indexed!]]

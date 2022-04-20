@@ -2,23 +2,12 @@
   (:require [clojure.java.shell :as shell]
             [schema.core :as s]
             [halfling.task :as t]
+            [omnia.schema.release :as r]
             [clojure.string :as string]
             [omnia.config.core :refer [read-user-config!]]
-            [omnia.config.schema :refer [UserConfig]]
             [omnia.util.misc :refer [omnia-version]]))
 
-(def OS (s/enum :linux :macOS :windows))
-
-(def Executable (s/enum :sh :bat))
-
-(def ReleaseConfig
-  {:file-type     Executable
-   :template      s/Str
-   :configuration s/Str})
-
-(def Releases {OS ReleaseConfig})
-
-(s/def releases :- Releases
+(s/def releases :- r/Releases
   {:linux   {:file-type     :sh
              :template      "resources/release/templates/linux/executable.sh"
              :configuration "resources/release/templates/linux/config.edn"}

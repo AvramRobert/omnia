@@ -1,4 +1,4 @@
-(ns omnia.components.actions
+(ns omnia.schema.event
   (:require [schema.core :as s]))
 
 (def character :character)
@@ -83,7 +83,27 @@
     ignore
     resize})
 
+(defn- action? [action]
+  (fn [event]
+    (-> event (:action) (= action))))
+
 (def TextAction (apply s/enum text-actions))
 (def ContextAction (apply s/enum context-actions))
-
 (def Action (s/cond-pre TextAction ContextAction))
+
+(def CharEvent
+  {:action (s/eq character)
+   :value  Character})
+
+(def InjectEvent
+  {:action (s/eq inject)
+   :value   s/Str})
+
+(def ControlEvent
+  {:action Action})
+
+(def Event
+  (s/conditional
+    (action? character) CharEvent
+    (action? inject)    InjectEvent
+    :else               ControlEvent))

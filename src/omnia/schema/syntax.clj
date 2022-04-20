@@ -1,22 +1,22 @@
-(ns omnia.components.syntax
-  (:require [schema.core :as s]
-            [omnia.text.syntax :as h]))
+(ns omnia.schema.syntax
+  (:require [schema.core :as s]))
 
-(def lists h/-list)
-(def vectors h/-vector)
-(def maps h/-map)
-(def numbers h/-number)
-(def characters h/-char)
-(def strings h/-string)
-(def keywords h/-keyword)
-(def comments h/-comment)
-(def words h/-word)
-(def functions h/-function)
-(def texts h/-text)
-(def commas h/-comma)
-(def selections :selection)
-(def backgrounds :background)
-(def foregrounds :foreground)
+(def ^:const lists :lists)
+(def ^:const vectors :vectors)
+(def ^:const maps :maps)
+(def ^:const sets :sets)
+(def ^:const numbers :numbers)
+(def ^:const characters :characters)
+(def ^:const keywords :keywords)
+(def ^:const texts :texts)
+(def ^:const strings :strings)
+(def ^:const comments :comments)
+(def ^:const functions :functions)
+(def ^:const words :words)
+(def ^:const commas :commas)
+(def ^:const selections :selections)
+(def ^:const backgrounds :backgrounds)
+(def ^:const foregrounds :foregrounds)
 
 (def bold :bold)
 (def blinking :blinking)
@@ -90,7 +90,3 @@
 (def FontPath s/Str)
 
 (def FontSize s/Num)
-
-(s/defn syntax-element :- SyntaxElement
-  [emission :- h/Emission]
-  emission)

@@ -1,24 +1,8 @@
-(ns omnia.text.syntax
+(ns omnia.repl.syntax
   (:require [schema.core :as s]
-            [omnia.util.schema :refer [=>]]
+            [omnia.schema.common :refer [=>]]
+            [omnia.schema.syntax :as t]
             [clojure.set :refer [intersection]]))
-
-(def ^:const -list :list)
-(def ^:const -vector :vector)
-(def ^:const -map :map)
-(def ^:const -set :set)
-(def ^:const -number :number)
-(def ^:const -char :char)
-(def ^:const -keyword :keyword)
-(def ^:const -text :text)
-(def ^:const -string :string)
-(def ^:const -comment :comment)
-(def ^:const -function :function)
-(def ^:const -word :word)
-(def ^:const -comma :comma)
-
-(def Emission
-  (s/enum -list -vector -map -set -number -char -keyword -text -string -comment -function -word -comma))
 
 (def ^:private ^:const  open-list-node :open-list)
 (def ^:private ^:const  closed-list-node :close-list)
@@ -64,7 +48,7 @@
 
 (def State
   {:node       Node
-   :emission   (=> [Character] Emission)
+   :emission   (=> [Character] t/SyntaxElement)
    :transition (=> Character (s/maybe Node))})
 
 (def triggers
@@ -116,7 +100,7 @@
                  escape-node
                  comma-node)]
     {:node       function-node
-     :emission   (constantly -function)
+     :emission   (constantly t/functions)
      :transition #(lookup % function-node)}))
 
 (s/def open-list :- State
@@ -136,7 +120,7 @@
                  number-node
                  comma-node)]
     {:node       open-list-node
-     :emission   (constantly -list)
+     :emission   (constantly t/lists)
      :transition #(lookup % function-node)}))
 
 (s/def close-list :- State
@@ -157,7 +141,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-list-node
-     :emission   (constantly -list)
+     :emission   (constantly t/lists)
      :transition #(lookup % text-node)}))
 
 (s/def text :- State
@@ -175,7 +159,7 @@
                  comment-node
                  comma-node)]
     {:node       text-node
-     :emission   (constantly -text)
+     :emission   (constantly t/texts)
      :transition #(lookup % text-node)}))
 
 (s/def break :- State
@@ -196,7 +180,7 @@
                  break-node
                  comma-node)]
     {:node       break-node
-     :emission   (constantly -text)
+     :emission   (constantly t/texts)
      :transition #(lookup % text-node)}))
 
 (s/def space :- State
@@ -217,7 +201,7 @@
                  space-node
                  comma-node)]
     {:node       space-node
-     :emission   (constantly -text)
+     :emission   (constantly t/texts)
      :transition #(lookup % text-node)}))
 
 (s/def word :- State
@@ -234,7 +218,7 @@
                  comment-node
                  comma-node)]
     {:node       word-node
-     :emission   #(if (words %) -word -text)
+     :emission   #(if (words %) t/words t/texts)
      :transition #(lookup % word-node)}))
 
 (s/def open-vector :- State
@@ -255,7 +239,7 @@
                  keyword-node
                  comma-node)]
     {:node       open-vector-node
-     :emission   (constantly -vector)
+     :emission   (constantly t/vectors)
      :transition #(lookup % text-node)}))
 
 (s/def close-vector :- State
@@ -276,7 +260,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-vector-node
-     :emission   (constantly -vector)
+     :emission   (constantly t/vectors)
      :transition #(lookup % text-node)}))
 
 (s/def open-map :- State
@@ -297,7 +281,7 @@
                  keyword-node
                  comma-node)]
     {:node       open-map-node
-     :emission   (constantly -map)
+     :emission   (constantly t/maps)
      :transition #(lookup % text-node)}))
 
 (s/def close-map :- State
@@ -318,7 +302,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-map-node
-     :emission   (constantly -map)
+     :emission   (constantly t/maps)
      :transition #(lookup % text-node)}))
 
 (s/def key-word :- State
@@ -336,7 +320,7 @@
                  comment-node
                  comma-node)]
     {:node       keyword-node
-     :emission   (constantly -keyword)
+     :emission   (constantly t/keywords)
      :transition #(lookup % keyword-node)}))
 
 (s/def number :- State
@@ -355,20 +339,20 @@
     {:node       number-node
      :emission   (fn [[a b & _]]
                    (case [a b]
-                     [\+ \+]   -text
-                     [\- \-]   -text
-                     [\+ \-]   -text
-                     [\- \+]   -text
-                     [\+ nil]  -text
-                     [\- nil]  -text
-                     [nil nil] -text
-                     -number))
+                     [\+ \+]   t/texts
+                     [\- \-]   t/texts
+                     [\+ \-]   t/texts
+                     [\- \+]   t/texts
+                     [\+ nil]  t/texts
+                     [\- nil]  t/texts
+                     [nil nil] t/texts
+                     t/numbers))
      :transition #(lookup % number-node)}))
 
 (s/def open-string :- State
   (let [lookup (transitions closed-string-node)]
     {:node       open-string-node
-     :emission   (constantly -string)
+     :emission   (constantly t/strings)
      :transition #(lookup % open-string-node)}))
 
 (s/def character :- State
@@ -388,7 +372,7 @@
                  number-node
                  keyword-node)]
     {:node       character-node
-     :emission   (constantly -char)
+     :emission   (constantly t/characters)
      :transition #(lookup % text-node)}))
 
 (s/def special-character :- State
@@ -410,8 +394,8 @@
     {:node       special-character-node
      :emission   #(if (or (special-characters %)
                           (= (count %) 1))
-                    -char
-                    -text)
+                    t/characters
+                    t/texts)
      :transition #(lookup % special-character-node)}))
 
 (s/def escape :- State
@@ -420,13 +404,13 @@
                  space-node
                  special-character-node)]
     {:node       escape-node
-     :emission   (constantly -char)
+     :emission   (constantly t/characters)
      :transition #(lookup % character-node)}))
 
 (s/def com-ment :- State
   (let [lookup (transitions break-node)]
     {:node       comment-node
-     :emission   (constantly -comment)
+     :emission   (constantly t/comments)
      :transition #(lookup % comment-node)}))
 
 (s/def close-string :- State
@@ -447,7 +431,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-string-node
-     :emission   (constantly -string)
+     :emission   (constantly t/strings)
      :transition #(lookup % text-node)}))
 
 (s/def comma :- State
@@ -468,7 +452,7 @@
                  keyword-node
                  comma-node)]
     {:node       comma-node
-     :emission   (constantly -comma)
+     :emission   (constantly t/commas)
      :transition #(lookup % text-node)}))
 
 (s/def node->state :- {Node State}
@@ -499,7 +483,7 @@
           transition (:transition state)
           emission   (:emission state)
           node'      (transition char)
-          state'     (node->state node')]
+          state'     (get node->state node')]
       (if (= node node')
         [intermediate (conj accumulate char) state']
         [(f intermediate state (emission accumulate) accumulate) [char] state']))))

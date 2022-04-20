@@ -2,44 +2,18 @@
   (:require [schema.core :as s]
             [omnia.repl.nrepl :as r]
             [omnia.repl.hud :as h]
-            [omnia.text.core :as i]
-            [omnia.text.format :as f]
-            [omnia.components.events :as e]
-            [omnia.components.actions :as a]
-            [omnia.components.syntax :refer [Style]]
-            [omnia.config.schema :refer [Config Highlighting]]
-            [omnia.repl.hud :refer [Hud]]
-            [omnia.text.core :refer [Seeker]]
-            [omnia.repl.nrepl :refer [REPLClient]]
-            [omnia.util.schema :refer [=> Region]]
+            [omnia.repl.text :as i]
+            [omnia.repl.format :as f]
+            [omnia.schema.event :as e]
+            [omnia.schema.context :refer :all]
+            [omnia.schema.config :refer [Config]]
+            [omnia.schema.render :refer [Highlights HighlightInfo HighlightType RenderingStrategy]]
+            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.text :refer [Seeker]]
+            [omnia.schema.nrepl :refer [REPLClient]]
+            [omnia.schema.common :refer [=> Region]]
             [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]))
-
-(def Render
-  (s/enum :diff :total :clear))
-
-(def HighlightInfo
-  {:region Region
-   :scheme Highlighting
-   :styles [Style]})
-
-(def HighlightType (s/enum :selection :open-paren :closed-paren))
-
-(def Highlights {HighlightType HighlightInfo})
-
-(def Context
-  {:repl          REPLClient
-   :config        Config
-   :render        Render
-   :previous-hud  Hud
-   :persisted-hud Hud
-   :preview-hud   Hud
-   :input-area    Seeker
-   :suggestions   Hud
-   :documentation Hud
-   :signatures    Hud
-   :highlights    Highlights
-   :garbage       Highlights})
 
 (def caret (i/from-string "Ω =>"))
 (def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
@@ -129,7 +103,7 @@
   [ctx :- Context]
   (:garbage ctx))
 
-(s/defn rendering :- Render
+(s/defn rendering :- RenderingStrategy
   [ctx :- Context]
   (:render ctx))
 
@@ -229,7 +203,7 @@
   (assoc-new ctx :signatures signatures))
 
 (s/defn with-render :- Context
-  [ctx :- Context, render :- Render]
+  [ctx :- Context, render :- RenderingStrategy]
   (assoc-new ctx :render render))
 
 (s/defn reset-suggestions :- Context
@@ -490,19 +464,19 @@
   [ctx :- Context
    event :- e/Event]
   (condp = (:action event)
-    a/inject      (-> ctx (inject event) (diff-render) (continue))
-    a/docs        (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (continue))
-    a/signature   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (continue))
-    a/paren-match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (continue))
-    a/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (continue))
-    a/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (continue))
-    a/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (continue))
-    a/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (continue))
-    a/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
-    a/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight) (match-parens) (diff-render) (continue))
-    a/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
-    a/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (diff-render) (continue))
-    a/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
-    a/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
-    a/ignore      (continue ctx)
+    e/inject      (-> ctx (inject event) (diff-render) (continue))
+    e/docs        (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (continue))
+    e/signature   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (continue))
+    e/paren-match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (continue))
+    e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (continue))
+    e/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (continue))
+    e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (continue))
+    e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (continue))
+    e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
+    e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight) (match-parens) (diff-render) (continue))
+    e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
+    e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (diff-render) (continue))
+    e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
+    e/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
+    e/ignore      (continue ctx)
                   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (continue))))

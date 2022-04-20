@@ -1,10 +1,11 @@
 (ns omnia.view.terminal
   (:require [schema.core :as s]
-            [omnia.components.events :as e]
-            [omnia.components.syntax :as t]
-            [omnia.config.schema :as c]
-            [omnia.components.keys :as i]
+            [omnia.schema.event :as e]
+            [omnia.schema.syntax :as st]
+            [omnia.schema.config :as c]
+            [omnia.schema.keymap :as k]
             [clojure.set :refer [map-invert]]
+            [omnia.repl.events :refer [character event ignore]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.util.misc :refer [omnia-version]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
@@ -16,11 +17,6 @@
            (java.io File)
            (java.util EnumSet Collection)
            (clojure.lang IPersistentVector Keyword Atom)))
-
-(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event!))
-
-(def TerminalSpec
-  {TerminalFn s/Any})
 
 (defprotocol Terminal
   (move! [_
@@ -43,50 +39,50 @@
 (s/def empty-sgr :- EnumSet
   (EnumSet/noneOf SGR))
 
-(s/def style->sgr :- {t/Style SGR}
-  {t/bold          SGR/BOLD
-   t/blinking      SGR/BLINK
-   t/underline     SGR/UNDERLINE
-   t/strikethrough SGR/CROSSED_OUT})
+(s/def style->sgr :- {st/Style SGR}
+  {st/bold          SGR/BOLD
+   st/blinking      SGR/BLINK
+   st/underline     SGR/UNDERLINE
+   st/strikethrough SGR/CROSSED_OUT})
 
-(s/def key->key-type :- {i/Key KeyType}
-  {i/escape      KeyType/Escape
-   i/backspace   KeyType/Backspace
-   i/left        KeyType/ArrowLeft
-   i/right       KeyType/ArrowRight
-   i/up          KeyType/ArrowUp
-   i/down        KeyType/ArrowDown
-   i/insert      KeyType/Insert
-   i/delete      KeyType/Delete
-   i/home        KeyType/Home
-   i/end         KeyType/End
-   i/page-up     KeyType/PageUp
-   i/page-down   KeyType/PageDown
-   i/tab         KeyType/Tab
-   i/reverse-tab KeyType/ReverseTab
-   i/enter       KeyType/Enter
-   i/f1          KeyType/F1
-   i/f2          KeyType/F2
-   i/f3          KeyType/F3
-   i/f4          KeyType/F4
-   i/f5          KeyType/F5
-   i/f6          KeyType/F6
-   i/f7          KeyType/F7
-   i/f8          KeyType/F8
-   i/f9          KeyType/F9
-   i/f10         KeyType/F10
-   i/f11         KeyType/F11
-   i/f12         KeyType/F12
-   i/f13         KeyType/F13
-   i/f14         KeyType/F14
-   i/f15         KeyType/F15
-   i/f16         KeyType/F16
-   i/f17         KeyType/F17
-   i/f18         KeyType/F18
-   i/f19         KeyType/F19})
+(s/def key->key-type :- {k/Key KeyType}
+  {k/escape      KeyType/Escape
+   k/backspace   KeyType/Backspace
+   k/left        KeyType/ArrowLeft
+   k/right       KeyType/ArrowRight
+   k/up          KeyType/ArrowUp
+   k/down        KeyType/ArrowDown
+   k/insert      KeyType/Insert
+   k/delete      KeyType/Delete
+   k/home        KeyType/Home
+   k/end         KeyType/End
+   k/page-up     KeyType/PageUp
+   k/page-down   KeyType/PageDown
+   k/tab         KeyType/Tab
+   k/reverse-tab KeyType/ReverseTab
+   k/enter       KeyType/Enter
+   k/f1          KeyType/F1
+   k/f2          KeyType/F2
+   k/f3          KeyType/F3
+   k/f4          KeyType/F4
+   k/f5          KeyType/F5
+   k/f6          KeyType/F6
+   k/f7          KeyType/F7
+   k/f8          KeyType/F8
+   k/f9          KeyType/F9
+   k/f10         KeyType/F10
+   k/f11         KeyType/F11
+   k/f12         KeyType/F12
+   k/f13         KeyType/F13
+   k/f14         KeyType/F14
+   k/f15         KeyType/F15
+   k/f16         KeyType/F16
+   k/f17         KeyType/F17
+   k/f18         KeyType/F18
+   k/f19         KeyType/F19})
 
 (s/defn to-text-colour :- TextColor
-  [[r g b] :- t/RGBColour]
+  [[r g b] :- st/RGBColour]
   (TextColor$RGB. ^Integer r ^Integer g ^Integer b))
 
 (s/defn to-key-stroke :- KeyStroke
@@ -99,24 +95,24 @@
 
         :else KeyType/Unknown))
 
-(s/defn rgb->text-colour :- {t/RGBColour TextColor}
-   [syntax :- c/Syntax]
-   (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
-
 ;; maps out all unicode characters; sums up to about 350 kbytes
 ;; the first 32 unicode character are control characters
 ;; the supported ones are already mapped by lanterna to special keys
 (s/def char->event :- {Character e/Event}
   (->> (range 32 65535)
-       (map (juxt char (comp e/character char)))
+       (map (juxt char (comp character char)))
        (into {})))
 
 (s/defn key-stroke->event :- {KeyStroke e/Event}
         [keymap :- c/KeyMap]
         (->> keymap
         (map (juxt (comp to-key-stroke val)
-                   (comp e/event key)))
+                   (comp event key)))
         (into {})))
+
+(s/defn rgb->text-colour :- {st/RGBColour TextColor}
+  [syntax :- c/Syntax]
+  (->> syntax (vals) (mapcat vals) (set) (map (juxt identity to-text-colour)) (into {})))
 
 ;; uses a memoised hashmap of all objects to reduce overhead
 (s/defn impl-put! :- nil
@@ -124,12 +120,12 @@
    char        :- Character
    x           :- s/Int
    y           :- s/Int
-   foreground  :- t/RGBColour
-   background  :- t/RGBColour
-   styles      :- [t/Style]
+   foreground  :- st/RGBColour
+   background  :- st/RGBColour
+   styles      :- [st/Style]
    char-map    :- {Character e/Event}
-   style-map   :- {t/Style SGR}
-   colour-map  :- {t/RGBColour TextColor}]
+   style-map   :- {st/Style SGR}
+   colour-map  :- {st/RGBColour TextColor}]
   (when (contains? char-map char)
     (let [styles    ^EnumSet (if (> (.count styles) 0)
                                (EnumSet/copyOf ^Collection (mapv style-map styles))
@@ -149,7 +145,7 @@
   (let [input ^KeyStroke (.readInput screen)]
     (or (get context-events input)
         (get text-events (.getCharacter input))
-        e/ignore)))
+        ignore)))
 
 (s/defn impl-get-resize-event! :- (s/maybe e/Event)
   [screen   :- TerminalScreen
@@ -187,14 +183,14 @@
 
 (s/defn derive-palette :- TerminalEmulatorColorConfiguration
   [config :- c/Config]
-  (if-let [palette (-> config (:terminal) (t/palette))]
+  (if-let [palette (-> config (:terminal) (st/palette))]
     (TerminalEmulatorColorConfiguration/newInstance palette)
     (TerminalEmulatorColorConfiguration/newInstance TerminalEmulatorPalette/GNOME_TERMINAL)))
 
 (s/defn derive-font :- SwingTerminalFontConfiguration
   [config :- c/Config]
-  (let [font-path ^String (-> config (:terminal) (t/font-path))
-        font-size ^Float  (-> config (:terminal) (t/font-size) (float))
+  (let [font-path ^String (-> config (:terminal) (st/font-path))
+        font-size ^Float  (-> config (:terminal) (st/font-size) (float))
         font      ^Font   (-> Font/TRUETYPE_FONT
                               (Font/createFont (File. font-path))
                               (.deriveFont Font/BOLD font-size))]

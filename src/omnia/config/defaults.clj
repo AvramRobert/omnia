@@ -1,61 +1,61 @@
 (ns omnia.config.defaults
   (:require [schema.core :as s]
             [omnia.util.collection :refer [map-vals]]
-            [omnia.config.schema :refer :all]
-            [omnia.components.actions :as a]
-            [omnia.components.syntax :as t]))
+            [omnia.schema.config :as c]
+            [omnia.schema.event :as e]
+            [omnia.schema.syntax :as t]))
 
-(s/def default-user-keymap :- UserKeyMap
-  {a/docs              {:key \i :alt true}
-   a/signature         {:key \p :alt true}
-   a/expand            {:key \w :ctrl true}
-   a/undo              {:key \z :alt true}
-   a/redo              {:key \y :alt true}
-   a/paste             {:key \v :alt true}
-   a/copy              {:key \c :alt true}
-   a/cut               {:key \x :alt true}
-   a/select-all        {:key \a :ctrl true}
-   a/move-up           {:key :up}
-   a/move-down         {:key :down}
-   a/move-left         {:key :left}
-   a/move-right        {:key :right}
-   a/jump-left         {:key :left :ctrl true}
-   a/jump-right        {:key :right :ctrl true}
-   a/select-up         {:key :up :shift true}
-   a/select-down       {:key :down :shift true}
-   a/select-left       {:key :left :shift true}
-   a/select-right      {:key :right :shift true}
-   a/jump-select-left  {:key :left :shift true :ctrl true}
-   a/jump-select-right {:key :right :shift true :ctrl true}
-   a/delete-previous   {:key :backspace}
-   a/delete-current    {:key :delete}
-   a/new-line          {:key :enter}
-   a/paren-match       {:key \p :ctrl true}
-   a/suggest           {:key :tab}
-   a/scroll-up         {:key :page-up}
-   a/scroll-down       {:key :page-down}
-   a/prev-eval         {:key :up :alt true}
-   a/next-eval         {:key :down :alt true}
-   a/indent            {:key \l :ctrl true :alt true}
-   a/clear             {:key \r :ctrl true}
-   a/evaluate          {:key \e :alt true}
-   a/exit              {:key \d :ctrl true}})
+(s/def default-user-keymap :- c/UserKeyMap
+  {e/docs              {:key \i :alt true}
+   e/signature         {:key \p :alt true}
+   e/expand            {:key \w :ctrl true}
+   e/undo              {:key \z :alt true}
+   e/redo              {:key \y :alt true}
+   e/paste             {:key \v :alt true}
+   e/copy              {:key \c :alt true}
+   e/cut               {:key \x :alt true}
+   e/select-all        {:key \a :ctrl true}
+   e/move-up           {:key :up}
+   e/move-down         {:key :down}
+   e/move-left         {:key :left}
+   e/move-right        {:key :right}
+   e/jump-left         {:key :left :ctrl true}
+   e/jump-right        {:key :right :ctrl true}
+   e/select-up         {:key :up :shift true}
+   e/select-down       {:key :down :shift true}
+   e/select-left       {:key :left :shift true}
+   e/select-right      {:key :right :shift true}
+   e/jump-select-left  {:key :left :shift true :ctrl true}
+   e/jump-select-right {:key :right :shift true :ctrl true}
+   e/delete-previous   {:key :backspace}
+   e/delete-current    {:key :delete}
+   e/new-line          {:key :enter}
+   e/paren-match       {:key \p :ctrl true}
+   e/suggest           {:key :tab}
+   e/scroll-up         {:key :page-up}
+   e/scroll-down       {:key :page-down}
+   e/prev-eval         {:key :up :alt true}
+   e/next-eval         {:key :down :alt true}
+   e/indent            {:key \l :ctrl true :alt true}
+   e/clear             {:key \r :ctrl true}
+   e/evaluate          {:key \e :alt true}
+   e/exit              {:key \d :ctrl true}})
 
-(s/def default-user-highlighting :- UserHighlighting
-  {t/lists       t/white
-   t/vectors     t/white
-   t/maps        t/white
-   t/numbers     t/blue
-   t/characters  t/green
-   t/strings     t/green
-   t/keywords    t/cyan
-   t/comments    t/magenta
-   t/words       t/yellow
-   t/functions   t/yellow
-   t/texts       t/white
-   t/commas      t/white})
+(s/def default-user-highlighting :- c/UserHighlighting
+  {t/lists      t/white
+   t/vectors    t/white
+   t/maps       t/white
+   t/numbers    t/blue
+   t/characters t/green
+   t/strings    t/green
+   t/keywords   t/cyan
+   t/comments   t/magenta
+   t/words      t/yellow
+   t/functions  t/yellow
+   t/texts      t/white
+   t/commas     t/white})
 
-(s/def default-user-terminal :- UserTerminal
+(s/def default-user-terminal :- c/UserTerminal
   {t/font-path "./default_font.otf"
    t/font-size  15})
 

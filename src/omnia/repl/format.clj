@@ -1,6 +1,6 @@
-(ns omnia.text.format
+(ns omnia.repl.format
   (:require [fipp.visit :refer [visit]]
-            [omnia.text.core :as i]
+            [omnia.repl.text :as i]
             [omnia.util.arithmetic :refer [--]]
             [fipp.engine :as e]
             [fipp.edn :as edn]

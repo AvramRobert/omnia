@@ -1,12 +1,12 @@
-(ns omnia.config.schema
+(ns omnia.schema.config
   (:require [schema.core :as s]
-            [omnia.components.syntax :as t]
-            [omnia.components.keys :as i]
-            [omnia.components.actions :as e]
+            [omnia.schema.syntax :as st]
+            [omnia.schema.event :as e]
+            [omnia.schema.keymap :as k]
             [omnia.util.collection :refer [map-vals]]))
 
 (def UserKeyBinding
-  {:key                    i/Key
+  {:key                    k/Key
    (s/optional-key :alt)   s/Bool
    (s/optional-key :ctrl)  s/Bool
    (s/optional-key :shift) s/Bool})
@@ -48,23 +48,23 @@
    e/exit              UserKeyBinding})
 
 (def UserHighlighting
-  {t/lists       t/Colour
-   t/vectors     t/Colour
-   t/maps        t/Colour
-   t/numbers     t/Colour
-   t/characters  t/Colour
-   t/strings     t/Colour
-   t/keywords    t/Colour
-   t/comments    t/Colour
-   t/words       t/Colour
-   t/functions   t/Colour
-   t/texts       t/Colour
-   t/commas      t/Colour})
+  {st/lists      st/Colour
+   st/vectors    st/Colour
+   st/maps       st/Colour
+   st/numbers    st/Colour
+   st/characters st/Colour
+   st/strings    st/Colour
+   st/keywords   st/Colour
+   st/comments   st/Colour
+   st/words      st/Colour
+   st/functions  st/Colour
+   st/texts      st/Colour
+   st/commas     st/Colour})
 
 (def UserTerminal
-  {(s/optional-key t/font-path) t/FontPath
-   (s/optional-key t/font-size) t/FontSize
-   (s/optional-key t/palette)   t/Palette})
+  {(s/optional-key st/font-path) st/FontPath
+   (s/optional-key st/font-size) st/FontSize
+   (s/optional-key st/palette)   st/Palette})
 
 (def UserConfig
   {:keymap                    UserKeyMap
@@ -72,7 +72,7 @@
    (s/optional-key :terminal) UserTerminal})
 
 (def KeyBinding
-  {:key   i/Key
+  {:key   k/Key
    :alt   s/Bool
    :ctrl  s/Bool
    :shift s/Bool})
@@ -81,7 +81,7 @@
   (map-vals (constantly KeyBinding) UserKeyMap))
 
 (def Highlighting
-  {t/SyntaxElement t/RGBColour})
+  {st/SyntaxElement st/RGBColour})
 
 (def Syntax
   {:standard  Highlighting
@@ -89,9 +89,9 @@
    :clean-up  Highlighting})
 
 (def Terminal
-  {t/font-path                t/FontPath
-   t/font-size                t/FontSize
-   (s/optional-key t/palette) t/Palette})
+  {st/font-path                st/FontPath
+   st/font-size                st/FontSize
+   (s/optional-key st/palette) st/Palette})
 
 (def Config
   {:keymap   KeyMap

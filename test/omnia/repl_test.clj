@@ -1,14 +1,15 @@
 (ns omnia.repl-test
-  (:require [clojure.test :refer [is deftest testing]]
+  (:require [schema.core :as s]
+            [omnia.repl.hud :as h]
+            [omnia.repl.context :as r]
+            [omnia.repl.text :as i]
+            [clojure.test :refer [is deftest testing]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.test.check.properties :refer [for-all]]
             [omnia.util.generator :refer [one]]
             [omnia.test-utils :refer :all]
-            [schema.core :as s]
-            [omnia.util.arithmetic :as a]
-            [omnia.repl.hud :as h]
-            [omnia.repl.context :as r]
-            [omnia.text.core :as i]))
+            [omnia.schema.context :refer [Context]]
+            [omnia.schema.text :refer [Seeker]]))
 
 (def ^:const NR-OF-TESTS 100)
 
@@ -44,7 +45,7 @@
                                (:clipboard))]
     (is (i/equivalent? expected-clipboard actual-clipboard))))
 
-(s/defn manipulations [ctx :- r/Context, seeker :- i/Seeker]
+(s/defn manipulations [ctx :- Context, seeker :- Seeker]
         (automatic-preview-refresh ctx seeker)
         (clipboard-propagation ctx seeker)
         (clipboard-preservation ctx seeker))

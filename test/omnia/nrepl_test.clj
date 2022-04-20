@@ -1,14 +1,15 @@
 (ns omnia.nrepl-test
-  (:require [clojure.test :refer [deftest is]]
-            [clojure.string :refer [includes?]]
-            [omnia.util.schema :refer [=>]]
-            [schema.core :as s]
+  (:require [schema.core :as s]
             [omnia.repl.nrepl :as r]
             [omnia.test-utils :refer :all]
-            [omnia.text.core :as i]))
+            [omnia.repl.text :as i]
+            [clojure.test :refer [deftest is]]
+            [clojure.string :refer [includes?]]
+            [omnia.schema.nrepl :refer [REPLClient]]
+            [omnia.schema.common :refer [=>]]))
 
 (s/defn with-server :- s/Any
-  [f :- (=> r/REPLClient s/Any)]
+  [f :- (=> REPLClient s/Any)]
   (let [config {:host    "127.0.0.1"
                 :port    11111}
         server (r/start-server! config)
