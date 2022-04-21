@@ -13,6 +13,7 @@ Global issues:
     * omnia.schema.render/Highlights - an association between a HighlightType and a HighlightInfo
 
 omnia.repl.text issues:
+  - The repl.text should not have a process function. It should be used on a direct functional basis
   - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
   - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
   - Rename the functions in text.core to something more straightforward (break -> new-line etc.)

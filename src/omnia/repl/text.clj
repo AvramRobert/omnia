@@ -309,15 +309,15 @@
            [[0 _]] (-> seeker (move-y dec) (end-x) (f))
            :else (move-x seeker dec)))
 
-(s/defn move-left :- Seeker
+(s/defn do-move-left :- Seeker
   [seeker :- Seeker]
   (move-left-with seeker identity))
 
-(s/defn move-right :- Seeker
+(s/defn do-move-right :- Seeker
   [seeker :- Seeker]
   (move-right-with seeker identity))
 
-(s/defn move-up :- Seeker
+(s/defn do-move-up :- Seeker
   [seeker :- Seeker]
   (let [[x y] (:cursor seeker)
         y'    (dec y)]
@@ -328,7 +328,7 @@
           (reset-to seeker [x' y'])
           (reset-to seeker [x y']))))))
 
-(s/defn move-down :- Seeker
+(s/defn do-move-down :- Seeker
   [seeker :- Seeker]
   (let [[x y] (:cursor seeker)
         y'   (inc y)
@@ -347,11 +347,11 @@
 (s/defn previous-char :- (s/maybe Character)
   [seeker :- Seeker]
   (when (not= [0 0] (:cursor seeker))
-    (-> seeker (move-left) (current-char))))
+    (-> seeker (do-move-left) (current-char))))
 
 (s/defn next-char :- (s/maybe Character)
   [seeker :- Seeker]
-  (let [next (move-right seeker)]
+  (let [next (do-move-right seeker)]
     (when (not= (:cursor seeker) (:cursor next))
       (current-char next))))
 
@@ -369,13 +369,13 @@
       (paired-token? seeker)  (-> seeker (do-until move #(or (bound? %) (literal? %))))
       :else                   (-> seeker (do-until move #(or (bound? %) (paired-token? %) (blank? %)))))))
 
-(s/defn jump-left :- Seeker
+(s/defn do-jump-left :- Seeker
   [seeker :- Seeker]
-  (jump seeker move-left previous-char))
+  (jump seeker do-move-left previous-char))
 
-(s/defn jump-right :- Seeker
+(s/defn do-jump-right :- Seeker
   [seeker :- Seeker]
-  (jump seeker move-right current-char))
+  (jump seeker do-move-right current-char))
 
 (s/defn reset-expansion :- Seeker
   [seeker :- Seeker
@@ -397,9 +397,9 @@
   (assoc seeker :clipboard content))
 
 (s/defn reset-history :- Seeker
-  [seeker :- Seeker
-   undo-history :- [Seeker]
-   redo-history :- [Seeker]]
+  [undo-history :- [Seeker]
+   redo-history :- [Seeker]
+   seeker :- Seeker]
   (assoc seeker :history undo-history :rhistory redo-history))
 
 (s/defn distance :- s/Int
@@ -478,27 +478,27 @@
 
 (s/defn select-right :- Seeker
   [seeker :- Seeker]
-  (select-with seeker move-right))
+  (select-with seeker do-move-right))
 
 (s/defn select-left :- Seeker
   [seeker :- Seeker]
-  (select-with seeker move-left))
+  (select-with seeker do-move-left))
 
 (s/defn select-up :- Seeker
   [seeker :- Seeker]
-  (select-with seeker move-up))
+  (select-with seeker do-move-up))
 
 (s/defn select-down :- Seeker
   [seeker :- Seeker]
-  (select-with seeker move-down))
+  (select-with seeker do-move-down))
 
 (s/defn jump-select-right :- Seeker
   [seeker :- Seeker]
-  (select-with seeker jump-right))
+  (select-with seeker do-jump-right))
 
 (s/defn jump-select-left :- Seeker
   [seeker :- Seeker]
-  (select-with seeker jump-left))
+  (select-with seeker do-jump-left))
 
 (s/defn deselect :- Seeker
   [seeker :- Seeker]
@@ -539,7 +539,7 @@
                  (-> (conj l (concat a b))
                      (concat t)))))
 
-(s/defn new-line :- Seeker
+(s/defn do-new-line :- Seeker
   [seeker :- Seeker]
   (-> seeker
       (split vector)
@@ -583,22 +583,22 @@
         line-size (-> seeker (current-line) (count))]
     (and (= x line-size) (= y (dec text-size)))))
 
-(s/defn delete-previous :- Seeker
+(s/defn do-delete-previous :- Seeker
   [seeker :- Seeker]
   (cond
     (selecting? seeker) (chunk-delete seeker)
     (pair? seeker) (pair-delete seeker)
-    (paired-tokens (previous-char seeker)) (move-left seeker)
+    (paired-tokens (previous-char seeker)) (do-move-left seeker)
     :else (simple-delete seeker)))
 
-(s/defn delete-current :- Seeker
+(s/defn do-delete-current :- Seeker
   [seeker :- Seeker]
   (cond
     (selecting? seeker) (chunk-delete seeker)
-    (pair? seeker) (-> seeker (pair-delete) (move-left))
+    (pair? seeker) (-> seeker (pair-delete) (do-move-left))
     (paired-tokens (current-char seeker)) seeker
     (at-end? seeker) seeker
-    :else (-> seeker (move-right) (simple-delete))))
+    :else (-> seeker (do-move-right) (simple-delete))))
 
 (s/defn simple-insert :- Seeker
   [seeker :- Seeker
@@ -613,10 +613,10 @@
 (s/defn overwrite :- Seeker
   [seeker :- Seeker]
   (if (selecting? seeker)
-    (delete-previous seeker)
+    (do-delete-previous seeker)
     seeker))
 
-(s/defn insert :- Seeker
+(s/defn do-insert :- Seeker
   [seeker :- Seeker
    input  :- Character]
   (let [overwritten (overwrite seeker)]
@@ -654,19 +654,19 @@
                         nil
                         (drop xs line)))))))))
 
-(s/defn copy :- Seeker
+(s/defn do-copy :- Seeker
   [seeker :- Seeker]
   (if (selecting? seeker)
     (->> seeker (extract) (reset-clipboard seeker))
     seeker))
 
-(s/defn cut :- Seeker
+(s/defn do-cut :- Seeker
   [seeker :- Seeker]
   (if (selecting? seeker)
-    (-> seeker (copy) (delete-previous))
+    (-> seeker (do-copy) (do-delete-previous))
     seeker))
 
-(s/defn paste :- Seeker
+(s/defn do-paste :- Seeker
   [seeker :- Seeker]
   (let [copied (some-> seeker (:clipboard) (end))
         [x y]  (some-> copied (:cursor))]
@@ -706,32 +706,32 @@
         init-cursor     (:cursor seeker)
         text-end-cursor (:cursor (end seeker))]
     (loop [open-parens 1
-           current     (move-right seeker)]
+           current     (do-move-right seeker)]
       (let [char (current-char current)]
         (cond
           (zero? open-parens)                    {:start init-cursor :end (:cursor current)}
-          (pairs? init-char char)                (recur (dec open-parens) (move-right current))
+          (pairs? init-char char)                (recur (dec open-parens) (do-move-right current))
           (= text-end-cursor (:cursor current))  nil
-          (= init-char char)                     (recur (inc open-parens) (move-right current))
-          :else                                  (recur open-parens (move-right current)))))))
+          (= init-char char)                     (recur (inc open-parens) (do-move-right current))
+          :else                                  (recur open-parens (do-move-right current)))))))
 
 (s/defn closed-paren-expansion :- (s/maybe Region)
   [seeker :- Seeker]
   "This assumes that the cursor is behind a closed paren (i.e: |<->),  (current-char seeker) = closed-paren)
    Moves backward to match the closing paren"
   (let [init-char         (current-char seeker)
-        init-cursor       (-> seeker (move-right) (:cursor))
+        init-cursor       (-> seeker (do-move-right) (:cursor))
         text-start-cursor (:cursor (start seeker))]
     (loop [closed-parens 1
            end-cursor    nil
-           current       (move-left seeker)]
+           current       (do-move-left seeker)]
       (let [char (current-char current)]
         (cond
           (zero? closed-parens)                   {:start end-cursor :end init-cursor}
-          (pairs? init-char char)                 (recur (dec closed-parens) (:cursor current) (move-left current))
+          (pairs? init-char char)                 (recur (dec closed-parens) (:cursor current) (do-move-left current))
           (= text-start-cursor (:cursor current)) nil
-          (= init-char char)                      (recur (inc closed-parens) nil (move-left current))
-          :else                                   (recur closed-parens nil (move-left current)))))))
+          (= init-char char)                      (recur (inc closed-parens) nil (do-move-left current))
+          :else                                   (recur closed-parens nil (do-move-left current)))))))
 
 (s/defn free-expansion :- (s/maybe Region)
   [seeker :- Seeker]
@@ -745,20 +745,20 @@
             last-seen (first seen-chars)]
         (cond
           (and (empty? seen-chars)
-               (contains? open-pairs char))   (-> current (move-left) (open-paren-expansion))
-          (pairs? char last-seen)             (recur (rest seen-chars) (move-left current))
+               (contains? open-pairs char))   (-> current (do-move-left) (open-paren-expansion))
+          (pairs? char last-seen)             (recur (rest seen-chars) (do-move-left current))
           (= init-cursor (:cursor current))   nil
-          (contains? closed-pairs char)       (recur (cons char seen-chars) (move-left current))
-          :else                               (recur seen-chars (move-left current)))))))
+          (contains? closed-pairs char)       (recur (cons char seen-chars) (do-move-left current))
+          :else                               (recur seen-chars (do-move-left current)))))))
 
 (s/defn word-expansion-right :- Region
   [seeker :- Seeker]
   {:start (:cursor seeker)
-   :end   (:cursor (jump-right seeker))})
+   :end   (:cursor (do-jump-right seeker))})
 
 (s/defn word-expansion-left :- Region
   [seeker :- Seeker]
-  (-> seeker (jump-left) (word-expansion-right)))
+  (-> seeker (do-jump-left) (word-expansion-right)))
 
 (s/defn derive-expansion :- (s/maybe Region)
   [seeker :- Seeker]
@@ -771,7 +771,7 @@
              [:word \{ \}]                          (free-expansion seeker)
              [:word _ \space]                       (free-expansion seeker)
              [:word (:or \" \space) (:or \) \] \})] (closed-paren-expansion seeker)
-             [:word (:or \) \] \}) _]               (closed-paren-expansion (move-left seeker))
+             [:word (:or \) \] \}) _]               (closed-paren-expansion (do-move-left seeker))
              [(:or :word :expr) _ (:or \( \[ \{)]   (open-paren-expansion seeker)
              [:word (:or \( \[ \{ \" \space nil) _] (word-expansion-right seeker)
              [:word _ _]                            (word-expansion-left seeker)
@@ -788,9 +788,9 @@
                        :end   [xe ye]}}))]
     (cond
       (contains? open-pairs (current-char seeker))    (some-> seeker (open-paren-expansion) (to-pair))
-      (contains? open-pairs (previous-char seeker))   (some-> seeker (move-left) (open-paren-expansion) (to-pair))
+      (contains? open-pairs (previous-char seeker))   (some-> seeker (do-move-left) (open-paren-expansion) (to-pair))
       (contains? closed-pairs (current-char seeker))  (some-> seeker (closed-paren-expansion) (to-pair))
-      (contains? closed-pairs (previous-char seeker)) (some-> seeker (move-left) (closed-paren-expansion) (to-pair))
+      (contains? closed-pairs (previous-char seeker)) (some-> seeker (do-move-left) (closed-paren-expansion) (to-pair))
       :else                                           nil)))
 
 (s/defn expand :- Seeker
@@ -805,7 +805,7 @@
 
 (s/defn forget-everything :- Seeker
   [seeker :- Seeker]
-  (reset-history seeker '() '()))
+  (reset-history '() '() seeker))
 
 (s/defn remember :- Seeker
   [seeker :- Seeker]
@@ -846,7 +846,7 @@
     seeker
     (-> seeker
         (expand)
-        (delete-previous)
+        (do-delete-previous)
         (slicer #(concat input %))
         (move-x #(+ % (count input))))))
 
@@ -873,6 +873,59 @@
   [this :- Seeker
    that :- Seeker]
   (= (:lines this) (:lines that)))
+
+
+(s/defn delete-previous :- Seeker
+  [text :- Seeker]
+  (-> text (remember) (do-delete-previous) (deselect)))
+
+(s/defn delete-current :- Seeker
+  [text :- Seeker]
+  (-> text (remember) (do-delete-current) (deselect)))
+
+(s/defn insert :- Seeker
+  [char :- Character text :- Seeker]
+  (-> text (remember) (do-insert char) (deselect)))
+
+(s/defn move-left :- Seeker
+  [text :- Seeker]
+  (-> text (do-move-left) (deselect)))
+
+(s/defn move-right :- Seeker
+  [text :- Seeker]
+  (-> text (do-move-right) (deselect)))
+
+(s/defn move-up :- Seeker
+  [text :- Seeker]
+  (-> text (do-move-up) (deselect)))
+
+(s/defn move-down :- Seeker
+  [text :- Seeker]
+  (-> text (do-move-down) (deselect)))
+
+(s/defn jump-left :- Seeker
+  [text :- Seeker]
+  (-> text (do-jump-left) (deselect)))
+
+(s/defn jump-right :- Seeker
+  [text :- Seeker]
+  (-> text (do-jump-right) (deselect)))
+
+(s/defn new-line :- Seeker
+  [text :- Seeker]
+  (-> text (remember) (do-new-line) (deselect)))
+
+(s/defn copy :- Seeker
+  [text :- Seeker]
+  (-> text (do-copy) (deselect)))
+
+(s/defn cut :- Seeker
+  [text :- Seeker]
+  (-> text (remember) (do-cut) (deselect)))
+
+(s/defn paste :- Seeker
+  [text :- Seeker]
+  (-> text (remember) (do-paste) (deselect)))
 
 (s/defn process :- Seeker
   [seeker :- Seeker

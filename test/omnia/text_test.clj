@@ -22,22 +22,6 @@
        (run! (fn [{:keys [input expect]}]
                (is (= expect (i/from-string input)))))))
 
-(deftest reads-strings-with-cursors
-  (->> [{:input  "|123"
-         :expect (i/seeker [[\1 \2 \3]] [0 0])}
-        {:input  "12|3"
-         :expect (i/seeker [[\1 \2 \3]] [2 0])}
-        {:input  "1\n|\n"
-         :expect (i/seeker [[\1] []] [0 1])}
-        {:input  "1\n12\n\n3|2\n4"
-         :expect (i/seeker [[\1] [\1 \2] [] [\3 \2] [\4]] [1 3])}
-        {:input  "1\n2|"
-         :expect (i/seeker [[\1] [\2]] [1 1])}
-        {:input  "1|\n2\n"
-         :expect (i/seeker [[\1] [\2]] [1 0])}]
-       (run! (fn [{:keys [input expect]}]
-               (is (= expect (i/from-cursored-string input)))))))
-
 (deftest reads-marked-texts
   (->> [{:input  ["123"]
          :expect {:lines     [[\1 \2 \3]]
@@ -91,30 +75,39 @@
 ;; I. Peering
 
 (deftest peering-keeps-current-line-on-right-hand-side
-  (let [text (-> "hello\nw|orld\ntoday"
-                 (i/from-cursored-string)
+  (let [text (-> ["hello"
+                  "w|orld"
+                  "today"]
+                 (i/from-marked-text)
                  (i/peer (fn [left [current & rest]] [current]))
                  (:lines))]
     (is (= text [[\w \o \r \l \d]]))))
 
 (deftest peering-at-start-leaves-left-hand-side-empty
-  (let [text (-> "|hello\nworld"
-                 (i/from-cursored-string)
+  (let [text (-> ["|hello"
+                  "world"]
+                 (i/from-marked-text)
                  (i/peer (fn [left right] right))
                  (:lines))]
     (is (= text [[\h \e \l \l \o] [\w \o \r \l \d]]))))
 
 (deftest peering-at-end-keeps-only-last-line-on-right
-  (let [text (-> "hello\nworld\ntoday|"
-                 (i/from-cursored-string)
+  (let [text (-> ["hello"
+                  "world"
+                  "today|"]
+                 (i/from-marked-text)
                  (i/peer (fn [left right] left))
                  (:lines))]
     (is (= text [[\h \e \l \l \o] [\w \o \r \l \d]]))))
 
 (deftest peering-allows-inserting-new-lines
-  (let [lines (-> "new\nlines" (i/from-string) (:lines))
-        text (-> "hello\nworld\nto|day"
-                 (i/from-cursored-string)
+  (let [lines (-> ["new" "lines"]
+                  (i/from-marked-text)
+                  (:lines))
+        text (-> ["hello"
+                  "world"
+                  "to|day"]
+                 (i/from-marked-text)
                  (i/peer (fn [left right]
                            (concat left lines right)))
                  (:lines))]
@@ -125,17 +118,25 @@
                  [\t \o \d \a \y]]))))
 
 (deftest peering-allows-removing-lines
-  (let [current  (-> "hello\nw|orld\ntoday"
-                     (i/from-cursored-string)
+  (let [current  (-> ["hello"
+                      "w|orld"
+                      "today"]
+                     (i/from-marked-text)
                      (i/peer (fn [left [current & right]]
                                (concat left right)))
                      (:lines))
-        previous (-> "hello\nw|orld\ntoday"
-                     (i/from-cursored-string)
+
+        previous (-> ["hello"
+                      "w|orld"
+                      "today"]
+                     (i/from-marked-text)
                      (i/peer (fn [left right] right))
                      (:lines))
-        next     (-> "hello\nw|orld\ntoday"
-                     (i/from-cursored-string)
+
+        next     (-> ["hello"
+                      "w|orld"
+                      "today"]
+                     (i/from-marked-text)
                      (i/peer (fn [left [current & right]]
                                (concat left [current])))
                      (:lines))]
@@ -144,40 +145,50 @@
     (is (= next [[\h \e \l \l \o] [\w \o \r \l \d]]))))
 
 (deftest peering-merges-lines-when-empty
-  (let [lines (-> "new\nlines" (i/from-string))
+  (let [lines (-> ["new"
+                   "lines"]
+                  (i/from-marked-text)
+                  (:lines))
+
         text  (-> i/empty-seeker
-                  (i/peer (fn [l r] (concat l (:lines lines) r)))
+                  (i/peer (fn [l r] (concat l lines r)))
                   (:lines))]
     (is (= text [[\n \e \w] [\l \i \n \e \s]]))))
 
 ;;; II. Splitting
 
 (deftest splitting-splits-line-into-future-and-past-characters
-  (let [left  (-> "hello\nwo|rld"
-                  (i/from-cursored-string)
+  (let [left  (-> ["hello"
+                   "wo|rld"]
+                  (i/from-marked-text)
                   (i/split (fn [left right] [left]))
                   (i/current-line))
-        right (-> "hello\nwo|rld"
-                  (i/from-cursored-string)
+
+        right (-> ["hello"
+                   "wo|rld"]
+                  (i/from-marked-text)
                   (i/split (fn [left right] [right]))
                   (i/current-line))]
     (is (= left  [\w \o]))
     (is (= right [\r \l \d]))))
 
 (deftest splitting-can-create-new-lines
-  (let [text (-> "hello\nwor|ld"
-                 (i/from-cursored-string)
+  (let [text (-> ["hello"
+                  "wor|ld"]
+                 (i/from-marked-text)
                  (i/split (fn [l r] [(concat l r) [\t \o \d \a \y]]))
                  (:lines))]
     (is (= text [[\h \e \l \l \o] [\w \o \r \l \d] [\t \o \d \a \y]]))))
 
 (deftest splitting-can-alter-the-current-line
-  (let [replaced (-> "hell|o\nworld"
-                     (i/from-cursored-string)
+  (let [replaced (-> ["hell|o"
+                      "world"]
+                     (i/from-marked-text)
                      (i/split (constantly [[\n \o]]))
                      (:lines))
-        enhanced (-> "hel|lo\nworld"
-                     (i/from-cursored-string)
+        enhanced (-> ["hel|lo"
+                      "world"]
+                     (i/from-marked-text)
                      (i/split (fn [l r] [(concat l [\p])]))
                      (:lines))]
     (is (= replaced [[\n \o] [\w \o \r \l \d]]))
@@ -192,24 +203,29 @@
 ;;; III. Slicing
 
 (deftest slicing-slices-the-line-into-future-and-past-characters
-  (let [left  (-> "hello\nwo|rld"
-                  (i/from-cursored-string)
+  (let [left  (-> ["hello"
+                   "w|orld"]
+                  (i/from-marked-text)
                   (i/slice (fn [left right] left))
                   (i/current-line))
-        right (-> "hello\nwo|rld"
-                  (i/from-cursored-string)
+
+        right (-> ["hello"
+                   "w|orld"]
+                  (i/from-marked-text)
                   (i/slice (fn [left right] right))
                   (i/current-line))]
-    (is (= left  [\w \o]))
-    (is (= right [\r \l \d]))))
+    (is (= left  [\w]))
+    (is (= right [\o \r \l \d]))))
 
 (deftest slicing-can-alter-the-current-line
-  (let [replaced (-> "hell|o\nworld"
-                     (i/from-cursored-string)
+  (let [replaced (-> ["hell|o"
+                      "world"]
+                     (i/from-marked-text)
                      (i/slice (constantly [\n \o]))
                      (:lines))
-        enhanced (-> "hel|lo\nworld"
-                     (i/from-cursored-string)
+        enhanced (-> ["hel|lo"
+                      "world"]
+                     (i/from-marked-text)
                      (i/slice (fn [l r] (concat l [\p])))
                      (:lines))]
     (is (= replaced [[\n \o] [\w \o \r \l \d]]))
@@ -224,186 +240,278 @@
 ;; IV. Moving
 
 (deftest moves-right
-  (let [text (-> "h|ello"
-                 (i/from-cursored-string)
+  (let [text (-> ["h|ello"]
+                 (i/from-marked-text)
                  (i/move-right)
                  (i/current-char))]
     (is (= text \l))))
 
 (deftest moves-right-between-lines
-  (let [text (-> "hell|o\nworld"
-                 (i/from-cursored-string)
+  (let [text (-> ["hell|o"
+                  "world"]
+                 (i/from-marked-text)
                  (i/move-right)
                  (i/move-right)
                  (i/current-char))]
     (is (= text \w))))
 
 (deftest stops-moving-right-at-text-end
-  (let [text          (-> "hello\nworld|"
-                          (i/from-cursored-string)
-                          (i/move-right)
-                          (i/move-right)
-                          (i/move-right))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char nil))
-    (is (= previous-char \d))))
+  (let [text      (-> ["hello"
+                       "world|"]
+                      (i/from-marked-text)
+                      (i/move-right)
+                      (i/move-right))
+        curr-char (i/current-char text)
+        prev-char (i/previous-char text)]
+    (is (= curr-char nil))
+    (is (= prev-char \d))))
 
 (deftest moves-left
-  (let [text (-> "h|ello"
-                 (i/from-cursored-string)
+  (let [text (-> ["h|ello"]
+                 (i/from-marked-text)
                  (i/move-left)
                  (i/current-char))]
     (is (= text \h))))
 
 (deftest moves-left-between-lines
-  (let [text          (-> "hello\nw|orld"
-                          (i/from-cursored-string)
-                          (i/move-left)
-                          (i/move-left))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char nil))
-    (is (= previous-char \o))))
+  (let [text      (-> ["hello"
+                       "w|orld"]
+                      (i/from-marked-text)
+                      (i/move-left)
+                      (i/move-left))
+        curr-char (i/current-char text)
+        prev-char (i/previous-char text)]
+    (is (= curr-char nil))
+    (is (= prev-char \o))))
 
 (deftest stops-moving-left-at-text-start
-  (let [text          (-> "|hello\nworld"
-                          (i/from-cursored-string)
-                          (i/move-left)
-                          (i/move-left)
-                          (i/move-left))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char \h))
-    (is (= previous-char nil))))
+  (let [text      (-> ["|hello"
+                       "world"]
+                      (i/from-marked-text)
+                      (i/move-left)
+                      (i/move-left))
+        curr-char (i/current-char text)
+        prev-char (i/previous-char text)]
+    (is (= curr-char \h))
+    (is (= prev-char nil))))
 
 (deftest moves-up
-  (testing "Moves up from middle of the line, when line above is smaller"
-    (let [text         (i/from-cursored-string "ha\nwor|ld")
-          moved        (process' text [up])
-          cursor       (:cursor moved)
-          current-char (i/current-char moved)]
-      (is (= current-char nil))
-      (is (= cursor [2 0]))))
-
-  (testing "Moves up from middle of the line, when line above >= in size"
-    (let [text         (i/from-cursored-string "hello\nwor|ld")
-          moved        (process' text [up])
-          cursor       (:cursor moved)
-          current-char (i/current-char moved)]
-      (is (= current-char \l))
-      (is (= cursor [3 0])))))
-
-(deftest moves-up-from-the-end-of-line
-  (let [text          (-> "hello\nworld|"
-                          (i/from-cursored-string)
-                          (i/move-up))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char nil))
-    (is (= previous-char \o))))
-
-(deftest moves-up-from-the-start-of-line
-  (let [text          (-> "hello\n|world"
-                          (i/from-cursored-string)
-                          (i/move-up))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char \h))
-    (is (= previous-char nil))))
-
-(deftest moves-up-to-line-end-when-previous-line-smaller
-  (let [text          (-> "you\nhello|"
-                          (i/from-cursored-string)
-                          (i/move-up))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char nil))
-    (is (= previous-char \u))))
-
-(deftest stops-moving-up-when-text-ends
-  (let [text          (-> "he|llo\nworld"
-                          (i/from-cursored-string)
-                          (i/move-up)
+  (testing "LINE MIDDLE -"
+    (testing "initial"
+      (let [text      (-> ["hello"
+                           "wor|ld"]
+                          (i/from-marked-text)
                           (i/move-up)
                           (i/move-up))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char \l))
-    (is (= previous-char \e))))
+            expected  (-> ["hel|lo"
+                           "world"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \l))
+        (is (= prev-char \l))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously"
+      (let [text      (-> ["hello"
+                           "world"
+                           "tod|ay"]
+                          (i/from-marked-text)
+                          (i/move-up)
+                          (i/move-up))
+            expected  (-> ["hel|lo"
+                           "world"
+                           "today"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/current-char text)]
+        (is (= curr-char \l))
+        (is (= prev-char \l))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "previous line smaller"
+      (let [text      (-> ["ha"
+                           "tod|ay"]
+                          (i/from-marked-text)
+                          (i/move-up)
+                          (i/move-up))
+            expected  (-> ["ha|"
+                           "today"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char nil))
+        (is (= prev-char \a))
+        (is (= (:cursor text) (:cursor expected))))))
+
+  (testing "LINE END -"
+    (testing "initial"
+      (let [text      (-> ["hello"
+                           "world|"]
+                          (i/from-marked-text)
+                          (i/move-up)
+                          (i/move-up))
+            expected  (-> ["hello|"
+                           "today"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char nil))
+        (is (= prev-char \o))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "previous line larger"
+      (let [text      (-> ["bonjour"
+                           "world|"]
+                          (i/from-marked-text)
+                          (i/move-up))
+            expected  (-> ["bonjo|ur"
+                           "today"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \u))
+        (is (= prev-char \o))
+        (is (= (:cursor text) (:cursor expected))))))
+
+  (testing "LINE START"
+    (testing "initial"
+      (let [text      (-> ["bonjour"
+                           "|world"]
+                          (i/from-marked-text)
+                          (i/move-up)
+                          (i/move-up))
+            expected  (-> ["|bonjour"
+                           "today"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \b))
+        (is (= prev-char nil))
+        (is (= (:cursor text) (:cursor expected)))))))
 
 (deftest moves-down
-  (let [current-char (-> "hell|o\nworld"
-                         (i/from-cursored-string)
-                         (i/move-down)
-                         (i/current-char))]
-    (is (= current-char \d))))
-
-(deftest moves-down-from-the-end-of-line
-  (let [text          (-> "hello|\nworld"
-                          (i/from-cursored-string)
-                          (i/move-down))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char nil))
-    (is (= previous-char \d))))
-
-(deftest moves-down-from-the-start-of-line
-  (let [text          (-> "|hello\nworld"
-                          (i/from-cursored-string)
-                          (i/move-down))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char \w))
-    (is (= previous-char nil))))
-
-(deftest moves-down-to-line-end-when-next-line-smaller
-  (let [text          (-> "hello|\nyou"
-                          (i/from-cursored-string)
-                          (i/move-down))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char nil))
-    (is (= previous-char \u))))
-
-(deftest stops-moving-down-when-text-ends
-  (let [text          (-> "hello\nwor|ld"
-                          (i/from-cursored-string)
-                          (i/move-down)
+  (testing "LINE MIDDLE -"
+    (testing "initial"
+      (let [text      (-> ["hel|lo"
+                           "world"]
+                          (i/from-marked-text)
                           (i/move-down)
                           (i/move-down))
-        current-char  (i/current-char text)
-        previous-char (i/previous-char text)]
-    (is (= current-char \l))
-    (is (= previous-char \r))))
+            expected  (-> ["hello"
+                           "wor|ld"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \l))
+        (is (= prev-char \r))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously"
+      (let [text      (-> ["hel|lo"
+                           "world"
+                           "today"]
+                          (i/from-marked-text)
+                          (i/move-down)
+                          (i/move-down))
+            expected  (-> ["hello"
+                           "world"
+                           "tod|ay"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \a))
+        (is (= prev-char \d))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "next line smaller"
+      (let [text      (-> ["toda|y"
+                           "ha"]
+                          (i/from-marked-text)
+                          (i/move-down)
+                          (i/move-down))
+            expected  (-> ["today"
+                           "ha|"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char nil))
+        (is (= prev-char \a))
+        (is (= (:cursor text) (:cursor expected))))))
+
+  (testing "LINE END -"
+    (testing "initial"
+      (let [text      (-> ["hello|"
+                           "world"]
+                          (i/from-marked-text)
+                          (i/move-down)
+                          (i/move-down))
+            expected  (-> ["hello"
+                           "today|"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char nil))
+        (is (= prev-char \d))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "next line larger"
+      (let [text      (-> ["worl|d"
+                           "bonjour"]
+                          (i/from-marked-text)
+                          (i/move-down))
+            expected  (-> ["world"
+                           "bonj|our"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \o))
+        (is (= prev-char \j))
+        (is (= (:cursor text) (:cursor expected))))))
+
+  (testing "LINE START"
+    (testing "initial"
+      (let [text      (-> ["|bonjour"
+                           "world"]
+                          (i/from-marked-text)
+                          (i/move-down)
+                          (i/move-down))
+            expected  (-> ["bonjour"
+                           "|world"]
+                          (i/from-marked-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= curr-char \w))
+        (is (= prev-char nil))
+        (is (= (:cursor text) (:cursor expected)))))))
 
 ;; V. Retrieving
 
 (deftest gets-previous-char
-  (let [somewhere    (-> "hell|o" (i/from-cursored-string) (i/previous-char))
-        at-start     (-> "|hello" (i/from-cursored-string) (i/previous-char))
-        between-line (-> "hello\n|world" (i/from-cursored-string) (i/previous-char))
-        at-end       (-> "hello|" (i/from-cursored-string) (i/previous-char))]
+  (let [somewhere    (-> ["hell|o"] (i/from-marked-text) (i/previous-char))
+        at-start     (-> ["|hello"] (i/from-marked-text) (i/previous-char))
+        between-line (-> ["hello" "|world"] (i/from-marked-text) (i/previous-char))
+        at-end       (-> ["hello|"] (i/from-marked-text) (i/previous-char))]
     (is (= somewhere \l))
     (is (= at-start nil))
     (is (= between-line nil))
     (is (= at-end \o))))
 
 (deftest gets-current-char
-  (let [somewhere    (-> "hell|o" (i/from-cursored-string) (i/current-char))
-        at-start     (-> "|hello" (i/from-cursored-string) (i/current-char))
-        between-line (-> "hello|\nworld" (i/from-cursored-string) (i/current-char))
-        at-end       (-> "hello|" (i/from-cursored-string) (i/current-char))]
+  (let [somewhere    (-> ["hell|o"] (i/from-marked-text) (i/current-char))
+        at-start     (-> ["|hello"] (i/from-marked-text) (i/current-char))
+        between-line (-> ["hello|" "world"] (i/from-marked-text) (i/current-char))
+        at-end       (-> ["hello|"] (i/from-marked-text) (i/current-char))]
     (is (= somewhere \o))
     (is (= at-start \h))
     (is (= between-line nil))
     (is (= at-end nil))))
 
 (deftest gets-next-char
-  (let [somewhere    (-> "hel|lo" (i/from-cursored-string) (i/next-char))
-        at-start     (-> "|hello" (i/from-cursored-string) (i/next-char))
-        between-line (-> "hello|\nworld" (i/from-cursored-string) (i/next-char))
-        at-end       (-> "hello|" (i/from-cursored-string) (i/next-char))]
+  (let [somewhere    (-> ["hel|lo"] (i/from-marked-text) (i/next-char))
+        at-start     (-> ["|hello"] (i/from-marked-text) (i/next-char))
+        between-line (-> ["hello|" "world"] (i/from-marked-text) (i/next-char))
+        at-end       (-> ["hello|"] (i/from-marked-text) (i/next-char))]
     (is (= somewhere \o))
     (is (= at-start \e))
     (is (= between-line \w))
@@ -413,27 +521,30 @@
 
 (deftest deletes-previous-character
   (testing "Deletes previous character within a line"
-    (let [text   (-> "hell|o"
-                     (i/from-cursored-string)
-                     (process' [delete-previous]))
+    (let [text   (-> ["hell|o"]
+                     (i/from-marked-text)
+                     (i/delete-previous))
           lines  (:lines text)
           cursor (:cursor text)]
       (is (= lines [[\h \e \l \o]]))
       (is (= cursor [3 0]))))
 
   (testing "Deletes previous characters over multiple lines"
-    (let [text   (-> "hello\nw|orld"
-                     (i/from-cursored-string)
-                     (process' [delete-previous delete-previous delete-previous]))
+    (let [text   (-> ["hello"
+                      "w|orld"]
+                     (i/from-marked-text)
+                     (i/delete-previous)
+                     (i/delete-previous)
+                     (i/delete-previous))
           lines  (:lines text)
           cursor (:cursor text)]
       (is (= lines [[\h \e \l \l \o \r \l \d]]))
       (is (= cursor [4 0]))))
 
   (testing "Stops deleting previous character when a bound is reached"
-    (let [text   (-> "|hello"
-                     (i/from-cursored-string)
-                     (process' [delete-previous]))
+    (let [text   (-> ["|hello"]
+                     (i/from-marked-text)
+                     (i/delete-previous))
           lines  (:lines text)
           cursor (:cursor text)]
       (is (= lines [[\h \e \l \l \o]]))
@@ -441,27 +552,30 @@
 
 (deftest deletes-current-character
   (testing "Deletes current character within a line"
-    (let [text   (-> "hell|o"
-                     (i/from-cursored-string)
-                     (process' [delete-current]))
+    (let [text   (-> ["hell|o"]
+                     (i/from-marked-text)
+                     (i/delete-current))
           lines  (:lines text)
           cursor (:cursor text)]
       (is (= lines [[\h \e \l \l]]))
       (is (= cursor [4 0]))))
 
   (testing "Deletes current characters over multiple lines"
-    (let [text   (-> "hell|o\nworld"
-                     (i/from-cursored-string)
-                     (process' [delete-current delete-current delete-current]))
+    (let [text   (-> ["hell|o"
+                      "world"]
+                     (i/from-marked-text)
+                     (i/delete-current)
+                     (i/delete-current)
+                     (i/delete-current))
           lines  (:lines text)
           cursor (:cursor text)]
       (is (= lines [[\h \e \l \l \o \r \l \d]]))
       (is (= cursor [4 0]))))
 
   (testing "Stops deleting current character when a bound is reached"
-    (let [text   (-> "hello|"
-                     (i/from-cursored-string)
-                     (process' [delete-current]))
+    (let [text   (-> ["hello|"]
+                     (i/from-marked-text)
+                     (i/delete-current))
           lines  (:lines text)
           cursor (:cursor text)]
       (is (= lines [[\h \e \l \l \o]]))
@@ -474,11 +588,11 @@
           [\{ \}]
           [\" \"]]
          (run! (fn [[l r]]
-                 (let [text            (-> (str l "|" r) (i/from-cursored-string))
-                       previous        (-> text (process' [delete-previous]))
+                 (let [text            (i/from-marked-text [(str l "|" r)])
+                       previous        (i/delete-previous text)
                        previous-lines  (:lines previous)
                        previous-cursor (:cursor previous)
-                       current         (-> text (process' [delete-current]))
+                       current         (i/delete-current text)
                        current-lines   (:lines current)
                        current-cursor  (:cursor current)]
                    (is (= previous-lines current-lines [[]]))
@@ -487,12 +601,12 @@
   (testing "Does not delete orphaned pairs"
     (->> [\( \) \{ \} \[ \] \"]
          (run! (fn [orphan]
-                 (let [previous        (-> (str orphan "|")
-                                           (i/from-cursored-string)
-                                           (process' [delete-previous]))
-                       current         (-> (str "|" orphan)
-                                           (i/from-cursored-string)
-                                           (process' [delete-current]))
+                 (let [previous        (-> [(str orphan "|")]
+                                           (i/from-marked-text)
+                                           (i/delete-previous))
+                       current         (-> [(str "|" orphan)]
+                                           (i/from-marked-text)
+                                           (i/delete-current))
                        previous-lines  (:lines previous)
                        previous-cursor (:cursor previous)
                        current-lines   (:lines current)
@@ -502,18 +616,22 @@
 
 (deftest deletes-selections
   (testing "Deletes selection by means of deleting previous character"
-    (let [text   (-> "he|llo"
-                     (i/from-cursored-string)
-                     (process' [select-right select-right delete-previous]))
+    (let [text   (-> ["he|llo"]
+                     (i/from-marked-text)
+                     (i/select-right)
+                     (i/select-right)
+                     (i/delete-previous))
           cursor (:cursor text)
           lines  (:lines text)]
       (is (= lines [[\h \e \o]]))
       (is (= cursor [2 0]))))
 
   (testing "Deletes selection by means of deleting the current character"
-    (let [text   (-> "he|llo"
-                     (i/from-cursored-string)
-                     (process' [select-right select-right delete-current]))
+    (let [text   (-> ["he|llo"]
+                     (i/from-marked-text)
+                     (i/select-right)
+                     (i/select-right)
+                     (i/delete-current))
           cursor (:cursor text)
           lines  (:lines text)]
       (is (= lines [[\h \e \o]]))
@@ -521,18 +639,26 @@
 
 (deftest deletes-selections-over-lines
   (testing "Deletes selections merging lines downward"
-    (let [text     (i/from-cursored-string "hello\nworld|\nyou")
-          selected (process' text [select-up delete-previous])
-          cursor   (:cursor selected)
-          lines    (:lines selected)]
+    (let [text   (-> ["hello"
+                      "world|"
+                      "you"]
+                     (i/from-marked-text)
+                     (i/select-up)
+                     (i/delete-previous))
+          cursor (:cursor text)
+          lines  (:lines text)]
       (is (= lines [[\h \e \l \l \o] [\y \o \u]]))
       (is (= cursor [5 0]))))
 
   (testing "Deletes selections merging lines upward"
-    (let [text     (i/from-cursored-string "hello\n|world\nyou")
-          selected (process' text [select-down delete-previous])
-          cursor   (:cursor selected)
-          lines    (:lines selected)]
+    (let [text   (-> ["hello"
+                      "|world"
+                      "you"]
+                     (i/from-marked-text)
+                     (i/select-down)
+                     (i/delete-previous))
+          cursor (:cursor text)
+          lines  (:lines text)]
       (is (= lines [[\h \e \l \l \o] [\y \o \u]]))
       (is (= cursor [0 1])))))
 
@@ -543,15 +669,19 @@
         [\" \"]]
        (run! (fn [[l r]]
                (let [text           (-> [(str l "|" r)] (i/from-marked-text))
-                     previous-left  (-> text (process' [select-left delete-previous]) (:lines))
-                     current-left   (-> text (process' [select-left delete-current]) (:lines))
-                     previous-right (-> text (process' [select-right delete-previous]) (:lines))
-                     current-right  (-> text (process' [select-right delete-current]) (:lines))]
+                     previous-left  (-> text (i/select-left) (i/delete-previous) (:lines))
+                     current-left   (-> text (i/select-left) (i/delete-current) (:lines))
+                     previous-right (-> text (i/select-right) (i/delete-previous) (:lines))
+                     current-right  (-> text (i/select-right) (i/delete-current) (:lines))]
                  (is (= previous-left current-left [[r]]))
                  (is (= previous-right current-right [[l]])))))))
 
 (deftest deletes-selections-over-multiple-lines-and-merges
-  (let [text     (-> "hello\nworld\nto|day" (i/from-cursored-string) (i/select-up))
+  (let [text     (-> ["hello"
+                      "world"
+                      "to|day"]
+                     (i/from-marked-text)
+                     (i/select-up))
         previous (-> text (i/delete-previous) (:lines))
         current  (-> text (i/delete-current) (:lines))]
     (is (= previous current [[\h \e \l \l \o] [\w \o \d \a \y]]))))
@@ -559,73 +689,74 @@
 ;; VII. Inserting
 
 (deftest inserts-literals
-  (let [text (i/from-cursored-string "|some text")
-        num  (-> text (i/insert \1) (i/previous-char))
-        char (-> text (i/insert \a) (i/previous-char))]
+  (let [text (i/from-marked-text ["|some text"])
+        num  (->> text (i/insert \1) (i/previous-char))
+        char (->> text (i/insert \a) (i/previous-char))]
     (is (= num \1))
     (is (= char \a))))
 
 (deftest inserts-pairs
-  (run!
-    (fn [[l r]]
-      (let [left-pair (-> i/empty-seeker (i/insert l) (i/current-line))
-            right-pair (-> i/empty-seeker (i/insert r) (i/current-line))]
-        (is (= left-pair right-pair [l r]))))
-    [[\( \)] [\[ \]] [\{ \}] [\" \"]]))
+  (->> [[\( \)] [\[ \]] [\{ \}] [\" \"]]
+       (run!
+         (fn [[l r]]
+           (let [left-pair  (->> i/empty-seeker (i/insert l) (i/current-line))
+                 right-pair (->> i/empty-seeker (i/insert r) (i/current-line))]
+             (is (= left-pair right-pair [l r])))))))
 
 (deftest inserts-ignoring-existing-neighouring-closed-parens
-  (run!
-    (fn [[l r]]
-      (let [text (-> (str l "text" "|" r)
-                     (i/from-cursored-string)
-                     (i/insert r)
-                     (i/current-line))]
-        (is (= text [l \t \e \x \t r]))))
-    [[\( \)] [\[ \]] [\{ \}]]))
+  (->> [[\( \)] [\[ \]] [\{ \}]]
+       (run!
+         (fn [[l r]]
+           (let [text (->> [(str l "text" "|" r)]
+                           (i/from-marked-text)
+                           (i/insert r)
+                           (i/current-line))]
+             (is (= text [l \t \e \x \t r])))))))
 
 (deftest inserts-creating-new-open-parens-when-neighouring-open-parens
-  (run!
-    (fn [[l r]]
-      (let [text (-> (str "|" l "text" r)
-                     (i/from-cursored-string)
-                     (i/insert l)
-                     (i/current-line))]
-        (is (= text [l r l \t \e \x \t r]))))
-    [[\( \)] [\[ \]] [\{ \}]]))
+  (->> [[\( \)] [\[ \]] [\{ \}]]
+       (run!
+         (fn [[l r]]
+           (let [text (->> [(str "|" l "text" r)]
+                           (i/from-marked-text)
+                           (i/insert l)
+                           (i/current-line))]
+             (is (= text [l r l \t \e \x \t r])))))))
 
 (deftest inserts-ignoring-existing-existing-neighbouring-string-pair
-  (let [left-hand  (-> "|\"text\""
-                       (i/from-cursored-string)
-                       (i/insert \")
-                       (i/current-line))
-        right-hand (-> "\"text|\""
-                       (i/from-cursored-string)
-                       (i/insert \")
-                       (i/current-line))]
+  (let [left-hand  (->> ["|\"text\""]
+                        (i/from-marked-text)
+                        (i/insert \")
+                        (i/current-line))
+        right-hand (->> ["\"text|\""]
+                        (i/from-marked-text)
+                        (i/insert \")
+                        (i/current-line))]
     (is (= left-hand right-hand [\" \t \e \x \t \"]))))
 
 (deftest inserts-replacing-selection-in-line
-  (let [text (-> "|one line"
-                 (i/from-cursored-string)
-                 (i/jump-select-right)
-                 (i/insert \a)
-                 (i/current-line))]
+  (let [text (->> ["|one line"]
+                  (i/from-marked-text)
+                  (i/jump-select-right)
+                  (i/insert \a)
+                  (i/current-line))]
     (is (= text [\a \space \l \i \n \e]))))
 
 (deftest inserts-replacing-selection-between-lines
-  (let [text (-> "one |line\ntwo lines"
-                 (i/from-cursored-string)
-                 (i/jump-select-right)
-                 (i/jump-select-right)
-                 (i/jump-select-right)
-                 (i/insert \a)
-                 (:lines))]
+  (let [text (->> ["one |line"
+                   "two lines"]
+                  (i/from-marked-text)
+                  (i/jump-select-right)
+                  (i/jump-select-right)
+                  (i/jump-select-right)
+                  (i/insert \a)
+                  (:lines))]
     (is (= text [[\o \n \e \space \a \space \l \i \n \e \s]]))))
 
 ;; VIII. Jumping
 
 (deftest jumps-over-words
-  (let [text   (i/from-string "these are words")
+  (let [text   (i/from-marked-text ["these are words"])
         t      (-> text (i/current-char))
         space1 (-> text (i/jump-right) (i/current-char))
         a      (-> text (i/jump-right) (i/jump-right) (i/current-char))
@@ -638,7 +769,7 @@
     (is (= w \w))))
 
 (deftest jumps-right-over-open-paired-tokens
-  (let [text         (i/from-string "({[\"word")
+  (let [text         (i/from-marked-text ["({[\"word"])
         open-paren   (-> text (i/current-char))
         open-curly   (-> text (i/jump-right) (i/current-char))
         open-bracket (-> text (i/jump-right) (i/jump-right) (i/current-char))
@@ -651,7 +782,7 @@
     (is (= word \w))))
 
 (deftest jumps-left-over-open-paired-tokens
-  (let [text         (i/from-string "word({[\"")
+  (let [text         (i/from-marked-text ["word({[\""])
         open-quote   (-> text (i/end) (i/jump-left) (i/current-char))
         open-bracket (-> text (i/end) (i/jump-left) (i/jump-left) (i/current-char))
         open-curly   (-> text (i/end) (i/jump-left) (i/jump-left) (i/jump-left) (i/current-char))
@@ -664,7 +795,7 @@
     (is (= word \w))))
 
 (deftest jumps-right-over-closed-paired-tokens
-  (let [text           (i/from-string ")}]\"word")
+  (let [text           (i/from-marked-text [")}]\"word"])
         closed-paren   (-> text (i/current-char))
         closed-curly   (-> text (i/jump-right) (i/current-char))
         closed-bracket (-> text (i/jump-right) (i/jump-right) (i/current-char))
@@ -677,7 +808,7 @@
     (is (= word \w))))
 
 (deftest jumps-left-over-closed-paired-tokens
-  (let [text           (i/from-string "word)}]\"")
+  (let [text           (i/from-marked-text ["word)}]\""])
         closed-quote   (-> text (i/end) (i/jump-left) (i/current-char))
         closed-bracket (-> text (i/end) (i/jump-left) (i/jump-left) (i/current-char))
         closed-curly   (-> text (i/end) (i/jump-left) (i/jump-left) (i/jump-left) (i/current-char))
@@ -690,17 +821,17 @@
     (is (= word \w))))
 
 (deftest jumps-until-spaces
-  (let [text  (i/from-string "long word")
+  (let [text  (i/from-marked-text ["long word"])
         space (-> text (i/jump-right) (i/current-char))]
     (is (= space \space))))
 
 (deftest jumps-over-spaces
-  (let [text (i/from-string "spaced      out")
+  (let [text (i/from-marked-text ["spaced      out"])
         o    (-> text (i/jump-right) (i/jump-right) (i/current-char))]
     (is (= o \o))))
 
 (deftest jumps-between-lines
-  (let [text (i/from-string "first\nsecond")
+  (let [text (i/from-marked-text ["first" "second"])
         s    (-> text
                  (i/jump-right)
                  (i/jump-right)
@@ -716,61 +847,280 @@
 
 ;; IX. Selecting
 (deftest selects-indempotently-over-single-chars
-  (let [region (-> ["|12"]
+  (let [region (->> ["|12"]
                    (i/from-marked-text)
-                   (process' [right select-left select-left select-right])
+                   (i/move-right)
+                   (i/select-left)
+                   (i/select-left)
+                   (i/select-right)
                    (:selection))]
     (is (nil? region))))
 
-(deftest selects-when-jumping-right
-  (testing "Selects jumping right within a line"
-    (let [text     (i/from-cursored-string "hello |world today")
-          selected (process' text [jump-select-right jump-select-right jump-select-right])
-          cursor   (:cursor selected)
-          lines    (-> selected (i/extract) (:lines))]
-      (is (= lines [[\w \o \r \l \d \space \t \o \d \a \y]]))
-      (is (= cursor [17 0]))))
+(deftest jumps-selecting-right
+  (testing "INCREASING -"
+    (testing "initial"
+      (let [text      (->> ["hello |world today"]
+                           (i/from-marked-text)
+                           (i/jump-select-right))
+            expected  (-> ["hello <world>| today"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
 
-  (testing "Selects jumping right over lines until the beginning of the next line"
-    (let [text     (i/from-cursored-string "hello |world\nsome day")
-          selected (process' text [jump-select-right jump-select-right])
-          cursor   (:cursor selected)
-          lines    (-> selected (i/extract) (:lines))]
-      (is (= lines [[\w \o \r \l \d] []]))
-      (is (= cursor [0 1]))))
+    (testing "continuously"
+      (let [text      (->> ["hello |world today"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello <world today>|"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d \space \t \o \d \a \y]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
 
-  (testing "Selects jumping right over lines until some text of the next line is covered"
-    (let [text     (i/from-cursored-string "hello |world\nsome day")
-          selected (process' text [jump-select-right jump-select-right jump-select-right])
-          cursor   (:cursor selected)
-          lines    (-> selected (i/extract) (:lines))]
-      (is (= lines [[\w \o \r \l \d] [\s \o \m \e]]))
-      (is (= cursor [4 1])))))
+    (testing "over lines"
+      (let [text      (->> ["hello |world"
+                            "some day"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello <world"
+                           ">|some day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d] []]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
 
-(deftest selects-when-jumping-left
-  (testing "Selects jumping left within a line"
-    (let [text     (i/from-cursored-string "hello world| today")
-          selected (process' text [jump-select-left jump-select-left jump-select-left])
-          cursor   (:cursor selected)
-          lines    (-> selected (i/extract) (:lines))]
-      (is (= lines [[\h \e \l \l \o \space \w \o \r \l \d]]))
-      (is (= cursor [0 0]))))
+    (testing "continuously over lines"
+      (let [text      (->> ["hello |world"
+                            "some day"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello <world"
+                           "some>| day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d] [\s \o \m \e]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected))))))
 
-  (testing "Selects jumping left over lines until end of previous line"
-    (let [text     (i/from-cursored-string "hello world\nsome| day")
-          selected (process' text [jump-select-left jump-select-left])
-          cursor   (:cursor selected)
-          lines    (-> selected (i/extract) (:lines))]
-      (is (= lines [[] [\s \o \m \e]]))
-      (is (= cursor [11 0]))))
+  (testing "DECREASING -"
+    (testing "initial"
+      (let [text      (->> ["|<hello world>"]
+                           (i/from-marked-text)
+                           (i/jump-select-right))
+            expected  (-> ["hello|< world>"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\space \w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
 
-  (testing "Selects jumping left over lines until some text of the previous line is covered"
-    (let [text     (i/from-cursored-string "hello world\nsome| day")
-          selected (process' text [jump-select-left jump-select-left jump-select-left])
-          cursor   (:cursor selected)
-          lines    (-> selected (i/extract) (:lines))]
-      (is (= lines [[\w \o \r \l \d] [\s \o \m \e]]))
-      (is (= cursor [6 0])))))
+    (testing "continuously"
+      (let [text      (->> ["|<hello world>"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello |<world>"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "over lines"
+      (let [text      (->> ["hello |<world"
+                            "some> day"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello world"
+                           "|<some> day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\s \o \m \e]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously over lines"
+      (let [text      (->> ["hello |<world"
+                            "some day>"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello world"
+                           "some|< day>"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\space \d \a \y]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "deactivating"
+      (let [text      (->> ["|<hello >world"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello |world"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted nil))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "increasing again"
+      (let [text      (->> ["|<hello >world"]
+                           (i/from-marked-text)
+                           (i/jump-select-right)
+                           (i/jump-select-right)
+                           (i/jump-select-right))
+            expected  (-> ["hello <world>|"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))))
+
+(deftest jumps-selecting-left
+  (testing "INCREASING -"
+    (testing "initial"
+      (let [text      (->> ["hello world| today"]
+                           (i/from-marked-text)
+                           (i/jump-select-left))
+            expected  (-> ["hello |<world> today"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously"
+      (let [text      (->> ["hello world| today"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["|<hello world> today"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\h \e \l \l \o \space \w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "over lines"
+      (let [text      (->> ["hello world"
+                            "some| day"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["hello world|<"
+                           "some> day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[] [\s \o \m \e]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously over lines"
+      (let [text      (->> ["hello world"
+                            "some| day"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["hello |<world"
+                           "some> day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d] [\s \o \m \e]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected))))))
+
+  (testing "DECREASING -"
+    (testing "initial"
+      (let [text      (->> ["<hello world>|"]
+                           (i/from-marked-text)
+                           (i/jump-select-left))
+            expected  (-> ["<hello >|world"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\h \e \l \l \o \space]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously"
+      (let [text      (->> ["<hello world>|"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["<hello>| world"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\h \e \l \l \o]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "over lines"
+      (let [text      (->> ["hello <world"
+                            "some>| day"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["hello <world>|"
+                           "some day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\w \o \r \l \d]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "continuously over lines"
+      (let [text      (->> ["<hello world"
+                            "some>| day"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["<hello >|world"
+                           "some day"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\h \e \l \l \o \space]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "deactivating"
+      (let [text      (->> ["hello< world>|"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["hello| world"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted nil))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))
+
+    (testing "increasing again"
+      (let [text      (->> ["hello< world>|"]
+                           (i/from-marked-text)
+                           (i/jump-select-left)
+                           (i/jump-select-left)
+                           (i/jump-select-left))
+            expected  (-> ["<hello> world"]
+                          (i/from-marked-text))
+            extracted (-> text (i/extract) (:lines))]
+        (is (= extracted [[\h \e \l \l \o]]))
+        (is (= (:selection text) (:selection expected)))
+        (is (= (:cursor text) (:cursor expected)))))))
 
 (deftest selects-up
   (testing "LINE START -"
@@ -779,7 +1129,7 @@
         (let [actual    (-> ["hello"
                              "|world"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["|<hello"
                              ">world"]
                             (i/from-marked-text))
@@ -793,7 +1143,8 @@
                              "world"
                              "|today"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["|<hello"
                              "world"
                              ">today"]
@@ -809,7 +1160,7 @@
                              "world"
                              ">|day"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["<hello"
                              ">|world"
                              "day"]
@@ -825,7 +1176,8 @@
                              "today"
                              ">|you"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["<hello"
                              ">|world"
                              "today"
@@ -840,7 +1192,8 @@
       (let [actual    (-> ["<hello"
                            ">|world"]
                           (i/from-marked-text)
-                          (process' [select-up select-up]))
+                          (i/select-up)
+                          (i/select-up))
             expected  (-> ["|hello"
                            "world"]
                           (i/from-marked-text))
@@ -855,7 +1208,7 @@
         (let [actual    (-> ["hello"
                              "wo|rld"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected (-> ["he|<llo"
                             "wo>rld"]
                            (i/from-marked-text))
@@ -869,7 +1222,8 @@
                              "world"
                              "to|day"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected (-> ["he|<llo"
                             "world"
                             "to>day"]
@@ -884,7 +1238,8 @@
                              "world"
                              "d>|ay"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected (-> ["h|<el>lo"
                             "world"
                             "day"]
@@ -900,7 +1255,7 @@
                              "world"
                              "da>|y"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected (-> ["<hello"
                             "wo>|rld"
                             "day"]
@@ -915,7 +1270,8 @@
                            "world"
                            "to>|day"]
                           (i/from-marked-text)
-                          (process' [select-up select-up]))
+                          (i/select-up)
+                          (i/select-up))
             expected (-> ["<he>|llo"
                           "world"
                           "today"]
@@ -930,7 +1286,7 @@
                            "so<me"
                            "da>|y"]
                           (i/from-marked-text)
-                          (process' [select-up]))
+                          (i/select-up))
             expected  (-> ["hi"
                            "so|me"
                            "day"]
@@ -946,7 +1302,7 @@
         (let [actual    (-> ["hi"
                              "som|e"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["hi|<"
                              "som>e"]
                             (i/from-marked-text))
@@ -960,7 +1316,8 @@
                              "some"
                              "thursd|ay"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["hi|<"
                              "some"
                              "thursd>ay"]
@@ -975,7 +1332,8 @@
         (let [actual    (-> ["<hi"
                              "som>|e"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["<hi>|"
                              "some"]
                             (i/from-marked-text))
@@ -989,7 +1347,8 @@
                              "hi"
                              "som>|e"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["<he>|llo"
                              "hi"
                              "some"]
@@ -1003,7 +1362,7 @@
       (let [actual    (-> ["hi<"
                            "som>|e"]
                           (i/from-marked-text)
-                          (process' [select-up]))
+                          (i/select-up))
             expected  (-> ["hi|"
                            "some"]
                           (i/from-marked-text))
@@ -1018,7 +1377,7 @@
         (let [actual    (-> ["heyy"
                              "some|"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["heyy|<"
                              "some>"]
                             (i/from-marked-text))
@@ -1032,7 +1391,8 @@
                              "some"
                              "days|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["heyy|<"
                              "some"
                              "days>"]
@@ -1047,7 +1407,7 @@
         (let [actual    (-> ["<hello"
                              "world>|"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["<hello>|"
                              "world"]
                             (i/from-marked-text))
@@ -1061,7 +1421,8 @@
                              "world"
                              "today>|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["<hello>|"
                              "world"
                              "today"]
@@ -1076,7 +1437,9 @@
                            "some"
                            "today>|"]
                           (i/from-marked-text)
-                          (process' [select-up select-up select-up]))
+                          (i/select-up)
+                          (i/select-up)
+                          (i/select-up))
             expected  (-> ["hi|"
                            "some"
                            "today"]
@@ -1092,7 +1455,7 @@
         (let [actual    (-> ["hey"
                              "some|"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["hey|<"
                              "some>"]
                             (i/from-marked-text))
@@ -1106,7 +1469,8 @@
                              "some"
                              "today|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["hi|<"
                              "some"
                              "today>"]
@@ -1121,7 +1485,7 @@
         (let [actual    (-> ["<hey"
                              "some>|"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["<hey>|"
                              "some"]
                             (i/from-marked-text))
@@ -1135,7 +1499,8 @@
                              "some"
                              "today>|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["<hi>|"
                              "some"
                              "today"]
@@ -1149,7 +1514,8 @@
       (let [actual    (-> ["hi<"
                            "today>|"]
                           (i/from-marked-text)
-                          (process' [select-up select-up]))
+                          (i/select-up)
+                          (i/select-up))
             expected  (-> ["hi|"
                            "today"]
                           (i/from-marked-text))
@@ -1164,7 +1530,8 @@
         (let [actual    (-> ["bonjour"
                              "world|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["bonjo|<ur"
                              "world>"]
                             (i/from-marked-text))
@@ -1178,7 +1545,8 @@
                              "bonjour"
                              "world|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["fanta|<stic"
                              "bonjour"
                              "world>"]
@@ -1193,7 +1561,8 @@
                              "bonjour"
                              "world>|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["fanta|<sti>c"
                              "bonjour"
                              "world"]
@@ -1208,7 +1577,7 @@
         (let [actual    (-> ["<bonjour"
                              "world>|"]
                             (i/from-marked-text)
-                            (process' [select-up]))
+                            (i/select-up))
               expected  (-> ["<bonjo>|ur"
                              "world"]
                             (i/from-marked-text))
@@ -1222,7 +1591,8 @@
                              "bonjour"
                              "world>|"]
                             (i/from-marked-text)
-                            (process' [select-up select-up]))
+                            (i/select-up)
+                            (i/select-up))
               expected  (-> ["<fanta>|stic"
                              "bonjour"
                              "world"]
@@ -1239,7 +1609,8 @@
         (let [actual    (-> ["|hello"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down)
+                            (i/select-down))
               expected  (-> ["<hello"
                              ">|world"]
                             (i/from-marked-text))
@@ -1253,7 +1624,7 @@
                              "world"
                              "you"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["<hello"
                              "world"
                              ">|you"]
@@ -1268,7 +1639,7 @@
         (let [actual    (-> ["|<hello"
                              "world>"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hello"
                              "|<world>"]
                             (i/from-marked-text))
@@ -1282,7 +1653,7 @@
                              "some"
                              "day>"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "some"
                              "|<day>"]
@@ -1296,7 +1667,7 @@
       (let [actual    (-> ["|<hello"
                            ">some"]
                           (i/from-marked-text)
-                          (process' [select-down]))
+                          (i/select-down))
             expected  (-> ["hello"
                            "|some"]
                           (i/from-marked-text))
@@ -1311,7 +1682,7 @@
         (let [actual    (-> ["hel|lo"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hel<lo"
                              "wor>|ld"]
                             (i/from-marked-text))
@@ -1325,7 +1696,7 @@
                              "world"
                              "someday"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hel<lo"
                              "world"
                              "som>|eday"]
@@ -1340,7 +1711,7 @@
                              "some"
                              "s>omeday"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "some"
                              "s<om>|eday"]
@@ -1355,7 +1726,7 @@
         (let [actual    (-> ["h|<ello"
                              "world>"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hello"
                              "w|<orld>"]
                             (i/from-marked-text))
@@ -1369,7 +1740,7 @@
                              "world"
                              "someday>"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "world"
                              "s|<omeday>"]
@@ -1383,7 +1754,7 @@
       (let [actual    (-> ["he|<llo"
                            "wo>rld"]
                           (i/from-marked-text)
-                          (process' [select-down]))
+                          (i/select-down))
             expected  (-> ["hello"
                            "wo|rld"]
                           (i/from-marked-text))
@@ -1398,7 +1769,7 @@
         (let [actual    (-> ["hell|o"
                              "ha"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hell<o"
                              "ha>|"]
                             (i/from-marked-text))
@@ -1412,7 +1783,8 @@
                              "some"
                              "hey"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down)
+                            (i/select-down))
               expected  (-> ["bonjo<ur"
                              "some"
                              "hey>|"]
@@ -1427,7 +1799,7 @@
         (let [actual    (-> ["hell|<o"
                              "ha>"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hello"
                              "ha|"]
                             (i/from-marked-text))
@@ -1441,7 +1813,8 @@
                              "world"
                              "some>"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down)
+                            (i/select-down))
               expected  (-> ["hello"
                              "world"
                              "som|<e>"]
@@ -1457,7 +1830,7 @@
         (let [actual    (-> ["hello|"
                              "someday"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hello<"
                              "somed>|ay"]
                             (i/from-marked-text))
@@ -1471,7 +1844,7 @@
                              "world"
                              "thursday"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hello<"
                              "world"
                              "thurs>|day"]
@@ -1487,7 +1860,7 @@
                              "world"
                              "today>"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hello"
                              "world|<"
                              "today>"]
@@ -1503,7 +1876,7 @@
                              "thursday"
                              "someday>"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "world"
                              "thurs|<day"
@@ -1518,7 +1891,7 @@
       (let [actual    (-> ["howdy|<"
                            "somed>ay"]
                           (i/from-marked-text)
-                          (process' [select-down]))
+                          (i/select-down))
             expected  (-> ["howdy"
                            "somed|ay"]
                           (i/from-marked-text))
@@ -1533,7 +1906,7 @@
         (let [actual    (-> ["hello|"
                              "you"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["hello<"
                              "you>|"]
                             (i/from-marked-text))
@@ -1547,7 +1920,7 @@
                              "you"
                              "ha"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down) (i/select-down))
               expected  (-> ["hello<"
                              "you"
                              "ha>|"]
@@ -1562,7 +1935,7 @@
         (let [actual    (-> ["howdy|<"
                              "thursday>"]
                             (i/from-marked-text)
-                            (process' [select-down]))
+                            (i/select-down))
               expected  (-> ["howdy"
                              "thurs|<day>"]
                             (i/from-marked-text))
@@ -1576,7 +1949,8 @@
                              "some"
                              "thursday>"]
                             (i/from-marked-text)
-                            (process' [select-down select-down]))
+                            (i/select-down)
+                            (i/select-down))
               expected  (-> ["howdy"
                              "some"
                              "thur|<sday>"]
@@ -1590,7 +1964,8 @@
       (let [actual    (-> ["howdy|<"
                            "some>"]
                           (i/from-marked-text)
-                          (process' [select-down select-down]))
+                          (i/select-down)
+                          (i/select-down))
             expected  (-> ["howdy"
                            "some|"]
                           (i/from-marked-text))
@@ -1606,7 +1981,7 @@
         (let [actual    (-> ["hello|"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-left]))
+                            (i/select-left))
               expected  (-> ["hell|<o>"
                              "world"]
                             (i/from-marked-text))
@@ -1619,7 +1994,8 @@
         (let [actual    (-> ["hello|"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-left select-left]))
+                            (i/select-left)
+                            (i/select-left))
               expected  (-> ["hel|<lo>"
                              "world"]
                             (i/from-marked-text))
@@ -1633,7 +2009,7 @@
         (let [actual    (-> ["h<ell>|o"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-left]))
+                            (i/select-left))
               expected  (-> ["h<el>|lo"
                              "world"]
                             (i/from-marked-text))
@@ -1646,7 +2022,7 @@
         (let [actual    (-> ["h<ell>|o"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-left select-left]))
+                            (i/select-left) (i/select-left))
               expected  (-> ["h<e>|llo"
                              "world"]
                             (i/from-marked-text))
@@ -1659,7 +2035,7 @@
     (let [actual    (-> ["he<l>|lo"
                          "world"]
                         (i/from-marked-text)
-                        (process' [select-left]))
+                        (i/select-left))
           expected  (-> ["he|llo"
                          "world"]
                         (i/from-marked-text))
@@ -1674,7 +2050,7 @@
         (let [actual    (-> ["hello"
                              "|world"]
                             (i/from-marked-text)
-                            (process' [select-left]))
+                            (i/select-left))
               expected  (-> ["hello|<"
                              ">world"]
                             (i/from-marked-text))
@@ -1687,7 +2063,7 @@
         (let [actual    (-> ["hello"
                              "|world"]
                             (i/from-marked-text)
-                            (process' [select-left select-left]))
+                            (i/select-left) (i/select-left))
               expected  (-> ["hell|<o"
                              ">world"]
                             (i/from-marked-text))
@@ -1701,7 +2077,7 @@
         (let [actual    (-> ["hel<lo"
                              ">|world"]
                             (i/from-marked-text)
-                            (process' [select-left]))
+                            (i/select-left))
               expected  (-> ["hel<lo>|"
                              "world"]
                             (i/from-marked-text))
@@ -1714,7 +2090,7 @@
         (let [actual    (-> ["hel<lo"
                              ">|world"]
                             (i/from-marked-text)
-                            (process' [select-left select-left]))
+                            (i/select-left) (i/select-left))
               expected  (-> ["hel<l>|o"
                              "world"]
                             (i/from-marked-text))
@@ -1727,7 +2103,7 @@
       (let [actual    (-> ["hello<"
                            ">|world"]
                           (i/from-marked-text)
-                          (process' [select-left]))
+                          (i/select-left))
             expected  (-> ["hello|"
                            "world"]
                           (i/from-marked-text))
@@ -1743,7 +2119,7 @@
         (let [actual    (-> ["he|llo"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-right]))
+                            (i/select-right))
               expected  (-> ["he<l>|lo"
                              "world"]
                             (i/from-marked-text))
@@ -1756,7 +2132,7 @@
         (let [actual    (-> ["he|llo"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-right select-right]))
+                            (i/select-right) (i/select-right))
               expected  (-> ["he<ll>|o"
                              "world"]
                             (i/from-marked-text))
@@ -1770,7 +2146,7 @@
         (let [actual    (-> ["he|<llo>"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-right]))
+                            (i/select-right))
               expected  (-> ["hel|<lo>"
                              "world"]
                             (i/from-marked-text))
@@ -1783,7 +2159,7 @@
         (let [actual    (-> ["he|<llo>"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-right select-right]))
+                            (i/select-right) (i/select-right))
               expected  (-> ["hell|<o>"
                              "world"]
                             (i/from-marked-text))
@@ -1796,7 +2172,7 @@
       (let [actual    (-> ["he|<l>lo"
                            "world"]
                           (i/from-marked-text)
-                          (process' [select-right]))
+                          (i/select-right))
             expected  (-> ["hel|lo"
                            "world"]
                           (i/from-marked-text))
@@ -1811,7 +2187,7 @@
         (let [actual    (-> ["hello|"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-right]))
+                            (i/select-right))
               expected  (-> ["hello<"
                              ">|world"]
                             (i/from-marked-text))
@@ -1824,7 +2200,8 @@
         (let [actual    (-> ["hello|"
                              "world"]
                             (i/from-marked-text)
-                            (process' [select-right select-right]))
+                            (i/select-right)
+                            (i/select-right))
               expected  (-> ["hello<"
                              "w>|orld"]
                             (i/from-marked-text))
@@ -1838,7 +2215,7 @@
         (let [actual    (-> ["hello|<"
                              "wor>ld"]
                             (i/from-marked-text)
-                            (process' [select-right]))
+                            (i/select-right))
               expected  (-> ["hello"
                              "|<wor>ld"]
                             (i/from-marked-text))
@@ -1851,7 +2228,8 @@
         (let [actual    (-> ["hello|<"
                              "wor>ld"]
                             (i/from-marked-text)
-                            (process' [select-right select-right]))
+                            (i/select-right)
+                            (i/select-right))
               expected  (-> ["hello"
                              "w|<or>ld"]
                             (i/from-marked-text))
@@ -1864,7 +2242,7 @@
       (let [actual    (-> ["hello|<"
                            ">world"]
                           (i/from-marked-text)
-                          (process' [select-right]))
+                          (i/select-right))
             expected  (-> ["hello"
                            "|world"]
                           (i/from-marked-text))
@@ -1877,7 +2255,7 @@
   (let [actual    (-> ["hello"
                        "wor|ld"]
                       (i/from-marked-text)
-                      (process' [select-all]))
+                      (i/select-all))
         expected  (-> ["<hello"
                        "world>|"]
                       (i/from-marked-text))
@@ -1889,8 +2267,8 @@
 ;; X. Joining
 
 (deftest joins
-  (let [text1     (-> ["hel|lo" "world"] (i/from-marked-text) (process' [select-right]))
-        text2     (-> ["n|ew" "lines"] (i/from-marked-text) (process' [select-right]))
+  (let [text1     (-> ["hel|lo" "world"] (i/from-marked-text) (i/select-right))
+        text2     (-> ["n|ew" "lines"] (i/from-marked-text) (i/select-right))
         conjoined (i/join-many text1 text2)
         text      (:lines conjoined)
         cursor    (:cursor conjoined)
@@ -1981,15 +2359,18 @@
             (let [text   (-> [(str ol il "|some word" ir or)]
                              (i/from-marked-text))
                   word   (-> text
-                             (process' [expand])
+                             (i/expand)
                              (i/extract)
                              (i/current-line))
                   expr   (-> text
-                             (process' [expand expand])
+                             (i/expand)
+                             (i/expand)
                              (i/extract)
                              (i/current-line))
                   o-expr (-> text
-                             (process' [expand expand expand])
+                             (i/expand)
+                             (i/expand)
+                             (i/expand)
                              (i/extract)
                              (i/current-line))]
               (is (= word [\s \o \m \e]))
@@ -2004,18 +2385,24 @@
       (fn [[ol or]]
         (run!
           (fn [[il ir]]
-            (let [text   (-> (str ol "\n" il "|some\nword" ir "\n" or)
-                             (i/from-cursored-string))
+            (let [text   (-> [(str ol)
+                              (str il "|some")
+                              (str "word" ir)
+                              (str or)]
+                             (i/from-marked-text))
                   word   (-> text
-                             (process' [expand])
+                             (i/expand)
                              (i/extract)
                              (:lines))
                   expr   (-> text
-                             (process' [expand expand])
+                             (i/expand)
+                             (i/expand)
                              (i/extract)
                              (:lines))
                   o-expr (-> text
-                             (process' [expand expand expand])
+                             (i/expand)
+                             (i/expand)
+                             (i/expand)
                              (i/extract)
                              (:lines))]
               (is (= word [[\s \o \m \e]]))
@@ -2057,8 +2444,8 @@
 ;;; XIII. Cutting
 
 (deftest cuts-within-line
-  (let [text    (-> "hello |world"
-                    (i/from-cursored-string)
+  (let [text    (-> ["hello |world"]
+                    (i/from-marked-text)
                     (i/select-right)
                     (i/select-right)
                     (i/cut))
@@ -2068,8 +2455,10 @@
     (is (= cut [[\h \e \l \l \o \space \r \l \d]]))))
 
 (deftest cuts-over-lines
-  (let [text    (-> "hello\nwor|ld\ntoday"
-                    (i/from-cursored-string)
+  (let [text    (-> ["hello"
+                     "wor|ld"
+                     "today"]
+                    (i/from-marked-text)
                     (i/jump-select-right)
                     (i/jump-select-right)
                     (i/select-right)
@@ -2080,8 +2469,8 @@
     (is (= cut [[\h \e \l \l \o] [\w \o \r \o \d \a \y]]))))
 
 (deftest does-not-cut-when-nothing-selected
-  (let [text    (-> "hello |world"
-                    (i/from-cursored-string)
+  (let [text    (-> ["hello |world"]
+                    (i/from-marked-text)
                     (i/cut))
         section (:clipboard text)
         cut     (:lines text)]
@@ -2091,43 +2480,45 @@
 ;;; XIV. Pasting
 
 (deftest pastes-within-line
-  (let [text   (-> "hel|lo world" (i/from-cursored-string) (i/jump-select-right))
-        copied (-> text (i/copy) (i/deselect) (i/paste) (:lines))
-        cut    (-> text (i/cut) (i/deselect) (i/paste) (:lines))]
+  (let [text   (-> ["hel|lo world"] (i/from-marked-text) (i/jump-select-right))
+        copied (-> text (i/copy) (i/paste) (:lines))
+        cut    (-> text (i/cut) (i/paste) (:lines))]
     (is (= copied [[\h \e \l \l \o \l \o \space \w \o \r \l \d]]))
     (is (= cut [[\h \e \l \l \o \space \w \o \r \l \d]]))))
 
 (deftest pastes-over-lines
-  (let [text   (-> "hello\nwor|ld\ntoday"
-                   (i/from-cursored-string)
+  (let [text   (-> ["hello"
+                    "wor|ld"
+                    "today"]
+                   (i/from-marked-text)
                    (i/jump-select-right)
                    (i/jump-select-right)
                    (i/select-right))
-        copied (-> text (i/copy) (i/deselect) (i/paste) (:lines))
-        cut    (-> text (i/cut) (i/deselect) (i/paste) (:lines))]
+        copied (-> text (i/copy) (i/paste) (:lines))
+        cut    (-> text (i/cut) (i/paste) (:lines))]
     (is (= copied [[\h \e \l \l \o] [\w \o \r \l \d] [\t \l \d] [\t \o \d \a \y]]))
     (is (= cut [[\h \e \l \l \o] [\w \o \r \l \d] [\t \o \d \a \y]]))))
 
 (deftest pastes-overwriting-selections-within-line
-  (let [text (-> "h|ello world"
-                 (i/from-cursored-string)
+  (let [text (-> ["h|ello world"]
+                 (i/from-marked-text)
                  (i/select-right)
                  (i/select-right)
                  (i/copy)
-                 (i/deselect)
                  (i/select-right)
                  (i/paste)
                  (:lines))]
     (is (= text [[\h \e \l \e \l \o \space \w \o \r \l \d]]))))
 
 (deftest pastes-overwriting-selections-over-lines
-  (let [text (-> "hell|o\nworld\ntoday"
-                 (i/from-cursored-string)
+  (let [text (-> ["hell|o"
+                  "world"
+                  "today"]
+                 (i/from-marked-text)
                  (i/select-right)
                  (i/select-right)
                  (i/select-right)
                  (i/copy)
-                 (i/deselect)
                  (i/select-right)
                  (i/paste)
                  (:lines))]
@@ -2247,7 +2638,9 @@
 ;; XVII. Undoing / Redoing
 
 (deftest undos-and-redos
-  (let [text     (-> "hello w|orld" (i/from-cursored-string) (i/remember))
+  (let [text     (-> ["hello w|orld"]
+                     (i/from-marked-text)
+                     (i/remember))
         delete   (-> text (i/delete-previous))
         original (-> text (:lines))
         deleted  (-> delete (:lines))
@@ -2256,34 +2649,30 @@
     (is (= undone original))
     (is (= redone deleted))))
 
-(deftest undos-are-limited
-  (let [history (one (gen-history {:prefilled-size 50 :element-size 3}))
-        text    (-> "hello world|"
-                    (i/from-cursored-string)
-                    (i/reset-history history (reverse history))
-                    (i/new-line)
-                    (i/remember)
-                    (i/insert \a)
-                    (i/remember)
-                    (:history))
-        size (-> text (count))
-        action (-> text (first) (:lines))]
+(deftest undos-history-is-limited
+  (let [history (->> ["history"] (i/from-marked-text) (repeat 50))
+        text    (->> ["hello world|"]
+                     (i/from-marked-text)
+                     (i/reset-history history history)
+                     (i/new-line)
+                     (i/insert \a)
+                     (:history))
+        size    (-> text (count))
+        action  (-> text (first) (:lines))]
     (is (= size 50))
-    (is (= action [[\h \e \l \l \o \space \w \o \r \l \d] [\a]]))))
+    (is (= action [[\h \e \l \l \o \space \w \o \r \l \d] []]))))
 
 (deftest undos-and-redos-are-balanced
-  (let [text            (-> "hello |world"
-                            (i/from-cursored-string)
-                            (i/remember)
-                            (i/insert \a)
-                            (i/remember)
-                            (i/insert \b))
-        initial-history (:history text)
+  (let [text             (->> ["hello |world"]
+                              (i/from-marked-text)
+                              (i/insert \a)
+                              (i/insert \b))
+        initial-history  (:history text)
         initial-rhistory (:rhistory text)
-        undo1-history   (-> text (i/undo) (:history))
-        undo1-rhistory  (-> text (i/undo) (:rhistory))
-        undo2-history   (-> text (i/undo) (i/undo) (:history))
-        undo2-rhistory  (-> text (i/undo) (i/undo) (:rhistory))]
+        undo1-history    (-> text (i/undo) (:history))
+        undo1-rhistory   (-> text (i/undo) (:rhistory))
+        undo2-history    (-> text (i/undo) (i/undo) (:history))
+        undo2-rhistory   (-> text (i/undo) (i/undo) (:rhistory))]
     (is (= (count initial-history) 2))
     (is (= (count initial-rhistory) 0))
     (is (= (count undo1-history) 1))
@@ -2293,25 +2682,24 @@
     (is (= (count undo2-rhistory) 2))))
 
 (deftest undos-and-redos-dont-affect-clipboard
-  (let [text     (-> "hel|lo world"
-                     (i/from-cursored-string)
-                     (i/jump-select-right)
-                     (i/remember)
-                     (i/insert \a))
+  (let [text     (->> ["hel|lo world"]
+                      (i/from-marked-text)
+                      (i/jump-select-right)
+                      (i/insert \a))
         original (:clipboard text)
         undone   (-> text (i/undo) (:clipboard))
         redone   (-> text (i/undo) (i/redo) (:clipboard))]
     (is (= original undone redone))))
 
 (deftest undos-and-redos-are-preserved-between-each-other
-  (let [text (-> "hello w|orld"
-                 (i/from-cursored-string)
-                 (process' [delete-previous
-                            delete-previous
-                            delete-previous
-                            undo
-                            undo
-                            redo
-                            redo])
+  (let [text (-> ["hello w|orld"]
+                 (i/from-marked-text)
+                 (i/delete-previous)
+                 (i/delete-previous)
+                 (i/delete-previous)
+                 (i/undo)
+                 (i/undo)
+                 (i/redo)
+                 (i/redo)
                  (:lines))]
     (is (= text [[\h \e \l \l \o \r \l \d]]))))
