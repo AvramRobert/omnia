@@ -257,7 +257,6 @@
   (let [text (-> ctx (preview-hud) (h/text))]
     (cond
       (i/open-pairs (i/current-char text)) (match ctx)
-      (i/closed-pairs (i/current-char text)) (match ctx)
       (i/closed-pairs (i/previous-char text)) (match ctx)
       :else ctx)))
 
