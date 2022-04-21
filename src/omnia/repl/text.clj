@@ -57,22 +57,12 @@
 
 (s/defn from-tagged-strings :- Seeker
   [strings :- [s/Str]]
-  "Reads inputs strings into a seeker.
+  "Reads inputs strings into a text.
    The strings are allowed markers specifying a cursor position and a possible selection range.
-
-   The cursor is identified through the character: `|`
-   The selection is identified through:
-      a) Start: `<`
-      b) End: `> (inclusive)
-   Examples:
-    1. (from-tagged-strings \"hel|lo\" \"world\")
-        => [[h e l l o] [w o r l d]] : [3 0] : nil
-
-    2. (from-tagged-strings \"he<ll|o\" \"worl>d\")
-        => [[h e l l o] [w o r l d]] : [4 0] : { :start [2 0] :end [3 1] }
-
-    3. (from-tagged-strings \"he<ll|o\" \">world\")
-        => [[h e l l o] []] : [4 0] : { :start [2 0] :end [0 1] }"
+   Cursor identified through: |
+   Selection identified through: < (start), > (end)
+   Example:
+    ['hel|l<o' 'worl>d'] => [0, 3] ; [[o] [w o r l]]"
   (letfn [(point [{:keys [y find remove latest]} line]
             (->> line
                  (filter #(not (contains? remove %)))

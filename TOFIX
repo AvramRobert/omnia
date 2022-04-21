@@ -1,10 +1,8 @@
 CURRENT TASK:
 
- - Use events from #2 in tests directly with the `process` function of the input or context
+- Rewrite tests using deftest and the more straightforward concept of `from-tagged-strings`. (context, text, render, nrepl)
 
 Global issues:
- - Rewrite tests using deftest and the more straightforward concept of `from-marked-text`. (context, text, render, nrepl)
- - Remove `from-cursored-string` and `from-string`
  - Chuck away most of the context helpers from `test-utils` after simplifying tests using `from-marked-text`.
  - Rename Highlighting schemas. There's:
     * omnia.schema.config/Highlighting - represents the Highlighting configuration
@@ -13,29 +11,26 @@ Global issues:
     * omnia.schema.render/Highlights - an association between a HighlightType and a HighlightInfo
 
 omnia.repl.text issues:
-  - The repl.text should not have a process function. It should be used on a direct functional basis
+  - Rename `Seeker` to `Text`
   - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
   - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
-  - Rename the functions in text.core to something more straightforward (break -> new-line etc.)
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
   - Patch chunk-delete, make it more efficient
   - rename region coordinates "from" and "until" instead of "start" "end"
-  - the `omnia.text-test/matches-parens` test doesn't really check the selected regions. It should.
   - debug-string should also display the selection and cursor
 
 omnia.repl.syntax issues:
   - Add previous node to transition evaluator of syntax highlighter
     -> can be part of the transition function of every node. Should allow me to make context-based transitions
-  - Fix number highlighter based on #2
+  - Fix number highlighter
   - Add set-highlighting
 
 omnia.repl.context issues:
-  - Remove config from context. Use a separate parameter to the functions
+  - Remove config from context. Let the context only keep the huds. The config should be passed as a separate param
 
 omnia.view.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
 
 Finishing touches:
-
   - Rewrite README, replace logo, keep it a bit simple
