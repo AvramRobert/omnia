@@ -158,10 +158,6 @@
   [ctx :- Context, events :- [Event]]
   (reduce (comp :ctx r/process) ctx events))
 
-(s/defn process' :- Seeker
-  [seeker :- Seeker, events :- [Event]]
-  (reduce i/process seeker events))
-
 (s/defn overview :- s/Int
   [ctx :- Context]
   (-> ctx (r/preview-hud) (h/view-offset)))

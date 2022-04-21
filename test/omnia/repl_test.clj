@@ -513,28 +513,28 @@
 (deftest gc-same-line-selection
   (testing "Moving left"
     (let [result     (-> ["This| is a line"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-left select-left select-right]))
           highlights (-> ["Thi<s> is a line"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["Th<is> is a line"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
 
   (testing "Moving right"
     (let [result     (-> ["|This is a line"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-right select-right select-left]))
           highlights (-> ["<T>his is a line"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<Th>is is a line"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch"))))
@@ -544,18 +544,18 @@
     (let [result     (-> ["This is"
                           "a |large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up]))
           highlights (-> ["<This is>"
                           "a large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<This is"
                           "a large>"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
@@ -564,18 +564,18 @@
     (let [result     (-> ["This is"
                           "a |large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-left]))
           highlights (-> ["<This i>s"
                           "a large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<This is>"
                           "a large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
@@ -584,18 +584,18 @@
     (let [result     (-> ["This is"
                           "a |large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-right]))
           highlights (-> ["<This is"
                           ">a large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<This is>"
                           "a large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
@@ -604,18 +604,18 @@
     (let [result     (-> ["This is"
                           "a |large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-down]))
           highlights (-> ["<This is"
                           "a large>"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<This is>"
                           "a large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
@@ -624,18 +624,18 @@
     (let [result     (-> ["This is"
                           "a |large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-down select-left]))
           highlights (-> ["<This is"
                           "a larg>e"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<This is"
                           "a large>"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
@@ -644,18 +644,18 @@
     (let [result     (-> ["This is"
                           "a |large"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-down select-right]))
           highlights (-> ["<This is"
                           "a large"
                           ">context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))
           garbage    (-> ["<This is"
                           "a large>"
                           "context"]
-                         (i/from-marked-text)
+                         (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch"))))
@@ -664,12 +664,12 @@
   (testing "Multiple lines"
     (let [result  (-> ["Some |context"
                        "with lines"]
-                      (i/from-marked-text)
+                      (i/from-tagged-strings)
                       (context-from)
                       (process [select-all right]))
           garbage (-> ["<Some context"
                        "with lines>"]
-                      (i/from-marked-text)
+                      (i/from-tagged-strings)
                       (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) nil) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
@@ -677,11 +677,11 @@
   (testing "Same line"
     (testing "Multiple lines"
       (let [result  (-> ["Some |context"]
-                        (i/from-marked-text)
+                        (i/from-tagged-strings)
                         (context-from)
                         (process [select-right select-right right]))
             garbage (-> ["Some <co>ntext"]
-                        (i/from-marked-text)
+                        (i/from-tagged-strings)
                         (:selection))]
         (is (= (-> result (r/highlights) (:selection) (:region)) nil) "Highlights mismatch")
         (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))))

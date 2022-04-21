@@ -56,7 +56,8 @@
                   (drop-while #(not= % \newline))
                   (drop 1))))))
 
-(defn from-marked-text [strings]
+(s/defn from-tagged-strings :- Seeker
+  [strings :- [s/Str]]
   "Reads inputs strings into a seeker.
    The strings are allowed markers specifying a cursor position and a possible selection range.
 
@@ -65,13 +66,13 @@
       a) Start: `<`
       b) End: `> (inclusive)
    Examples:
-    1. (from-marked-text \"hel|lo\" \"world\")
+    1. (from-tagged-strings \"hel|lo\" \"world\")
         => [[h e l l o] [w o r l d]] : [3 0] : nil
 
-    2. (from-marked-text \"he<ll|o\" \"worl>d\")
+    2. (from-tagged-strings \"he<ll|o\" \"worl>d\")
         => [[h e l l o] [w o r l d]] : [4 0] : { :start [2 0] :end [3 1] }
 
-    3. (from-marked-text \"he<ll|o\" \">world\")
+    3. (from-tagged-strings \"he<ll|o\" \">world\")
         => [[h e l l o] []] : [4 0] : { :start [2 0] :end [0 1] }"
   (letfn [(point [{:keys [y find remove latest]} line]
             (->> line
@@ -100,29 +101,6 @@
                   :y      (count lines)} s))
         (cond-> (seeker lines cursor)
                 (and start end (not= start end)) (assoc :selection {:start start :end end}))))))
-
-(s/defn from-cursored-string :- Seeker
-  "Examples:
-    1. 'ab|c\nd' => [[a b c] [d]], [2 0]
-    2. 'abc|\nd' => [[a b c] [d]], [3 0]"
-  [input :- s/Str]
-  (loop [lines  []
-         rem    input
-         cursor nil]
-    (if (empty? rem)
-      (seeker lines cursor)
-      (let [line?  #(not= % \newline)
-            caret? #(= % \|)
-            lit?   #(not (caret? %))
-            line   (take-while line? rem)]
-        (recur (->> line (filter lit?) (vec) (conj lines))
-               (->> rem (drop-while line?) (drop 1))
-               (or cursor
-                   (->> line
-                        (map-indexed (fn [idx c]
-                                       (when (caret? c)
-                                         [idx (count lines)])))
-                        (some #(when % %)))))))))
 
 (s/defn space? :- s/Bool
   [character :- Character]
@@ -492,11 +470,11 @@
   [seeker :- Seeker]
   (select-with seeker do-move-down))
 
-(s/defn jump-select-right :- Seeker
+(s/defn do-jump-select-right :- Seeker
   [seeker :- Seeker]
   (select-with seeker do-jump-right))
 
-(s/defn jump-select-left :- Seeker
+(s/defn do-jump-select-left :- Seeker
   [seeker :- Seeker]
   (select-with seeker do-jump-left))
 
@@ -687,7 +665,7 @@
                                     (reset-x x))
              :else seeker)))
 
-(s/defn select-all :- Seeker
+(s/defn do-select-all :- Seeker
   [seeker :- Seeker]
   (-> seeker
       (reset-selection {:start [0 0]
@@ -793,7 +771,7 @@
       (contains? closed-pairs (previous-char seeker)) (some-> seeker (do-move-left) (closed-paren-expansion) (to-pair))
       :else                                           nil)))
 
-(s/defn expand :- Seeker
+(s/defn do-expand-select :- Seeker
   [seeker :- Seeker]
   (let [expansion (if-let [expansion (derive-expansion seeker)]
                     expansion
@@ -815,7 +793,7 @@
          (take 50)
          (assoc seeker :history))))
 
-(s/defn undo :- Seeker
+(s/defn do-undo :- Seeker
   [seeker :- Seeker]
   (let [history   (:history seeker)
         rhistory  (:rhistory seeker)
@@ -828,7 +806,7 @@
           (assoc :history (rest history))
           (assoc :rhistory (-> seeker (forget-everything) (cons rhistory)))))))
 
-(s/defn redo [seeker :- Seeker]
+(s/defn do-redo [seeker :- Seeker]
   (let [history   (:history seeker)
         rhistory  (:rhistory seeker)
         clipboard (:clipboard seeker)]
@@ -845,7 +823,7 @@
   (if (empty? input)
     seeker
     (-> seeker
-        (expand)
+        (do-expand-select)
         (do-delete-previous)
         (slicer #(concat input %))
         (move-x #(+ % (count input))))))
@@ -927,11 +905,36 @@
   [text :- Seeker]
   (-> text (remember) (do-paste) (deselect)))
 
+(s/defn select-all :- Seeker
+  [text :- Seeker]
+  (-> text (do-select-all)))
+
+(s/defn expand-select :- Seeker
+  [text :- Seeker]
+  (-> text (do-expand-select)))
+
+(s/defn jump-select-left :- Seeker
+  [text :- Seeker]
+  (-> text (do-jump-select-left)))
+
+(s/defn jump-select-right :- Seeker
+  [text :- Seeker]
+  (-> text (do-jump-select-right)))
+
+(s/defn undo :- Seeker
+  [text :- Seeker]
+  (-> text (do-undo)))
+
+(s/defn redo :- Seeker
+  [text :- Seeker]
+  (-> text (do-redo)))
+
+;; FIXME: Remove process
 (s/defn process :- Seeker
   [seeker :- Seeker
    event :- e/Event]
   (condp = (:action event)
-    e/expand            (-> seeker (expand))
+    e/expand            (-> seeker (expand-select))
     e/select-all        (-> seeker (select-all))
     e/copy              (-> seeker (copy) (deselect))
     e/cut               (-> seeker (remember) (cut) (deselect))
@@ -953,5 +956,5 @@
     e/new-line          (-> seeker (remember) (new-line) (deselect))
     e/undo              (-> seeker (undo) (deselect))
     e/redo              (-> seeker (redo) (deselect))
-    e/character         (-> seeker (remember) (insert (:value event)) (deselect))
+    e/character         (->> seeker (remember) (insert (:value event)) (deselect))
     seeker))

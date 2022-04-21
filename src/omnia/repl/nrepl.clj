@@ -52,7 +52,7 @@
   {:op     :complete
    :ns     ns
    :symbol (-> seeker
-               (i/expand)
+               (i/expand-select)
                (i/extract)
                (i/stringify)
                (trim-newline))})
@@ -63,7 +63,7 @@
   {:op     :info
    :ns     ns
    :symbol (-> seeker
-               (i/expand)
+               (i/expand-select)
                (i/extract)
                (i/stringify)
                (trim-newline))})

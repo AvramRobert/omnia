@@ -111,18 +111,18 @@
 
 (defn value-evaluation [client]
   (let [result (->> ["(+ 1 1)"]
-                    (i/from-marked-text)
+                    (i/from-tagged-strings)
                     (r/evaluate! client)
                     (r/result))
-        expected (i/from-marked-text ["" "2" ""])]
+        expected (i/from-tagged-strings ["" "2" ""])]
     (is (= (:lines expected) (:lines result)))))
 
 (defn out-evaluation [client]
   (let [result   (->> ["(println (+ 1 1))"]
-                      (i/from-marked-text)
+                      (i/from-tagged-strings)
                       (r/evaluate! client)
                       (r/result))
-        expected (i/from-marked-text ["2" "" "nil" ""])]
+        expected (i/from-tagged-strings ["2" "" "nil" ""])]
     (is (= (:lines result) (:lines expected)))))
 
 (defn exception-evaluation [client]

@@ -379,10 +379,10 @@
 
 (deftest culled-single-line-partial-clean-up
   (let [context (-> ["|this is a context"]
-                    (i/from-marked-text)
+                    (i/from-tagged-strings)
                     (context-from)
                     (process [select-right select-right select-right select-left]))
-        expected (-> ["th<i>s is a context"] (i/from-marked-text))]
+        expected (-> ["th<i>s is a context"] (i/from-tagged-strings))]
     (-> context
         (accumulative)
         (execute clean-highlights!)
@@ -395,11 +395,11 @@
 
 (deftest culled-single-line-complete-clean-up
   (let [context (-> ["|This is a context"]
-                    (i/from-marked-text)
+                    (i/from-tagged-strings)
                     (context-from)
                     (process [right select-right select-right left]))
         expected (-> ["T<hi>s is a context"]
-                     (i/from-marked-text))]
+                     (i/from-tagged-strings))]
     (-> context
         (accumulative)
         (execute clean-highlights!)
@@ -413,12 +413,12 @@
 (deftest culled-multi-line-complete-clean-up
   (let [context (-> ["These |are"
                      "multiple lines"]
-                    (i/from-marked-text)
+                    (i/from-tagged-strings)
                     (context-from)
                     (process [select-down right]))
         expected (-> ["These <are"
                       "multip>le lines"]
-                     (i/from-marked-text))]
+                     (i/from-tagged-strings))]
     (-> context
         (accumulative)
         (execute clean-highlights!)
@@ -432,12 +432,12 @@
 (deftest culled-multi-line-partial-clean-up
   (let [context (-> ["These |are"
                      "multiple lines"]
-                    (i/from-marked-text)
+                    (i/from-tagged-strings)
                     (context-from)
                     (process [select-down select-left]))
         expected (-> ["These are"
                       "multi<p>le lines"]
-                     (i/from-marked-text))]
+                     (i/from-tagged-strings))]
     (-> context
         (accumulative)
         (execute clean-highlights!)
