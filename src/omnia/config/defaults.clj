@@ -8,7 +8,7 @@
 (s/def default-user-keymap :- c/UserKeyMap
   {e/docs              {:key \i :alt true}
    e/signature         {:key \p :alt true}
-   e/expand            {:key \w :ctrl true}
+   e/expand-select     {:key \w :ctrl true}
    e/undo              {:key \z :alt true}
    e/redo              {:key \y :alt true}
    e/paste             {:key \v :alt true}

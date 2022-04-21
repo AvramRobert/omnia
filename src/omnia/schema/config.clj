@@ -14,7 +14,7 @@
 (def UserKeyMap
   {e/docs              UserKeyBinding
    e/signature         UserKeyBinding
-   e/expand            UserKeyBinding
+   e/expand-select     UserKeyBinding
    e/undo              UserKeyBinding
    e/redo              UserKeyBinding
    e/paste             UserKeyBinding

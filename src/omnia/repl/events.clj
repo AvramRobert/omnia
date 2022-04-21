@@ -50,7 +50,7 @@
   (event e/jump-select-right))
 
 (s/def expand :- e/Event
-  (event e/expand))
+  (event e/expand-select))
 
 (s/def copy :- e/Event
   (event e/copy))

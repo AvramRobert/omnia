@@ -2,7 +2,6 @@
   (:require [schema.core :as s]
             [clojure.core.match :as m]
             [clojure.string :as string]
-            [omnia.schema.event :as e]
             [clojure.set :refer [union map-invert]]
             [omnia.schema.text :refer [Seeker Line Expansion]]
             [omnia.schema.common :refer [=> Point Region Pair]]
@@ -781,15 +780,15 @@
         (reset-selection expansion)
         (reset-expansion :expr))))
 
-(s/defn forget-everything :- Seeker
+(s/defn clear-history :- Seeker
   [seeker :- Seeker]
   (reset-history '() '() seeker))
 
-(s/defn remember :- Seeker
+(s/defn add-to-history :- Seeker
   [seeker :- Seeker]
   (let [history (:history seeker)]
     (->> history
-         (cons (forget-everything seeker))
+         (cons (clear-history seeker))
          (take 50)
          (assoc seeker :history))))
 
@@ -804,7 +803,7 @@
           (first)
           (assoc :clipboard clipboard)
           (assoc :history (rest history))
-          (assoc :rhistory (-> seeker (forget-everything) (cons rhistory)))))))
+          (assoc :rhistory (-> seeker (clear-history) (cons rhistory)))))))
 
 (s/defn do-redo [seeker :- Seeker]
   (let [history   (:history seeker)
@@ -816,7 +815,7 @@
           (first)
           (assoc :clipboard clipboard)
           (assoc :rhistory (rest rhistory))
-          (assoc :history (-> seeker (forget-everything) (cons history)))))))
+          (assoc :history (-> seeker (clear-history) (cons history)))))))
 
 (s/defn auto-complete :- Seeker
   [seeker :- Seeker, input :- [Character]]
@@ -852,18 +851,19 @@
    that :- Seeker]
   (= (:lines this) (:lines that)))
 
+;; ------------ API -------------
 
 (s/defn delete-previous :- Seeker
   [text :- Seeker]
-  (-> text (remember) (do-delete-previous) (deselect)))
+  (-> text (add-to-history) (do-delete-previous) (deselect)))
 
 (s/defn delete-current :- Seeker
   [text :- Seeker]
-  (-> text (remember) (do-delete-current) (deselect)))
+  (-> text (add-to-history) (do-delete-current) (deselect)))
 
 (s/defn insert :- Seeker
   [char :- Character text :- Seeker]
-  (-> text (remember) (do-insert char) (deselect)))
+  (-> text (add-to-history) (do-insert char) (deselect)))
 
 (s/defn move-left :- Seeker
   [text :- Seeker]
@@ -891,7 +891,7 @@
 
 (s/defn new-line :- Seeker
   [text :- Seeker]
-  (-> text (remember) (do-new-line) (deselect)))
+  (-> text (add-to-history) (do-new-line) (deselect)))
 
 (s/defn copy :- Seeker
   [text :- Seeker]
@@ -899,11 +899,11 @@
 
 (s/defn cut :- Seeker
   [text :- Seeker]
-  (-> text (remember) (do-cut) (deselect)))
+  (-> text (add-to-history) (do-cut) (deselect)))
 
 (s/defn paste :- Seeker
   [text :- Seeker]
-  (-> text (remember) (do-paste) (deselect)))
+  (-> text (add-to-history) (do-paste) (deselect)))
 
 (s/defn select-all :- Seeker
   [text :- Seeker]
@@ -928,33 +928,3 @@
 (s/defn redo :- Seeker
   [text :- Seeker]
   (-> text (do-redo)))
-
-;; FIXME: Remove process
-(s/defn process :- Seeker
-  [seeker :- Seeker
-   event :- e/Event]
-  (condp = (:action event)
-    e/expand            (-> seeker (expand-select))
-    e/select-all        (-> seeker (select-all))
-    e/copy              (-> seeker (copy) (deselect))
-    e/cut               (-> seeker (remember) (cut) (deselect))
-    e/paste             (-> seeker (remember) (paste) (deselect))
-    e/move-up           (-> seeker (move-up) (deselect))
-    e/move-down         (-> seeker (move-down) (deselect))
-    e/move-left         (-> seeker (move-left) (deselect))
-    e/move-right        (-> seeker (move-right) (deselect))
-    e/jump-left         (-> seeker (jump-left) (deselect))
-    e/jump-right        (-> seeker (jump-right) (deselect))
-    e/select-up         (-> seeker (select-up))
-    e/select-down       (-> seeker (select-down))
-    e/select-left       (-> seeker (select-left))
-    e/select-right      (-> seeker (select-right))
-    e/jump-select-left  (-> seeker (jump-select-left))
-    e/jump-select-right (-> seeker (jump-select-right))
-    e/delete-previous   (-> seeker (remember) (delete-previous) (deselect))
-    e/delete-current    (-> seeker (remember) (delete-current) (deselect))
-    e/new-line          (-> seeker (remember) (new-line) (deselect))
-    e/undo              (-> seeker (undo) (deselect))
-    e/redo              (-> seeker (redo) (deselect))
-    e/character         (->> seeker (remember) (insert (:value event)) (deselect))
-    seeker))

@@ -2744,7 +2744,7 @@
 (deftest undos-and-redos
   (let [text     (-> ["hello w|orld"]
                      (i/from-tagged-strings)
-                     (i/remember))
+                     (i/add-to-history))
         delete   (-> text (i/delete-previous))
         original (-> text (:lines))
         deleted  (-> delete (:lines))

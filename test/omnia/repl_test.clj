@@ -270,7 +270,7 @@
 (defn scroll-downwards [ctx]
   (let [actual-offset (-> ctx
                           (process (repeat 5 scroll-up))
-                          (process (scroll-down 5 scroll-down))
+                          (process (repeat 5 scroll-down))
                           (scroll-offset))]
     (is (= 0 actual-offset))))
 

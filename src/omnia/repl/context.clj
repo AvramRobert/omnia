@@ -442,12 +442,6 @@
         (with-documentation documentation)
         (with-preview preview))))
 
-(s/defn capture :- Context
-  [ctx   :- Context
-   event :- e/Event]
-  (let [new-input (-> ctx (input-area) (i/process event))]
-    (-> ctx (with-input-area new-input) (refresh))))
-
 (s/defn reformat :- Context
   [ctx :- Context]
   (let [formatted (-> ctx (input-area) (f/format-seeker))]
@@ -460,23 +454,54 @@
         _    (->> event (:value) (i/from-string) (r/evaluate! repl))]
     ctx))
 
+(s/defn input :- Context
+  [ctx  :- Context
+   f    :- (=> Seeker Seeker)]
+  (let [new-input (-> ctx (input-area) (f))]
+    (-> ctx (with-input-area new-input) (refresh))))
+
 (s/defn process :- Step
   [ctx :- Context
    event :- e/Event]
-  (condp = (:action event)
-    e/inject      (-> ctx (inject event) (diff-render) (continue))
-    e/docs        (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (continue))
-    e/signature   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (continue))
-    e/paren-match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (continue))
-    e/suggest     (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (continue))
-    e/scroll-up   (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (continue))
-    e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (continue))
-    e/prev-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (continue))
-    e/next-eval   (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
-    e/indent      (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight) (match-parens) (diff-render) (continue))
-    e/clear       (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
-    e/evaluate    (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (diff-render) (continue))
-    e/exit        (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
-    e/resize      (-> ctx (resize event) (calibrate) (re-render) (continue))
-    e/ignore      (continue ctx)
-                  (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (capture event) (calibrate) (highlight) (match-parens) (diff-render) (continue))))
+  (letfn [(perform [ctx f]
+            (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (input f) (calibrate) (highlight) (match-parens) (diff-render) (continue)))]
+    (condp = (:action event)
+      e/inject (-> ctx (inject event) (diff-render) (continue))
+      e/docs (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens) (diff-render) (continue))
+      e/signature (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens) (diff-render) (continue))
+      e/paren-match (-> ctx (gc) (scroll-stop) (deselect) (match) (diff-render) (continue))
+      e/suggest (-> ctx (gc) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens) (diff-render) (continue))
+      e/scroll-up (-> ctx (gc) (scroll-up) (deselect) (highlight) (diff-render) (continue))
+      e/scroll-down (-> ctx (gc) (scroll-down) (deselect) (highlight) (diff-render) (continue))
+      e/prev-eval (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight) (match-parens) (diff-render) (continue))
+      e/next-eval (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight) (match-parens) (diff-render) (continue))
+      e/indent (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight) (match-parens) (diff-render) (continue))
+      e/clear (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight) (match-parens) (clear-render) (continue))
+      e/evaluate (-> ctx (gc) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight) (diff-render) (continue))
+      e/exit (-> ctx (gc) (scroll-stop) (deselect) (highlight) (diff-render) (exit) (terminate))
+      e/resize (-> ctx (resize event) (calibrate) (re-render) (continue))
+      e/expand-select (-> ctx (perform i/expand-select))
+      e/select-all (-> ctx (perform i/select-all))
+      e/copy (-> ctx (perform i/copy))
+      e/cut (-> ctx (perform i/cut))
+      e/paste (-> ctx (perform i/paste))
+      e/move-up (-> ctx (perform i/move-up))
+      e/move-down (-> ctx (perform i/move-down))
+      e/move-left (-> ctx (perform i/move-left))
+      e/move-right (-> ctx (perform i/move-right))
+      e/jump-left (-> ctx (perform i/jump-left))
+      e/jump-right (-> ctx (perform i/jump-right))
+      e/select-up (-> ctx (perform i/select-up))
+      e/select-down (-> ctx (perform i/select-down))
+      e/select-left (-> ctx (perform i/select-left))
+      e/select-right (-> ctx (perform i/select-right))
+      e/jump-select-left (-> ctx (perform i/jump-select-left))
+      e/jump-select-right (-> ctx (perform i/jump-select-right))
+      e/delete-previous (-> ctx (perform i/delete-previous))
+      e/delete-current (-> ctx (perform i/delete-current))
+      e/new-line (-> ctx (perform i/new-line))
+      e/undo (-> ctx (perform i/undo))
+      e/redo (-> ctx (perform i/redo))
+      e/character (-> ctx (perform #(i/insert (:value event) %)))
+      e/ignore (-> ctx (continue))
+      (continue ctx))))
