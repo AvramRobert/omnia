@@ -1,5 +1,6 @@
 (ns omnia.schema.context
-  (:require [omnia.schema.nrepl :as n]
+  (:require [schema.core :as s]
+            [omnia.schema.nrepl :as n]
             [omnia.schema.hud :as h]
             [omnia.schema.text :as t]
             [omnia.schema.config :as c]
@@ -18,3 +19,7 @@
    :signatures    h/Hud
    :highlights    r/Highlights
    :garbage       r/Highlights})
+
+(s/def ProcessingStep
+  {:status (s/enum :continue :terminate)
+   :ctx    Context})

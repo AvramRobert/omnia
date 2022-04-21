@@ -261,20 +261,6 @@
       (i/closed-pairs (i/previous-char text)) (match ctx)
       :else ctx)))
 
-(s/def Step
-  {:status (s/enum :continue :terminate)
-   :ctx    Context})
-
-(s/defn continue :- Step
-  [ctx :- Context]
-  {:status :continue
-   :ctx    ctx})
-
-(s/defn terminate :- Step
-  [ctx :- Context]
-  {:status :terminate
-   :ctx    ctx})
-
 (s/defn calibrate :- Context
   [ctx :- Context]
   (let [nov       (h/correct-between (preview-hud ctx)
@@ -460,7 +446,17 @@
   (let [new-input (-> ctx (input-area) (f))]
     (-> ctx (with-input-area new-input) (refresh))))
 
-(s/defn process :- Step
+(s/defn continue :- ProcessingStep
+  [ctx :- Context]
+  {:status :continue
+   :ctx    ctx})
+
+(s/defn terminate :- ProcessingStep
+  [ctx :- Context]
+  {:status :terminate
+   :ctx    ctx})
+
+(s/defn process :- ProcessingStep
   [ctx :- Context
    event :- e/Event]
   (letfn [(perform [ctx f]
