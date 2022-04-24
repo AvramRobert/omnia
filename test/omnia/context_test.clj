@@ -1,4 +1,4 @@
-(ns omnia.repl-test
+(ns omnia.context-test
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as r]
