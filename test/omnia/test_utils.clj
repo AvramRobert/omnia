@@ -175,7 +175,7 @@
   (reduce (fn [ctx' event]
             (-> ctx'
                 (r/process default-config event)
-                (:ctx))) ctx events))
+                (:context))) ctx events))
 
 (s/defn overview :- s/Int
   [ctx :- Context]
@@ -202,7 +202,7 @@
   (-> ctx (r/preview-hud) (h/text) (:cursor)))
 
 (defn suggestions [ctx]
-  (-> ctx (r/client) (server/complete! i/empty-seeker) (server/result)))
+  (-> ctx (r/nrepl-client) (server/complete! i/empty-seeker) (server/result)))
 
 (s/defn suggestion-at :- Line
   [ctx :- Context
@@ -210,7 +210,7 @@
   (-> ctx (suggestions) (i/reset-y line) (i/current-line)))
 
 (defn server-history [ctx]
-  (-> ctx (r/client) (:history)))
+  (-> ctx (r/nrepl-client) (:history)))
 
 (defn highlights? [highlighted region]
   (let [{expected-start :start

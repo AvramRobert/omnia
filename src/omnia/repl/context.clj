@@ -41,7 +41,7 @@
         previous  (h/hud-of view-size)
         persisted (init-hud view-size repl)
         preview   (h/enrich-with persisted [input])]
-    {:repl          repl
+    {:nrepl          repl
      :render        :diff
      :previous-hud  previous
      :persisted-hud persisted
@@ -85,9 +85,9 @@
   [ctx :- Context]
   (:documentation ctx))
 
-(s/defn client :- NReplClient
+(s/defn nrepl-client :- NReplClient
   [ctx :- Context]
-  (:repl ctx))
+  (:nrepl ctx))
 
 (s/defn highlights :- Highlights
   [ctx :- Context]
@@ -179,7 +179,7 @@
 
 (s/defn with-client :- Context
   [ctx :- Context, repl :- NReplClient]
-  (assoc ctx :repl repl))
+  (assoc ctx :nrepl repl))
 
 (s/defn with-suggestions :- Context
   [ctx :- Context, suggestions :- Hud]
@@ -281,7 +281,7 @@
 (s/defn clear :- Context
   [ctx :- Context]
   (let [size  (view-size ctx)
-        nrepl (client ctx)]
+        nrepl (nrepl-client ctx)]
     (with-hud ctx (init-hud size nrepl))))
 
 (s/defn exit :- Context
@@ -324,7 +324,7 @@
   [ctx :- Context,
    f   :- (=> NReplClient NReplClient)]
   (let [clipboard   (-> ctx (input-area) (:clipboard))
-        then-server (-> ctx (client) f)
+        then-server (-> ctx (nrepl-client) f)
         then-seeker (-> (r/then then-server)
                         (i/end)
                         (assoc :clipboard clipboard))]
@@ -344,7 +344,7 @@
 (s/defn evaluate :- Context
   [ctx :- Context]
   (let [current-input (input-area ctx)
-        client'       (-> ctx (client) (r/evaluate! current-input))
+        client'       (-> ctx (nrepl-client) (r/evaluate! current-input))
         result        (r/result client')
         new-hud       (-> ctx
                           (persisted-hud)
@@ -357,7 +357,7 @@
 (s/defn suggestion-window :- Hud
   [ctx :- Context]
   (let [text  (input-area ctx)
-        repl  (client ctx)
+        repl  (nrepl-client ctx)
         suggs (suggestions ctx)]
     (if (h/hollow? suggs)
       (-> repl (r/complete! text) (r/result) (h/riffle-window 10))
@@ -383,7 +383,7 @@
 (s/defn signature-window :- Hud
   [ctx :- Context]
   (let [text (input-area ctx)
-        repl (client ctx)
+        repl (nrepl-client ctx)
         sigs (signatures ctx)]
     (if (h/hollow? sigs)
       (-> repl (r/signature! text) (r/result) (h/riffle-window 10))
@@ -404,7 +404,7 @@
 (s/defn documentation-window :- Hud
   [ctx :- Context]
   (let [text (input-area ctx)
-        repl (client ctx)
+        repl (nrepl-client ctx)
         docs (documentation ctx)]
     (if (h/hollow? docs)
       (-> repl (r/docs! text) (r/result) (h/riffle-window 15))
@@ -430,7 +430,7 @@
 (s/defn inject :- Context
   [ctx   :- Context
    event :- e/Event]
-  (let [repl (client ctx)
+  (let [repl (nrepl-client ctx)
         _    (->> event (:value) (i/from-string) (r/evaluate! repl))]
     ctx))
 
@@ -442,13 +442,13 @@
 
 (s/defn continue :- ProcessingStep
   [ctx :- Context]
-  {:status :continue
-   :ctx    ctx})
+  {:status  :continue
+   :context ctx})
 
 (s/defn terminate :- ProcessingStep
   [ctx :- Context]
-  {:status :terminate
-   :ctx    ctx})
+  {:status  :terminate
+   :context ctx})
 
 (s/defn process :- ProcessingStep
   [ctx    :- Context

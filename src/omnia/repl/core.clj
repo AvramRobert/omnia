@@ -20,7 +20,7 @@
          events   :- [Event]]
    (let [step   (c/process ctx config (first events))
          status (:status step)
-         ctx'   (:ctx step)
+         ctx'   (:context step)
          _      (r/render! ctx' config terminal)]
      (case status
        :continue (recur ctx' config terminal (rest events))

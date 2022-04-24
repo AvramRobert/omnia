@@ -7,7 +7,7 @@
             [omnia.schema.render :as r]))
 
 (def Context
-  {:repl          n/NReplClient
+  {:nrepl         n/NReplClient
    :config        c/Config
    :render        r/RenderingStrategy
    :previous-hud  h/Hud
@@ -21,5 +21,5 @@
    :garbage       r/Highlights})
 
 (s/def ProcessingStep
-  {:status (s/enum :continue :terminate)
-   :ctx    Context})
+  {:status  (s/enum :continue :terminate)
+   :context Context})
