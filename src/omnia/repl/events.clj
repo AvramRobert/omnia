@@ -82,9 +82,6 @@
 (s/def signature :- e/Event
   (event e/signature))
 
-(s/def paren-match :- e/Event
-  (event e/paren-match))
-
 (s/def suggest :- e/Event
   (event e/suggest))
 

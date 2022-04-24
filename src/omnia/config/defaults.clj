@@ -30,7 +30,6 @@
    e/delete-previous   {:key :backspace}
    e/delete-current    {:key :delete}
    e/new-line          {:key :enter}
-   e/paren-match       {:key \p :ctrl true}
    e/suggest           {:key :tab}
    e/scroll-up         {:key :page-up}
    e/scroll-down       {:key :page-down}

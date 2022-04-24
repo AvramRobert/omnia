@@ -27,7 +27,6 @@
 (def ^:const inject :inject)
 (def ^:const docs :docs)
 (def ^:const signature :signature)
-(def ^:const paren-match :paren-match)
 (def ^:const suggest :suggest)
 (def ^:const scroll-up :scroll-up)
 (def ^:const scroll-down :scroll-down)
@@ -67,7 +66,6 @@
     inject
     docs
     signature
-    paren-match
     suggest
     scroll-up
     scroll-down

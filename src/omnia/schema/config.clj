@@ -36,7 +36,6 @@
    e/delete-previous   UserKeyBinding
    e/delete-current    UserKeyBinding
    e/new-line          UserKeyBinding
-   e/paren-match       UserKeyBinding
    e/suggest           UserKeyBinding
    e/scroll-up         UserKeyBinding
    e/scroll-down       UserKeyBinding

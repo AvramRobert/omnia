@@ -699,8 +699,7 @@
                                  (character \a)
                                  left
                                  left
-                                 left
-                                 parens-match])
+                                 left])
                        (r/highlights))]
     (is (= (:open-paren highlights)
            (scheme {:start [x y]
@@ -717,8 +716,7 @@
                                 delete-previous
                                 left
                                 left
-                                left
-                                parens-match])]
+                                left])]
     (is (= (r/highlights processed) {}))))
 
 (defn parens-matching [ctx]

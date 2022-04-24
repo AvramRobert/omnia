@@ -165,7 +165,6 @@
 (def evaluate e/evaluate)
 (def prev-eval e/prev-eval)
 (def next-eval e/next-eval)
-(def parens-match e/paren-match)
 (def suggest e/suggest)
 (def ignore e/ignore)
 (def delete-previous e/delete-previous)

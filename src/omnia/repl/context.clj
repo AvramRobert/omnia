@@ -460,7 +460,6 @@
       e/inject (-> ctx (inject event) (diff-render) (continue))
       e/docs (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens config) (diff-render) (continue))
       e/signature (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens config) (diff-render) (continue))
-      e/paren-match (-> ctx (gc config) (scroll-stop) (deselect) (match config) (diff-render) (continue))
       e/suggest (-> ctx (gc config) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens config) (diff-render) (continue))
       e/scroll-up (-> ctx (gc config) (scroll-up) (deselect) (highlight config) (diff-render) (continue))
       e/scroll-down (-> ctx (gc config) (scroll-down) (deselect) (highlight config) (diff-render) (continue))
