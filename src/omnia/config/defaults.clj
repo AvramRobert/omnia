@@ -70,3 +70,8 @@
    t/magenta [170 0 170]
    t/yellow  [180 148 6]
    t/default [46 52 54]})
+
+(s/def default-user-config :- c/UserConfig
+  {:keymap   default-user-keymap
+   :syntax   default-user-highlighting
+   :terminal default-user-terminal})

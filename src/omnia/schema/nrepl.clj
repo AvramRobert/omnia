@@ -113,15 +113,7 @@
 
 (def InternalClient (c/=> NReplRequest [NReplResponse]))
 
-(def REPLConfig
-  {:host                     s/Str
-   :port                     s/Int
-   (s/optional-key :client)  InternalClient
-   (s/optional-key :ns)      s/Symbol
-   (s/optional-key :history) [t/Seeker]
-   (s/optional-key :timeout) s/Int})
-
-(def REPLClient
+(def NReplClient
   {:ns       s/Symbol
    :host     s/Str
    :port     s/Int
@@ -129,3 +121,11 @@
    :history  [t/Seeker]
    :timeline s/Int
    :result   t/Seeker})
+
+(def REPLConfig
+  {:host                     s/Str
+   :port                     s/Int
+   (s/optional-key :client)  InternalClient
+   (s/optional-key :ns)      s/Symbol
+   (s/optional-key :history) [t/Seeker]
+   (s/optional-key :timeout) s/Int})

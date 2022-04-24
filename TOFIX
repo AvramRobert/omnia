@@ -1,5 +1,6 @@
 CURRENT TASK:
 
+  - Remove config from context. Let the context only keep the huds. The config should be passed as a separate param
 - Rewrite tests using deftest and the more straightforward concept of `from-tagged-strings`. (context, text, render, nrepl)
 
 Global issues:
@@ -27,7 +28,6 @@ omnia.repl.syntax issues:
   - Add set-highlighting
 
 omnia.repl.context issues:
-  - Remove config from context. Let the context only keep the huds. The config should be passed as a separate param
 
 omnia.view.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`

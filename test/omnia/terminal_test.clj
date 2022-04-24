@@ -2,7 +2,6 @@
   (:require [schema.core :as s]
             [clojure.test.check.generators :as gen]
             [omnia.view.terminal :as t]
-            [omnia.config.core :as c]
             [omnia.schema.syntax :as tc]
             [omnia.schema.keymap :as kc]
             [omnia.repl.events :as e]
@@ -12,7 +11,8 @@
             [clojure.set :refer [difference map-invert]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.util.generator :refer [do-gen gen-rgb]]
-            [omnia.schema.common :refer [Point]])
+            [omnia.schema.common :refer [Point]]
+            [omnia.test-utils :refer [default-config]])
   (:import (com.googlecode.lanterna.terminal Terminal)
            (com.googlecode.lanterna.screen TerminalScreen)
            (com.googlecode.lanterna TerminalSize TextCharacter)
@@ -51,14 +51,14 @@
     {:key key :ctrl ctrl :alt alt :shift shift}))
 
 (deftest get-context-event
-  (let [context-strokes   (-> c/default-config (:keymap) (t/key-stroke->event))
+  (let [context-strokes   (-> default-config (:keymap) (t/key-stroke->event))
         expected-events   (set (vals context-strokes))
         screen            (terminal-screen-with {:read-input (keys context-strokes)})]
     (dotimes [_ (count context-strokes)]
       (is (contains? expected-events (t/impl-get-input-event! screen context-strokes {}))))))
 
 (deftest get-text-event
-  (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
+  (let [context-strokes (-> default-config (:keymap) (t/key-stroke->event))
         text-strokes    (->> t/char->event (keys) (mapv char-stroke))
         expected-events (set (vals t/char->event))
         screen          (terminal-screen-with {:read-input text-strokes})]
@@ -66,17 +66,17 @@
       (is (contains? expected-events (t/impl-get-input-event! screen context-strokes t/char->event))))))
 
 (defspec get-unknown-event NR-OF-TESTS
-         (let [context-strokes (-> c/default-config (:keymap) (t/key-stroke->event))
+  (let [context-strokes (t/key-stroke->event default-config)
         text-events     t/char->event]
-           (for-all [binding (->> c/default-config
+    (for-all [binding (->> default-config
                            (:keymap)
                            (vals)
                            (mapv :key)
                            (set)
                            (difference kc/key-set)
                            (gen-key-binding-from))]
-             (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
-               (is (= e/ignore (t/impl-get-input-event! screen context-strokes text-events)))))))
+      (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
+        (is (= e/ignore (t/impl-get-input-event! screen context-strokes text-events)))))))
 /
 (defspec put-char NR-OF-TESTS
   (for-all [char  gen/char-alphanumeric

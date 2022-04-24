@@ -10,15 +10,33 @@
             [omnia.repl.events :as e]
             [clojure.test :refer [is]]
             [omnia.schema.context :refer [Context]]
+            [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInfo HighlightType]]
             [omnia.schema.terminal :refer [TerminalSpec]]
             [omnia.schema.text :refer [Seeker Line]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.common :refer [Point Region]]
+            [omnia.schema.nrepl :refer [NReplClient NReplResponse]]
             [omnia.util.arithmetic :refer [-- ++]]
             [omnia.util.generator :refer [do-gen one]]
-            [omnia.config.defaults :refer [default-user-highlighting]]))
+            [omnia.config.defaults :refer [default-user-config default-user-highlighting]]))
+
+(s/def default-config :- Config
+  (c/convert default-user-config))
+
+(s/defn nrepl-client :- NReplClient
+  ([nrepl-response :- NReplResponse]
+   (nrepl-client nrepl-response []))
+  ([nrepl-response :- NReplResponse
+    history :- [Seeker]]
+   (server/client {:host    ""
+                   :port    0
+                   :history history
+                   :client  (constantly nrepl-response)})))
+
+(s/def simple-nrepl-client :- NReplClient
+  (nrepl-client {}))
 
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
@@ -111,7 +129,7 @@
            input-seeker    text-area
            response        (gen-nrepl-result receive)
            history-seekers history]
-    (-> (r/context (c/convert c/default-user-config)
+    (-> (r/context default-config
                    (server/client {:host    ""
                                    :port    0
                                    :history history-seekers
@@ -290,3 +308,25 @@
   {:region region
    :scheme default-user-highlighting
    :styles []})
+
+(s/def ContextParams
+  {(s/maybe :view-size)     s/Int
+   (s/maybe :persisted-hud) Seeker
+   (s/maybe :input-area)    Seeker
+   (s/maybe :nrepl-client)  NReplClient})
+
+(s/defn create-context :- Context
+  [params :- ContextParams]
+  (let [view-size     (:view-size params 10)
+        nrepl-client  (:nrepl-client params simple-nrepl-client)
+        context       (r/context default-config nrepl-client view-size)
+        input-area    (:input-area params (r/input-area context))
+        persisted-hud (-> context
+                          (r/persisted-hud)
+                          (h/enrich-with (-> params
+                                             (some-> (:persisted-hud) (vector))
+                                             (or []))))]
+    (-> context
+        (r/with-persisted persisted-hud)
+        (r/with-input-area input-area)
+        (r/refresh))))

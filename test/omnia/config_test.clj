@@ -1,5 +1,9 @@
 (ns omnia.config-test
-  (:require [clojure.test :refer :all]
+  (:require [halfling.task :as t]
+            [omnia.config.defaults :as d]
+            [omnia.config.core :as c]
+            [schema.core :as s]
+            [clojure.test :refer [is]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
@@ -11,11 +15,7 @@
                                           gen-user-highlighting
                                           gen-user-key-binding]]
             [omnia.util.collection :refer [map-vals]]
-            [halfling.task :as t]
-            [omnia.schema.config :as cc]
-            [omnia.config.defaults :as d]
-            [omnia.config.core :as c]
-            [schema.core :as s]))
+            [omnia.schema.config :refer [KeyMap Highlighting Terminal]]))
 
 (def ^:const NR-OF-TESTS 100)
 
@@ -26,7 +26,7 @@
     (for-all [binding gen-user-key-binding
               entry1  (gen/elements (take half entries))
               entry2  (gen/elements (drop half entries))]
-             (let [result (-> c/default-config
+             (let [result (-> d/default-user-config
                               (assoc-in [:keymap entry1] binding)
                               (assoc-in [:keymap entry2] binding)
                               (c/validate!)
@@ -37,14 +37,14 @@
 (defspec normalise-keymap
          NR-OF-TESTS
   (for-all [custom-keymap gen-user-keymap]
-    (is (s/validate cc/KeyMap (c/fix-keymap custom-keymap)))))
+    (is (s/validate KeyMap (c/fix-keymap custom-keymap)))))
 
 (defspec normalise-colours
          NR-OF-TESTS
   (for-all [custom-highlighting gen-user-highlighting]
-    (is (s/validate cc/Highlighting (c/fix-highlighting custom-highlighting)))))
+    (is (s/validate Highlighting (c/fix-highlighting custom-highlighting)))))
 
 (defspec normalise-terminal
          NR-OF-TESTS
   (for-all [terminal gen-user-terminal]
-    (is (s/validate cc/Terminal (c/fix-terminal terminal)))))
+    (is (s/validate Terminal (c/fix-terminal terminal)))))

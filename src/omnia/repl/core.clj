@@ -8,7 +8,7 @@
             [omnia.schema.event :refer [Event]]
             [omnia.view.terminal :refer [Terminal]]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.nrepl :refer [REPLClient]]
+            [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.config :refer [Config]]))
 
 (def prelude [(e/inject "(require '[omnia.repl.resolution :refer [retrieve retrieve-from]])")])
@@ -32,7 +32,7 @@
 (s/defn read-eval-print
   [config   :-  Config
    terminal :-  Terminal
-   repl     :-  REPLClient]
+   repl     :-  NReplClient]
   (let [events          (concat prelude (events-from terminal))
         initial-context (c/context config repl (t/size terminal))]
     (-> (tsk/task (consume initial-context terminal events))

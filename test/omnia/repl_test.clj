@@ -27,7 +27,7 @@
 
 (defn clipboard-propagation [ctx text]
   (let [expected-clipboard (i/from-string "content")
-        text-full-clip     (assoc text :clipboard expected-clipboard)
+        text-full-clip     (i/reset-clipboard text expected-clipboard)
         actual-clipboard   (-> ctx
                                (process [select-all copy])
                                (r/with-input-area text-full-clip)

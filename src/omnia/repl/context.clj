@@ -10,7 +10,7 @@
             [omnia.schema.render :refer [Highlights HighlightInfo HighlightType RenderingStrategy]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.text :refer [Seeker]]
-            [omnia.schema.nrepl :refer [REPLClient]]
+            [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.common :refer [=> Region]]
             [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]))
@@ -24,7 +24,7 @@
 
 (s/defn init-hud :- Hud
   [size :- s/Int,
-   repl :- REPLClient]
+   repl :- NReplClient]
   (let [repl-info (nrepl-info (:host repl) (:port repl))]
     (-> (h/hud-of size)
         (h/enrich-with [greeting
@@ -36,7 +36,7 @@
 
 (s/defn context :- Context
   [config    :- Config
-   repl      :- REPLClient
+   repl      :- NReplClient
    view-size :- s/Int]
   (let [input     i/empty-line
         previous  (h/hud-of view-size)
@@ -47,8 +47,8 @@
      :render        :diff
      :previous-hud  previous
      :persisted-hud persisted
-     :preview-hud  preview
-     :input-area        input
+     :preview-hud   preview
+     :input-area    input
      :suggestions   h/empty-hud
      :documentation h/empty-hud
      :signatures    h/empty-hud
@@ -91,7 +91,7 @@
   [ctx :- Context]
   (:documentation ctx))
 
-(s/defn client :- REPLClient
+(s/defn client :- NReplClient
   [ctx :- Context]
   (:repl ctx))
 
@@ -187,7 +187,7 @@
     (assoc ctx :input-area new-text)))
 
 (s/defn with-client :- Context
-  [ctx :- Context, repl :- REPLClient]
+  [ctx :- Context, repl :- NReplClient]
   (assoc ctx :repl repl))
 
 (s/defn with-suggestions :- Context
@@ -327,7 +327,7 @@
 
 (s/defn eval-at :- Context
   [ctx :- Context,
-   f   :- (=> REPLClient REPLClient)]
+   f   :- (=> NReplClient NReplClient)]
   (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (client) f)
         then-seeker (-> (r/then then-server)

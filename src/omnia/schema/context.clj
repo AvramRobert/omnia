@@ -7,7 +7,7 @@
             [omnia.schema.render :as r]))
 
 (def Context
-  {:repl          n/REPLClient
+  {:repl          n/NReplClient
    :config        c/Config
    :render        r/RenderingStrategy
    :previous-hud  h/Hud

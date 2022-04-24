@@ -27,7 +27,7 @@
        (mapv i/from-string)))
 
 (s/defn write-history
-  [repl :- REPLClient
+  [repl :- NReplClient
    path :- s/Str]
   (->> repl
        (:history)
@@ -37,7 +37,7 @@
        (spit path)))
 
 (s/defn send! :- [NReplResponse]
-  [repl :- REPLClient
+  [repl :- NReplClient
    req :- NReplRequest]
   ((:client repl) req))
 
@@ -68,43 +68,43 @@
                (i/stringify)
                (trim-newline))})
 
-(s/defn with-result :- REPLClient
-  [repl   :- REPLClient
+(s/defn with-result :- NReplClient
+  [repl   :- NReplClient
    result :- Seeker]
   (assoc repl :result result))
 
-(s/defn remember :- REPLClient
-  [repl :- REPLClient
+(s/defn remember :- NReplClient
+  [repl :- NReplClient
    seeker :- Seeker]
   (if (or (i/equivalent? seeker i/empty-seeker)
           (i/equivalent? seeker i/empty-line))
     repl
     (update repl :history #(conj % seeker))))
 
-(s/defn reset-timeline :- REPLClient
-  [repl :- REPLClient]
+(s/defn reset-timeline :- NReplClient
+  [repl :- NReplClient]
   (let [current (-> repl (:history) (count))]
     (assoc repl :timeline current)))
 
-(s/defn travel-back :- REPLClient
-  [repl :- REPLClient]
+(s/defn travel-back :- NReplClient
+  [repl :- NReplClient]
   (update repl :timeline #(dec< % 0)))
 
-(s/defn travel-forward [repl] :- REPLClient
-  [repl :- REPLClient]
+(s/defn travel-forward [repl] :- NReplClient
+  [repl :- NReplClient]
   (let [max (-> repl (:history) (count))]
     (update repl :timeline #(inc< % max))))
 
 (s/defn then :- Seeker
-  [repl :- REPLClient]
+  [repl :- NReplClient]
   (nth (:history repl) (:timeline repl) i/empty-seeker))
 
 (s/defn result :- Seeker
-  [repl :- REPLClient]
+  [repl :- NReplClient]
   (:result repl))
 
-(s/defn complete! :- REPLClient
-  [repl :- REPLClient
+(s/defn complete! :- NReplClient
+  [repl :- NReplClient
    seeker :- Seeker]
   (let [result (->> (:ns repl)
                     (make-complete-request seeker)
@@ -127,8 +127,8 @@
     (val? response) (->> response (:value) (f/format-str) (format "%s\n%s" output))
     :else output))
 
-(s/defn evaluate! :- REPLClient
-  [repl   :- REPLClient
+(s/defn evaluate! :- NReplClient
+  [repl   :- NReplClient
    seeker :- Seeker]
   (let [result (->> (make-eval-request seeker)
                     (send! repl)
@@ -142,14 +142,14 @@
         (reset-timeline))))
 
 (s/defn info! :- (s/maybe NReplResponse)
-  [repl   :- REPLClient
+  [repl   :- NReplClient
    seeker :- Seeker]
   (let [result      (->> (:ns repl) (make-info-request seeker) (send! repl) (first))
         [_ no-info] (:status result)]
     (when (nil? no-info) result)))
 
-(s/defn docs! :- REPLClient
-  [repl   :- REPLClient
+(s/defn docs! :- NReplClient
+  [repl   :- NReplClient
    seeker :- Seeker]
   (let [result (or (some-> repl (info! seeker) (:doc) (i/from-string))
                    i/empty-seeker)]
@@ -162,8 +162,8 @@
         candidate #(i/from-string (str ns "/" name " " %))]
     (some->> response (:arglists-str) (split-lines) (mapv candidate))))
 
-(s/defn signature! :- REPLClient
-  [repl :- REPLClient
+(s/defn signature! :- NReplClient
+  [repl :- NReplClient
    seeker :- Seeker]
   (let [result (or (some-> repl (info! seeker) (make-candidates) (i/joined))
                    i/empty-seeker)]
@@ -188,7 +188,7 @@
         client    (nrepl-core/client transport timeout)]
     (fn [msg] (nrepl-core/message client msg))))
 
-(s/defn client :- REPLClient
+(s/defn client :- NReplClient
   [config :- REPLConfig]
   (let [ns      (:ns config (ns-name *ns*))
         port    (:port config)

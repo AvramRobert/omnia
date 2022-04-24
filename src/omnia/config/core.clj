@@ -24,11 +24,6 @@
                      (-> actions first second))))
          (report!))))
 
-(defn validate! [config]
-  (s/validate c/UserKeyMap (:keymap config))
-  (s/validate c/UserHighlighting (:syntax config))
-  (check-duplicates! (:keymap config)))
-
 (s/defn make-rgb :- t/RGBColour
   [colour :- t/Colour]
   (let [default-colour (get d/default-colours t/default)]
@@ -83,23 +78,20 @@
   [provided-terminal :- c/UserTerminal]
   (merge-from-both provided-terminal d/default-user-terminal))
 
+(defn validate! [config]
+  (s/validate c/UserKeyMap (:keymap config))
+  (s/validate c/UserHighlighting (:syntax config))
+  (check-duplicates! (:keymap config)))
+
 (s/defn convert :- c/Config
   [config :- c/UserConfig]
   {:keymap   (-> config (:keymap) (fix-keymap))
    :syntax   (-> config (:syntax) (fix-highlighting) (create-syntax))
    :terminal (-> config (:terminal) (fix-terminal))})
 
-(s/def default-user-config :- c/UserConfig
-  {:keymap   d/default-user-keymap
-   :syntax   d/default-user-highlighting
-   :terminal d/default-user-terminal})
-
-(s/def default-config :- c/Config
-  (convert default-user-config))
-
 (s/defn read-user-config! :- c/UserConfig
   [path :- String]
-  (let [config (slurp-or-else path default-user-config)
+  (let [config (slurp-or-else path d/default-user-config)
         _      (validate! config)]
     config))
 

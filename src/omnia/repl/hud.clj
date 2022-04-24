@@ -7,7 +7,7 @@
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.common :refer [Point Region]]
             [omnia.schema.text :refer [Seeker Line]]
-            [omnia.schema.nrepl :refer [REPLClient]]))
+            [omnia.schema.nrepl :refer [NReplClient]]))
 
 (def continuation (t/from-string "..."))
 (def delimiter (t/from-string "------"))
