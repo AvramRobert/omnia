@@ -12,6 +12,7 @@
             [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
             [omnia.schema.context :refer [Context]]
+            [omnia.schema.config :refer [Config]]
             [omnia.schema.common :refer [Point Region]])
   (:import (omnia.view.terminal Terminal)))
 
@@ -169,10 +170,11 @@
 
 (s/defn render-total!
   [terminal :- Terminal
+   config   :- Config
    ctx      :- Context]
   (let [now      (-> ctx (c/preview-hud) (h/project-view))
         then     (-> ctx (c/previous-hud) (h/project-view))
-        scheme   (-> ctx (c/configuration) (:syntax) (:standard))
+        scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
       (let [line      (nth now y nil)
@@ -184,16 +186,16 @@
 
 (s/defn render-diff!
   [terminal :- Terminal
+   config   :- Config
    ctx      :- Context]
   (let [preview  (c/preview-hud ctx)
         previous (c/previous-hud ctx)
-        config   (c/configuration ctx)
         now      (h/project-view preview)
         then     (h/project-view previous)
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (h/view-offset preview) (h/view-offset previous))
-      (render-total! terminal ctx)
+      (render-total! terminal config ctx)
       (dotimes [y limit]
         (let [line      (nth now y nil)
               line-then (nth then y nil)
@@ -204,18 +206,20 @@
             (print-line! terminal line y xs xe pad scheme [])))))))
 
 (s/defn render-nothing!
-  [terminal :- Terminal,
+  [terminal :- Terminal
+   config   :- Config
    ctx      :- Context]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (when (not= preview-ov previous-ov)
-      (render-total! terminal ctx))))
+      (render-total! terminal config ctx))))
 
 (s/defn render!
-  [ctx      :- Context,
+  [ctx      :- Context
+   config   :- Config
    terminal :- Terminal]
   (case (c/rendering ctx)
-    :diff (doto terminal (clean-highlights! ctx) (render-diff! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
-    :clear (doto terminal (t/clear!) (render-total! ctx) (set-position! ctx) (t/refresh!))
-    :nothing (doto terminal (clean-highlights! ctx) (render-nothing! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
-    (doto terminal (render-total! ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))))
+    :diff (doto terminal (clean-highlights! ctx) (render-diff! config ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
+    :clear (doto terminal (t/clear!) (render-total! config ctx) (set-position! ctx) (t/refresh!))
+    :nothing (doto terminal (clean-highlights! ctx) (render-nothing! config ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
+    (doto terminal (render-total! config ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))))

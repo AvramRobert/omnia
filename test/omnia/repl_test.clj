@@ -691,7 +691,7 @@
   (let [[x y] (-> ctx (r/preview-hud) (h/text) (:cursor))
         scheme     (fn [region]
                      {:region region
-                      :scheme (-> ctx (r/configuration) (:syntax) (:clean-up))
+                      :scheme (-> default-config (:syntax) (:clean-up))
                       :styles [:underline]})
         highlights (-> ctx
                        (process [(character \()

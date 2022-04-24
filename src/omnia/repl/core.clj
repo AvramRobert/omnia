@@ -15,14 +15,15 @@
 
 (s/defn consume :- Context
         [ctx      :- Context,
+         config   :- Config,
          terminal :- Terminal
          events   :- [Event]]
-   (let [step   (c/process ctx (first events))
+   (let [step   (c/process ctx config (first events))
          status (:status step)
          ctx'   (:ctx step)
-         _      (r/render! ctx' terminal)]
+         _      (r/render! ctx' config terminal)]
      (case status
-       :continue (recur ctx' terminal (rest events))
+       :continue (recur ctx' config terminal (rest events))
        :terminate ctx')))
 
 (s/defn events-from :- [Event]
@@ -30,11 +31,11 @@
      (iterate (fn [_] (t/get-event! terminal)) e/ignore))
 
 (s/defn read-eval-print
-  [config   :-  Config
-   terminal :-  Terminal
-   repl     :-  NReplClient]
-  (let [events          (concat prelude (events-from terminal))
-        initial-context (c/context config repl (t/size terminal))]
-    (-> (tsk/task (consume initial-context terminal events))
+  [config   :- Config
+   terminal :- Terminal
+   nrepl    :- NReplClient]
+  (let [events  (concat prelude (events-from terminal))
+        context (c/context (t/size terminal) nrepl)]
+    (-> (tsk/task (consume context config terminal events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))

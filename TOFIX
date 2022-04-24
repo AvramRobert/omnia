@@ -28,6 +28,8 @@ omnia.repl.syntax issues:
   - Add set-highlighting
 
 omnia.repl.context issues:
+  - remove the parens-match event
+  - perhaps there is a way of removing the NReplClient from the Context
 
 omnia.view.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`

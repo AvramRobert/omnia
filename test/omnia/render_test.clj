@@ -17,7 +17,9 @@
             [omnia.schema.text :refer [Seeker]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.common :refer [Point Region]])
+            [omnia.schema.config :refer [Config]]
+            [omnia.schema.common :refer [Point Region =>]]
+            [omnia.view.terminal :as t])
   (:import (clojure.lang Atom)))
 
 (def ^:const NR-OF-TESTS 100)
@@ -29,19 +31,16 @@
 (def IndexedSeeker
   (assoc Seeker :lines [[IndexedCharacter]]))
 
-(def State
+(def RenderedElements
   {:chars   Atom
    :cursors Atom
    :bgs     Atom
    :fgs     Atom
    :stls    Atom})
 
-(def Accumulate
-  {:ctx Context
-   :state State})
-
-(s/defn accumulative :- Accumulate
-  [ctx  :- Context]
+(s/defn execute :- RenderedElements
+  [context :- Context,
+   f       :- (=> t/Terminal Config Context Context)]
   (let [chars    (atom [])
         cursors  (atom [])
         bgs      (atom [])
@@ -54,25 +53,19 @@
                                          (run! #(acc stls %) stl)
                                          (acc chars ch)
                                          (acc cursors [x y]))
-                                 :size (fn [] (r/view-size ctx))})]
-    {:ctx      ctx
-     :terminal terminal
-     :state    {:chars   chars
-                :cursors cursors
-                :bgs     bgs
-                :fgs     fgs
-                :stls    stls}}))
+                                 :size (fn [] (r/view-size context))})
+        _        (f terminal default-config context)]
+    {:chars   chars
+     :cursors cursors
+     :bgs     bgs
+     :fgs     fgs
+     :stls    stls}))
 
 (def cleanup-background (get d/default-colours ct/default))
 
 (s/defn inspect
-  [acc :- Accumulate p]
-  (->> acc (:state) (map-vals deref) (p)))
-
-(s/defn execute :- Accumulate
-  [acc :- Accumulate, f]
-  (f (:terminal acc) (:ctx acc))
-  acc)
+  [state :- RenderedElements p]
+  (->> state (map-vals deref) (p)))
 
 (s/defn index-text :- IndexedSeeker
   [text :- Seeker]
@@ -107,14 +100,6 @@
         (:lines)
         (flatten))))
 
-(s/defn index-at :- [IndexedCharacter]
-  ([hud :- Hud, region :- Region]
-   (let [indexed-text (->> hud (h/project-hud) (index-text))
-         selection    (h/project-selection hud region)
-         [_ ys]       (:start selection)
-         [_ ye]       (:end selection)]
-     (-> indexed-text (:lines) (subvec ys (inc ye)) (flatten)))))
-
 ;; I. Diffed rendering
 
 (defn padded-diff-render [ctx]
@@ -131,7 +116,6 @@
                               (take-last n-last)
                               (map :cursor))]
     (-> processed
-        (accumulative)
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -148,7 +132,7 @@
                              (process (repeat 10 (character k))))
         last-n           (->> processed (r/preview-hud) (h/text) (:lines) (last) (count))
         expectation      (->> processed (r/preview-hud) (index) (take-last last-n))]
-    (-> (accumulative processed)
+    (-> processed
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -163,7 +147,6 @@
       (at-input-end)
       (at-line-start)
       (process [up])
-      (accumulative)
       (execute render-diff!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -181,7 +164,6 @@
         expected-chars   (map :char expectation)
         expected-cursors (map :cursor expectation)]
     (-> processed
-        (accumulative)
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors _ _ _ _]}]
@@ -211,7 +193,7 @@
 ;; II. No rendering
 
 (defn projected-no-render [ctx]
-  (-> (accumulative ctx)
+  (-> ctx
       (execute render-nothing!)
       (inspect
         (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -225,7 +207,7 @@
   (let [processed (-> ctx
                       (at-main-view-start)
                       (process [up]))]
-    (-> (accumulative processed)
+    (-> processed
         (execute render-nothing!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -257,8 +239,8 @@
         expected-cursors [(:cursor text)]]
     (-> adapted
         (process [select-right])
-        (accumulative)
-        (execute render-highlights!)
+        (execute (fn [terminal _ context]
+                   (render-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -277,8 +259,8 @@
         expected-cursors [cursor]]
     (-> adapted
         (process [right select-left])
-        (accumulative)
-        (execute render-highlights!)
+        (execute (fn [terminal _ context]
+                   (render-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -293,8 +275,8 @@
         expected-chars   (->> projected (:lines) (flatten))
         expected-cursors (->> projected (index-text) (:lines) (flatten) (map :cursor))]
     (-> processed
-        (accumulative)
-        (execute render-highlights!)
+        (execute (fn [terminal _ context]
+                   (render-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -313,8 +295,8 @@
         expected-cursors [[x y] [(+ x 2) y]]
         expected-styles  [:underline :underline]]
     (-> processed
-        (accumulative)
-        (execute render-highlights!)
+        (execute (fn [terminal _ context]
+                   (render-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -333,8 +315,8 @@
         expected-cursors [[x y] [(+ x 1) y] [(+ x 2) y]]]
     (-> adapted
         (process [expand])
-        (accumulative)
-        (execute render-highlights!)
+        (execute (fn [terminal _ context]
+                   (render-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -351,8 +333,8 @@
                       (process (->> characters (cons \() (map character))))]
     (-> processed
         (process [left left expand])
-        (accumulative)
-        (execute render-highlights!)
+        (execute (fn [terminal _ context]
+                   (render-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars bgs fgs stls]}]
             (is (not (empty? bgs)))
@@ -384,8 +366,8 @@
                     (process [select-right select-right select-right select-left]))
         expected (-> ["th<i>s is a context"] (i/from-tagged-strings))]
     (-> context
-        (accumulative)
-        (execute clean-highlights!)
+        (execute (fn [terminal _ context]
+                   (clean-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (selected-chars expected) chars))
@@ -401,8 +383,8 @@
         expected (-> ["T<hi>s is a context"]
                      (i/from-tagged-strings))]
     (-> context
-        (accumulative)
-        (execute clean-highlights!)
+        (execute (fn [terminal _ context]
+                   (clean-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (selected-chars expected) chars))
@@ -420,8 +402,8 @@
                       "multip>le lines"]
                      (i/from-tagged-strings))]
     (-> context
-        (accumulative)
-        (execute clean-highlights!)
+        (execute (fn [terminal _ context]
+                   (clean-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (selected-chars expected) chars))
@@ -439,8 +421,8 @@
                       "multi<p>le lines"]
                      (i/from-tagged-strings))]
     (-> context
-        (accumulative)
-        (execute clean-highlights!)
+        (execute (fn [terminal _ context]
+                   (clean-highlights! terminal context)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= (selected-chars expected) chars))

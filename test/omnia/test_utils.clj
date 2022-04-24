@@ -129,12 +129,11 @@
            input-seeker    text-area
            response        (gen-nrepl-result receive)
            history-seekers history]
-    (-> (r/context default-config
+    (-> (r/context view-size
                    (server/client {:host    ""
                                    :port    0
                                    :history history-seekers
-                                   :client  (constantly response)})
-                   view-size)
+                                   :client  (constantly response)}))
         (r/with-input-area input-seeker)
         (r/with-hud (h/hud hud-seeker view-size)))))
 
@@ -174,7 +173,10 @@
 
 (s/defn process :- Context
   [ctx :- Context, events :- [Event]]
-  (reduce (comp :ctx r/process) ctx events))
+  (reduce (fn [ctx' event]
+            (-> ctx'
+                (r/process default-config event)
+                (:ctx))) ctx events))
 
 (s/defn overview :- s/Int
   [ctx :- Context]
@@ -319,7 +321,7 @@
   [params :- ContextParams]
   (let [view-size     (:view-size params 10)
         nrepl-client  (:nrepl-client params simple-nrepl-client)
-        context       (r/context default-config nrepl-client view-size)
+        context       (r/context view-size nrepl-client)
         input-area    (:input-area params (r/input-area context))
         persisted-hud (-> context
                           (r/persisted-hud)
