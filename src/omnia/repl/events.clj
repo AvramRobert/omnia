@@ -59,7 +59,7 @@
   (event e/paste))
 
 (s/def cut :- e/Event
-  (event e/paste))
+  (event e/cut))
 
 (s/def delete-previous :- e/Event
   (event e/delete-previous))

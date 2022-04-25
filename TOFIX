@@ -31,7 +31,6 @@ omnia.repl.syntax issues:
   - Add set-highlighting
 
 omnia.repl.context issues:
-  - cut apparently doesnt' work. For some bloody reason
   - perhaps there is a way of removing the NReplClient from the Context
 
 omnia.view.terminal issues:
