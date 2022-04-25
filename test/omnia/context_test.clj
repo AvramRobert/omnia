@@ -9,53 +9,52 @@
             [omnia.util.generator :refer [one]]
             [omnia.test-utils :refer :all]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.text :refer [Seeker]]))
+            [omnia.schema.text :refer [Seeker]]
+            [omnia.repl.events :as e]))
 
 (def ^:const NR-OF-TESTS 100)
 
 ;; 0. Manipulation
 
-(defn automatic-preview-refresh [ctx text]
-  (let [some-input       (i/from-string "input")
-        new-hud          (-> ctx (r/persisted-hud) (h/enrich-with [text]))
-        expected-preview (-> new-hud (h/enrich-with [some-input]))
-        actual-preview   (-> ctx
-                             (r/with-input-area some-input)
-                             (r/with-hud new-hud)
-                             (r/preview-hud))]
-    (is (= expected-preview actual-preview))))
+(deftest replacing-main-hud-refreshes-preview
+  (let [text     (i/from-tagged-strings ["some text|"])
+        context  (create-context {:input-area ["existing input|"]})
+        new-hud  (-> context
+                     (r/persisted-hud)
+                     (h/enrich-with [text]))
+        expected (-> {:input-area ["existing input"
+                                   "some text|"]}
+                     (create-context)
+                     (r/preview-hud))
+        actual   (-> context
+                     (r/with-hud new-hud)
+                     (r/preview-hud))]
+    (= expected actual)))
 
-(defn clipboard-propagation [ctx text]
-  (let [expected-clipboard (i/from-string "content")
-        text-full-clip     (i/reset-clipboard text expected-clipboard)
-        actual-clipboard   (-> ctx
-                               (process [select-all copy])
-                               (r/with-input-area text-full-clip)
-                               (r/input-area)
-                               (:clipboard))]
-    (is (i/equivalent? expected-clipboard actual-clipboard))))
+(deftest clipboard-is-renewed
+  (let [expected (i/from-tagged-strings ["existing inputa"])
+        actual   (-> {:input-area ["existing input|"]}
+                     (create-context)
+                     (process [select-all
+                               copy
+                               (character \a)
+                               select-all
+                               copy])
+                     (r/input-area)
+                     (:clipboard))]
+    (is (= expected actual))))
 
-(defn clipboard-preservation [ctx text]
-  (let [text-empty-clip    (assoc text :clipboard nil)
-        expected-clipboard (r/input-area ctx)
-        actual-clipboard   (-> ctx
-                               (process [select-all copy])
-                               (r/with-input-area text-empty-clip)
-                               (r/input-area)
-                               (:clipboard))]
-    (is (i/equivalent? expected-clipboard actual-clipboard))))
-
-(s/defn manipulations [ctx :- Context, seeker :- Seeker]
-        (automatic-preview-refresh ctx seeker)
-        (clipboard-propagation ctx seeker)
-        (clipboard-preservation ctx seeker))
-
-(defspec manipulating-test
-         NR-OF-TESTS
-  (for-all [seeker  (gen-text-area-of 10)
-            context (gen-context {:view-size 7
-                                  :text-area (gen-text-area-of 5)})]
-           (manipulations context seeker)))
+(deftest clipboard-is-propagated
+  (let [expected (i/from-tagged-strings ["existing input"])
+        actual   (-> {:input-area ["existing |input"]}
+                     (create-context)
+                     (process [select-all
+                               copy
+                               (character \a)
+                               (character \b)])
+                     (r/input-area)
+                     (:clipboard))]
+    (is (= expected actual))))
 
 ;; I. Calibrating
 

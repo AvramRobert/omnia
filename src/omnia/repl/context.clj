@@ -324,10 +324,11 @@
   [ctx :- Context,
    f   :- (=> NReplClient NReplClient)]
   (let [clipboard   (-> ctx (input-area) (:clipboard))
-        then-server (-> ctx (nrepl-client) f)
-        then-seeker (-> (r/then then-server)
+        then-server (-> ctx (nrepl-client) (f))
+        then-seeker (-> then-server
+                        (r/then)
                         (i/end)
-                        (assoc :clipboard clipboard))]
+                        (i/reset-clipboard clipboard))]
     (-> ctx
         (with-client then-server)
         (with-input-area then-seeker)
@@ -492,6 +493,6 @@
       e/new-line (-> ctx (perform i/new-line))
       e/undo (-> ctx (perform i/undo))
       e/redo (-> ctx (perform i/redo))
-      e/character (-> ctx (perform #(i/insert (:value event) %)))
+      e/character (-> ctx (perform #(i/insert % (:value event))))
       e/ignore (-> ctx (continue))
       (continue ctx))))

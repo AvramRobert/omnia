@@ -19,6 +19,10 @@ omnia.repl.text issues:
   - Patch chunk-delete, make it more efficient
   - rename region coordinates "from" and "until" instead of "start" "end"
   - debug-string should also display the selection and cursor
+  - the clipboard doesn't need to be a focken seeker, does it??!
+  - the history doesn't need to have a focken clipboard either, does it??
+    Comet to think of it, the history needn't be a seeker either -_-
+  - Reverse parameter order?
 
 omnia.repl.syntax issues:
   - Add previous node to transition evaluator of syntax highlighter
@@ -27,6 +31,7 @@ omnia.repl.syntax issues:
   - Add set-highlighting
 
 omnia.repl.context issues:
+  - cut apparently doesnt' work. For some bloody reason
   - perhaps there is a way of removing the NReplClient from the Context
 
 omnia.view.terminal issues:

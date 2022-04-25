@@ -312,8 +312,8 @@
 
 (s/def ContextParams
   {(s/maybe :view-size)     s/Int
-   (s/maybe :persisted-hud) Seeker
-   (s/maybe :input-area)    Seeker
+   (s/maybe :persisted-hud) [Line]
+   (s/maybe :input-area)    [Line]
    (s/maybe :nrepl-client)  NReplClient})
 
 (s/defn create-context :- Context
@@ -321,12 +321,15 @@
   (let [view-size     (:view-size params 10)
         nrepl-client  (:nrepl-client params simple-nrepl-client)
         context       (r/context view-size nrepl-client)
-        input-area    (:input-area params (r/input-area context))
+        input-area    (-> params
+                          (some-> (:input-area) (i/from-tagged-strings))
+                          (or (r/input-area context)))
+        persisted     (-> params
+                          (some-> (:persisted-hud) (i/from-tagged-strings) (vector))
+                          (or []))
         persisted-hud (-> context
                           (r/persisted-hud)
-                          (h/enrich-with (-> params
-                                             (some-> (:persisted-hud) (vector))
-                                             (or []))))]
+                          (h/enrich-with persisted))]
     (-> context
         (r/with-persisted persisted-hud)
         (r/with-input-area input-area)

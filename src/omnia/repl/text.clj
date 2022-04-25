@@ -364,9 +364,9 @@
   (assoc seeker :clipboard content))
 
 (s/defn reset-history :- Seeker
-  [undo-history :- [Seeker]
-   redo-history :- [Seeker]
-   seeker :- Seeker]
+  [seeker :- Seeker
+   undo-history :- [Seeker]
+   redo-history :- [Seeker]]
   (assoc seeker :history undo-history :rhistory redo-history))
 
 (s/defn distance :- s/Int
@@ -513,6 +513,20 @@
       (move-y inc)
       (start-x)))
 
+(s/defn clean-history :- Seeker
+  [seeker :- Seeker]
+  (-> seeker
+      (reset-history '() '())
+      (reset-clipboard nil)))
+
+(s/defn add-to-history :- Seeker
+  [seeker :- Seeker]
+  (let [history (:history seeker)]
+    (->> history
+         (cons (clean-history seeker))
+         (take 50)
+         (assoc seeker :history))))
+
 (s/defn simple-delete :- Seeker
   [seeker :- Seeker]
   (-> seeker
@@ -624,7 +638,7 @@
 (s/defn do-copy :- Seeker
   [seeker :- Seeker]
   (if (selecting? seeker)
-    (->> seeker (extract) (reset-clipboard seeker))
+    (->> seeker (extract) (clean-history) (reset-clipboard seeker))
     seeker))
 
 (s/defn do-cut :- Seeker
@@ -770,18 +784,6 @@
         (reset-selection expansion)
         (reset-expansion :expr))))
 
-(s/defn clear-history :- Seeker
-  [seeker :- Seeker]
-  (reset-history '() '() seeker))
-
-(s/defn add-to-history :- Seeker
-  [seeker :- Seeker]
-  (let [history (:history seeker)]
-    (->> history
-         (cons (clear-history seeker))
-         (take 50)
-         (assoc seeker :history))))
-
 (s/defn do-undo :- Seeker
   [seeker :- Seeker]
   (let [history   (:history seeker)
@@ -793,7 +795,7 @@
           (first)
           (assoc :clipboard clipboard)
           (assoc :history (rest history))
-          (assoc :rhistory (-> seeker (clear-history) (cons rhistory)))))))
+          (assoc :rhistory (-> seeker (clean-history) (cons rhistory)))))))
 
 (s/defn do-redo [seeker :- Seeker]
   (let [history   (:history seeker)
@@ -805,7 +807,7 @@
           (first)
           (assoc :clipboard clipboard)
           (assoc :rhistory (rest rhistory))
-          (assoc :history (-> seeker (clear-history) (cons history)))))))
+          (assoc :history (-> seeker (clean-history) (cons history)))))))
 
 (s/defn auto-complete :- Seeker
   [seeker :- Seeker, input :- [Character]]
@@ -852,7 +854,7 @@
   (-> text (add-to-history) (do-delete-current) (deselect)))
 
 (s/defn insert :- Seeker
-  [char :- Character text :- Seeker]
+  [text :- Seeker char :- Character]
   (-> text (add-to-history) (do-insert char) (deselect)))
 
 (s/defn move-left :- Seeker

@@ -690,8 +690,8 @@
 
 (deftest inserts-literals
   (let [text (i/from-tagged-strings ["|some text"])
-        num  (->> text (i/insert \1) (i/previous-char))
-        char (->> text (i/insert \a) (i/previous-char))]
+        num  (-> text (i/insert \1) (i/previous-char))
+        char (-> text (i/insert \a) (i/previous-char))]
     (is (= num \1))
     (is (= char \a))))
 
@@ -699,15 +699,15 @@
   (->> [[\( \)] [\[ \]] [\{ \}] [\" \"]]
        (run!
          (fn [[l r]]
-           (let [left-pair  (->> i/empty-seeker (i/insert l) (i/current-line))
-                 right-pair (->> i/empty-seeker (i/insert r) (i/current-line))]
+           (let [left-pair  (-> i/empty-seeker (i/insert l) (i/current-line))
+                 right-pair (-> i/empty-seeker (i/insert r) (i/current-line))]
              (is (= left-pair right-pair [l r])))))))
 
 (deftest inserts-ignoring-existing-neighouring-closed-parens
   (->> [[\( \)] [\[ \]] [\{ \}]]
        (run!
          (fn [[l r]]
-           (let [text (->> [(str l "text" "|" r)]
+           (let [text (-> [(str l "text" "|" r)]
                            (i/from-tagged-strings)
                            (i/insert r)
                            (i/current-line))]
@@ -717,25 +717,25 @@
   (->> [[\( \)] [\[ \]] [\{ \}]]
        (run!
          (fn [[l r]]
-           (let [text (->> [(str "|" l "text" r)]
+           (let [text (-> [(str "|" l "text" r)]
                            (i/from-tagged-strings)
                            (i/insert l)
                            (i/current-line))]
              (is (= text [l r l \t \e \x \t r])))))))
 
 (deftest inserts-ignoring-existing-existing-neighbouring-string-pair
-  (let [left-hand  (->> ["|\"text\""]
+  (let [left-hand  (-> ["|\"text\""]
                         (i/from-tagged-strings)
                         (i/insert \")
                         (i/current-line))
-        right-hand (->> ["\"text|\""]
+        right-hand (-> ["\"text|\""]
                         (i/from-tagged-strings)
                         (i/insert \")
                         (i/current-line))]
     (is (= left-hand right-hand [\" \t \e \x \t \"]))))
 
 (deftest inserts-replacing-selection-in-line
-  (let [text (->> ["|one line"]
+  (let [text (-> ["|one line"]
                   (i/from-tagged-strings)
                   (i/jump-select-right)
                   (i/insert \a)
@@ -743,7 +743,7 @@
     (is (= text [\a \space \l \i \n \e]))))
 
 (deftest inserts-replacing-selection-between-lines
-  (let [text (->> ["one |line"
+  (let [text (-> ["one |line"
                    "two lines"]
                   (i/from-tagged-strings)
                   (i/jump-select-right)
@@ -847,7 +847,7 @@
 
 ;; IX. Selecting
 (deftest selects-indempotently-over-single-chars
-  (let [region (->> ["|12"]
+  (let [region (-> ["|12"]
                     (i/from-tagged-strings)
                     (i/move-right)
                     (i/select-left)
@@ -859,7 +859,7 @@
 (deftest jumps-selecting-right
   (testing "INCREASING -"
     (testing "initial"
-      (let [text      (->> ["hello |world today"]
+      (let [text      (-> ["hello |world today"]
                            (i/from-tagged-strings)
                            (i/jump-select-right))
             expected  (-> ["hello <world>| today"]
@@ -870,7 +870,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously"
-      (let [text      (->> ["hello |world today"]
+      (let [text      (-> ["hello |world today"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right)
@@ -883,7 +883,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "over lines"
-      (let [text      (->> ["hello |world"
+      (let [text      (-> ["hello |world"
                             "some day"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
@@ -897,7 +897,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously over lines"
-      (let [text      (->> ["hello |world"
+      (let [text      (-> ["hello |world"
                             "some day"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
@@ -913,7 +913,7 @@
 
   (testing "DECREASING -"
     (testing "initial"
-      (let [text      (->> ["|<hello world>"]
+      (let [text      (-> ["|<hello world>"]
                            (i/from-tagged-strings)
                            (i/jump-select-right))
             expected  (-> ["hello|< world>"]
@@ -924,7 +924,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously"
-      (let [text      (->> ["|<hello world>"]
+      (let [text      (-> ["|<hello world>"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right))
@@ -936,7 +936,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "over lines"
-      (let [text      (->> ["hello |<world"
+      (let [text      (-> ["hello |<world"
                             "some> day"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
@@ -950,7 +950,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously over lines"
-      (let [text      (->> ["hello |<world"
+      (let [text      (-> ["hello |<world"
                             "some day>"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
@@ -965,7 +965,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "deactivating"
-      (let [text      (->> ["|<hello >world"]
+      (let [text      (-> ["|<hello >world"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right))
@@ -977,7 +977,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "increasing again"
-      (let [text      (->> ["|<hello >world"]
+      (let [text      (-> ["|<hello >world"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right)
@@ -992,7 +992,7 @@
 (deftest jumps-selecting-left
   (testing "INCREASING -"
     (testing "initial"
-      (let [text      (->> ["hello world| today"]
+      (let [text      (-> ["hello world| today"]
                            (i/from-tagged-strings)
                            (i/jump-select-left))
             expected  (-> ["hello |<world> today"]
@@ -1003,7 +1003,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously"
-      (let [text      (->> ["hello world| today"]
+      (let [text      (-> ["hello world| today"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left)
@@ -1016,7 +1016,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "over lines"
-      (let [text      (->> ["hello world"
+      (let [text      (-> ["hello world"
                             "some| day"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
@@ -1030,7 +1030,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously over lines"
-      (let [text      (->> ["hello world"
+      (let [text      (-> ["hello world"
                             "some| day"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
@@ -1046,7 +1046,7 @@
 
   (testing "DECREASING -"
     (testing "initial"
-      (let [text      (->> ["<hello world>|"]
+      (let [text      (-> ["<hello world>|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left))
             expected  (-> ["<hello >|world"]
@@ -1057,7 +1057,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously"
-      (let [text      (->> ["<hello world>|"]
+      (let [text      (-> ["<hello world>|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left))
@@ -1069,7 +1069,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "over lines"
-      (let [text      (->> ["hello <world"
+      (let [text      (-> ["hello <world"
                             "some>| day"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
@@ -1083,7 +1083,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously over lines"
-      (let [text      (->> ["<hello world"
+      (let [text      (-> ["<hello world"
                             "some>| day"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
@@ -1098,7 +1098,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "deactivating"
-      (let [text      (->> ["hello< world>|"]
+      (let [text      (-> ["hello< world>|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left))
@@ -1110,7 +1110,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "increasing again"
-      (let [text      (->> ["hello< world>|"]
+      (let [text      (-> ["hello< world>|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left)
@@ -2478,6 +2478,19 @@
     (is (= section nil))
     (is (= cut [[\h \e \l \l \o \space \w \o \r \l \d]]))))
 
+(deftest cuts-dont-retain-clipboard
+  (let [text      (-> ["hello |world"]
+                      (i/from-tagged-strings)
+                      (i/jump-select-right)
+                      (i/cut)
+                      (:clipboard))
+        history   (:history text)
+        rhistory  (:rhistory text)
+        cut       (:lines text)]
+    (is (empty? history))
+    (is (empty? rhistory))
+    (is (= cut [[\w \o \r \l \d]]))))
+
 ;;; XIV. Pasting
 
 (deftest pastes-within-line
@@ -2755,19 +2768,19 @@
 
 (deftest undos-history-is-limited
   (let [history (->> ["history"] (i/from-tagged-strings) (repeat 50))
-        text    (->> ["hello world|"]
-                     (i/from-tagged-strings)
-                     (i/reset-history history history)
-                     (i/new-line)
-                     (i/insert \a)
-                     (:history))
+        text    (-> ["hello world|"]
+                    (i/from-tagged-strings)
+                    (i/reset-history history history)
+                    (i/new-line)
+                    (i/insert \a)
+                    (:history))
         size    (-> text (count))
         action  (-> text (first) (:lines))]
     (is (= size 50))
     (is (= action [[\h \e \l \l \o \space \w \o \r \l \d] []]))))
 
 (deftest undos-and-redos-are-balanced
-  (let [text             (->> ["hello |world"]
+  (let [text             (-> ["hello |world"]
                               (i/from-tagged-strings)
                               (i/insert \a)
                               (i/insert \b))
@@ -2786,7 +2799,7 @@
     (is (= (count undo2-rhistory) 2))))
 
 (deftest undos-and-redos-dont-affect-clipboard
-  (let [text     (->> ["hel|lo world"]
+  (let [text     (-> ["hel|lo world"]
                       (i/from-tagged-strings)
                       (i/jump-select-right)
                       (i/insert \a))
@@ -2807,3 +2820,16 @@
                  (i/redo)
                  (:lines))]
     (is (= text [[\h \e \l \l \o \r \l \d]]))))
+
+(deftest history-doesnt-keep-the-clipboard
+  (let [text      (-> ["hello |world"]
+                      (i/from-tagged-strings)
+                      (i/select-right)
+                      (i/cut)
+                      (i/insert \a))
+        h-clip    (-> text (:history) (:clipboard))
+        rh-clip   (-> text (:history) (:clipboard))
+        clipboard (-> text (:clipboard) (:lines))]
+    (is (empty? h-clip))
+    (is (empty? rh-clip))
+    (is (= [[\w]] clipboard))))
