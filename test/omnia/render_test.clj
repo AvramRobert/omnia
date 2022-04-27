@@ -364,7 +364,7 @@
                     (i/from-tagged-strings)
                     (context-from)
                     (process [select-right select-right select-right select-left]))
-        expected (-> ["th<i>s is a context"] (i/from-tagged-strings))]
+        expected (-> ["th⦇i⦈s is a context"] (i/from-tagged-strings))]
     (-> context
         (execute (fn [terminal _ context]
                    (clean-highlights! terminal context)))
@@ -380,7 +380,7 @@
                     (i/from-tagged-strings)
                     (context-from)
                     (process [right select-right select-right left]))
-        expected (-> ["T<hi>s is a context"]
+        expected (-> ["T⦇hi⦈s is a context"]
                      (i/from-tagged-strings))]
     (-> context
         (execute (fn [terminal _ context]
@@ -398,8 +398,8 @@
                     (i/from-tagged-strings)
                     (context-from)
                     (process [select-down right]))
-        expected (-> ["These <are"
-                      "multip>le lines"]
+        expected (-> ["These ⦇are"
+                      "multip⦈le lines"]
                      (i/from-tagged-strings))]
     (-> context
         (execute (fn [terminal _ context]
@@ -418,7 +418,7 @@
                     (context-from)
                     (process [select-down select-left]))
         expected (-> ["These are"
-                      "multi<p>le lines"]
+                      "multi⦇p⦈le lines"]
                      (i/from-tagged-strings))]
     (-> context
         (execute (fn [terminal _ context]

@@ -47,22 +47,22 @@
                   :cursor    [1 2]
                   :selection nil}}
 
-        {:input  ["1<2>|3"]
+        {:input  ["1⦇2⦈|3"]
          :expect {:lines     [[\1 \2 \3]]
                   :cursor    [2 0]
                   :selection {:start [1 0] :end [2 0]}}}
 
-        {:input  ["1<23" ">|45"]
+        {:input  ["1⦇23" "⦈|45"]
          :expect {:lines     [[\1 \2 \3] [\4 \5]]
                   :cursor    [0 1]
                   :selection {:start [1 0] :end [0 1]}}}
 
-        {:input  ["123<" ">|45"]
+        {:input  ["123⦇" "⦈|45"]
          :expect {:lines     [[\1 \2 \3] [\4 \5]]
                   :cursor    [0 1]
                   :selection {:start [3 0] :end [0 1]}}}
 
-        {:input  ["1<23" ">|"]
+        {:input  ["1⦇23" "⦈|"]
          :expect {:lines     [[\1 \2 \3] []]
                   :cursor    [0 1]
                   :selection {:start [1 0] :end [0 1]}}}]
@@ -862,7 +862,7 @@
       (let [text      (-> ["hello |world today"]
                            (i/from-tagged-strings)
                            (i/jump-select-right))
-            expected  (-> ["hello <world>| today"]
+            expected  (-> ["hello ⦇world⦈| today"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d]]))
@@ -875,7 +875,7 @@
                            (i/jump-select-right)
                            (i/jump-select-right)
                            (i/jump-select-right))
-            expected  (-> ["hello <world today>|"]
+            expected  (-> ["hello ⦇world today⦈|"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d \space \t \o \d \a \y]]))
@@ -888,8 +888,8 @@
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right))
-            expected  (-> ["hello <world"
-                           ">|some day"]
+            expected  (-> ["hello ⦇world"
+                           "⦈|some day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d] []]))
@@ -903,8 +903,8 @@
                            (i/jump-select-right)
                            (i/jump-select-right)
                            (i/jump-select-right))
-            expected  (-> ["hello <world"
-                           "some>| day"]
+            expected  (-> ["hello ⦇world"
+                           "some⦈| day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d] [\s \o \m \e]]))
@@ -913,10 +913,10 @@
 
   (testing "DECREASING -"
     (testing "initial"
-      (let [text      (-> ["|<hello world>"]
+      (let [text      (-> ["|⦇hello world⦈"]
                            (i/from-tagged-strings)
                            (i/jump-select-right))
-            expected  (-> ["hello|< world>"]
+            expected  (-> ["hello|⦇ world⦈"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\space \w \o \r \l \d]]))
@@ -924,11 +924,11 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously"
-      (let [text      (-> ["|<hello world>"]
+      (let [text      (-> ["|⦇hello world⦈"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right))
-            expected  (-> ["hello |<world>"]
+            expected  (-> ["hello |⦇world⦈"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d]]))
@@ -936,13 +936,13 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "over lines"
-      (let [text      (-> ["hello |<world"
-                            "some> day"]
+      (let [text      (-> ["hello |⦇world"
+                            "some⦈ day"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right))
             expected  (-> ["hello world"
-                           "|<some> day"]
+                           "|⦇some⦈ day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\s \o \m \e]]))
@@ -950,14 +950,14 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously over lines"
-      (let [text      (-> ["hello |<world"
-                            "some day>"]
+      (let [text      (-> ["hello |⦇world"
+                            "some day⦈"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right)
                            (i/jump-select-right))
             expected  (-> ["hello world"
-                           "some|< day>"]
+                           "some|⦇ day⦈"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\space \d \a \y]]))
@@ -965,7 +965,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "deactivating"
-      (let [text      (-> ["|<hello >world"]
+      (let [text      (-> ["|⦇hello ⦈world"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right))
@@ -977,12 +977,12 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "increasing again"
-      (let [text      (-> ["|<hello >world"]
+      (let [text      (-> ["|⦇hello ⦈world"]
                            (i/from-tagged-strings)
                            (i/jump-select-right)
                            (i/jump-select-right)
                            (i/jump-select-right))
-            expected  (-> ["hello <world>|"]
+            expected  (-> ["hello ⦇world⦈|"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d]]))
@@ -995,7 +995,7 @@
       (let [text      (-> ["hello world| today"]
                            (i/from-tagged-strings)
                            (i/jump-select-left))
-            expected  (-> ["hello |<world> today"]
+            expected  (-> ["hello |⦇world⦈ today"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d]]))
@@ -1008,7 +1008,7 @@
                            (i/jump-select-left)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["|<hello world> today"]
+            expected  (-> ["|⦇hello world⦈ today"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\h \e \l \l \o \space \w \o \r \l \d]]))
@@ -1021,8 +1021,8 @@
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["hello world|<"
-                           "some> day"]
+            expected  (-> ["hello world|⦇"
+                           "some⦈ day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[] [\s \o \m \e]]))
@@ -1036,8 +1036,8 @@
                            (i/jump-select-left)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["hello |<world"
-                           "some> day"]
+            expected  (-> ["hello |⦇world"
+                           "some⦈ day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\w \o \r \l \d] [\s \o \m \e]]))
@@ -1046,10 +1046,10 @@
 
   (testing "DECREASING -"
     (testing "initial"
-      (let [text      (-> ["<hello world>|"]
+      (let [text      (-> ["⦇hello world⦈|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left))
-            expected  (-> ["<hello >|world"]
+            expected  (-> ["⦇hello ⦈|world"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\h \e \l \l \o \space]]))
@@ -1057,11 +1057,11 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously"
-      (let [text      (-> ["<hello world>|"]
+      (let [text      (-> ["⦇hello world⦈|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["<hello>| world"]
+            expected  (-> ["⦇hello⦈| world"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\h \e \l \l \o]]))
@@ -1069,12 +1069,12 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "over lines"
-      (let [text      (-> ["hello <world"
-                            "some>| day"]
+      (let [text      (-> ["hello ⦇world"
+                            "some⦈| day"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["hello <world>|"
+            expected  (-> ["hello ⦇world⦈|"
                            "some day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
@@ -1083,13 +1083,13 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "continuously over lines"
-      (let [text      (-> ["<hello world"
-                            "some>| day"]
+      (let [text      (-> ["⦇hello world"
+                            "some⦈| day"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["<hello >|world"
+            expected  (-> ["⦇hello ⦈|world"
                            "some day"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
@@ -1098,7 +1098,7 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "deactivating"
-      (let [text      (-> ["hello< world>|"]
+      (let [text      (-> ["hello⦇ world⦈|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left))
@@ -1110,12 +1110,12 @@
         (is (= (:cursor text) (:cursor expected)))))
 
     (testing "increasing again"
-      (let [text      (-> ["hello< world>|"]
+      (let [text      (-> ["hello⦇ world⦈|"]
                            (i/from-tagged-strings)
                            (i/jump-select-left)
                            (i/jump-select-left)
                            (i/jump-select-left))
-            expected  (-> ["<hello> world"]
+            expected  (-> ["⦇hello⦈ world"]
                           (i/from-tagged-strings))
             extracted (-> text (i/extract) (:lines))]
         (is (= extracted [[\h \e \l \l \o]]))
@@ -1130,8 +1130,8 @@
                              "|world"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["|<hello"
-                             ">world"]
+              expected  (-> ["|⦇hello"
+                             "⦈world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\h \e \l \l \o] []]))
@@ -1145,9 +1145,9 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["|<hello"
+              expected  (-> ["|⦇hello"
                              "world"
-                             ">today"]
+                             "⦈today"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\h \e \l \l \o] [\w \o \r \l \d] []]))
@@ -1156,13 +1156,13 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["<hello"
+        (let [actual    (-> ["⦇hello"
                              "world"
-                             ">|day"]
+                             "⦈|day"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["<hello"
-                             ">|world"
+              expected  (-> ["⦇hello"
+                             "⦈|world"
                              "day"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1171,15 +1171,15 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["<hello"
+        (let [actual    (-> ["⦇hello"
                              "world"
                              "today"
-                             ">|you"]
+                             "⦈|you"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["<hello"
-                             ">|world"
+              expected  (-> ["⦇hello"
+                             "⦈|world"
                              "today"
                              "you"]
                             (i/from-tagged-strings))
@@ -1189,8 +1189,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["<hello"
-                           ">|world"]
+      (let [actual    (-> ["⦇hello"
+                           "⦈|world"]
                           (i/from-tagged-strings)
                           (i/select-up)
                           (i/select-up))
@@ -1209,8 +1209,8 @@
                              "wo|rld"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["he|<llo"
-                             "wo>rld"]
+              expected  (-> ["he|⦇llo"
+                             "wo⦈rld"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\l \l \o] [\w \o]]))
@@ -1224,9 +1224,9 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["he|<llo"
+              expected  (-> ["he|⦇llo"
                              "world"
-                             "to>day"]
+                             "to⦈day"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\l \l \o] [\w \o \r \l \d] [\t \o]]))
@@ -1234,13 +1234,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "after decreasing"
-        (let [actual    (-> ["hel<lo"
+        (let [actual    (-> ["hel⦇lo"
                              "world"
-                             "d>|ay"]
+                             "d⦈|ay"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["h|<el>lo"
+              expected  (-> ["h|⦇el⦈lo"
                              "world"
                              "day"]
                             (i/from-tagged-strings))
@@ -1251,13 +1251,13 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["<hello"
+        (let [actual    (-> ["⦇hello"
                              "world"
-                             "da>|y"]
+                             "da⦈|y"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["<hello"
-                             "wo>|rld"
+              expected  (-> ["⦇hello"
+                             "wo⦈|rld"
                              "day"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1266,13 +1266,13 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "continuously"
-      (let [actual    (-> ["<hello"
+      (let [actual    (-> ["⦇hello"
                            "world"
-                           "to>|day"]
+                           "to⦈|day"]
                           (i/from-tagged-strings)
                           (i/select-up)
                           (i/select-up))
-            expected  (-> ["<he>|llo"
+            expected  (-> ["⦇he⦈|llo"
                            "world"
                            "today"]
                           (i/from-tagged-strings))
@@ -1283,8 +1283,8 @@
 
     (testing "DEACTIVATION -"
       (let [actual    (-> ["hi"
-                           "so<me"
-                           "da>|y"]
+                           "so⦇me"
+                           "da⦈|y"]
                           (i/from-tagged-strings)
                           (i/select-up))
             expected  (-> ["hi"
@@ -1303,8 +1303,8 @@
                              "som|e"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["hi|<"
-                             "som>e"]
+              expected  (-> ["hi|⦇"
+                             "som⦈e"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m]]))
@@ -1318,9 +1318,9 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["hi|<"
+              expected  (-> ["hi|⦇"
                              "some"
-                             "thursd>ay"]
+                             "thursd⦈ay"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m \e] [\t \h \u \r \s \d]]))
@@ -1329,12 +1329,12 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["<hi"
-                             "som>|e"]
+        (let [actual    (-> ["⦇hi"
+                             "som⦈|e"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["<hi>|"
+              expected  (-> ["⦇hi⦈|"
                              "some"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1343,13 +1343,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["<hello"
+        (let [actual    (-> ["⦇hello"
                              "hi"
-                             "som>|e"]
+                             "som⦈|e"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["<he>|llo"
+              expected  (-> ["⦇he⦈|llo"
                              "hi"
                              "some"]
                             (i/from-tagged-strings))
@@ -1359,8 +1359,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["hi<"
-                           "som>|e"]
+      (let [actual    (-> ["hi⦇"
+                           "som⦈|e"]
                           (i/from-tagged-strings)
                           (i/select-up))
             expected  (-> ["hi|"
@@ -1378,8 +1378,8 @@
                              "some|"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["heyy|<"
-                             "some>"]
+              expected  (-> ["heyy|⦇"
+                             "some⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m \e]]))
@@ -1393,9 +1393,9 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["heyy|<"
+              expected  (-> ["heyy|⦇"
                              "some"
-                             "days>"]
+                             "days⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m \e] [\d \a \y \s]]))
@@ -1404,11 +1404,11 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["<hello"
-                             "world>|"]
+        (let [actual    (-> ["⦇hello"
+                             "world⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["<hello>|"
+              expected  (-> ["⦇hello⦈|"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1417,13 +1417,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["<hello"
+        (let [actual    (-> ["⦇hello"
                              "world"
-                             "today>|"]
+                             "today⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["<hello>|"
+              expected  (-> ["⦇hello⦈|"
                              "world"
                              "today"]
                             (i/from-tagged-strings))
@@ -1433,9 +1433,9 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["hi<"
+      (let [actual    (-> ["hi⦇"
                            "some"
-                           "today>|"]
+                           "today⦈|"]
                           (i/from-tagged-strings)
                           (i/select-up)
                           (i/select-up)
@@ -1456,8 +1456,8 @@
                              "some|"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["hey|<"
-                             "some>"]
+              expected  (-> ["hey|⦇"
+                             "some⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m \e]]))
@@ -1471,9 +1471,9 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["hi|<"
+              expected  (-> ["hi|⦇"
                              "some"
-                             "today>"]
+                             "today⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m \e] [\t \o \d \a \y]]))
@@ -1482,11 +1482,11 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["<hey"
-                             "some>|"]
+        (let [actual    (-> ["⦇hey"
+                             "some⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["<hey>|"
+              expected  (-> ["⦇hey⦈|"
                              "some"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1495,13 +1495,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["<hi"
+        (let [actual    (-> ["⦇hi"
                              "some"
-                             "today>|"]
+                             "today⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["<hi>|"
+              expected  (-> ["⦇hi⦈|"
                              "some"
                              "today"]
                             (i/from-tagged-strings))
@@ -1511,8 +1511,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION"
-      (let [actual    (-> ["hi<"
-                           "today>|"]
+      (let [actual    (-> ["hi⦇"
+                           "today⦈|"]
                           (i/from-tagged-strings)
                           (i/select-up)
                           (i/select-up))
@@ -1532,8 +1532,8 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["bonjo|<ur"
-                             "world>"]
+              expected  (-> ["bonjo|⦇ur"
+                             "world⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\u \r] [\w \o \r \l \d]]))
@@ -1547,9 +1547,9 @@
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["fanta|<stic"
+              expected  (-> ["fanta|⦇stic"
                              "bonjour"
-                             "world>"]
+                             "world⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\s \t \i \c] [\b \o \n \j \o \u \r] [\w \o \r \l \d]]))
@@ -1557,13 +1557,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "after decrease"
-        (let [actual    (-> ["fantasti<c"
+        (let [actual    (-> ["fantasti⦇c"
                              "bonjour"
-                             "world>|"]
+                             "world⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["fanta|<sti>c"
+              expected  (-> ["fanta|⦇sti⦈c"
                              "bonjour"
                              "world"]
                             (i/from-tagged-strings))
@@ -1574,11 +1574,11 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["<bonjour"
-                             "world>|"]
+        (let [actual    (-> ["⦇bonjour"
+                             "world⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up))
-              expected  (-> ["<bonjo>|ur"
+              expected  (-> ["⦇bonjo⦈|ur"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1587,13 +1587,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["<fantastic"
+        (let [actual    (-> ["⦇fantastic"
                              "bonjour"
-                             "world>|"]
+                             "world⦈|"]
                             (i/from-tagged-strings)
                             (i/select-up)
                             (i/select-up))
-              expected  (-> ["<fanta>|stic"
+              expected  (-> ["⦇fanta⦈|stic"
                              "bonjour"
                              "world"]
                             (i/from-tagged-strings))
@@ -1611,8 +1611,8 @@
                             (i/from-tagged-strings)
                             (i/select-down)
                             (i/select-down))
-              expected  (-> ["<hello"
-                             ">|world"]
+              expected  (-> ["⦇hello"
+                             "⦈|world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\h \e \l \l \o] []]))
@@ -1625,9 +1625,9 @@
                              "you"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
-              expected  (-> ["<hello"
+              expected  (-> ["⦇hello"
                              "world"
-                             ">|you"]
+                             "⦈|you"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\h \e \l \l \o] [\w \o \r \l \d] []]))
@@ -1636,12 +1636,12 @@
 
     (testing "DECREASE -"
       (testing "initial"
-        (let [actual    (-> ["|<hello"
-                             "world>"]
+        (let [actual    (-> ["|⦇hello"
+                             "world⦈"]
                             (i/from-tagged-strings)
                             (i/select-down))
               expected  (-> ["hello"
-                             "|<world>"]
+                             "|⦇world⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\w \o \r \l \d]]))
@@ -1649,14 +1649,14 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuous"
-        (let [actual    (-> ["|<hello"
+        (let [actual    (-> ["|⦇hello"
                              "some"
-                             "day>"]
+                             "day⦈"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "some"
-                             "|<day>"]
+                             "|⦇day⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\d \a \y]]))
@@ -1664,8 +1664,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["|<hello"
-                           ">some"]
+      (let [actual    (-> ["|⦇hello"
+                           "⦈some"]
                           (i/from-tagged-strings)
                           (i/select-down))
             expected  (-> ["hello"
@@ -1683,8 +1683,8 @@
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-down))
-              expected  (-> ["hel<lo"
-                             "wor>|ld"]
+              expected  (-> ["hel⦇lo"
+                             "wor⦈|ld"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\l \o] [\w \o \r]]))
@@ -1697,9 +1697,9 @@
                              "someday"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
-              expected  (-> ["hel<lo"
+              expected  (-> ["hel⦇lo"
                              "world"
-                             "som>|eday"]
+                             "som⦈|eday"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\l \o] [\w \o \r \l \d] [\s \o \m]]))
@@ -1707,14 +1707,14 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "after decrease"
-        (let [actual    (-> ["hel|<lo"
+        (let [actual    (-> ["hel|⦇lo"
                              "some"
-                             "s>omeday"]
+                             "s⦈omeday"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "some"
-                             "s<om>|eday"]
+                             "s⦇om⦈|eday"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\o \m]]))
@@ -1723,12 +1723,12 @@
 
     (testing "DECREASE -"
       (testing "initial"
-        (let [actual    (-> ["h|<ello"
-                             "world>"]
+        (let [actual    (-> ["h|⦇ello"
+                             "world⦈"]
                             (i/from-tagged-strings)
                             (i/select-down))
               expected  (-> ["hello"
-                             "w|<orld>"]
+                             "w|⦇orld⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\o \r \l \d]]))
@@ -1736,14 +1736,14 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuous"
-        (let [actual    (-> ["h|<ello"
+        (let [actual    (-> ["h|⦇ello"
                              "world"
-                             "someday>"]
+                             "someday⦈"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "world"
-                             "s|<omeday>"]
+                             "s|⦇omeday⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\o \m \e \d \a \y]]))
@@ -1751,8 +1751,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["he|<llo"
-                           "wo>rld"]
+      (let [actual    (-> ["he|⦇llo"
+                           "wo⦈rld"]
                           (i/from-tagged-strings)
                           (i/select-down))
             expected  (-> ["hello"
@@ -1770,8 +1770,8 @@
                              "ha"]
                             (i/from-tagged-strings)
                             (i/select-down))
-              expected  (-> ["hell<o"
-                             "ha>|"]
+              expected  (-> ["hell⦇o"
+                             "ha⦈|"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\o] [\h \a]]))
@@ -1785,9 +1785,9 @@
                             (i/from-tagged-strings)
                             (i/select-down)
                             (i/select-down))
-              expected  (-> ["bonjo<ur"
+              expected  (-> ["bonjo⦇ur"
                              "some"
-                             "hey>|"]
+                             "hey⦈|"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\u \r] [\s \o \m \e] [\h \e \y]]))
@@ -1796,8 +1796,8 @@
 
     (testing "DECREASE -"
       (testing "initial"
-        (let [actual    (-> ["hell|<o"
-                             "ha>"]
+        (let [actual    (-> ["hell|⦇o"
+                             "ha⦈"]
                             (i/from-tagged-strings)
                             (i/select-down))
               expected  (-> ["hello"
@@ -1809,15 +1809,15 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuous"
-        (let [actual    (-> ["hel|<lo"
+        (let [actual    (-> ["hel|⦇lo"
                              "world"
-                             "some>"]
+                             "some⦈"]
                             (i/from-tagged-strings)
                             (i/select-down)
                             (i/select-down))
               expected  (-> ["hello"
                              "world"
-                             "som|<e>"]
+                             "som|⦇e⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\e]]))
@@ -1831,8 +1831,8 @@
                              "someday"]
                             (i/from-tagged-strings)
                             (i/select-down))
-              expected  (-> ["hello<"
-                             "somed>|ay"]
+              expected  (-> ["hello⦇"
+                             "somed⦈|ay"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\s \o \m \e \d]]))
@@ -1845,9 +1845,9 @@
                              "thursday"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
-              expected  (-> ["hello<"
+              expected  (-> ["hello⦇"
                              "world"
-                             "thurs>|day"]
+                             "thurs⦈|day"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\w \o \r \l \d] [\t \h \u \r \s]]))
@@ -1856,14 +1856,14 @@
 
     (testing "DECREASE -"
       (testing "initial"
-        (let [actual    (-> ["hello|<"
+        (let [actual    (-> ["hello|⦇"
                              "world"
-                             "today>"]
+                             "today⦈"]
                             (i/from-tagged-strings)
                             (i/select-down))
               expected  (-> ["hello"
-                             "world|<"
-                             "today>"]
+                             "world|⦇"
+                             "today⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\t \o \d \a \y]]))
@@ -1871,16 +1871,16 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuous"
-        (let [actual    (-> ["hello|<"
+        (let [actual    (-> ["hello|⦇"
                              "world"
                              "thursday"
-                             "someday>"]
+                             "someday⦈"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
               expected  (-> ["hello"
                              "world"
-                             "thurs|<day"
-                             "someday>"]
+                             "thurs|⦇day"
+                             "someday⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\d \a \y] [\s \o \m \e \d \a \y]]))
@@ -1888,8 +1888,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["howdy|<"
-                           "somed>ay"]
+      (let [actual    (-> ["howdy|⦇"
+                           "somed⦈ay"]
                           (i/from-tagged-strings)
                           (i/select-down))
             expected  (-> ["howdy"
@@ -1907,8 +1907,8 @@
                              "you"]
                             (i/from-tagged-strings)
                             (i/select-down))
-              expected  (-> ["hello<"
-                             "you>|"]
+              expected  (-> ["hello⦇"
+                             "you⦈|"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\y \o \u]]))
@@ -1921,9 +1921,9 @@
                              "ha"]
                             (i/from-tagged-strings)
                             (i/select-down) (i/select-down))
-              expected  (-> ["hello<"
+              expected  (-> ["hello⦇"
                              "you"
-                             "ha>|"]
+                             "ha⦈|"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\y \o \u] [\h \a]]))
@@ -1932,12 +1932,12 @@
 
     (testing "DECREASE -"
       (testing "initial"
-        (let [actual    (-> ["howdy|<"
-                             "thursday>"]
+        (let [actual    (-> ["howdy|⦇"
+                             "thursday⦈"]
                             (i/from-tagged-strings)
                             (i/select-down))
               expected  (-> ["howdy"
-                             "thurs|<day>"]
+                             "thurs|⦇day⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\d \a \y]]))
@@ -1945,15 +1945,15 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuous"
-        (let [actual    (-> ["howdy|<"
+        (let [actual    (-> ["howdy|⦇"
                              "some"
-                             "thursday>"]
+                             "thursday⦈"]
                             (i/from-tagged-strings)
                             (i/select-down)
                             (i/select-down))
               expected  (-> ["howdy"
                              "some"
-                             "thur|<sday>"]
+                             "thur|⦇sday⦈"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\s \d \a \y]]))
@@ -1961,8 +1961,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION"
-      (let [actual    (-> ["howdy|<"
-                           "some>"]
+      (let [actual    (-> ["howdy|⦇"
+                           "some⦈"]
                           (i/from-tagged-strings)
                           (i/select-down)
                           (i/select-down))
@@ -1982,7 +1982,7 @@
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-left))
-              expected  (-> ["hell|<o>"
+              expected  (-> ["hell|⦇o⦈"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -1996,7 +1996,7 @@
                             (i/from-tagged-strings)
                             (i/select-left)
                             (i/select-left))
-              expected  (-> ["hel|<lo>"
+              expected  (-> ["hel|⦇lo⦈"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2006,11 +2006,11 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["h<ell>|o"
+        (let [actual    (-> ["h⦇ell⦈|o"
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-left))
-              expected  (-> ["h<el>|lo"
+              expected  (-> ["h⦇el⦈|lo"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2019,11 +2019,11 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["h<ell>|o"
+        (let [actual    (-> ["h⦇ell⦈|o"
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-left) (i/select-left))
-              expected  (-> ["h<e>|llo"
+              expected  (-> ["h⦇e⦈|llo"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2032,7 +2032,7 @@
           (is (= (:selection actual) (:selection expected)))))))
 
   (testing "DEACTIVATION -"
-    (let [actual    (-> ["he<l>|lo"
+    (let [actual    (-> ["he⦇l⦈|lo"
                          "world"]
                         (i/from-tagged-strings)
                         (i/select-left))
@@ -2051,8 +2051,8 @@
                              "|world"]
                             (i/from-tagged-strings)
                             (i/select-left))
-              expected  (-> ["hello|<"
-                             ">world"]
+              expected  (-> ["hello|⦇"
+                             "⦈world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[]]))
@@ -2064,8 +2064,8 @@
                              "|world"]
                             (i/from-tagged-strings)
                             (i/select-left) (i/select-left))
-              expected  (-> ["hell|<o"
-                             ">world"]
+              expected  (-> ["hell|⦇o"
+                             "⦈world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\o] []]))
@@ -2074,11 +2074,11 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["hel<lo"
-                             ">|world"]
+        (let [actual    (-> ["hel⦇lo"
+                             "⦈|world"]
                             (i/from-tagged-strings)
                             (i/select-left))
-              expected  (-> ["hel<lo>|"
+              expected  (-> ["hel⦇lo⦈|"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2087,11 +2087,11 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continously"
-        (let [actual    (-> ["hel<lo"
-                             ">|world"]
+        (let [actual    (-> ["hel⦇lo"
+                             "⦈|world"]
                             (i/from-tagged-strings)
                             (i/select-left) (i/select-left))
-              expected  (-> ["hel<l>|o"
+              expected  (-> ["hel⦇l⦈|o"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2100,8 +2100,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["hello<"
-                           ">|world"]
+      (let [actual    (-> ["hello⦇"
+                           "⦈|world"]
                           (i/from-tagged-strings)
                           (i/select-left))
             expected  (-> ["hello|"
@@ -2120,7 +2120,7 @@
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-right))
-              expected  (-> ["he<l>|lo"
+              expected  (-> ["he⦇l⦈|lo"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2133,7 +2133,7 @@
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-right) (i/select-right))
-              expected  (-> ["he<ll>|o"
+              expected  (-> ["he⦇ll⦈|o"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2143,11 +2143,11 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["he|<llo>"
+        (let [actual    (-> ["he|⦇llo⦈"
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-right))
-              expected  (-> ["hel|<lo>"
+              expected  (-> ["hel|⦇lo⦈"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2156,11 +2156,11 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["he|<llo>"
+        (let [actual    (-> ["he|⦇llo⦈"
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-right) (i/select-right))
-              expected  (-> ["hell|<o>"
+              expected  (-> ["hell|⦇o⦈"
                              "world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
@@ -2169,7 +2169,7 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["he|<l>lo"
+      (let [actual    (-> ["he|⦇l⦈lo"
                            "world"]
                           (i/from-tagged-strings)
                           (i/select-right))
@@ -2188,8 +2188,8 @@
                              "world"]
                             (i/from-tagged-strings)
                             (i/select-right))
-              expected  (-> ["hello<"
-                             ">|world"]
+              expected  (-> ["hello⦇"
+                             "⦈|world"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[]]))
@@ -2202,8 +2202,8 @@
                             (i/from-tagged-strings)
                             (i/select-right)
                             (i/select-right))
-              expected  (-> ["hello<"
-                             "w>|orld"]
+              expected  (-> ["hello⦇"
+                             "w⦈|orld"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[] [\w]]))
@@ -2212,12 +2212,12 @@
 
     (testing "DECREASING -"
       (testing "initial"
-        (let [actual    (-> ["hello|<"
-                             "wor>ld"]
+        (let [actual    (-> ["hello|⦇"
+                             "wor⦈ld"]
                             (i/from-tagged-strings)
                             (i/select-right))
               expected  (-> ["hello"
-                             "|<wor>ld"]
+                             "|⦇wor⦈ld"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\w \o \r]]))
@@ -2225,13 +2225,13 @@
           (is (= (:selection actual) (:selection expected)))))
 
       (testing "continuously"
-        (let [actual    (-> ["hello|<"
-                             "wor>ld"]
+        (let [actual    (-> ["hello|⦇"
+                             "wor⦈ld"]
                             (i/from-tagged-strings)
                             (i/select-right)
                             (i/select-right))
               expected  (-> ["hello"
-                             "w|<or>ld"]
+                             "w|⦇or⦈ld"]
                             (i/from-tagged-strings))
               extracted (-> actual (i/extract) (:lines))]
           (is (= extracted [[\o \r]]))
@@ -2239,8 +2239,8 @@
           (is (= (:selection actual) (:selection expected))))))
 
     (testing "DEACTIVATION -"
-      (let [actual    (-> ["hello|<"
-                           ">world"]
+      (let [actual    (-> ["hello|⦇"
+                           "⦈world"]
                           (i/from-tagged-strings)
                           (i/select-right))
             expected  (-> ["hello"
@@ -2256,8 +2256,8 @@
                        "wor|ld"]
                       (i/from-tagged-strings)
                       (i/select-all))
-        expected  (-> ["<hello"
-                       "world>|"]
+        expected  (-> ["⦇hello"
+                       "world⦈|"]
                       (i/from-tagged-strings))
         extracted (-> actual (i/extract) (:lines))]
     (is (= extracted [[\h \e \l \l \o] [\w \o \r \l \d]]))
@@ -2601,96 +2601,96 @@
            :check    non-matching}
 
           {:entry    ["[[|[45[]]"]
-           :expected ["[[<[45[]>]"]
+           :expected ["[[⦇[45[]⦈]"]
            :check    matching}
 
           {:entry    ["[[[|45[]]"]
-           :expected ["[[<[45[]>]"]
+           :expected ["[[⦇[45[]⦈]"]
            :check    matching}
 
           {:entry    ["[[[45|[]]"]
-           :expected ["[[[45<[>]]"]
+           :expected ["[[[45⦇[⦈]]"]
            :check    matching}
 
           {:entry    ["[[[45[|]]"]
-           :expected ["[[[45<[>]]"]
+           :expected ["[[[45⦇[⦈]]"]
            :check    matching}
 
           {:entry    ["[[[45[]|]"]
-           :expected ["[[<[45[]>]"]
+           :expected ["[[⦇[45[]⦈]"]
            :check    matching}
 
           {:entry    ["[[[45[]]|"]
-           :expected ["[[<[45[]>]"]
+           :expected ["[[⦇[45[]⦈]"]
            :check    matching}
 
           {:entry    ["|[(a {\n} b)]"]
-           :expected ["<[(a {\n} b)>]"]
+           :expected ["⦇[(a {\n} b)⦈]"]
            :check    matching}
 
           {:entry    ["[|(a {\n} b)]"]
-           :expected ["[<(a {\n} b>)]"]
+           :expected ["[⦇(a {\n} b⦈)]"]
            :check    matching}
 
           {:entry    ["[(|a {\n} b)]"]
-           :expected ["[<(a {\n} b>)]"]
+           :expected ["[⦇(a {\n} b⦈)]"]
            :check    matching}
 
           {:entry    ["[(a |{\n} b)]"]
-           :expected ["[(a <{\n>} b)]"]
+           :expected ["[(a ⦇{\n⦈} b)]"]
            :check    matching}
 
           {:entry    ["[(a {|\n} b)]"]
-           :expected ["[(a <{\n>} b)]"]
+           :expected ["[(a ⦇{\n⦈} b)]"]
            :check    matching}
 
           {:entry    ["[(a {\n}| b)]"]
-           :expected ["[(a <{\n>} b)]"]
+           :expected ["[(a ⦇{\n⦈} b)]"]
            :check    matching}
 
           {:entry    ["[(a {\n} b|)]"]
-           :expected ["[<(a {\n} b>)]"]
+           :expected ["[⦇(a {\n} b⦈)]"]
            :check    matching}
 
           {:entry    ["[(a {\n} b)|]"]
-           :expected ["<[(a {\n} b)>]"]
+           :expected ["⦇[(a {\n} b)⦈]"]
            :check    matching}
 
           {:entry    ["[(a {\n} b)]|"]
-           :expected ["<[(a {\n} b)>]"]
+           :expected ["⦇[(a {\n} b)⦈]"]
            :check    matching}
 
           {:entry    ["|[)(}{)]["]
-           :expected ["<[)(}{)>]["]
+           :expected ["⦇[)(}{)⦈]["]
            :check    matching}
 
           {:entry    ["[|)(}{)]["]
-           :expected ["<[)(}{)>]["]
+           :expected ["⦇[)(}{)⦈]["]
            :check    matching}
 
 
           {:entry    ["[)|(}{)]["]
-           :expected ["[)<(}{>)]["]
+           :expected ["[)⦇(}{⦈)]["]
            :check    matching}
 
           {:entry    ["[)(|}{)]["]
-           :expected ["[)<(}{>)]["]
+           :expected ["[)⦇(}{⦈)]["]
            :check    matching}
 
           {:entry    ["[)(}{)|]["]
-           :expected ["<[)(}{)>]["]
+           :expected ["⦇[)(}{)⦈]["]
            :check    matching}
 
           {:entry    ["ab4|()"]
-           :expected ["ab4<(>)"]
+           :expected ["ab4⦇(⦈)"]
            :check    matching}
 
           {:entry    ["ab4(|)"]
-           :expected ["ab4<(>)"]
+           :expected ["ab4⦇(⦈)"]
            :check    matching}
 
           {:entry    ["ab4()|"]
-           :expected ["ab4<(>)"]
+           :expected ["ab4⦇(⦈)"]
            :check    matching}]
          (run!
            (fn [{:keys [entry expected check]}]
@@ -2699,8 +2699,8 @@
 ;; XVI. Extracting
 (deftest extracts-regions
   (testing "Extracts with new lines lower"
-    (let [text     (-> ["he<llo"
-                        ">|world"]
+    (let [text     (-> ["he⦇llo"
+                        "⦈|world"]
                        (i/from-tagged-strings)
                        (i/extract))
           expected (-> ["llo" ""]
@@ -2708,8 +2708,8 @@
       (is (:lines text) (:lines expected))))
 
   (testing "Extracts with new lines upper"
-    (let [text     (-> ["hello<"
-                        "wor>|ld"]
+    (let [text     (-> ["hello⦇"
+                        "wor⦈|ld"]
                        (i/from-tagged-strings)
                        (i/extract))
           expected (-> ["" "wor"]
@@ -2717,7 +2717,7 @@
       (is (:lines text) (:lines expected))))
 
   (testing "Extracts single characters"
-    (let [text     (-> ["he<l>|lo"
+    (let [text     (-> ["he⦇l⦈|lo"
                         "world"]
                        (i/from-tagged-strings)
                        (i/extract))
@@ -2726,7 +2726,7 @@
       (is (:lines text) (:lines expected))))
 
   (testing "Extracts words"
-    (let [text     (-> ["<hello>|"
+    (let [text     (-> ["⦇hello⦈|"
                         "world"]
                        (i/from-tagged-strings)
                        (i/extract))
@@ -2735,8 +2735,8 @@
       (is (:lines text) (:lines expected))))
 
   (testing "Extracts over lines"
-    (let [text     (-> ["hel<lo"
-                        "wor>|ld"]
+    (let [text     (-> ["hel⦇lo"
+                        "wor⦈|ld"]
                        (i/from-tagged-strings)
                        (i/extract))
           expected (-> ["lo" "wor"]
@@ -2744,8 +2744,8 @@
       (is (:lines text) (:lines expected))))
 
   (testing "Extracts until end"
-    (let [text     (-> ["<hello"
-                        "world>|"]
+    (let [text     (-> ["⦇hello"
+                        "world⦈|"]
                        (i/from-tagged-strings)
                        (i/extract))
           expected (-> ["hello" "world"]

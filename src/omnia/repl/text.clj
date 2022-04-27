@@ -60,9 +60,9 @@
   "Reads inputs strings into a text.
    The strings are allowed markers specifying a cursor position and a possible selection range.
    Cursor identified through: |
-   Selection identified through: < (start), > (end)
+   Selection identified through: ⦇ (start: U+2987), ⦈ (end: U+2988)
    Example:
-    ['hel|l<o' 'worl>d'] => [0, 3] ; [[o] [w o r l]]"
+    ['hel|l⦇o' 'worl⦈d'] => [0, 3] ; [[o] [w o r l]]"
   (letfn [(point [{:keys [y find remove latest]} line]
             (->> line
                  (filter #(not (contains? remove %)))
@@ -75,17 +75,17 @@
       (if (some? s)
         (recur
           ss
-          (->> s (filter #(not (contains? #{\| \< \>} %))) (vec) (conj lines))
-          (point {:remove #{\< \>}
+          (->> s (filter #(not (contains? #{\| \⦇ \⦈} %))) (vec) (conj lines))
+          (point {:remove #{\⦇ \⦈}
                   :find   \|
                   :latest cursor
                   :y      (count lines)} s)
-          (point {:remove #{\| \>}
-                  :find   \<
+          (point {:remove #{\| \⦈}
+                  :find   \⦇
                   :y      (count lines)
                   :latest start} s)
-          (point {:remove #{\| \<}
-                  :find   \>
+          (point {:remove #{\| \⦇}
+                  :find   \⦈
                   :latest end
                   :y      (count lines)} s))
         (cond-> (seeker lines cursor)

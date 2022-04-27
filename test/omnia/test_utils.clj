@@ -20,7 +20,9 @@
             [omnia.schema.nrepl :refer [NReplClient NReplResponse]]
             [omnia.util.arithmetic :refer [-- ++]]
             [omnia.util.generator :refer [do-gen one]]
-            [omnia.config.defaults :refer [default-user-config default-user-highlighting]]))
+            [omnia.config.defaults :refer [default-user-config default-user-highlighting]]
+            [omnia.schema.nrepl :as n])
+  (:import (java.util UUID)))
 
 (s/def default-config :- Config
   (c/convert default-user-config))
@@ -43,7 +45,7 @@
    (server/client {:host    default-host
                    :port    default-port
                    :history history
-                   :client  (constantly nrepl-response)})))
+                   :client  (constantly [nrepl-response])})))
 
 (s/def simple-nrepl-client :- NReplClient
   (nrepl-client {}))
@@ -345,6 +347,14 @@
         (r/with-input-area input-area)
         (r/refresh))))
 
+(s/defn value-response :- n/ValueResponse
+  [value :- s/Str]
+  {:id      (str (UUID/randomUUID))
+   :session (str (UUID/randomUUID))
+   :ns      "this-namespace"
+   :status  ["done"]
+   :value   value})
+
 (s/def --- :- s/Keyword
   :---)
 (s/def -x- :- s/Keyword
@@ -354,21 +364,37 @@
 (s/def Viewable-Area-Definition (s/eq -x-))
 (s/def TextDefinition s/Str)
 
-(s/def ContextDescription (s/cond-pre Input-Area-Definition Viewable-Area-Definition TextDefinition))
+(s/def ContextDefinition (s/cond-pre Input-Area-Definition Viewable-Area-Definition TextDefinition))
+(s/def ContextProps {(s/maybe :nrepl-response) NReplResponse})
 
 (s/defn derive-context :- Context
-  [definition :- ContextDescription]
-  (let [untagged-input            (remove #(= % ---) definition)
-        untagged-view             (remove #(= % -x-) definition)
-        [_ [_ & rest]]            (split-with #(not= -x- %) untagged-input)
-        [viewable [_ & hidden]]   (split-with #(not= -x- %) rest)
-        [persisted [_ & input]]   (split-with #(not= --- %) untagged-view)
-        context                   (-> {:view-size     (count viewable)
-                                       :persisted-hud (vec persisted)
-                                       :input-area    (vec input)}
-                                      (create-context))
-        view-offset               (count hidden)
-        preview                   (-> context
-                                      (r/preview-hud)
-                                      (h/with-view-offset view-offset))]
-    (r/with-preview context preview)))
+  ([def :- ContextDefinition]
+   (derive-context def {}))
+  ([def :- ContextDefinition
+    props :- ContextProps]
+   (let [nrepl-client              (nrepl-client (:nrepl-response props {}))
+         untagged-input            (remove #(= % ---) def)
+         untagged-view             (remove #(= % -x-) def)
+         [_ [_ & rest]]            (split-with #(not= -x- %) untagged-input)
+         [viewable [_ & hidden]]   (split-with #(not= -x- %) rest)
+         [persisted [_ & input]]   (split-with #(not= --- %) untagged-view)
+         view-size                 (if (zero? (count viewable))
+                                     (count (concat persisted input))
+                                     (count viewable))
+         view-offset               (count hidden)
+         input-area                (if (empty? input)
+                                     persisted
+                                     input)
+         persisted                 (if (empty? input)
+                                     []
+                                     persisted)
+         context                   (-> {:view-size     view-size
+                                        :persisted-hud (vec persisted )
+                                        :input-area    (vec input-area)
+                                        :nrepl-client  nrepl-client}
+                                       (create-context))
+         preview                   (-> context
+                                       (r/preview-hud)
+                                       (h/with-view-offset view-offset))]
+     (r/with-preview context preview))))
+

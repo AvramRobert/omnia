@@ -15,6 +15,52 @@
 (def ^:const NR-OF-TESTS 100)
 
 (deftest reads-context-from-description
+  (testing "can ignore"
+    (testing "view delimiter"
+      (let [context   (-> ["persisted"
+                           "area"
+                           ---
+                           "input"
+                           "area|"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a]]))
+        (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))))
+
+    (testing "input delimiter"
+      (let [context   (-> ["behind"
+                           -x-
+                           "area"
+                           "input|"
+                           -x-
+                           "area"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted header))
+        (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
+        (is (= viewable [[\a \r \e \a] [\i \n \p \u \t]]))))
+
+    (testing "input delimiter and view delimiter"
+      (let [context   (-> ["behind"
+                           "area"
+                           "input|"
+                           "area"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted header))
+        (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
+        (is (= viewable [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]])))))
+
   (testing "complete viewable input"
     (testing "engulfing persisted area"
       (let [context   (-> [-x-
@@ -380,67 +426,73 @@
 ;; II. Scrolling
 
 (deftest scrolls-up
-  (let [preview       (-> ["some"
-                           "persisted"
-                           "area"
-                           ---
-                           -x-
-                           "existing"
-                           "input|"
-                           -x-
-                           "area"]
-                          (derive-context)
-                          (process [e/scroll-up e/scroll-up e/scroll-up])
-                          (r/preview-hud))
-        actual-offset (h/scroll-offset preview)
-        actual-text   (-> preview (h/project-hud) (:lines))]
+  (let [context          (-> ["some"
+                              "persisted"
+                              "area"
+                              ---
+                              -x-
+                              "existing"
+                              "input|"
+                              -x-
+                              "area"]
+                             (derive-context)
+                             (process [e/scroll-up e/scroll-up e/scroll-up]))
+        expected         (-> [-x-
+                              "some"
+                              "persisted"
+                              -x-
+                              "area"
+                              ---
+                              "existing"
+                              "input|"
+                              "area"]
+                             (derive-context))
+        actual-preview   (-> context (r/preview-hud) (h/project-hud) (:lines))
+        expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor  (-> context (r/preview-hud) (h/text) (:cursor))
+        actual-cursor    (-> expected (r/preview-hud) (h/text) (:cursor))
+        actual-offset    (-> context (r/preview-hud) (h/scroll-offset))]
     (is (= actual-offset 3))
-    (is (= actual-text [[\s \o \m \e] [\p \e \r \s \i \s \t \e \d]]))))
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))))
 
 (deftest scrolls-down
-  (let [preview       (-> ["some"
-                           "persisted"
-                           "area"
-                           ---
-                           -x-
-                           "existing"
-                           "input|"
-                           -x-
-                           "area"]
-                          (derive-context)
-                          (process [e/scroll-up
-                                    e/scroll-up
-                                    e/scroll-up
-                                    e/scroll-up
-                                    e/scroll-down
-                                    e/scroll-down])
-                          (r/preview-hud))
-        actual-offset (h/scroll-offset preview)
-        actual-text   (-> preview (h/project-hud) (:lines))]
+  (let [context          (-> ["some"
+                              "persisted"
+                              "area"
+                              ---
+                              -x-
+                              "existing"
+                              "input|"
+                              -x-
+                              "area"]
+                             (derive-context)
+                             (process [e/scroll-up
+                                       e/scroll-up
+                                       e/scroll-up
+                                       e/scroll-up]))
+        processed        (process context [e/scroll-down e/scroll-down])
+        expected         (-> ["some"
+                              -x-
+                              "persisted"
+                              "area"
+                              -x-
+                              ---
+                              "existing"
+                              "input|"
+                              "area"]
+                             (derive-context))
+        actual-preview   (-> processed (r/preview-hud) (h/project-hud) (:lines))
+        expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor    (-> processed (r/preview-hud) (h/text) (:cursor))
+        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))
+        actual-offset    (-> processed (r/preview-hud) (h/scroll-offset))]
     (is (= actual-offset 2))
-    (is (= actual-text [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]]))))
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))))
 
 (deftest stops-scrolling-up-at-bounds
-  (let [preview       (-> ["some"
-                           "persisted"
-                           "area"
-                           ---
-                           -x-
-                           "existing"
-                           "input|"
-                           -x-
-                           "area"]
-                          (derive-context)
-                          (process (repeat 100 e/scroll-up))
-                          (r/preview-hud))
-        actual-offset (h/scroll-offset preview)
-        actual-text   (-> preview (h/project-hud) (:lines))
-        expected-text (->> default-header (:lines) (take 2))]
-    (is (= actual-offset 12))
-    (is (= actual-text expected-text))))
-
-(deftest stops-scrolling-down-at-bounds
-  (let [hud             (-> ["some"
+  (let [context         (-> ["some"
                              "persisted"
                              "area"
                              ---
@@ -449,108 +501,117 @@
                              "input|"
                              -x-
                              "area"]
-                            (derive-context)
-                            (process (repeat 100 e/scroll-up))
-                            (process (repeat 100 e/scroll-down))
-                            (r/preview-hud))
-        actual-offset   (h/scroll-offset hud)
-        actual-text     (-> hud (h/project-hud) (:lines))]
-    (is (= actual-offset 0))
-    (is (= actual-text [[\e \x \i \s \t \i \n \g] [\i \n \p \u \t]]))))
+                            (derive-context))
+        scrolled        (process context (repeat 100 e/scroll-up))
+        init-offset     (-> context (r/preview-hud) (h/scroll-offset))
+        scrolled-offset (-> scrolled (r/preview-hud) (h/scroll-offset))]
+    (is (= init-offset 0))
+    (is (= scrolled-offset 12))))
+
+(deftest stops-scrolling-down-at-bounds
+  (let [context            (-> ["some"
+                                "persisted"
+                                "area"
+                                ---
+                                -x-
+                                "existing"
+                                "input|"
+                                -x-
+                                "area"]
+                               (derive-context))
+        scrolled-up        (process context (repeat 100 e/scroll-up))
+        scrolled-down      (process context (repeat 100 e/scroll-down))
+        actual-up-offset   (-> scrolled-up (r/preview-hud) (h/scroll-offset))
+        actual-down-offset (-> scrolled-down (r/preview-hud) (h/scroll-offset))]
+    (is (= actual-up-offset 12))
+    (is (= actual-down-offset 0))))
 
 (deftest resets-scrolling
-  (let [offset (-> ["some"
-                    "persisted"
-                    "area"
-                    ---
-                    -x-
-                    "existing"
-                    "input"
-                    -x-
-                    "area"]
-                   (derive-context)
-                   (process [e/scroll-up
-                             e/scroll-up])
-                   (r/scroll-stop)
-                   (r/preview-hud)
-                   (h/scroll-offset))]
-    (is (= 0 offset))))
+  (let [context             (-> ["some"
+                                 "persisted"
+                                 "area"
+                                 ---
+                                 -x-
+                                 "existing"
+                                 "input|"
+                                 -x-
+                                 "area"]
+                                (derive-context))
+        scrolled            (process context [e/scroll-up e/scroll-up])
+        reset               (r/scroll-stop scrolled)
+        init-scroll-offset  (-> scrolled (r/preview-hud) (h/scroll-offset))
+        reset-scroll-offset (-> reset (r/preview-hud) (h/scroll-offset))]
+    (is (= init-scroll-offset 2))
+    (is (= reset-scroll-offset 0))))
 
 ;; III. Capturing
 
-(defn capture-and-remember [ctx]
-  (-> ctx
-      (at-input-end)
-      (at-line-start)
-      (process [(character \a)])
-      (should-be #(= \a (-> % (r/preview-hud) (h/text) (i/previous-char)))
-                 #(= \a (-> % (r/input-area) (i/previous-char)))
-                 #(h/equivalent? (r/previous-hud %) (r/preview-hud ctx)))))
-
-(defn capturing [ctx]
-  (capture-and-remember ctx))
-
-(defspec capturing-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      7
-                               :text-area      (gen-text-area-of 10)})]
-           (capturing tctx)))
+(deftest captures-input
+  (let [context       (-> ["persisted"
+                           ---
+                           "some input|"]
+                          (derive-context))
+        processed     (process context [(e/character \a)])
+        expected      (-> ["persisted"
+                           ---
+                           "some inputa|"]
+                          (derive-context))
+        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
+        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
+        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
+        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))
+        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-previous (-> context (r/preview-hud) (h/text) (:lines))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-previous expected-previous))
+    (is (= actual-cursor expected-cursor))))
 
 ;; IV. Clearing
 
-(defn clear-remember-persist [ctx]
-  (let [current-input      (r/input-area ctx)
-        expected-persisted (r/init-hud (r/view-size ctx) (r/nrepl-client ctx))
-        expected-complete  (h/enrich-with expected-persisted [current-input])]
-    (-> ctx
-        (process [clear])
-        (should-be #(h/equivalent? (r/preview-hud %) expected-complete)
-                   #(h/equivalent? (r/persisted-hud %) expected-persisted)
-                   #(h/equivalent? (r/previous-hud %) (r/preview-hud ctx))))))
-
-(defn clearing [ctx]
-  (clear-remember-persist ctx))
-
-(defspec clearing-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      7
-                               :text-area      (gen-text-area-of 10)})]
-           (clearing tctx)))
+(deftest clears-input
+  (let [context           (-> ["some"
+                               "persisted"
+                               ---
+                               "input|"]
+                              (derive-context))
+        processed         (process context [e/clear])
+        expected          (-> ["input|"] (derive-context))
+        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
+        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
+        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
+        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))
+        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-previous (-> context (r/preview-hud) (h/text) (:lines))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-previous expected-previous))
+    (is (= actual-cursor expected-cursor))))
 
 ;; V. Evaluating
 
-(defn remember-preserve-persist [ctx eval-result]
-  (let [current-input      (r/input-area ctx)
-        result             (i/from-string eval-result)
-        expected-previous  (r/preview-hud ctx)
-        expected-persisted (-> ctx
-                               (r/persisted-hud)
-                               (h/enrich-with [current-input
-                                               i/empty-line
-                                               result
-                                               i/empty-line
-                                               r/caret]))
-        expected-complete  (h/enrich-with expected-persisted [i/empty-line])]
-    (-> ctx
-        (process [evaluate])
-        (should-be #(i/equivalent? (r/input-area %) i/empty-line)
-                   #(h/equivalent? (r/previous-hud %) expected-previous)
-                   #(h/equivalent? (r/persisted-hud %) expected-persisted)
-                   #(h/equivalent? (r/preview-hud %) expected-complete)))))
-
-(defn evaluating [ctx eval-result]
-  (remember-preserve-persist ctx eval-result))
-
-(defspec evaluating-test
-         NR-OF-TESTS
-  (let [eval-result "result"]
-    (for-all [tctx (gen-context {:prefilled-size 20
-                                 :view-size      7
-                                 :text-area      (gen-text-area-of 10)
-                                 :receive        (gen-evaluation eval-result)})]
-             (evaluating tctx eval-result))))
+(deftest evaluates-input
+  (let [context           (-> ["persisted"
+                               ---
+                               "(+ 1 1)|"]
+                              (derive-context {:nrepl-response (value-response "2")}))
+        processed         (process context [e/evaluate])
+        expected          (-> ["persisted"
+                               "(+ 1 1)"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               ---
+                               "|"]
+                              (derive-context))
+        expected-previous (-> context (r/preview-hud) (h/text) (:lines))
+        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))
+        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
+        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
+        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-previous expected-previous))))
 
 ;; VI. Rolling back
 
@@ -682,10 +743,10 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-left select-left select-right]))
-          highlights (-> ["Thi<s> is a line"]
+          highlights (-> ["Thi⦇s⦈ is a line"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["Th<is> is a line"]
+          garbage    (-> ["Th⦇is⦈ is a line"]
                          (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
@@ -696,10 +757,10 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-right select-right select-left]))
-          highlights (-> ["<T>his is a line"]
+          highlights (-> ["⦇T⦈his is a line"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<Th>is is a line"]
+          garbage    (-> ["⦇Th⦈is is a line"]
                          (i/from-tagged-strings)
                          (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
@@ -713,13 +774,13 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up]))
-          highlights (-> ["<This is>"
+          highlights (-> ["⦇This is⦈"
                           "a large"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<This is"
-                          "a large>"
+          garbage    (-> ["⦇This is"
+                          "a large⦈"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))]
@@ -733,12 +794,12 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-left]))
-          highlights (-> ["<This i>s"
+          highlights (-> ["⦇This i⦈s"
                           "a large"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<This is>"
+          garbage    (-> ["⦇This is⦈"
                           "a large"
                           "context"]
                          (i/from-tagged-strings)
@@ -753,12 +814,12 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-right]))
-          highlights (-> ["<This is"
-                          ">a large"
+          highlights (-> ["⦇This is"
+                          "⦈a large"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<This is>"
+          garbage    (-> ["⦇This is⦈"
                           "a large"
                           "context"]
                          (i/from-tagged-strings)
@@ -773,12 +834,12 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-down]))
-          highlights (-> ["<This is"
-                          "a large>"
+          highlights (-> ["⦇This is"
+                          "a large⦈"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<This is>"
+          garbage    (-> ["⦇This is⦈"
                           "a large"
                           "context"]
                          (i/from-tagged-strings)
@@ -793,13 +854,13 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-down select-left]))
-          highlights (-> ["<This is"
-                          "a larg>e"
+          highlights (-> ["⦇This is"
+                          "a larg⦈e"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<This is"
-                          "a large>"
+          garbage    (-> ["⦇This is"
+                          "a large⦈"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))]
@@ -813,13 +874,13 @@
                          (i/from-tagged-strings)
                          (context-from)
                          (process [select-all select-up select-up select-down select-right]))
-          highlights (-> ["<This is"
+          highlights (-> ["⦇This is"
                           "a large"
-                          ">context"]
+                          "⦈context"]
                          (i/from-tagged-strings)
                          (:selection))
-          garbage    (-> ["<This is"
-                          "a large>"
+          garbage    (-> ["⦇This is"
+                          "a large⦈"
                           "context"]
                          (i/from-tagged-strings)
                          (:selection))]
@@ -833,8 +894,8 @@
                       (i/from-tagged-strings)
                       (context-from)
                       (process [select-all right]))
-          garbage (-> ["<Some context"
-                       "with lines>"]
+          garbage (-> ["⦇Some context"
+                       "with lines⦈"]
                       (i/from-tagged-strings)
                       (:selection))]
       (is (= (-> result (r/highlights) (:selection) (:region)) nil) "Highlights mismatch")
@@ -846,7 +907,7 @@
                         (i/from-tagged-strings)
                         (context-from)
                         (process [select-right select-right right]))
-            garbage (-> ["Some <co>ntext"]
+            garbage (-> ["Some ⦇co⦈ntext"]
                         (i/from-tagged-strings)
                         (:selection))]
         (is (= (-> result (r/highlights) (:selection) (:region)) nil) "Highlights mismatch")
