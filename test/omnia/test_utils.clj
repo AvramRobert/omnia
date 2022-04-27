@@ -345,22 +345,30 @@
         (r/with-input-area input-area)
         (r/refresh))))
 
-(s/def --input-area :- s/Keyword
-  :--input-area)
-(s/def --viewable-area :- s/Keyword
-  :--viewable-area)
+(s/def --- :- s/Keyword
+  :---)
+(s/def -x- :- s/Keyword
+  :-x-)
 
-(s/def Input-Area-Definition (s/eq --input-area))
-(s/def Viewable-Area-Definition (s/eq --viewable-area))
+(s/def Input-Area-Definition (s/eq ---))
+(s/def Viewable-Area-Definition (s/eq -x-))
 (s/def TextDefinition s/Str)
 
 (s/def ContextDescription (s/cond-pre Input-Area-Definition Viewable-Area-Definition TextDefinition))
 
 (s/defn derive-context :- Context
   [definition :- ContextDescription]
-  (let [[persisted [_ & rest]] (split-with #(not= --input-area %) definition)
-        [input-area [_ & view]] (split-with #(not= --viewable-area %) rest)]
-
-    (create-context {:view-size     (count view)
-                     :persisted-hud (vec persisted)
-                     :input-area    (vec (concat input-area view))})))
+  (let [untagged-input            (remove #(= % ---) definition)
+        untagged-view             (remove #(= % -x-) definition)
+        [_ [_ & rest]]            (split-with #(not= -x- %) untagged-input)
+        [viewable [_ & hidden]]   (split-with #(not= -x- %) rest)
+        [persisted [_ & input]]   (split-with #(not= --- %) untagged-view)
+        context                   (-> {:view-size     (count viewable)
+                                       :persisted-hud (vec persisted)
+                                       :input-area    (vec input)}
+                                      (create-context))
+        view-offset               (count hidden)
+        preview                   (-> context
+                                      (r/preview-hud)
+                                      (h/with-view-offset view-offset))]
+    (r/with-preview context preview)))

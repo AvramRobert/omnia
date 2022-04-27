@@ -15,65 +15,17 @@
 (def ^:const NR-OF-TESTS 100)
 
 (deftest reads-context-from-description
-  (testing "Filled sections"
-    (let [context   (-> ["persisted"
-                         "area"
-                         --input-area
-                         "input"
-                         "area"
-                         --viewable-area
-                         "viewable"
-                         "input|"]
-                        (derive-context))
-          header    (:lines default-header)
-          persisted (->> context (r/persisted-hud) (h/text) (:lines))
-          input     (-> context (r/input-area) (:lines))
-          viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
-      (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
-      (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
-      (is (= viewable [[\v \i \e \w \a \b \l \e] [\i \n \p \u \t]])))
-
-    (testing "Empty persisted area"
-      (let [context   (-> [--input-area
-                           "input"
+  (testing "complete viewable input"
+    (testing "engulfing persisted area"
+      (let [context   (-> [-x-
+                           "persisted"
                            "area"
-                           --viewable-area
-                           "viewable"
-                           "input|"]
-                          (derive-context))
-            header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
-            input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
-        (is (= persisted header))
-        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
-        (is (= viewable [[\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
-
-    (testing "No persisted area and entire input area viewable"
-      (let [context   (-> [--input-area
-                           --viewable-area
+                           ---
                            "input"
                            "area"
                            "viewable"
-                           "input|"]
-                          (derive-context))
-            header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
-            input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
-        (is (= persisted header))
-        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
-        (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
-
-    (testing "With persisted area and entire input area viewable"
-      (let [context   (-> ["persisted"
-                           "area"
-                           --input-area
-                           --viewable-area
-                           "input"
-                           "area"
-                           "viewable"
-                           "input|"]
+                           "input|"
+                           -x-]
                           (derive-context))
             header    (:lines default-header)
             persisted (->> context (r/persisted-hud) (h/text) (:lines))
@@ -81,13 +33,109 @@
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
-        (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))))
+        (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
+
+    (testing "omitting persisted area"
+      (let [context   (-> ["persisted"
+                           "area"
+                           ---
+                           -x-
+                           "input"
+                           "area"
+                           "viewable"
+                           "input|"
+                           -x-]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+        (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]])))))
+
+  (testing "partial viewable input -"
+    (testing "view at the start -"
+      (testing "engulfing persisted area"
+        (let [context   (-> ["persisted"
+                             -x-
+                             "area"
+                             ---
+                             "input"
+                             "area"
+                             "viewable|"
+                             -x-]
+                            (derive-context))
+              header    (:lines default-header)
+              persisted (->> context (r/persisted-hud) (h/text) (:lines))
+              input     (-> context (r/input-area) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+          (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+          (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
+          (is (= viewable [[\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e]]))))
+
+      (testing "omitting persisted area"
+        (let [context   (-> ["persisted"
+                             "area"
+                             ---
+                             "input"
+                             -x-
+                             "area"
+                             "viewable|"
+                             -x-
+                             "input"]
+                            (derive-context))
+              header    (:lines default-header)
+              persisted (->> context (r/persisted-hud) (h/text) (:lines))
+              input     (-> context (r/input-area) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+          (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+          (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+          (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e]])))))
+
+    (testing "view in the middle"
+      (let [context   (-> ["persisted"
+                           "area"
+                           ---
+                           "input"
+                           -x-
+                           "area"
+                           "viewable|"
+                           -x-
+                           "input"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+        (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e]]))))
+
+    (testing "view at the end"
+      (let [context   (-> ["persisted"
+                           "area"
+                           ---
+                           "input"
+                           -x-
+                           "area"
+                           "viewable"
+                           "input|"
+                           -x-]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+        (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))))
 
 ;; 0. Manipulation
 
 (deftest replacing-main-hud-refreshes-preview
-  (let [context    (-> [--input-area
-                        --viewable-area
+  (let [context    (-> [---
+                        -x-
                         "existing input|"]
                        (derive-context))
         enrichment (i/from-tagged-strings ["some input|"])
@@ -96,8 +144,8 @@
                                        (r/persisted-hud)
                                        (h/enrich-with [enrichment])))
                        (r/preview-hud))
-        expected   (-> [--input-area
-                        --viewable-area
+        expected   (-> [---
+                        -x-
                         "existing input"
                         "some text|"]
                        (derive-context)
@@ -105,8 +153,8 @@
     (= expected actual)))
 
 (deftest clipboard-is-renewed
-  (let [actual   (-> [--input-area
-                      --viewable-area
+  (let [actual   (-> [---
+                      -x-
                       "existing input"]
                      (derive-context)
                      (process [e/select-all e/copy (e/character \a) e/select-all e/copy])
@@ -116,8 +164,8 @@
     (is (= expected actual))))
 
 (deftest clipboard-is-propagated
-  (let [actual   (-> [--input-area
-                      --viewable-area
+  (let [actual   (-> [---
+                      -x-
                       "existing |input"]
                      (derive-context)
                      (process [e/select-all e/copy (e/character \a) (e/character \b)])
@@ -332,82 +380,94 @@
 ;; II. Scrolling
 
 (deftest scrolls-up
-  (let [offset (-> ["some"
-                    "persisted"
-                    "area"
-                    --input-area
-                    --viewable-area
-                    "existing"
-                    "input"
-                    "area|"]
-                   (derive-context)
-                   (process [e/scroll-up e/scroll-up e/scroll-up e/scroll-up])
-                   (r/preview-hud)
-                   (h/scroll-offset))]
-    (is (= 4 offset))))
+  (let [preview       (-> ["some"
+                           "persisted"
+                           "area"
+                           ---
+                           -x-
+                           "existing"
+                           "input|"
+                           -x-
+                           "area"]
+                          (derive-context)
+                          (process [e/scroll-up e/scroll-up e/scroll-up])
+                          (r/preview-hud))
+        actual-offset (h/scroll-offset preview)
+        actual-text   (-> preview (h/project-hud) (:lines))]
+    (is (= actual-offset 3))
+    (is (= actual-text [[\s \o \m \e] [\p \e \r \s \i \s \t \e \d]]))))
 
 (deftest scrolls-down
-  (let [offset (-> ["some"
-                    "persisted"
-                    "area"
-                    --input-area
-                    --viewable-area
-                    "existing"
-                    "input"
-                    "area|"]
-                   (derive-context)
-                   (process [e/scroll-up
-                             e/scroll-up
-                             e/scroll-up
-                             e/scroll-up
-                             e/scroll-down
-                             e/scroll-down])
-                   (r/preview-hud)
-                   (h/scroll-offset))]
-    (is (= 2 offset))))
+  (let [preview       (-> ["some"
+                           "persisted"
+                           "area"
+                           ---
+                           -x-
+                           "existing"
+                           "input|"
+                           -x-
+                           "area"]
+                          (derive-context)
+                          (process [e/scroll-up
+                                    e/scroll-up
+                                    e/scroll-up
+                                    e/scroll-up
+                                    e/scroll-down
+                                    e/scroll-down])
+                          (r/preview-hud))
+        actual-offset (h/scroll-offset preview)
+        actual-text   (-> preview (h/project-hud) (:lines))]
+    (is (= actual-offset 2))
+    (is (= actual-text [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]]))))
 
 (deftest stops-scrolling-up-at-bounds
-  (let [hud      (-> ["some"
-                      "persisted"
-                      "area"
-                      --input-area
-                      --viewable-area
-                      "existing"
-                      "input"
-                      "area|"]
-                     (derive-context)
-                     (process (repeat 100 e/scroll-up))
-                     (r/preview-hud))
-        actual   (h/scroll-offset hud)
-        expected (-> hud (h/text) (:size))]
-    (is (= expected actual))))
+  (let [preview       (-> ["some"
+                           "persisted"
+                           "area"
+                           ---
+                           -x-
+                           "existing"
+                           "input|"
+                           -x-
+                           "area"]
+                          (derive-context)
+                          (process (repeat 100 e/scroll-up))
+                          (r/preview-hud))
+        actual-offset (h/scroll-offset preview)
+        actual-text   (-> preview (h/project-hud) (:lines))
+        expected-text (->> default-header (:lines) (take 2))]
+    (is (= actual-offset 12))
+    (is (= actual-text expected-text))))
 
 (deftest stops-scrolling-down-at-bounds
-  (let [hud      (-> ["some"
-                      "persisted"
-                      "area"
-                      --input-area
-                      --viewable-area
-                      "existing"
-                      "input"
-                      "area|"]
-                     (derive-context)
-                     (process (repeat 100 e/scroll-up))
-                     (process (repeat 100 e/scroll-down))
-                     (r/preview-hud))
-        actual   (h/scroll-offset hud)
-        expected 0]
-    (is (= expected actual))))
+  (let [hud             (-> ["some"
+                             "persisted"
+                             "area"
+                             ---
+                             -x-
+                             "existing"
+                             "input|"
+                             -x-
+                             "area"]
+                            (derive-context)
+                            (process (repeat 100 e/scroll-up))
+                            (process (repeat 100 e/scroll-down))
+                            (r/preview-hud))
+        actual-offset   (h/scroll-offset hud)
+        actual-text     (-> hud (h/project-hud) (:lines))]
+    (is (= actual-offset 0))
+    (is (= actual-text [[\e \x \i \s \t \i \n \g] [\i \n \p \u \t]]))))
 
 (deftest resets-scrolling
   (let [offset (-> ["some"
                     "persisted"
                     "area"
-                    --input-area
-                    --viewable-area
+                    ---
+                    -x-
                     "existing"
                     "input"
-                    "area|"]
+                    -x-
+                    "area"]
                    (derive-context)
                    (process [e/scroll-up
                              e/scroll-up])

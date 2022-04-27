@@ -66,6 +66,10 @@
   [this :- Hud, that :- Hud]
   (t/equivalent? (text this) (text that)))
 
+(s/defn with-view-offset :- Hud
+  [hud :- Hud, offset :- s/Int]
+  (assoc hud :view-offset offset))
+
 (s/defn current-line :- [Character]
   [hud :- Hud]
   (-> hud (text) (t/current-line)))
