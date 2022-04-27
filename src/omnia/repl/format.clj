@@ -115,7 +115,7 @@
 (defn format-seeker [seeker]
   (fmt seeker
        #(let [original (deform %)]
-          (->> (i/stringify original)
+          (->> (i/as-string original)
                (fmt-lisp)
                (i/from-string)
                (normalise original)))))

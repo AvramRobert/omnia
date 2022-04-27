@@ -131,7 +131,7 @@
                         (i/from-string)
                         (r/evaluate! client)
                         (r/result)
-                        (i/stringify))]
+                        (i/as-string))]
     (is (includes? evaluation "bla"))
     (is (includes? evaluation "IllegalArgumentException"))))
 

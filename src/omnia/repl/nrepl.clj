@@ -31,7 +31,7 @@
    path :- s/Str]
   (->> repl
        (:history)
-       (mapv i/stringify)
+       (mapv i/as-string)
        (take-last 20)
        (vec)
        (spit path)))
@@ -44,7 +44,7 @@
 (s/defn make-eval-request :- EvalRequest
   [seeker :- Seeker]
   {:op   :eval
-   :code (i/stringify seeker)})
+   :code (i/as-string seeker)})
 
 (s/defn make-complete-request :- InfoRequest
   [seeker :- Seeker
@@ -54,7 +54,7 @@
    :symbol (-> seeker
                (i/expand-select)
                (i/extract)
-               (i/stringify)
+               (i/as-string)
                (trim-newline))})
 
 (s/defn make-info-request :- InfoRequest
@@ -65,7 +65,7 @@
    :symbol (-> seeker
                (i/expand-select)
                (i/extract)
-               (i/stringify)
+               (i/as-string)
                (trim-newline))})
 
 (s/defn with-result :- NReplClient

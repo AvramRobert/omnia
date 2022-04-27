@@ -819,7 +819,7 @@
         (slicer #(concat input %))
         (move-x #(+ % (count input))))))
 
-(s/defn stringify :- s/Str
+(s/defn as-string :- s/Str
   [seeker :- Seeker]
   (->> seeker
        (:lines)
@@ -830,7 +830,7 @@
   [seeker :- Seeker]
   (-> seeker
       (slice (fn [l r] (vec (concat l "|" r))))
-      (stringify)))
+      (as-string)))
 
 (s/defn indent :- Seeker
   [seeker :- Seeker

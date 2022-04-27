@@ -14,46 +14,116 @@
 
 (def ^:const NR-OF-TESTS 100)
 
+(deftest reads-context-from-description
+  (testing "Filled sections"
+    (let [context   (-> ["persisted"
+                         "area"
+                         --input-area
+                         "input"
+                         "area"
+                         --viewable-area
+                         "viewable"
+                         "input|"]
+                        (derive-context))
+          header    (:lines default-header)
+          persisted (->> context (r/persisted-hud) (h/text) (:lines))
+          input     (-> context (r/input-area) (:lines))
+          viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+      (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+      (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+      (is (= viewable [[\v \i \e \w \a \b \l \e] [\i \n \p \u \t]])))
+
+    (testing "Empty persisted area"
+      (let [context   (-> [--input-area
+                           "input"
+                           "area"
+                           --viewable-area
+                           "viewable"
+                           "input|"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted header))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+        (is (= viewable [[\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
+
+    (testing "No persisted area and entire input area viewable"
+      (let [context   (-> [--input-area
+                           --viewable-area
+                           "input"
+                           "area"
+                           "viewable"
+                           "input|"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted header))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+        (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
+
+    (testing "With persisted area and entire input area viewable"
+      (let [context   (-> ["persisted"
+                           "area"
+                           --input-area
+                           --viewable-area
+                           "input"
+                           "area"
+                           "viewable"
+                           "input|"]
+                          (derive-context))
+            header    (:lines default-header)
+            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            input     (-> context (r/input-area) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+        (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+        (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))))
+
 ;; 0. Manipulation
 
 (deftest replacing-main-hud-refreshes-preview
-  (let [text     (i/from-tagged-strings ["some text|"])
-        context  (create-context {:input-area ["existing input|"]})
-        new-hud  (-> context
-                     (r/persisted-hud)
-                     (h/enrich-with [text]))
-        expected (-> {:input-area ["existing input"
-                                   "some text|"]}
-                     (create-context)
-                     (r/preview-hud))
-        actual   (-> context
-                     (r/with-hud new-hud)
-                     (r/preview-hud))]
+  (let [context    (-> [--input-area
+                        --viewable-area
+                        "existing input|"]
+                       (derive-context))
+        enrichment (i/from-tagged-strings ["some input|"])
+        actual     (-> context
+                       (r/with-hud (-> context
+                                       (r/persisted-hud)
+                                       (h/enrich-with [enrichment])))
+                       (r/preview-hud))
+        expected   (-> [--input-area
+                        --viewable-area
+                        "existing input"
+                        "some text|"]
+                       (derive-context)
+                       (r/preview-hud))]
     (= expected actual)))
 
 (deftest clipboard-is-renewed
-  (let [expected (i/from-tagged-strings ["existing inputa"])
-        actual   (-> {:input-area ["existing input|"]}
-                     (create-context)
-                     (process [select-all
-                               copy
-                               (character \a)
-                               select-all
-                               copy])
+  (let [actual   (-> [--input-area
+                      --viewable-area
+                      "existing input"]
+                     (derive-context)
+                     (process [e/select-all e/copy (e/character \a) e/select-all e/copy])
                      (r/input-area)
-                     (:clipboard))]
+                     (:clipboard))
+        expected (i/from-tagged-strings ["existing inputa"])]
     (is (= expected actual))))
 
 (deftest clipboard-is-propagated
-  (let [expected (i/from-tagged-strings ["existing input"])
-        actual   (-> {:input-area ["existing |input"]}
-                     (create-context)
-                     (process [select-all
-                               copy
-                               (character \a)
-                               (character \b)])
+  (let [actual   (-> [--input-area
+                      --viewable-area
+                      "existing |input"]
+                     (derive-context)
+                     (process [e/select-all e/copy (e/character \a) (e/character \b)])
                      (r/input-area)
-                     (:clipboard))]
+                     (:clipboard))
+        expected (i/from-tagged-strings ["existing input"])]
     (is (= expected actual))))
 
 ;; I. Calibrating
@@ -261,53 +331,90 @@
 
 ;; II. Scrolling
 
-(defn scroll-upwards [ctx]
-  (let [offset        4
-        actual-offset (-> ctx (process (repeat offset scroll-up)) (scroll-offset))]
-    (is (= offset actual-offset))))
+(deftest scrolls-up
+  (let [offset (-> ["some"
+                    "persisted"
+                    "area"
+                    --input-area
+                    --viewable-area
+                    "existing"
+                    "input"
+                    "area|"]
+                   (derive-context)
+                   (process [e/scroll-up e/scroll-up e/scroll-up e/scroll-up])
+                   (r/preview-hud)
+                   (h/scroll-offset))]
+    (is (= 4 offset))))
 
-(defn scroll-downwards [ctx]
-  (let [actual-offset (-> ctx
-                          (process (repeat 5 scroll-up))
-                          (process (repeat 5 scroll-down))
-                          (scroll-offset))]
-    (is (= 0 actual-offset))))
+(deftest scrolls-down
+  (let [offset (-> ["some"
+                    "persisted"
+                    "area"
+                    --input-area
+                    --viewable-area
+                    "existing"
+                    "input"
+                    "area|"]
+                   (derive-context)
+                   (process [e/scroll-up
+                             e/scroll-up
+                             e/scroll-up
+                             e/scroll-up
+                             e/scroll-down
+                             e/scroll-down])
+                   (r/preview-hud)
+                   (h/scroll-offset))]
+    (is (= 2 offset))))
 
-(defn stop-upward-scroll [ctx]
-  (let [text-size (-> ctx (r/preview-hud) (h/text) (:size))
-        offset    (-> ctx (process (repeat 100 scroll-up)) (scroll-offset))]
-    (is (= text-size offset))))
+(deftest stops-scrolling-up-at-bounds
+  (let [hud      (-> ["some"
+                      "persisted"
+                      "area"
+                      --input-area
+                      --viewable-area
+                      "existing"
+                      "input"
+                      "area|"]
+                     (derive-context)
+                     (process (repeat 100 e/scroll-up))
+                     (r/preview-hud))
+        actual   (h/scroll-offset hud)
+        expected (-> hud (h/text) (:size))]
+    (is (= expected actual))))
 
-(defn stop-downward-scroll [ctx]
-  (let [offset (-> ctx
-                   (process (repeat 10 scroll-up))
-                   (process (repeat 100 scroll-down))
-                   (scroll-offset))]
+(deftest stops-scrolling-down-at-bounds
+  (let [hud      (-> ["some"
+                      "persisted"
+                      "area"
+                      --input-area
+                      --viewable-area
+                      "existing"
+                      "input"
+                      "area|"]
+                     (derive-context)
+                     (process (repeat 100 e/scroll-up))
+                     (process (repeat 100 e/scroll-down))
+                     (r/preview-hud))
+        actual   (h/scroll-offset hud)
+        expected 0]
+    (is (= expected actual))))
+
+(deftest resets-scrolling
+  (let [offset (-> ["some"
+                    "persisted"
+                    "area"
+                    --input-area
+                    --viewable-area
+                    "existing"
+                    "input"
+                    "area|"]
+                   (derive-context)
+                   (process [e/scroll-up
+                             e/scroll-up])
+                   (r/scroll-stop)
+                   (r/preview-hud)
+                   (h/scroll-offset))]
     (is (= 0 offset))))
-
-(defn scroll-reset [ctx]
-  (let [scroll-offset (-> ctx
-                          (at-input-end)
-                          (at-line-start)
-                          (process [scroll-up
-                                    scroll-up
-                                    (character \a)])
-                          (scroll-offset))]
-    (is (= 0 scroll-offset))))
-
-(defn scrolling [ctx]
-  (scroll-upwards ctx)
-  (scroll-downwards ctx)
-  (stop-upward-scroll ctx)
-  (stop-downward-scroll ctx)
-  (scroll-reset ctx))
-
-(defspec scrolling-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      7
-                               :text-area      (gen-text-area-of 10)})]
-           (scrolling tctx)))
 
 ;; III. Capturing
 

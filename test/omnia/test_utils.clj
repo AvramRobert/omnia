@@ -25,13 +25,23 @@
 (s/def default-config :- Config
   (c/convert default-user-config))
 
+(s/def default-host :- s/Str
+  "")
+
+(s/def default-port :- s/Int
+  0)
+
+(s/def default-header :- Seeker
+  (->> (r/header default-host default-port)
+       (i/joined)))
+
 (s/defn nrepl-client :- NReplClient
   ([nrepl-response :- NReplResponse]
    (nrepl-client nrepl-response []))
   ([nrepl-response :- NReplResponse
     history :- [Seeker]]
-   (server/client {:host    ""
-                   :port    0
+   (server/client {:host    default-host
+                   :port    default-port
                    :history history
                    :client  (constantly nrepl-response)})))
 
@@ -334,3 +344,23 @@
         (r/with-persisted persisted-hud)
         (r/with-input-area input-area)
         (r/refresh))))
+
+(s/def --input-area :- s/Keyword
+  :--input-area)
+(s/def --viewable-area :- s/Keyword
+  :--viewable-area)
+
+(s/def Input-Area-Definition (s/eq --input-area))
+(s/def Viewable-Area-Definition (s/eq --viewable-area))
+(s/def TextDefinition s/Str)
+
+(s/def ContextDescription (s/cond-pre Input-Area-Definition Viewable-Area-Definition TextDefinition))
+
+(s/defn derive-context :- Context
+  [definition :- ContextDescription]
+  (let [[persisted [_ & rest]] (split-with #(not= --input-area %) definition)
+        [input-area [_ & view]] (split-with #(not= --viewable-area %) rest)]
+
+    (create-context {:view-size     (count view)
+                     :persisted-hud (vec persisted)
+                     :input-area    (vec (concat input-area view))})))

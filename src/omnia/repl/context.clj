@@ -22,17 +22,23 @@
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
 (defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 
+(s/defn header :- [Seeker]
+  [host :- s/Int
+   port :- s/Int]
+  (let [repl-info (nrepl-info host port)]
+    [greeting
+     repl-info
+     clj-version
+     java-version
+     i/empty-line
+     caret]))
+
 (s/defn init-hud :- Hud
   [size :- s/Int,
    repl :- NReplClient]
-  (let [repl-info (nrepl-info (:host repl) (:port repl))]
+  (let [header (header (:host repl) (:port repl))]
     (-> (h/hud-of size)
-        (h/enrich-with [greeting
-                        repl-info
-                        clj-version
-                        java-version
-                        i/empty-line
-                        caret]))))
+        (h/enrich-with header))))
 
 (s/defn context :- Context
   [view-size :- s/Int
