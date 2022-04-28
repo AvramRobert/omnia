@@ -367,34 +367,84 @@
 (s/def ContextDefinition (s/cond-pre Input-Area-Definition Viewable-Area-Definition TextDefinition))
 (s/def ContextProps {(s/maybe :nrepl-response) NReplResponse})
 
+(s/def ContextProps
+  {:input     [Line]
+   :persisted [Line]
+   :viewable  [Line]
+   :hidden    [Line]
+   :view-size s/Int})
+
+(s/defn input-tag? :- s/Bool
+  [a :- s/Any]
+  (= a ---))
+
+(s/defn view-tag? :- s/Bool
+  [a :- s/Any]
+  (= a -x-))
+
+(s/defn parse-def :- ContextProps
+  [def :- ContextDefinition]
+  (let [wo-input-tag     (remove input-tag? def)
+        wo-view-tag      (remove view-tag? def)
+        viewable-section (if (some view-tag? wo-input-tag)
+                           (->> wo-input-tag (drop-while #(not (view-tag? %))) (rest))
+                           wo-input-tag)
+        viewable         (if (some view-tag? viewable-section)
+                           (->> viewable-section (take-while #(not (view-tag? %))))
+                           viewable-section)
+        hidden           (if (some view-tag? viewable-section)
+                           (->> viewable-section (drop-while #(not (view-tag? %))) (rest))
+                           [])
+        persisted        (if (some input-tag? wo-view-tag)
+                           (->> wo-view-tag (take-while #(not (input-tag? %))))
+                           [])
+        input            (if (some input-tag? wo-view-tag)
+                           (->> wo-view-tag (drop-while #(not (input-tag? %))) (rest))
+                           wo-view-tag)
+        view-size        (if (zero? (count viewable))
+                           (count (concat persisted input))
+                           (count viewable))]
+    {:input     input
+     :persisted persisted
+     :viewable  viewable
+     :hidden    hidden
+     :view-size view-size}))
+
 (s/defn derive-context :- Context
   ([def :- ContextDefinition]
    (derive-context def {}))
   ([def :- ContextDefinition
     props :- ContextProps]
-   (let [nrepl-client              (nrepl-client (:nrepl-response props {}))
-         untagged-input            (remove #(= % ---) def)
-         untagged-view             (remove #(= % -x-) def)
-         [_ [_ & rest]]            (split-with #(not= -x- %) untagged-input)
-         [viewable [_ & hidden]]   (split-with #(not= -x- %) rest)
-         [persisted [_ & input]]   (split-with #(not= --- %) untagged-view)
-         view-size                 (if (zero? (count viewable))
-                                     (count (concat persisted input))
-                                     (count viewable))
-         view-offset               (count hidden)
-         input-area                (if (empty? input)
-                                     persisted
-                                     input)
-         persisted                 (if (empty? input)
-                                     []
-                                     persisted)
-         context                   (-> {:view-size     view-size
-                                        :persisted-hud (vec persisted )
-                                        :input-area    (vec input-area)
-                                        :nrepl-client  nrepl-client}
-                                       (create-context))
-         preview                   (-> context
-                                       (r/preview-hud)
-                                       (h/with-view-offset view-offset))]
-     (r/with-preview context preview))))
+   (let [{:keys [input
+                 persisted
+                 viewable
+                 hidden
+                 view-size]} (parse-def def)
+         view-offset   (count hidden)
+         nrepl-client  (nrepl-client (:nrepl-response props {}))
+         context       (r/context view-size nrepl-client)
+         input-area    (-> (if (empty? input) persisted input)
+                           (i/from-tagged-strings))
+         persisted-hud (if (empty? persisted)
+                         (r/persisted-hud context)
+                         (-> context
+                             (r/persisted-hud)
+                             (h/enrich-with [(i/from-tagged-strings persisted)])))
+         highlights    (-> context
+                           (r/persisted-hud)
+                           (h/text)
+                           (:lines)
+                           (concat persisted input)
+                           (i/from-tagged-strings)
+                           (:selection))]
+     (as-> context ctx
+           (r/with-persisted ctx persisted-hud)
+           (r/with-input-area ctx input-area)
+           (r/refresh ctx)
+           (r/with-preview ctx (-> ctx
+                                   (r/preview-hud)
+                                   (h/with-view-offset view-offset)))
+           (if (some? highlights)
+             (r/with-highlight ctx :selection (r/make-selection default-config highlights))
+             ctx)))))
 

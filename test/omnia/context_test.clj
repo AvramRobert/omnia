@@ -569,15 +569,18 @@
 (deftest gc-same-line-selection
   (testing "Moving left"
     (let [result     (-> ["This| is a line"]
-                         (i/from-tagged-strings)
-                         (context-from)
+                         (derive-context)
                          (process [select-left select-left select-right]))
           highlights (-> ["Thi⦇s⦈ is a line"]
-                         (i/from-tagged-strings)
-                         (:selection))
+                         (derive-context)
+                         (r/highlights)
+                         (:selection)
+                         (:region))
           garbage    (-> ["Th⦇is⦈ is a line"]
-                         (i/from-tagged-strings)
-                         (:selection))]
+                         (derive-context)
+                         (r/highlights)
+                         (:selection)
+                         (:region))]
       (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
       (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
 

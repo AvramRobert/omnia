@@ -51,7 +51,25 @@
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]])))))
 
-  (testing "complete viewable input"
+  (testing "detects highlights"
+    (let [context    (-> ["be⦇hind"
+                          "area⦈"
+                          "input|"
+                          "area"]
+                         (derive-context))
+          header     (:lines default-header)
+          persisted  (->> context (r/persisted-hud) (h/text) (:lines))
+          input      (-> context (r/input-area) (:lines))
+          viewable   (-> context (r/preview-hud) (h/project-hud) (:lines))
+          highlights (-> context (r/highlights) (:selection) (:region))
+          ys         (:size default-header)
+          ye         (inc ys)]
+      (is (= persisted header))
+      (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
+      (is (= viewable [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
+      (is (= highlights {:start [2 ys] :end [4 ye]}))))
+
+  (testing "detects complete viewable input"
     (testing "engulfing persisted area"
       (let [context   (-> [-x-
                            "persisted"
@@ -90,8 +108,8 @@
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]])))))
 
-  (testing "partial viewable input -"
-    (testing "view at the start -"
+  (testing "detects partial viewable input"
+    (testing "view at the start"
       (testing "engulfing persisted area"
         (let [context   (-> ["persisted"
                              -x-
