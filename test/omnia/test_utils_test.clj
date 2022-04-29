@@ -61,7 +61,7 @@
           persisted  (-> context (r/persisted-hud) (h/text) (:lines))
           input      (-> context (r/input-area) (:lines))
           viewable   (-> context (r/preview-hud) (h/project-hud) (:lines))
-          highlights (-> context (r/highlights) (:selection) (:region))
+          highlights (-> context (r/highlights) (:manual) (:region))
           ys         (:size default-header)
           ye         (inc ys)]
       (is (= persisted header))

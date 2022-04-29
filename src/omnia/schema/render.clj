@@ -11,6 +11,6 @@
    :scheme c/Highlighting
    :styles [x/Style]})
 
-(def HighlightType (s/enum :selection :open-paren :closed-paren))
+(def HighlightType (s/enum :selection :open-paren :closed-paren :manual))
 
 (def Highlights {HighlightType HighlightInfo})

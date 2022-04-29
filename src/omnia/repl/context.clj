@@ -159,6 +159,12 @@
       (with-highlight :open-paren open)
       (with-highlight :closed-paren closed)))
 
+(s/defn make-manual :- HighlightInfo
+  [config :- Config, region :- Region]
+  {:region region
+   :scheme (-> config (:syntax) (:clean-up))
+   :styles []})
+
 (s/defn make-selection :- HighlightInfo
   [config :- Config, region :- Region]
   {:region region

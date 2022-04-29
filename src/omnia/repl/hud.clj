@@ -106,7 +106,7 @@
   (let [fov (field-of-view hud)
         h   (-> hud (text) (:size))
         ys  (top-y hud)]
-    (if (> h fov) (- y ys) y)))
+    (if (> h fov) (-- y ys) y)))
 
 (s/defn project-cursor :- Point
   [hud :- Hud, [x hy] :- Point]

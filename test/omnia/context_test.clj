@@ -12,8 +12,6 @@
             [omnia.schema.text :refer [Seeker]]
             [omnia.repl.events :as e]))
 
-(def ^:const NR-OF-TESTS 100)
-
 ;; 0. Manipulation
 
 (deftest replacing-main-hud-refreshes-preview
@@ -300,7 +298,6 @@
                                        e/scroll-up
                                        e/scroll-up
                                        e/scroll-up]))
-        processed        (process context [e/scroll-down e/scroll-down])
         expected         (-> ["some"
                               -x-
                               "persisted"
@@ -311,6 +308,7 @@
                               "input|"
                               "area"]
                              (derive-context))
+        processed        (process context [e/scroll-down e/scroll-down])
         actual-preview   (-> processed (r/preview-hud) (h/project-hud) (:lines))
         expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
         actual-cursor    (-> processed (r/preview-hud) (h/text) (:cursor))
@@ -380,11 +378,11 @@
                            ---
                            "some input|"]
                           (derive-context))
-        processed     (process context [(e/character \a)])
         expected      (-> ["persisted"
                            ---
                            "some inputa|"]
                           (derive-context))
+        processed     (process context [(e/character \a)])
         actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
         actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
         actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
@@ -403,8 +401,8 @@
                                ---
                                "input|"]
                               (derive-context))
-        processed         (process context [e/clear])
         expected          (-> ["input|"] (derive-context))
+        processed         (process context [e/clear])
         actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
         actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
         actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
@@ -442,127 +440,201 @@
     (is (= actual-cursor expected-cursor))
     (is (= actual-previous expected-previous))))
 
-;; VI. Rolling back
+;; VI. Previous and next evaluations
 
-(defn roll-rebase-remember-back [ctx]
-  (let [hist (server-history ctx)]
-    (-> ctx
-        (process [prev-eval])
-        (should-be #(h/equivalent? (r/previous-hud %) (r/preview-hud ctx))
-                   #(i/equivalent? (r/input-area %) (first hist))))))
+(deftest returns-to-previous-evaluations
+  (let [context           (-> ["persisted"
+                               ---
+                               "(+ 1 1)|"]
+                              (derive-context {:nrepl-response (value-response "2")}))
+        expected          (-> ["persisted"
+                               "(+ 1 1)"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               ---
+                               "(+ 1 1)|"]
+                              (derive-context))
+        previous          (-> ["persisted"
+                               "(+ 1 1)"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               ---
+                               "|"]
+                              (derive-context))
+        processed         (process context [e/evaluate e/prev-eval])
+        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
+        expected-previous (-> previous (r/preview-hud) (h/text) (:lines))
+        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
+        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
+        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-previous expected-previous))
+    (is (= actual-cursor expected-cursor))))
 
-(defn roll-keep-clipboard [ctx]
-  (let [processed (process ctx [select-all
-                                copy
-                                prev-eval
-                                prev-eval
-                                select-all
-                                delete-previous
-                                paste])]
-    (is (h/equivalent? (r/preview-hud processed) (r/preview-hud ctx)))))
+(deftest proceeds-to-future-evaluations
+  (let [context           (-> ["persisted"
+                               ---
+                               "(+ 1 1)|"]
+                              (derive-context {:nrepl-response (value-response "2")})
+                              (process [e/evaluate (e/character \a)]))
+        expected          (-> ["persisted"
+                               "(+ 1 1)"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               "a"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               ---
+                               "a|"]
+                              (derive-context))
+        previous          (-> ["persisted"
+                               "(+ 1 1)"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               "a"
+                               ""
+                               "2"
+                               ""
+                               "Ω =>"
+                               ---
+                               "(+ 1 1)|"]
+                              (derive-context))
+        processed         (process context [e/evaluate e/prev-eval e/prev-eval e/next-eval])
+        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
+        expected-previous (-> previous (r/preview-hud) (h/text) (:lines))
+        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
+        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
+        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-previous expected-previous))
+    (is (= actual-cursor expected-cursor))))
 
-(defn rolling-back [ctx]
-  (roll-keep-clipboard ctx)
-  (roll-rebase-remember-back ctx))
+(deftest preserves-clipboard-between-evaluation-switches
+  (let [context          (-> ["persisted"
+                              ---
+                              "some ⦇text⦈|"]
+                             (derive-context {:nrepl-response (value-response "1")})
+                             (process [e/copy
+                                       e/evaluate
+                                       (e/character \1)
+                                       e/evaluate
+                                       e/prev-eval
+                                       e/prev-eval
+                                       e/next-eval
+                                       e/paste]))
+        expected         (-> ["persisted"
+                              ---
+                              "some text"
+                              ""
+                              "1"
+                              ""
+                              "Ω =>"
+                              "1"
+                              ""
+                              "1"
+                              ""
+                              "Ω =>"
+                              "1text|"]
+                             (derive-context))
+        actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
+        actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
+        expected-preview (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))))
 
-(defspec rolling-back-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 5
-                               :view-size      27
-                               :text-area      (gen-text-area-of 29)
-                               :history        (gen-history {:prefilled-size 1
-                                                             :element-size   10})})]
-           (rolling-back tctx)))
+;; VII. Suggesting
 
-;; VII. Rolling forward
+(deftest shows-suggestions
+  (let [context           (-> ["persisted"
+                               ---
+                               "1|"]
+                              (derive-context {:nrepl-response
+                                               (completion-response ["option-1"
+                                                                     "option-2"])}))
+        expected1         (-> ["persisted"
+                               ---
+                               "option-1"
+                               "------"
+                               " option-1|"
+                               " option-2"
+                               "------"]
+                              (derive-context))
+        expected2         (-> ["persisted"
+                               ---
+                               "option-2"
+                               "------"
+                               " option-1"
+                               " option-2|"
+                               "------"]
+                              (derive-context))
+        processed1        (process context [e/suggest])
+        processed2        (process context [e/suggest e/suggest])
 
-(defn roll-rebase-remember-forward [ctx]
-  (let [processed (process ctx [evaluate
-                                prev-eval
-                                prev-eval
-                                next-eval])]
-    (should-be processed
-               #(i/equivalent? (r/input-area %) (r/input-area ctx))
-               #(h/equivalent? (-> % (process [next-eval]) (r/previous-hud))
-                               (r/preview-hud %)))))
+        actual1-preview   (-> processed1 (r/preview-hud) (h/text) (:lines))
+        actual1-cursor    (-> processed1 (r/preview-hud) (h/text) (:cursor))
 
-(defn rolling-forward [ctx]
-  (roll-rebase-remember-forward ctx))
+        actual2-preview   (-> processed2 (r/preview-hud) (h/text) (:lines))
+        actual2-cursor    (-> processed2 (r/preview-hud) (h/text) (:cursor))
 
-(defspec rolling-forward-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 5
-                               :view-size      27
-                               :text-area      (gen-text-area-of 29)
-                               :history        (gen-history {:prefilled-size 1
-                                                             :element-size   12})})]
-           (rolling-forward tctx)))
+        expected1-preview (-> expected1 (r/preview-hud) (h/text) (:lines))
+        expected1-cursor  (-> expected1 (r/preview-hud) (h/text) (:cursor))
 
-;; VIII. Suggesting
+        expected2-preview (-> expected2 (r/preview-hud) (h/text) (:lines))
+        expected2-cursor  (-> expected2 (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual1-preview expected1-preview))
+    (is (= actual2-preview expected2-preview))
+    (is (= actual1-cursor expected1-cursor))
+    (is (= actual2-cursor expected2-cursor))))
 
-(defn suggestion-continuation [ctx]
-  (let [suggestions        (suggestions ctx)
-        suggestion-size    (:size suggestions)
-        end                (-> ctx (at-input-end) (at-line-start))
-        replaced-point     (cursor end)
-        process-suggestion (fn [ctx n]
-                             (-> ctx
-                                 (process (repeat n suggest))
-                                 (r/preview-hud)
-                                 (h/text)
-                                 (i/reset-to replaced-point)
-                                 (i/current-line)))]
-    (should-be end
-               #(= (process-suggestion % 1) (suggestion-at % 0))
-               #(= (process-suggestion % 2) (suggestion-at % 1))
-               #(= (process-suggestion % 3) (suggestion-at % 2))
-               #(= (process-suggestion % (inc suggestion-size)) (suggestion-at % 0)))))
+(deftest keeps-suggestion-upon-input
+  (let [context          (-> ["persisted"
+                              ---
+                              "1|"]
+                             (derive-context {:nrepl-response (completion-response ["option-1"
+                                                                                    "option-2"])})
+                             (process [e/suggest e/suggest (e/character \a)]))
+        expected         (-> ["persisted"
+                              ---
+                              "option-2a|"]
+                             (derive-context))
+        actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
+        actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
+        expected-preview (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))))
 
-(defn suggestion-override [ctx]
-  (let [input    \a
-        actual   (-> ctx
-                     (at-input-end)
-                     (at-line-start)
-                     (process [suggest suggest (character input)])
-                     (r/preview-hud)
-                     (h/text)
-                     (i/current-line))
-        expected (-> ctx (suggestion-at 1) (conj input))]
-    (is (= expected actual))))
-
-(defn suggesting [ctx]
-  (suggestion-continuation ctx)
-  (suggestion-override ctx))
-
-(defspec suggesting-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      15
-                               :receive        (gen-completion 12)
-                               :text-area      (gen-text-area-of 17)})]
-           (suggesting tctx)))
-
-(defn no-override [ctx]
-  (let [end            (-> ctx (at-input-end) (at-line-start))
-        current-line   (-> end (r/preview-hud) (h/text) (i/current-line))
-        current-cursor (-> end (r/preview-hud) (h/text) (:cursor))
-        actual-line    (-> end
-                           (process [suggest])
-                           (r/preview-hud)
-                           (h/text)
-                           (i/reset-to current-cursor)
-                           (i/current-line))]
-    (is (= current-line actual-line))))
-
-(defn empty-suggesting [ctx]
-  (no-override ctx))
-
-(defspec empty-suggesting-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      15
-                               :text-area      (gen-text-area-of 17)})]
-           (empty-suggesting tctx)))
+(deftest shows-empty-box-when-no-suggestions
+  (let [context (-> ["persisted"
+                     ---
+                     "1|"]
+                    (derive-context {:nrepl-response (completion-response [])})
+                    (process [e/suggest]))
+        expected (-> ["persisted"
+                      ---
+                      "1"
+                      "------"
+                      "|------"]
+                     (derive-context))
+        actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
+        actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
+        expected-preview (-> expected (r/preview-hud) (h/text) (:lines))
+        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))))
 
 ;; IX. Highlighting
 
@@ -574,311 +646,248 @@
           highlights (-> ["Thi⦇s⦈ is a line"]
                          (derive-context)
                          (r/highlights)
-                         (:selection)
+                         (:manual)
                          (:region))
           garbage    (-> ["Th⦇is⦈ is a line"]
                          (derive-context)
                          (r/highlights)
-                         (:selection)
-                         (:region))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+                         (:manual)
+                         (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving right"
     (let [result     (-> ["|This is a line"]
-                         (i/from-tagged-strings)
-                         (context-from)
+                         (derive-context)
                          (process [select-right select-right select-left]))
           highlights (-> ["⦇T⦈his is a line"]
-                         (i/from-tagged-strings)
-                         (:selection))
+                         (derive-context)
+                         (r/highlights)
+                         (:manual)
+                         (:region))
           garbage    (-> ["⦇Th⦈is is a line"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch"))))
+                         (derive-context)
+                         (r/highlights)
+                         (:manual)
+                         (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch"))))
 
 (deftest gc-multi-line-selection
   (testing "Moving up"
-    (let [result     (-> ["This is"
-                          "a |large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (context-from)
-                         (process [select-all select-up select-up]))
-          highlights (-> ["⦇This is⦈"
-                          "a large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))
-          garbage    (-> ["⦇This is"
-                          "a large⦈"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+    (let [result        (-> ["This is"
+                             "a |large"
+                             "context"]
+                            (derive-context)
+                            (process [select-all select-up select-up]))
+          highlights    (-> ["⦇This is⦈"
+                             "a large"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇This is"
+                             "a large⦈"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving up left"
-    (let [result     (-> ["This is"
-                          "a |large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (context-from)
-                         (process [select-all select-up select-up select-left]))
-          highlights (-> ["⦇This i⦈s"
-                          "a large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))
-          garbage    (-> ["⦇This is⦈"
-                          "a large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+    (let [result        (-> ["This is"
+                             "a |large"
+                             "context"]
+                            (derive-context)
+                            (process [select-all select-up select-up select-left]))
+          highlights    (-> ["⦇This i⦈s"
+                             "a large"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇This is⦈"
+                             "a large"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving up right"
-    (let [result     (-> ["This is"
-                          "a |large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (context-from)
-                         (process [select-all select-up select-up select-right]))
-          highlights (-> ["⦇This is"
-                          "⦈a large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))
-          garbage    (-> ["⦇This is⦈"
-                          "a large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+    (let [result        (-> ["This is"
+                             "a |large"
+                             "context"]
+                            (derive-context)
+                            (process [select-all select-up select-up select-right]))
+          highlights    (-> ["⦇This is"
+                             "⦈a large"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇This is⦈"
+                             "a large"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving down"
-    (let [result     (-> ["This is"
-                          "a |large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (context-from)
-                         (process [select-all select-up select-up select-down]))
-          highlights (-> ["⦇This is"
-                          "a large⦈"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))
-          garbage    (-> ["⦇This is⦈"
-                          "a large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+    (let [result        (-> ["This is"
+                             "a |large"
+                             "context"]
+                            (derive-context)
+                            (process [select-all select-up select-up select-down]))
+          highlights    (-> ["⦇This is"
+                             "a large⦈"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇This is⦈"
+                             "a large"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving down left"
-    (let [result     (-> ["This is"
-                          "a |large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (context-from)
-                         (process [select-all select-up select-up select-down select-left]))
-          highlights (-> ["⦇This is"
-                          "a larg⦈e"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))
-          garbage    (-> ["⦇This is"
-                          "a large⦈"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+    (let [result        (-> ["This is"
+                             "a |large"
+                             "context"]
+                            (derive-context)
+                            (process [select-all select-up select-up select-down select-left]))
+          highlights    (-> ["⦇This is"
+                             "a larg⦈e"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇This is"
+                             "a large⦈"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving down right"
-    (let [result     (-> ["This is"
-                          "a |large"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (context-from)
-                         (process [select-all select-up select-up select-down select-right]))
-          highlights (-> ["⦇This is"
-                          "a large"
-                          "⦈context"]
-                         (i/from-tagged-strings)
-                         (:selection))
-          garbage    (-> ["⦇This is"
-                          "a large⦈"
-                          "context"]
-                         (i/from-tagged-strings)
-                         (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) highlights) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch"))))
+    (let [result        (-> ["This is"
+                             "a |large"
+                             "context"]
+                            (derive-context)
+                            (process [select-all select-up select-up select-down select-right]))
+          highlights    (-> ["⦇This is"
+                             "a large"
+                             "⦈context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇This is"
+                             "a large⦈"
+                             "context"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high highlights) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch"))))
 
 (deftest gc-reset
   (testing "Multiple lines"
-    (let [result  (-> ["Some |context"
-                       "with lines"]
-                      (i/from-tagged-strings)
-                      (context-from)
-                      (process [select-all right]))
-          garbage (-> ["⦇Some context"
-                       "with lines⦈"]
-                      (i/from-tagged-strings)
-                      (:selection))]
-      (is (= (-> result (r/highlights) (:selection) (:region)) nil) "Highlights mismatch")
-      (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))
+    (let [result        (-> ["Some |context"
+                             "with lines"]
+                            (derive-context)
+                            (process [select-all right]))
+          garbage       (-> ["⦇Some context"
+                             "with lines⦈"]
+                            (derive-context)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          expected-high (-> result (r/highlights) (:selection) (:region))
+          expected-gc   (-> result (r/garbage) (:selection) (:region))]
+      (is (= expected-high nil) "Highlights mismatch")
+      (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Same line"
     (testing "Multiple lines"
-      (let [result  (-> ["Some |context"]
-                        (i/from-tagged-strings)
-                        (context-from)
-                        (process [select-right select-right right]))
-            garbage (-> ["Some ⦇co⦈ntext"]
-                        (i/from-tagged-strings)
-                        (:selection))]
-        (is (= (-> result (r/highlights) (:selection) (:region)) nil) "Highlights mismatch")
-        (is (= (-> result (r/garbage) (:selection) (:region)) garbage) "Garbage mismatch")))))
+      (let [result        (-> ["Some |context"]
+                              (derive-context)
+                              (process [select-right select-right right]))
+            garbage       (-> ["Some ⦇co⦈ntext"]
+                              (derive-context)
+                              (r/highlights)
+                              (:manual)
+                              (:region))
+            expected-high (-> result (r/highlights) (:selection) (:region))
+            expected-gc   (-> result (r/garbage) (:selection) (:region))]
+        (is (= expected-high nil) "Highlights mismatch")
+        (is (= expected-gc garbage) "Garbage mismatch")))))
 
 ;; X. Parenthesis matching
-(defn highlight-matched [ctx]
-  (let [[x y] (-> ctx (r/preview-hud) (h/text) (:cursor))
-        scheme     (fn [region]
-                     {:region region
-                      :scheme (-> default-config (:syntax) (:clean-up))
-                      :styles [:underline]})
-        highlights (-> ctx
-                       (process [(character \()
-                                 (character \a)
-                                 (character \a)
-                                 left
-                                 left
-                                 left])
-                       (r/highlights))]
-    (is (= (:open-paren highlights)
-           (scheme {:start [x y]
-                    :end   [(inc x) y]})))
-    (is (= (:closed-paren highlights)
-           (scheme {:start [(+ x 3) y]
-                    :end   [(+ x 4) y]})))))
 
-(defn dont-highlight-unmatched [ctx]
-  (let [processed (process ctx [(character \()
-                                (character \a)
-                                (character \a)
-                                select-right
-                                delete-previous
-                                left
-                                left
-                                left])]
-    (is (= (r/highlights processed) {}))))
+(deftest matches-parentheses
+  (let [context         (-> ["persisted"
+                             ---
+                             "(+ 1 1|)"]
+                            (derive-context)
+                            (process [e/move-right]))
+        expected-open   (-> ["persisted"
+                             ---
+                             "⦇(⦈+ 1 1)|"]
+                            (derive-context))
+        expected-closed (-> ["persisted"
+                             ---
+                             "(+ 1 1⦇)⦈|"]
+                            (derive-context))
+        actual-open     (-> context (r/highlights) (:open-paren) (:region))
+        actual-closed   (-> context (r/highlights) (:closed-paren) (:region))
+        expected-open   (-> expected-open (r/highlights) (:manual) (:region))
+        expected-closed (-> expected-closed (r/highlights) (:manual) (:region))]
+    (is (= actual-open expected-open))
+    (is (= actual-closed expected-closed))))
 
-(defn parens-matching [ctx]
-  (highlight-matched ctx)
-  (dont-highlight-unmatched ctx))
-
-(defspec parens-matching-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      7
-                               :text-area      (gen-text-area-of 10)})]
-           (parens-matching tctx)))
-
-;; XI. Pop-ups
-
-(defn pop-up-with-calibration [ctx content]
-  (let [window  (->> content (:size) (h/riffle-window content))
-        context (-> ctx (at-main-view-start) (process [up up]))]
-    (is (= 2 (-> context (pop-up window) (h/view-offset))))
-    (is (= 2 (-> context (process [down down]) (pop-up window) (h/view-offset))))
-    (is (= 2 (-> context (at-view-bottom) (pop-up window) (h/view-offset))))
-    (is (= 1 (-> context (at-view-bottom) (process [down]) (pop-up window) (h/view-offset))))))
-
-
-(defn pop-up-window [ctx content]
-  (let [content-size (:size content)
-        window       (h/riffle-window content content-size)
-        text         (r/input-area ctx)
-        pop-up-size  (+ content-size 2)
-        expected     (-> (i/join-many text h/delimiter (i/indent content 1) h/delimiter)
-                         (i/rebase #(take-last pop-up-size %)))
-        actual       (-> ctx
-                         (at-input-end)
-                         (at-line-start)
-                         (pop-up window)
-                         (h/text)
-                         (i/rebase #(take-last pop-up-size %)))]
-    (is (= (-> actual (i/start) (i/current-line)) (i/current-line h/delimiter)))
-    (is (= (-> actual (i/end) (i/current-line)) (i/current-line h/delimiter)))
-    (is (i/equivalent? expected actual))))
-
-(defn empty-pop-up-window [ctx]
-  (pop-up-window ctx i/empty-seeker))
-
-(defn framed-pop-up [ctx]
-  (pop-up-window ctx (one (gen-text-area-of 5))))
-
-(defn pop-up-riffled [ctx content]
-  (let [content-size (:size content)
-        window       (h/riffle-window content content-size)
-        preview      (r/preview-hud ctx)
-        line         #(-> window (h/text) (i/reset-y %) (i/indent 1) (i/current-line))
-        riffled-line #(->> window
-                           (iterate h/riffle)
-                           (take (inc %))
-                           (last)
-                           (h/pop-up preview)
-                           (h/text)
-                           (i/current-line))]
-    (is (= (line 0) (riffled-line 0)))
-    (is (= (line 1) (riffled-line 1)))
-    (is (= (line 4) (riffled-line 4)))
-    (is (= (line 0) (riffled-line 5)))))
-
-(defn pop-ups [ctx]
-  (empty-pop-up-window ctx)
-  (framed-pop-up ctx)
-  (pop-up-with-calibration ctx (one (gen-text-area-of 5)))
-  (pop-up-riffled ctx (one (gen-text-area-of 5))))
-
-(defspec pop-up-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:prefilled-size 20
-                               :view-size      15
-                               :text-area      (gen-text-area-of 17)})]
-           (pop-ups tctx)))
-
-
-(defn unchanged-highlights [ctx]
-  (let [processed (process ctx [(character \() right ignore])]
-    (is (not (nil? (-> processed (r/highlights) (:open-paren)))))))
-
-(defn unchanged-selection [ctx]
-  (let [processed (process ctx [select-right
-                                select-right
-                                select-right
-                                ignore])]
-    (is (not (nil? (-> processed (r/highlights) (:selection)))))))
-
-(defn unchanged-scrolling [ctx]
-  (let [actual-offset (-> ctx
-                          (at-input-end)
-                          (process [scroll-up scroll-up ignore])
-                          (scroll-offset))]
-    (is (= 2 actual-offset))))
-
-(defn ignores [ctx]
-  (unchanged-highlights ctx)
-  (unchanged-selection ctx)
-  (unchanged-scrolling ctx))
-
-(defspec ignoring-test
-         NR-OF-TESTS
-  (for-all [tctx (gen-context {:view-size 10
-                               :text-area (gen-text-area-of 17)})]
-           (ignores tctx)))
+(deftest does-not-highlight-unmatched-parentheses
+  (let [context (-> ["persisted"
+                     ---
+                     "(|+ 1"]
+                    (derive-context)
+                    (process [e/move-left]))
+        actual-high (r/highlights context)]
+    (is (= actual-high {}))))

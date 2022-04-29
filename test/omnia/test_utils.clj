@@ -74,30 +74,10 @@
 (defn gen-text-of [size]
   (gen/vector gen-nonempty-line size))
 
-(def gen-nonempty-text
-  (do-gen [size (gen/choose 1 10)
-           text (gen-text-of size)]
-    text))
-
-(def gen-text-area
-  (do-gen [text   gen-nonempty-text
-           cursor (gen-cursor text)]
-    (-> text (i/seeker) (i/reset-to cursor))))
-
 (defn gen-text-area-of [size]
   (do-gen [text   (gen-text-of size)
            cursor (gen-cursor text)]
     (-> text (i/seeker) (i/reset-to cursor))))
-
-(defn gen-completion [size]
-  (do-gen [candidates (-> gen/string-alphanumeric (gen/not-empty) (gen/vector size))]
-    {:completions (mapv (fn [s]
-                          {:candidate s
-                           :ns        ""
-                           :type      ""}) candidates)}))
-
-(defn gen-evaluation [string]
-  (gen/return {:value string}))
 
 (defn gen-nrepl-result [gen-response]
   (do-gen [id       gen/uuid
@@ -110,9 +90,6 @@
                :ns ns
                :status ["done"])
         (list))))
-
-(defn gen-history [{:keys [prefilled-size element-size]}]
-  (gen/vector (gen-text-area-of element-size) prefilled-size))
 
 (s/defn test-terminal :- t/Terminal
   [fns :- TerminalSpec]
@@ -168,19 +145,10 @@
 (def copy e/copy)
 (def paste e/paste)
 (def enter e/new-line)
-(def undo e/undo)
-(def redo e/redo)
 (def scroll-up e/scroll-up)
 (def scroll-down e/scroll-down)
 (defn character [k] (e/character k))
-(def clear e/clear)
-(def evaluate e/evaluate)
-(def prev-eval e/prev-eval)
-(def next-eval e/next-eval)
-(def suggest e/suggest)
-(def ignore e/ignore)
 (def delete-previous e/delete-previous)
-(def delete-current e/delete-current)
 
 (s/defn process :- Context
   [ctx :- Context, events :- [Event]]
@@ -192,10 +160,6 @@
 (s/defn overview :- s/Int
   [ctx :- Context]
   (-> ctx (r/preview-hud) (h/view-offset)))
-
-(s/defn scroll-offset :- s/Int
-  [ctx :- Context]
-  (-> ctx (r/preview-hud) (h/scroll-offset)))
 
 (s/defn project-y :- s/Int
   [ctx :- Context]
@@ -212,17 +176,6 @@
 
 (defn cursor [ctx]
   (-> ctx (r/preview-hud) (h/text) (:cursor)))
-
-(defn suggestions [ctx]
-  (-> ctx (r/nrepl-client) (server/complete! i/empty-seeker) (server/result)))
-
-(s/defn suggestion-at :- Line
-  [ctx :- Context
-   line :- s/Int]
-  (-> ctx (suggestions) (i/reset-y line) (i/current-line)))
-
-(defn server-history [ctx]
-  (-> ctx (r/nrepl-client) (:history)))
 
 (defn highlights? [highlighted region]
   (let [{expected-start :start
@@ -351,9 +304,20 @@
   [value :- s/Str]
   {:id      (str (UUID/randomUUID))
    :session (str (UUID/randomUUID))
-   :ns      "this-namespace"
+   :ns      "test-namespace"
    :status  ["done"]
    :value   value})
+
+(s/defn completion-response :- n/CompletionResponse
+  [completions :- [s/Str]]
+  {:id          (str (UUID/randomUUID))
+   :session     (str (UUID/randomUUID))
+   :ns          "test-ns"
+   :status      ["done"]
+   :completions (mapv (fn [c]
+                        {:candidate c
+                         :type      "var"
+                         :ns        "candidate-ns"}) completions)})
 
 (s/def --- :- s/Keyword
   :---)
@@ -364,15 +328,17 @@
 (s/def Viewable-Area-Definition (s/eq -x-))
 (s/def TextDefinition s/Str)
 
-(s/def ContextDefinition (s/cond-pre Input-Area-Definition Viewable-Area-Definition TextDefinition))
+(s/def HudDefinition (s/cond-pre Viewable-Area-Definition TextDefinition))
+(s/def ContextDefinition (s/cond-pre HudDefinition Input-Area-Definition))
 (s/def ContextProps {(s/maybe :nrepl-response) NReplResponse})
 
 (s/def ContextProps
-  {:input     [Line]
-   :persisted [Line]
-   :viewable  [Line]
-   :hidden    [Line]
-   :view-size s/Int})
+  {:input       [Line]
+   :persisted   [Line]
+   :viewable    [Line]
+   :hidden      [Line]
+   :view-size   s/Int
+   :hidden-size s/Int})
 
 (s/defn input-tag? :- s/Bool
   [a :- s/Any]
@@ -403,12 +369,14 @@
                            wo-view-tag)
         view-size        (if (zero? (count viewable))
                            (count (concat persisted input))
-                           (count viewable))]
-    {:input     input
-     :persisted persisted
-     :viewable  viewable
-     :hidden    hidden
-     :view-size view-size}))
+                           (count viewable))
+        hidden-size      (count hidden)]
+    {:input       input
+     :persisted   persisted
+     :viewable    viewable
+     :hidden      hidden
+     :view-size   view-size
+     :hidden-size hidden-size}))
 
 (s/defn derive-context :- Context
   ([def :- ContextDefinition]
@@ -417,7 +385,6 @@
     props :- ContextProps]
    (let [{:keys [input
                  persisted
-                 viewable
                  hidden
                  view-size]} (parse-def def)
          view-offset   (count hidden)
@@ -445,6 +412,12 @@
                                    (r/preview-hud)
                                    (h/with-view-offset view-offset)))
            (if (some? highlights)
-             (r/with-highlight ctx :selection (r/make-selection default-config highlights))
+             (r/with-highlight ctx :manual (r/make-manual default-config highlights))
              ctx)))))
 
+(s/defn derive-hud :- Hud
+  [def :- HudDefinition]
+  (let [{:keys [input
+                view-size
+                hidden-size]} (parse-def def)]
+    (-> input (i/from-tagged-strings) (h/hud view-size) (h/with-view-offset hidden-size))))

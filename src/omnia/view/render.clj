@@ -19,7 +19,8 @@
 (s/def highlight-priority :- {HighlightType s/Int}
   {:selection    3
    :closed-paren 2
-   :open-paren   1})
+   :open-paren   1
+   :manual       0})
 
 (s/defn additive-diff :- (s/maybe HighlightInfo)
   [current :- HighlightInfo, former :- HighlightInfo]
