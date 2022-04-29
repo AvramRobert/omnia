@@ -14,7 +14,7 @@
                            "area|"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -30,7 +30,7 @@
                            "area"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted header))
@@ -44,7 +44,7 @@
                            "area"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted header))
@@ -58,7 +58,7 @@
                           "area"]
                          (derive-context))
           header     (:lines default-header)
-          persisted  (->> context (r/persisted-hud) (h/text) (:lines))
+          persisted  (-> context (r/persisted-hud) (h/text) (:lines))
           input      (-> context (r/input-area) (:lines))
           viewable   (-> context (r/preview-hud) (h/project-hud) (:lines))
           highlights (-> context (r/highlights) (:selection) (:region))
@@ -82,7 +82,7 @@
                            -x-]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -101,7 +101,7 @@
                            -x-]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -121,7 +121,7 @@
                              -x-]
                             (derive-context))
               header    (:lines default-header)
-              persisted (->> context (r/persisted-hud) (h/text) (:lines))
+              persisted (-> context (r/persisted-hud) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
               viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -140,7 +140,7 @@
                              "input"]
                             (derive-context))
               header    (:lines default-header)
-              persisted (->> context (r/persisted-hud) (h/text) (:lines))
+              persisted (-> context (r/persisted-hud) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
               viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -159,7 +159,7 @@
                            "input"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -178,7 +178,7 @@
                            -x-]
                           (derive-context))
             header    (:lines default-header)
-            persisted (->> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
             viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
