@@ -275,31 +275,6 @@
    :scheme default-user-highlighting
    :styles []})
 
-(s/def ContextParams
-  {(s/maybe :view-size)     s/Int
-   (s/maybe :persisted-hud) [Line]
-   (s/maybe :input-area)    [Line]
-   (s/maybe :nrepl-client)  NReplClient})
-
-(s/defn create-context :- Context
-  [params :- ContextParams]
-  (let [view-size     (:view-size params 10)
-        nrepl-client  (:nrepl-client params simple-nrepl-client)
-        context       (r/context view-size nrepl-client)
-        input-area    (-> params
-                          (some-> (:input-area) (i/from-tagged-strings))
-                          (or (r/input-area context)))
-        persisted     (-> params
-                          (some-> (:persisted-hud) (i/from-tagged-strings) (vector))
-                          (or []))
-        persisted-hud (-> context
-                          (r/persisted-hud)
-                          (h/enrich-with persisted))]
-    (-> context
-        (r/with-persisted persisted-hud)
-        (r/with-input-area input-area)
-        (r/refresh))))
-
 (s/defn value-response :- n/ValueResponse
   [value :- s/Str]
   {:id      (str (UUID/randomUUID))
@@ -330,7 +305,9 @@
 
 (s/def HudDefinition (s/cond-pre Viewable-Area-Definition TextDefinition))
 (s/def ContextDefinition (s/cond-pre HudDefinition Input-Area-Definition))
-(s/def ContextProps {(s/maybe :nrepl-response) NReplResponse})
+
+(s/def NReplProps {(s/maybe :response) NReplResponse
+                   (s/maybe :history)  [s/Str]})
 
 (s/def ContextProps
   {:input       [Line]
@@ -382,13 +359,17 @@
   ([def :- ContextDefinition]
    (derive-context def {}))
   ([def :- ContextDefinition
-    props :- ContextProps]
+    props :- NReplProps]
    (let [{:keys [input
                  persisted
                  hidden
                  view-size]} (parse-def def)
          view-offset   (count hidden)
-         nrepl-client  (nrepl-client (:nrepl-response props {}))
+         nrepl-client  (nrepl-client (:response props {})
+                                     (->> []
+                                          (:history props)
+                                          (reverse)
+                                          (mapv i/from-string)))
          context       (r/context view-size nrepl-client)
          input-area    (-> (if (empty? input) persisted input)
                            (i/from-tagged-strings))

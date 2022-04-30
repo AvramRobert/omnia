@@ -419,7 +419,7 @@
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:nrepl-response (value-response "2")}))
+                              (derive-context {:response (value-response "2")}))
         processed         (process context [e/evaluate])
         expected          (-> ["persisted"
                                "(+ 1 1)"
@@ -442,111 +442,57 @@
 
 ;; VI. Previous and next evaluations
 
-(deftest returns-to-previous-evaluations
+(deftest navigates-through-evaluation-history
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:nrepl-response (value-response "2")}))
-        expected          (-> ["persisted"
-                               "(+ 1 1)"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
+                              (derive-context {:history ["past-eval-1"
+                                                         "past-eval-2"]}))
+        expected1          (-> ["persisted"
                                ---
-                               "(+ 1 1)|"]
+                               "past-eval-1|"]
                               (derive-context))
-        previous          (-> ["persisted"
-                               "(+ 1 1)"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
+        expected2         (-> ["persisted"
                                ---
-                               "|"]
+                               "past-eval-2|"]
                               (derive-context))
-        processed         (process context [e/evaluate e/prev-eval])
-        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
-        expected-previous (-> previous (r/preview-hud) (h/text) (:lines))
-        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
-        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
-        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))]
-    (is (= actual-preview expected-preview))
-    (is (= actual-previous expected-previous))
-    (is (= actual-cursor expected-cursor))))
+        processed1         (process context [e/prev-eval])
+        processed2         (process context [e/prev-eval e/prev-eval])
+        processed3         (process context [e/prev-eval e/prev-eval e/next-eval])
+        actual-preview1    (-> processed1 (r/preview-hud) (h/text) (:lines))
+        actual-cursor1     (-> processed1 (r/preview-hud) (h/text) (:cursor))
+        expected-preview1  (-> expected1 (r/preview-hud) (h/text) (:lines))
+        expected-cursor1   (-> expected1 (r/preview-hud) (h/text) (:cursor))
 
-(deftest proceeds-to-future-evaluations
-  (let [context           (-> ["persisted"
-                               ---
-                               "(+ 1 1)|"]
-                              (derive-context {:nrepl-response (value-response "2")})
-                              (process [e/evaluate (e/character \a)]))
-        expected          (-> ["persisted"
-                               "(+ 1 1)"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
-                               "a"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
-                               ---
-                               "a|"]
-                              (derive-context))
-        previous          (-> ["persisted"
-                               "(+ 1 1)"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
-                               "a"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
-                               ---
-                               "(+ 1 1)|"]
-                              (derive-context))
-        processed         (process context [e/evaluate e/prev-eval e/prev-eval e/next-eval])
-        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
-        expected-previous (-> previous (r/preview-hud) (h/text) (:lines))
-        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
-        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
-        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))]
-    (is (= actual-preview expected-preview))
-    (is (= actual-previous expected-previous))
-    (is (= actual-cursor expected-cursor))))
+        actual-preview2    (-> processed2 (r/preview-hud) (h/text) (:lines))
+        actual-cursor2     (-> processed2 (r/preview-hud) (h/text) (:cursor))
+        expected-preview2  (-> expected2 (r/preview-hud) (h/text) (:lines))
+        expected-cursor2   (-> expected2 (r/preview-hud) (h/text) (:cursor))
 
-(deftest preserves-clipboard-between-evaluation-switches
+        actual-preview3    (-> processed3 (r/preview-hud) (h/text) (:lines))
+        actual-cursor3     (-> processed3 (r/preview-hud) (h/text) (:cursor))]
+    (is (= actual-preview1 expected-preview1))
+    (is (= actual-cursor1 expected-cursor1))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+
+    (is (= actual-preview3 expected-preview1))
+    (is (= actual-cursor3 expected-cursor1))))
+
+(deftest preserves-clipboard-during-evaluation-navigation
   (let [context          (-> ["persisted"
                               ---
                               "some ⦇text⦈|"]
-                             (derive-context {:nrepl-response (value-response "1")})
+                             (derive-context {:history ["prev-eval-1"
+                                                        "prev-eval-2"]})
                              (process [e/copy
-                                       e/evaluate
-                                       (e/character \1)
-                                       e/evaluate
                                        e/prev-eval
                                        e/prev-eval
-                                       e/next-eval
                                        e/paste]))
         expected         (-> ["persisted"
                               ---
-                              "some text"
-                              ""
-                              "1"
-                              ""
-                              "Ω =>"
-                              "1"
-                              ""
-                              "1"
-                              ""
-                              "Ω =>"
-                              "1text|"]
+                              "prev-eval-2text|"]
                              (derive-context))
         actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
         actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
@@ -561,7 +507,7 @@
   (let [context           (-> ["persisted"
                                ---
                                "1|"]
-                              (derive-context {:nrepl-response
+                              (derive-context {:response
                                                (completion-response ["option-1"
                                                                      "option-2"])}))
         expected1         (-> ["persisted"
@@ -603,7 +549,7 @@
   (let [context          (-> ["persisted"
                               ---
                               "1|"]
-                             (derive-context {:nrepl-response (completion-response ["option-1"
+                             (derive-context {:response (completion-response ["option-1"
                                                                                     "option-2"])})
                              (process [e/suggest e/suggest (e/character \a)]))
         expected         (-> ["persisted"
@@ -621,7 +567,7 @@
   (let [context (-> ["persisted"
                      ---
                      "1|"]
-                    (derive-context {:nrepl-response (completion-response [])})
+                    (derive-context {:response (completion-response [])})
                     (process [e/suggest]))
         expected (-> ["persisted"
                       ---
