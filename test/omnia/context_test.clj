@@ -49,57 +49,321 @@
 
 ;; I. Calibrating
 
-(defn exceed-upper-bound [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (should-be #(-> % (process [up]) (overview) (= 1))
-                 #(-> % (process [up up]) (overview) (= 2))
-                 #(-> % (process [up up up]) (overview) (= 2)))))
+(comment
+  {:prefilled-size 5
+   :view-size      27
+   :text-area      (gen-text-area-of 29)}
+  "Context params:
+      => cannot change: 14%
 
-(defn exceed-lower-bound [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up])
-      (at-view-bottom)
-      (should-be #(= (overview %) 2)
-                 #(-> % (process [down]) (overview) (= 1))
-                 #(-> % (process [down down]) (overview) (= 0))
-                 #(-> % (process [down down down]) (overview) (= 0)))))
+         can change: 85%
+         can view: 79%
+         cannot view: 21%"
 
-(defn exceed-lower-bound-non-incrementally [ctx]
-  (let [initial-view (-> ctx
-                         (at-main-view-start)
-                         (process [up up])
-                         (at-view-bottom))
-        new-text     (-> initial-view (r/input-area) (i/move-y #(+ % 2)))
-        new-view     (-> initial-view
-                         (r/with-input-area new-text)
-                         (r/refresh)
-                         (r/calibrate))]
-    (is (= 0 (overview new-view)))))
+  "2 hidden lines => 10 total : 8 viewable : 2 unviewable")
 
-(defn exceed-upper-bound-non-incrementally [ctx]
-  (let [initial-view (-> ctx (at-main-view-start))
-        new-text     (-> initial-view (r/input-area) (i/move-y #(- % 2)))
-        new-view     (-> initial-view
-                         (r/with-input-area new-text)
-                         (r/refresh)
-                         (r/calibrate))]
-    (is (= 2 (overview new-view)))))
+(deftest calibrates-exceeding-upper-view
+  (let [context           (-> ["persisted"
+                               ---
+                               "some"
+                               "input"
+                               -x-
+                               "of|"
+                               "mine"
+                               "that"
+                               "is"
+                               "this"
+                               "long"
+                               -x-]
+                              (derive-context))
+        expected1         (-> ["persisted"
+                               ---
+                               "some"
+                               -x-
+                               "in|put"
+                               "of"
+                               "mine"
+                               "that"
+                               "is"
+                               "this"
+                               -x-
+                               "long"]
+                              (derive-context))
+        expected2         (-> ["persisted"
+                               ---
+                               -x-
+                               "so|me"
+                               "input"
+                               "of"
+                               "mine"
+                               "that"
+                               "is"
+                               -x-
+                               "this"
+                               "long"]
+                              (derive-context))
+        processed1        (-> context (process [e/move-up]))
+        processed2        (-> context (process [e/move-up e/move-up]))
+        processed3        (-> context (process [e/move-up e/move-up e/move-up]))
+        actual-preview1   (-> processed1 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor1    (-> processed1 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset1    (-> processed1 (r/preview-hud) (h/view-offset))
 
-(defn scroll-upper-bound [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up down down down])
-      (should-be #(= (overview %) 1))))
+        expected-preview1 (-> expected1 (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor1  (-> expected1 (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset1  (-> expected1 (r/preview-hud) (h/view-offset))
 
-(defn scroll-lower-bound [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up])
-      (at-view-bottom)
-      (process [up up up up])
-      (should-be #(= (overview %) 1))))
+        actual-preview2   (-> processed2 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor2    (-> processed2 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset2    (-> processed2 (r/preview-hud) (h/view-offset))
+
+        expected-preview2 (-> expected2 (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor2  (-> expected2 (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset2  (-> expected2 (r/preview-hud) (h/view-offset))
+
+        actual-preview3   (-> processed3 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor3    (-> processed3 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset3    (-> processed3 (r/preview-hud) (h/view-offset))]
+    (is (= actual-preview1 expected-preview1))
+    (is (= actual-cursor1 expected-cursor1))
+    (is (= actual-offset1 expected-offset1))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+    (is (= actual-offset2 expected-offset2))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+    (is (= actual-offset2 expected-offset2))
+
+    (is (= actual-preview3 expected-preview2))
+    (is (= actual-cursor3 expected-cursor2))
+    (is (= actual-offset3 expected-offset2))))
+
+(deftest calibrates-exceeding-lower-view
+  (let [context           (-> ["persisted"
+                               ---
+                               -x-
+                               "some"
+                               "input"
+                               "of"
+                               "mine"
+                               "that"
+                               "is|"
+                               -x-
+                               "this"
+                               "long"]
+                              (derive-context))
+        expected1         (-> ["persisted"
+                               ---
+                               "some"
+                               -x-
+                               "input"
+                               "of"
+                               "mine"
+                               "that"
+                               "is"
+                               "th|is"
+                               -x-
+                               "long"]
+                              (derive-context))
+        expected2         (-> ["persisted"
+                               ---
+                               "some"
+                               "input"
+                               -x-
+                               "of"
+                               "mine"
+                               "that"
+                               "is"
+                               "this"
+                               "lo|ng"
+                               -x-]
+                              (derive-context))
+        processed1        (-> context (process [e/move-down]))
+        processed2        (-> context (process [e/move-down e/move-down]))
+        processed3        (-> context (process [e/move-down e/move-down e/move-down]))
+        actual-preview1   (-> processed1 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor1    (-> processed1 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset1    (-> processed1 (r/preview-hud) (h/view-offset))
+
+        expected-preview1 (-> expected1 (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor1  (-> expected1 (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset1  (-> expected1 (r/preview-hud) (h/view-offset))
+
+        actual-preview2   (-> processed2 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor2    (-> processed2 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset2    (-> processed2 (r/preview-hud) (h/view-offset))
+
+        expected-preview2 (-> expected2 (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor2  (-> expected2 (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset2  (-> expected2 (r/preview-hud) (h/view-offset))
+
+        actual-preview3   (-> processed3 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor3    (-> processed3 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset3    (-> processed3 (r/preview-hud) (h/view-offset))]
+    (is (= actual-preview1 expected-preview1))
+    (is (= actual-cursor1 expected-cursor1))
+    (is (= actual-offset1 expected-offset1))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+    (is (= actual-offset2 expected-offset2))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+    (is (= actual-offset2 expected-offset2))
+
+    (is (= actual-preview3 expected-preview2))
+    (is (= actual-cursor3 expected-cursor2))
+    (is (= actual-offset3 expected-offset2))))
+
+(deftest calibrates-exceeding-lower-view-forcibly
+  (let [context           (-> ["persisted"
+                               ---
+                               -x-
+                               "some"
+                               "input"
+                               "of"
+                               "mine"
+                               "that"
+                               "is|"
+                               -x-
+                               "this"
+                               "long"]
+                              (derive-context))
+        expected         (-> ["persisted"
+                              ---
+                              "some"
+                              "input"
+                              -x-
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              "this"
+                              "lo|ng"
+                              -x-]
+                             (derive-context))
+        processed         (-> context
+                              (r/with-input-area (-> context
+                                                     (r/input-area)
+                                                     (i/move (fn [[x y]] [x (+ y 2)]))))
+                              (r/refresh)
+                              (r/calibrate))
+
+        actual-preview   (-> processed (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor    (-> processed (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset    (-> processed (r/preview-hud) (h/view-offset))
+
+        expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor  (-> expected (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset  (-> expected (r/preview-hud) (h/view-offset))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-offset expected-offset))))
+
+(deftest calibrates-exceeding-upper-view-forcibly
+  (let [context           (-> ["persisted"
+                               ---
+                               "some"
+                               "input"
+                               -x-
+                               "of|"
+                               "mine"
+                               "that"
+                               "is"
+                               "this"
+                               "long"
+                               -x-]
+                              (derive-context))
+        expected         (-> ["persisted"
+                              ---
+                              -x-
+                              "so|me"
+                              "input"
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              -x-
+                              "this"
+                              "long"]
+                             (derive-context))
+        processed         (-> context
+                              (r/with-input-area (-> context
+                                                     (r/input-area)
+                                                     (i/move (fn [[x y]] [x (- y 2)]))))
+                              (r/refresh)
+                              (r/calibrate))
+
+        actual-preview   (-> processed (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor    (-> processed (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset    (-> processed (r/preview-hud) (h/view-offset))
+
+        expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor  (-> expected (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset  (-> expected (r/preview-hud) (h/view-offset))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-offset expected-offset))))
+
+(deftest keeps-overview-when-moving-within-view
+  (let [context (-> ["persisted"
+                     ---
+                     "some"
+                     -x-
+                     "input"
+                     "of|"
+                     "mine"
+                     "that"
+                     "is"
+                     "this"
+                     -x-
+                     "long"]
+                    (derive-context))
+        expected1 (-> ["persisted"
+                       ---
+                       "some"
+                       -x-
+                       "input"
+                       "of"
+                       "mine"
+                       "th|at"
+                       "is"
+                       "this"
+                       -x-
+                       "long"]
+                      (derive-context))
+        processed1 (-> context (process [e/move-down e/move-down]))
+        processed2 (-> context (process [e/move-down e/move-down e/move-up e/move-up]))
+
+        actual-preview1   (-> processed1 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor1    (-> processed1 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset1    (-> processed1 (r/preview-hud) (h/view-offset))
+
+        expected-preview1 (-> expected1 (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor1  (-> expected1 (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset1  (-> expected1 (r/preview-hud) (h/view-offset))
+
+        actual-preview2   (-> processed2 (r/preview-hud) (h/project-hud) (:lines))
+        actual-cursor2    (-> processed2 (r/preview-hud) (h/project-hud) (:cursor))
+        actual-offset2    (-> processed2 (r/preview-hud) (h/view-offset))
+
+        expected-preview2 (-> context (r/preview-hud) (h/project-hud) (:lines))
+        expected-cursor2  (-> context (r/preview-hud) (h/project-hud) (:cursor))
+        expected-offset2  (-> context (r/preview-hud) (h/view-offset))]
+    (is (= actual-preview1 expected-preview1))
+    (is (= actual-cursor1 expected-cursor1))
+    (is (= actual-offset1 expected-offset1))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+    (is (= actual-offset2 expected-offset2))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))
+    (is (= actual-offset2 expected-offset2))))
 
 (defn correct-under-deletion-top [ctx]
   (-> ctx
@@ -220,13 +484,6 @@
                  #(-> % (process [up up]) (resize-view-by -4) (resize-view-by 2) (overview) (= 4)))))
 
 (defn calibrating [ctx]
-  (exceed-upper-bound ctx)
-  (exceed-upper-bound-non-incrementally ctx)
-  (exceed-lower-bound ctx)
-  (exceed-lower-bound-non-incrementally ctx)
-  (scroll-upper-bound ctx)
-  (scroll-lower-bound ctx)
-
   (correct-under-deletion-top ctx)
   (correct-under-deletion-bottom ctx)
   (correct-under-deletion-end ctx)

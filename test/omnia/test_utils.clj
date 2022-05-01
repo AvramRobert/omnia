@@ -47,9 +47,6 @@
                    :history history
                    :client  (constantly [nrepl-response])})))
 
-(s/def simple-nrepl-client :- NReplClient
-  (nrepl-client {}))
-
 (defmacro should-be [val & fs]
   `(do ~@(map (fn [f#] `(is (~f# ~val) (str "Failed for input: \n" ~val))) fs)))
 
@@ -196,10 +193,6 @@
   (let [preview   (r/preview-hud ctx)
         selection (-> ctx (r/highlights) (get h-key) (:region))]
     (h/clip-selection preview selection)))
-
-(s/defn pop-up :- Hud
-  [ctx :- Context, window :- Hud]
-  (-> ctx (r/preview-hud) (h/pop-up window)))
 
 (s/defn at-input-start :- Context
   [ctx :- Context]
@@ -364,27 +357,28 @@
                  persisted
                  hidden
                  view-size]} (parse-def def)
-         view-offset   (count hidden)
-         nrepl-client  (nrepl-client (:response props {})
-                                     (->> []
-                                          (:history props)
-                                          (reverse)
-                                          (mapv i/from-string)))
-         context       (r/context view-size nrepl-client)
-         input-area    (-> (if (empty? input) persisted input)
-                           (i/from-tagged-strings))
-         persisted-hud (if (empty? persisted)
-                         (r/persisted-hud context)
-                         (-> context
-                             (r/persisted-hud)
-                             (h/enrich-with [(i/from-tagged-strings persisted)])))
-         highlights    (-> context
-                           (r/persisted-hud)
-                           (h/text)
-                           (:lines)
-                           (concat persisted input)
-                           (i/from-tagged-strings)
-                           (:selection))]
+         view-offset        (count hidden)
+         nrepl-client       (nrepl-client (:response props {})
+                                          (->> []
+                                               (:history props)
+                                               (reverse)
+                                               (mapv i/from-string)))
+         context            (r/context view-size nrepl-client)
+         input-area         (-> (if (empty? input) persisted input)
+                                (i/from-tagged-strings))
+         new-persisted-data (if (empty? persisted) [] [(i/from-tagged-strings persisted)])
+         persisted-hud      (-> context
+                                (r/persisted-hud)
+                                (h/enrich-with new-persisted-data)
+                                (h/with-view-offset view-offset))
+         highlights         (-> context
+                                (r/persisted-hud)
+                                (h/text)
+                                (:lines)
+                                (concat persisted input)
+                                (i/from-tagged-strings)
+                                (:selection))]
+     ;; the previous hud has to be either nullified
      (as-> context ctx
            (r/with-persisted ctx persisted-hud)
            (r/with-input-area ctx input-area)
@@ -392,6 +386,7 @@
            (r/with-preview ctx (-> ctx
                                    (r/preview-hud)
                                    (h/with-view-offset view-offset)))
+           (r/with-previous ctx (h/hud-of view-size))
            (if (some? highlights)
              (r/with-highlight ctx :manual (r/make-manual default-config highlights))
              ctx)))))

@@ -113,6 +113,10 @@
     :previous-hud (preview-hud ctx)
     :preview-hud (-> ctx (persisted-hud) (h/enrich-with [(:input-area ctx)]))))
 
+(s/defn with-previous :- Context
+  [ctx :- Context, hud :- Hud]
+  (assoc ctx :previous-hud hud))
+
 (s/defn with-preview :- Context
   [ctx :- Context, hud :- Hud]
   (assoc ctx
@@ -123,13 +127,13 @@
   [ctx :- Context, hud :- Hud]
   (assoc ctx :persisted-hud hud))
 
-(s/defn with-hud :- Context
-  [ctx :- Context, hud :- Hud]
-  (-> ctx (with-persisted hud) (refresh)))
-
 (s/defn with-unrefreshed-preview :- Context
   [ctx :- Context, hud :- Hud]
   (assoc ctx :preview-hud hud))
+
+(s/defn with-hud :- Context
+  [ctx :- Context, hud :- Hud]
+  (-> ctx (with-persisted hud) (refresh)))
 
 (s/defn reset-highlights :- Context
   [ctx :- Context]
