@@ -291,12 +291,15 @@
   :---)
 (s/def -x- :- s/Keyword
   :-x-)
+(s/def ... :- s/Keyword
+  :...)
 
 (s/def Input-Area-Definition (s/eq ---))
 (s/def Viewable-Area-Definition (s/eq -x-))
+(s/def Empty-Area-Definition (s/eq ...))
 (s/def TextDefinition s/Str)
 
-(s/def HudDefinition (s/cond-pre Viewable-Area-Definition TextDefinition))
+(s/def HudDefinition (s/cond-pre Viewable-Area-Definition TextDefinition Empty-Area-Definition))
 (s/def ContextDefinition (s/cond-pre HudDefinition Input-Area-Definition))
 
 (s/def NReplProps {(s/maybe :response) NReplResponse
@@ -318,10 +321,15 @@
   [a :- s/Any]
   (= a -x-))
 
+(s/defn empty-tag? :- s/Bool
+  [a :- s/Any]
+  (= a ...))
+
 (s/defn parse-def :- ContextProps
   [def :- ContextDefinition]
-  (let [wo-input-tag     (remove input-tag? def)
-        wo-view-tag      (remove view-tag? def)
+  (let [wo-input-tag     (remove #(or (input-tag? %) (empty-tag? %)) def)
+        wo-view-tag      (remove #(or (view-tag? %) (empty-tag? %)) def)
+        empty-tags       (->> def (filter empty-tag?) (count))
         viewable-section (if (some view-tag? wo-input-tag)
                            (->> wo-input-tag (drop-while #(not (view-tag? %))) (rest))
                            wo-input-tag)
@@ -338,8 +346,8 @@
                            (->> wo-view-tag (drop-while #(not (input-tag? %))) (rest))
                            wo-view-tag)
         view-size        (if (zero? (count viewable))
-                           (count (concat persisted input))
-                           (count viewable))
+                           (+ (concat persisted input) empty-tags)
+                           (+ (count viewable) empty-tags))
         hidden-size      (count hidden)]
     {:input       input
      :persisted   persisted
@@ -355,9 +363,9 @@
     props :- NReplProps]
    (let [{:keys [input
                  persisted
-                 hidden
-                 view-size]} (parse-def def)
-         view-offset        (count hidden)
+                 view-size
+                 hidden-size]} (parse-def def)
+         view-offset         hidden-size
          nrepl-client       (nrepl-client (:response props {})
                                           (->> []
                                                (:history props)
@@ -378,7 +386,6 @@
                                 (concat persisted input)
                                 (i/from-tagged-strings)
                                 (:selection))]
-     ;; the previous hud has to be either nullified
      (as-> context ctx
            (r/with-persisted ctx persisted-hud)
            (r/with-input-area ctx input-area)

@@ -130,27 +130,51 @@
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
         (is (= prev-off pers-off 0))))
 
-    (testing "view in the middle"
-      (let [context   (-> ["persisted"
-                           "area"
-                           ---
-                           "input"
-                           -x-
-                           "area"
-                           "viewable|"
-                           -x-
-                           "input"]
-                          (derive-context))
-            header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
-            input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
-            prev-off  (-> context (r/preview-hud) (h/view-offset))
-            pers-off  (-> context (r/persisted-hud) (h/view-offset))]
-        (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
-        (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
-        (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
-        (is (= prev-off pers-off 1))))
+    (testing "view offset"
+      (testing "with tagged empty line"
+        (let [context   (-> ["persisted"
+                             "area"
+                             ---
+                             "input"
+                             -x-
+                             "area"
+                             "viewable|"
+                             ...
+                             -x-
+                             "input"]
+                            (derive-context))
+              header    (:lines default-header)
+              persisted (-> context (r/persisted-hud) (h/text) (:lines))
+              input     (-> context (r/input-area) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+              prev-off  (-> context (r/preview-hud) (h/view-offset))
+              pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+          (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+          (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+          (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
+          (is (= prev-off pers-off 1))))
+
+      (testing "without tagged empty line"
+        (let [context   (-> ["persisted"
+                             "area"
+                             ---
+                             "input"
+                             -x-
+                             "area"
+                             "viewable|"
+                             -x-
+                             "input"]
+                            (derive-context))
+              header    (:lines default-header)
+              persisted (-> context (r/persisted-hud) (h/text) (:lines))
+              input     (-> context (r/input-area) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+              prev-off  (-> context (r/preview-hud) (h/view-offset))
+              pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+          (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
+          (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
+          (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
+          (is (= prev-off pers-off 1)))))
 
     (testing "view at the end"
       (let [context   (-> ["persisted"
