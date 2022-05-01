@@ -67,7 +67,7 @@
     (is (= actual-cursor4 expected-cursor1))))
 
 
-(deftest supports-calibration-in-pop-up-windows
+(deftest supports-correction-in-pop-up-windows
   (let [window              (-> ["a" "b" "c"]
                                 (i/from-tagged-strings)
                                 (h/riffle-window 2))
@@ -161,3 +161,203 @@
         expected-cursor (-> expected (h/text) (:cursor))]
     (is (= actual-view expected-view))
     (is (= expected-cursor actual-cursor))))
+
+(deftest corrects-exceeding-upper-view
+  (let [then             (-> ["persisted"
+                              ---
+                              "some"
+                              "input"
+                              -x-
+                              "of|"
+                              "mine"
+                              "that"
+                              "is"
+                              "this"
+                              "long"
+                              -x-]
+                             (derive-hud))
+        now1             (-> ["persisted"
+                              ---
+                              "some"
+                              "input|"
+                              -x-
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              "this"
+                              "long"
+                              -x-]
+                             (derive-hud))
+        now2             (-> ["persisted"
+                              ---
+                              "some|"
+                              "input"
+                              -x-
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              "this"
+                              "long"
+                              -x-]
+                             (derive-hud))
+        expected1        (-> ["input|"
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              "this"]
+                             (i/from-tagged-strings))
+        expected2        (-> ["some|"
+                              "input"
+                              "of"
+                              "mine"
+                              "that"
+                              "is"]
+                             (i/from-tagged-strings))
+        actual-voff1     (h/correct-between now1 then)
+        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:lines))
+        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:cursor))
+
+        actual-voff2     (h/correct-between now2 then)
+        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:lines))
+        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:cursor))
+
+        expected-voff1   1
+        expected-view1   (:lines expected1)
+        expected-cursor1 (:cursor expected1)
+
+        expected-voff2   2
+        expected-view2   (:lines expected2)
+        expected-cursor2 (:cursor expected2)]
+    (is (= actual-voff1 expected-voff1))
+    (is (= actual-view1 expected-view1))
+    (is (= actual-cursor1 expected-cursor1))
+
+    (is (= actual-voff2 expected-voff2))
+    (is (= actual-view2 expected-view2))
+    (is (= actual-cursor2 expected-cursor2))))
+
+(deftest corrects-exceeding-lower-view
+  (let [then             (-> ["persisted"
+                              ---
+                              -x-
+                              "some"
+                              "input"
+                              "of"
+                              "mine"
+                              "that"
+                              "is|"
+                              -x-
+                              "this"
+                              "long"]
+                             (derive-hud))
+        now1             (-> ["persisted"
+                              ---
+                              -x-
+                              "some"
+                              "input"
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              -x-
+                              "th|is"
+                              "long"]
+                             (derive-hud))
+        now2             (-> ["persisted"
+                              ---
+                              -x-
+                              "some"
+                              "input"
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              -x-
+                              "this"
+                              "lo|ng"]
+                             (derive-hud))
+        expected1        (-> ["input"
+                              "of"
+                              "mine"
+                              "that"
+                              "is"
+                              "th|is"]
+                             (i/from-tagged-strings))
+        expected2        (-> ["of"
+                              "mine"
+                              "that"
+                              "is"
+                              "this"
+                              "lo|ng"]
+                             (i/from-tagged-strings))
+        actual-voff1     (h/correct-between now1 then)
+        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:lines))
+        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:cursor))
+
+        actual-voff2     (h/correct-between now2 then)
+        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:lines))
+        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:cursor))
+
+        expected-voff1   1
+        expected-view1   (:lines expected1)
+        expected-cursor1 (:cursor expected1)
+
+        expected-voff2   0
+        expected-view2   (:lines expected2)
+        expected-cursor2 (:cursor expected2)]
+    (is (= actual-voff1 expected-voff1))
+    (is (= actual-view1 expected-view1))
+    (is (= actual-cursor1 expected-cursor1))
+
+    (is (= actual-voff2 expected-voff2))
+    (is (= actual-view2 expected-view2))
+    (is (= actual-cursor2 expected-cursor2))))
+
+(deftest does-not-correct-when-view-not-exceeded
+  (let [then            (-> ["persisted"
+                             ---
+                             -x-
+                             "some"
+                             "input"
+                             "of"
+                             "mine"
+                             "that"
+                             "is|"
+                             -x-
+                             "this"
+                             "long"]
+                            (derive-hud))
+        now             (-> ["persisted"
+                             ---
+                             -x-
+                             "some"
+                             "input"
+                             "o|f"
+                             "mine"
+                             "that"
+                             "is"
+                             -x-
+                             "this"
+                             "long"]
+                            (derive-hud))
+        expected        (-> ["some"
+                             "input"
+                             "o|f"
+                             "mine"
+                             "that"
+                             "is"]
+                            (i/from-tagged-strings))
+
+        actual-voff     (h/correct-between now then)
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+
+        expected-voff   2
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-voff expected-voff))
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
