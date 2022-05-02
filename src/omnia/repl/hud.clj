@@ -62,13 +62,13 @@
   [hud :- Hud]
   (-> hud (text) (:lines) (empty?)))
 
-(s/defn equivalent? :- s/Bool
-  [this :- Hud, that :- Hud]
-  (t/equivalent? (text this) (text that)))
-
 (s/defn with-view-offset :- Hud
   [hud :- Hud, offset :- s/Int]
   (assoc hud :view-offset offset))
+
+(s/defn with-scroll-offset :- Hud
+  [hud :- Hud, offset :- s/Int]
+  (assoc hud :scroll-offset offset))
 
 (s/defn current-line :- [Character]
   [hud :- Hud]

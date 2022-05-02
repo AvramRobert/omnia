@@ -1,6 +1,7 @@
 (ns omnia.test-utils
   (:require [schema.core :as s]
             [clojure.test.check.generators :as gen]
+            [clojure.core.match :as m]
             [omnia.config.core :as c]
             [omnia.repl.text :as i]
             [omnia.repl.hud :as h]
@@ -289,118 +290,140 @@
 
 (s/def --- :- s/Keyword
   :---)
-(s/def -x- :- s/Keyword
-  :-x-)
-(s/def ... :- s/Keyword
-  :...)
+
+(s/def -+ :- s/Keyword
+  :-+)
+
+(s/def -$ :- s/Keyword
+  :-$)
+
+(s/def -| :- s/Keyword
+  :-|)
 
 (s/def Input-Area-Definition (s/eq ---))
-(s/def Viewable-Area-Definition (s/eq -x-))
-(s/def Empty-Area-Definition (s/eq ...))
+(s/def View-Area-Definition (s/eq -|))
+(s/def Offset-Area-Definition (s/eq -+))
+(s/def Scroll-Area-Definition (s/eq -$))
 (s/def TextDefinition s/Str)
 
-(s/def HudDefinition (s/cond-pre Viewable-Area-Definition TextDefinition Empty-Area-Definition))
+(s/def HudDefinition (s/cond-pre View-Area-Definition TextDefinition Offset-Area-Definition Scroll-Area-Definition))
 (s/def ContextDefinition (s/cond-pre HudDefinition Input-Area-Definition))
 
 (s/def NReplProps {(s/maybe :response) NReplResponse
                    (s/maybe :history)  [s/Str]})
 
 (s/def ContextProps
-  {:input       [Line]
-   :persisted   [Line]
-   :viewable    [Line]
-   :hidden      [Line]
-   :view-size   s/Int
-   :hidden-size s/Int})
+  {:input-area     [Line]
+   :persisted-area [Line]
+   :view-area      [Line]
+   :hidden-area    [Line]
+   :field-of-view  s/Int
+   :view-offset    s/Int
+   :scroll-offset  s/Int})
 
-(s/defn input-tag? :- s/Bool
-  [a :- s/Any]
-  (= a ---))
+(s/defn parse :- ContextProps
+  "Parses a vector of potentially tagged lines to context-relevant information.
+   Tags:
+     --- : end of a persisted area and start of an input area
+          :* if completely missing, the input area assumes the entire text lines in the def
+     -|  : a line part of the field-of-view
+          :* if present, the total of these lines represent the field-of-view
+          :* if completely missing, the field-of-view is set to be the total amount of text lines in the def
+     -+  : a line offset by the view
+          :* if present, the total of these lines represent the view-offset
+     -$  : a line offset by the scroll
+          :* if present, the total of these lines represent the scroll-offset
 
-(s/defn view-tag? :- s/Bool
-  [a :- s/Any]
-  (= a -x-))
-
-(s/defn empty-tag? :- s/Bool
-  [a :- s/Any]
-  (= a ...))
-
-(s/defn parse-def :- ContextProps
+   Example:
+      [persisted
+       area
+       ---
+       line-0-not-viewable
+       -| line-1-viewable
+       -| line-2-viewable
+       -$ line-3-scrolled
+       -$ line-4-scrolled
+       -+ line-5-offset]"
   [def :- ContextDefinition]
-  (let [wo-input-tag     (remove #(or (input-tag? %) (empty-tag? %)) def)
-        wo-view-tag      (remove #(or (view-tag? %) (empty-tag? %)) def)
-        empty-tags       (->> def (filter empty-tag?) (count))
-        viewable-section (if (some view-tag? wo-input-tag)
-                           (->> wo-input-tag (drop-while #(not (view-tag? %))) (rest))
-                           wo-input-tag)
-        viewable         (if (some view-tag? viewable-section)
-                           (->> viewable-section (take-while #(not (view-tag? %))))
-                           viewable-section)
-        hidden           (if (some view-tag? viewable-section)
-                           (->> viewable-section (drop-while #(not (view-tag? %))) (rest))
-                           [])
-        persisted        (if (some input-tag? wo-view-tag)
-                           (->> wo-view-tag (take-while #(not (input-tag? %))))
-                           [])
-        input            (if (some input-tag? wo-view-tag)
-                           (->> wo-view-tag (drop-while #(not (input-tag? %))) (rest))
-                           wo-view-tag)
-        view-size        (if (zero? (count viewable))
-                           (+ (concat persisted input) empty-tags)
-                           (+ (count viewable) empty-tags))
-        hidden-size      (count hidden)]
-    {:input       input
-     :persisted   persisted
-     :viewable    viewable
-     :hidden      hidden
-     :view-size   view-size
-     :hidden-size hidden-size}))
+  (loop [persisted []
+         view      []
+         offset    []
+         input     []
+         [c & cs]  def
+         fov       0
+         voff      0
+         soff      0
+         parsing   :input]
+    (m/match [parsing c]
+             [_ nil] {:persisted-area persisted
+                      :view-area      view
+                      :hidden-area    offset
+                      :input-area     input
+                      :field-of-view  (if (zero? fov) (count (concat input persisted)) fov)
+                      :view-offset    voff
+                      :scroll-offset  soff}
+             [:input :---] (recur input view offset [] cs fov voff soff parsing)
+             [:input :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view  :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view  :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:input :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [_      :-$]  (recur persisted view offset input cs fov voff (inc soff) parsing)
+             [:view   _]   (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
+             [:offset _]   (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
+             :else         (recur persisted view offset (conj input c) cs fov voff soff :input))))
 
 (s/defn derive-context :- Context
   ([def :- ContextDefinition]
    (derive-context def {}))
   ([def :- ContextDefinition
     props :- NReplProps]
-   (let [{:keys [input
-                 persisted
-                 view-size
-                 hidden-size]} (parse-def def)
-         view-offset         hidden-size
-         nrepl-client       (nrepl-client (:response props {})
-                                          (->> []
-                                               (:history props)
-                                               (reverse)
-                                               (mapv i/from-string)))
-         context            (r/context view-size nrepl-client)
-         input-area         (-> (if (empty? input) persisted input)
-                                (i/from-tagged-strings))
-         new-persisted-data (if (empty? persisted) [] [(i/from-tagged-strings persisted)])
-         persisted-hud      (-> context
-                                (r/persisted-hud)
-                                (h/enrich-with new-persisted-data)
-                                (h/with-view-offset view-offset))
-         highlights         (-> context
-                                (r/persisted-hud)
-                                (h/text)
-                                (:lines)
-                                (concat persisted input)
-                                (i/from-tagged-strings)
-                                (:selection))]
+   (let [{:keys [input-area
+                 persisted-area
+                 field-of-view
+                 view-offset
+                 scroll-offset]} (parse def)
+         nrepl-client         (nrepl-client (:response props {})
+                                            (->> []
+                                                 (:history props)
+                                                 (reverse)
+                                                 (mapv i/from-string)))
+         context              (r/context field-of-view nrepl-client)
+         parsed-input         (i/from-tagged-strings input-area)
+         parsed-persisted     (if (empty? persisted-area)
+                                []
+                                [(i/from-tagged-strings persisted-area)])
+         persisted-hud        (-> context
+                                  (r/persisted-hud)
+                                  (h/enrich-with parsed-persisted)
+                                  (h/with-view-offset view-offset)
+                                  (h/with-scroll-offset scroll-offset))
+         highlights           (-> context
+                                  (r/persisted-hud)
+                                  (h/text)
+                                  (:lines)
+                                  (concat persisted-area input-area)
+                                  (i/from-tagged-strings)
+                                  (:selection))]
      (as-> context ctx
            (r/with-persisted ctx persisted-hud)
-           (r/with-input-area ctx input-area)
+           (r/with-input-area ctx parsed-input)
            (r/refresh ctx)
            (r/with-preview ctx (-> ctx
                                    (r/preview-hud)
                                    (h/with-view-offset view-offset)))
-           (r/with-previous ctx (h/hud-of view-size))
+           (r/with-previous ctx (h/hud-of field-of-view))
            (if (some? highlights)
              (r/with-highlight ctx :manual (r/make-manual default-config highlights))
              ctx)))))
 
 (s/defn derive-hud :- Hud
   [def :- HudDefinition]
-  (let [{:keys [input
-                view-size
-                hidden-size]} (parse-def def)]
-    (-> input (i/from-tagged-strings) (h/hud view-size) (h/with-view-offset hidden-size))))
+  (let [{:keys [input-area
+                field-of-view
+                view-offset
+                scroll-offset]} (parse def)]
+    (-> input-area
+        (i/from-tagged-strings)
+        (h/hud field-of-view)
+        (h/with-view-offset view-offset)
+        (h/with-scroll-offset scroll-offset))))

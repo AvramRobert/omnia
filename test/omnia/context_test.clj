@@ -62,40 +62,6 @@
 
   "2 hidden lines => 10 total : 8 viewable : 2 unviewable")
 
-(defn correct-under-deletion-top [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up])
-      (should-be #(-> % (process [select-down delete-previous]) (overview) (= 1))
-                 #(-> % (process [select-down select-down delete-previous]) (overview) (= 0))
-                 #(-> % (process [select-down select-down select-down select-down delete-previous]) (overview) (= 0)))))
-
-(defn correct-under-deletion-end [ctx]
-  (-> ctx
-      (at-input-end)
-      (at-line-start)
-      (should-be #(= (overview %) 0)
-                 #(-> % (process [up select-down delete-previous]) (overview) (= 0))
-                 #(-> % (process [up select-down delete-previous]) (overview) (= 0)))))
-
-(defn correct-under-deletion-bottom [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up])
-      (at-view-bottom)
-      (should-be #(= (overview %) 2)
-                 #(-> % (process [up select-down delete-previous]) (overview) (= 1))
-                 #(-> % (process [select-up delete-previous]) (overview) (= 1))
-                 #(-> % (process [up up select-down select-down delete-previous]) (overview) (= 0))
-                 #(-> % (process [select-down delete-previous]) (overview) (= 0)))))
-
-(defn correct-under-deletion-in-multi-line [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up down down down down])
-      (should-be #(-> % (process [select-down delete-previous]) (overview) (= 1))
-                 #(-> % (process [select-down select-down delete-previous]) (overview) (= 0)))))
-
 (defn correct-under-insertion-top [ctx]
   (-> ctx
       (at-main-view-start)
@@ -181,10 +147,6 @@
                  #(-> % (process [up up]) (resize-view-by -4) (resize-view-by 2) (overview) (= 4)))))
 
 (defn calibrating [ctx]
-  (correct-under-deletion-top ctx)
-  (correct-under-deletion-bottom ctx)
-  (correct-under-deletion-end ctx)
-  (correct-under-deletion-in-multi-line ctx)
   (correct-under-multi-selected-deletion ctx)
   (correct-under-change-variance ctx)
   (correct-under-rebounded-deletion ctx)
@@ -211,29 +173,26 @@
                               "persisted"
                               "area"
                               ---
-                              -x-
-                              "existing"
-                              "input|"
-                              -x-
-                              "area"]
+                              -| "existing"
+                              -| "input|"
+                              -+ "area"]
                              (derive-context)
                              (process [e/scroll-up e/scroll-up e/scroll-up]))
-        expected         (-> [-x-
-                              "some"
-                              "persisted"
-                              -x-
-                              "area"
+        expected         (-> [-| "some"
+                              -| "persisted"
+                              -$ "area"
                               ---
-                              "existing"
-                              "input|"
-                              "area"]
+                              -$ "existing"
+                              -$ "input|"
+                              -+ "area"]
                              (derive-context))
         actual-preview   (-> context (r/preview-hud) (h/project-hud) (:lines))
         expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
         expected-cursor  (-> context (r/preview-hud) (h/text) (:cursor))
         actual-cursor    (-> expected (r/preview-hud) (h/text) (:cursor))
-        actual-offset    (-> context (r/preview-hud) (h/scroll-offset))]
-    (is (= actual-offset 3))
+        actual-offset    (-> context (r/preview-hud) (h/scroll-offset))
+        expected-offset  (-> expected (r/preview-hud) (h/scroll-offset))]
+    (is (= actual-offset expected-offset 3))
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
@@ -242,33 +201,29 @@
                               "persisted"
                               "area"
                               ---
-                              -x-
-                              "existing"
-                              "input|"
-                              -x-
-                              "area"]
+                              -| "existing"
+                              -| "input|"
+                              -+ "area"]
                              (derive-context)
                              (process [e/scroll-up
                                        e/scroll-up
-                                       e/scroll-up
                                        e/scroll-up]))
         expected         (-> ["some"
-                              -x-
                               "persisted"
-                              "area"
-                              -x-
+                              -| "area"
                               ---
-                              "existing"
-                              "input|"
-                              "area"]
+                              -| "existing"
+                              -$ "input|"
+                              -+ "area"]
                              (derive-context))
         processed        (process context [e/scroll-down e/scroll-down])
         actual-preview   (-> processed (r/preview-hud) (h/project-hud) (:lines))
         expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
         actual-cursor    (-> processed (r/preview-hud) (h/text) (:cursor))
         expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))
-        actual-offset    (-> processed (r/preview-hud) (h/scroll-offset))]
-    (is (= actual-offset 2))
+        actual-offset    (-> processed (r/preview-hud) (h/scroll-offset))
+        expected-offset  (-> expected (r/preview-hud) (h/scroll-offset))]
+    (is (= actual-offset expected-offset 1))
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
@@ -277,11 +232,9 @@
                              "persisted"
                              "area"
                              ---
-                             -x-
-                             "existing"
-                             "input|"
-                             -x-
-                             "area"]
+                             -| "existing"
+                             -| "input|"
+                             -+ "area"]
                             (derive-context))
         scrolled        (process context (repeat 100 e/scroll-up))
         init-offset     (-> context (r/preview-hud) (h/scroll-offset))
@@ -294,11 +247,9 @@
                                 "persisted"
                                 "area"
                                 ---
-                                -x-
-                                "existing"
-                                "input|"
-                                -x-
-                                "area"]
+                                -| "existing"
+                                -| "input|"
+                                -+ "area"]
                                (derive-context))
         scrolled-up        (process context (repeat 100 e/scroll-up))
         scrolled-down      (process context (repeat 100 e/scroll-down))
@@ -312,11 +263,9 @@
                                  "persisted"
                                  "area"
                                  ---
-                                 -x-
-                                 "existing"
-                                 "input|"
-                                 -x-
-                                 "area"]
+                                 -| "existing"
+                                 -| "input|"
+                                 -+ "area"]
                                 (derive-context))
         scrolled            (process context [e/scroll-up e/scroll-up])
         reset               (r/scroll-stop scrolled)

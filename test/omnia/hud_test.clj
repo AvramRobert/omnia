@@ -71,33 +71,27 @@
   (let [window              (-> ["a" "b" "c"]
                                 (i/from-tagged-strings)
                                 (h/riffle-window 2))
-        hud1                (-> [-x-
-                                 "current"
-                                 "text|"
-                                 "input"
-                                 -x-
-                                 "not viewable"
-                                 "not viewable"]
+        hud1                (-> [-| "current"
+                                 -| "text|"
+                                 -| "input"
+                                 -+ "not viewable"
+                                 -+ "not viewable"]
                                 (derive-hud)
                                 (h/pop-up window))
-        hud2                (-> [-x-
-                                 "current|"
-                                 "text"
-                                 "that"
-                                 "is"
-                                 "large"
-                                 "enough"
-                                 -x-
-                                 "not viewable"
-                                 "not viewable"]
+        hud2                (-> [-| "current|"
+                                 -| "text"
+                                 -| "that"
+                                 -| "is"
+                                 -| "large"
+                                 -| "enough"
+                                 -+ "not viewable"
+                                 -+ "not viewable"]
                                 (derive-hud)
                                 (h/pop-up window))
         hud3                (-> ["current"
-                                 -x-
-                                 "text"
-                                 "that|"
-                                 "is"
-                                 -x-]
+                                 -| "text"
+                                 -| "that|"
+                                 -| "is"]
                                 (derive-hud)
                                 (h/pop-up window))
         expected1           (-> ["------"
@@ -163,44 +157,32 @@
     (is (= expected-cursor actual-cursor))))
 
 (deftest corrects-exceeding-upper-view
-  (let [then             (-> ["persisted"
-                              ---
-                              "some"
+  (let [then             (-> ["some"
                               "input"
-                              -x-
-                              "of|"
-                              "mine"
-                              "that"
-                              "is"
-                              "this"
-                              "long"
-                              -x-]
+                              -| "of|"
+                              -| "mine"
+                              -| "that"
+                              -| "is"
+                              -| "this"
+                              -| "long"]
                              (derive-hud))
-        now1             (-> ["persisted"
-                              ---
-                              "some"
+        now1             (-> ["some"
                               "input|"
-                              -x-
-                              "of"
-                              "mine"
-                              "that"
-                              "is"
-                              "this"
-                              "long"
-                              -x-]
+                              -| "of"
+                              -| "mine"
+                              -| "that"
+                              -| "is"
+                              -| "this"
+                              -| "long"]
                              (derive-hud))
-        now2             (-> ["persisted"
-                              ---
-                              "some|"
+        now2             (-> ["some|"
                               "input"
-                              -x-
-                              "of"
-                              "mine"
-                              "that"
-                              "is"
-                              "this"
-                              "long"
-                              -x-]
+                              -| "of"
+                              -| "mine"
+                              -| "that"
+                              -| "is"
+                              -| "this"
+                              -| "long"]
                              (derive-hud))
         expected1        (-> ["input|"
                               "of"
@@ -240,38 +222,32 @@
     (is (= actual-cursor2 expected-cursor2))))
 
 (deftest corrects-exceeding-lower-view
-  (let [then             (-> [-x-
-                              "some"
-                              "input"
-                              "of"
-                              "mine"
-                              "that"
-                              "is|"
-                              -x-
-                              "this"
-                              "long"]
+  (let [then             (-> [-| "some"
+                              -| "input"
+                              -| "of"
+                              -| "mine"
+                              -| "that"
+                              -| "is|"
+                              -+ "this"
+                              -+ "long"]
                              (derive-hud))
-        now1             (-> [-x-
-                              "some"
-                              "input"
-                              "of"
-                              "mine"
-                              "that"
-                              "is"
-                              -x-
-                              "th|is"
-                              "long"]
+        now1             (-> [-| "some"
+                              -| "input"
+                              -| "of"
+                              -| "mine"
+                              -| "that"
+                              -| "is"
+                              -+ "th|is"
+                              -+ "long"]
                              (derive-hud))
-        now2             (-> [-x-
-                              "some"
-                              "input"
-                              "of"
-                              "mine"
-                              "that"
-                              "is"
-                              -x-
-                              "this"
-                              "lo|ng"]
+        now2             (-> [-| "some"
+                              -| "input"
+                              -| "of"
+                              -| "mine"
+                              -| "that"
+                              -| "is"
+                              -+ "this"
+                              -+ "lo|ng"]
                              (derive-hud))
         expected1        (-> ["input"
                               "of"
@@ -311,27 +287,23 @@
     (is (= actual-cursor2 expected-cursor2))))
 
 (deftest does-not-correct-when-view-not-exceeded
-  (let [then            (-> [-x-
-                             "some"
-                             "input"
-                             "of"
-                             "mine"
-                             "that"
-                             "is|"
-                             -x-
-                             "this"
-                             "long"]
+  (let [then            (-> [-| "some"
+                             -| "input"
+                             -| "of"
+                             -|"mine"
+                             -| "that"
+                             -| "is|"
+                             -+ "this"
+                             -+ "long"]
                             (derive-hud))
-        now             (-> [-x-
-                             "some"
-                             "input"
-                             "o|f"
-                             "mine"
-                             "that"
-                             "is"
-                             -x-
-                             "this"
-                             "long"]
+        now             (-> [-| "some"
+                             -| "input"
+                             -| "o|f"
+                             -| "mine"
+                             -| "that"
+                             -| "is"
+                             -+ "this"
+                             -+ "long"]
                             (derive-hud))
         expected        (-> ["some"
                              "input"
@@ -352,39 +324,33 @@
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
-(deftest corrects-when-text-shrinks
-  (let [then             (-> [-x-
-                              "some"
-                              "input"
-                              "of"
-                              "mine"
-                              "that"
-                              "is|"
-                              -x-
-                              "this"
-                              "long"]
+(deftest corrects-text-shrinkage
+  (let [then             (-> [-| "some"
+                              -| "input"
+                              -| "of"
+                              -| "mine"
+                              -| "that"
+                              -| "is|"
+                              -+ "this"
+                              -+ "long"]
                              (derive-hud))
-        now1             (-> [-x-
-                              "some"
-                              "input"
-                              "of"
-                              "mine"
-                              "that|"
-                              ...
-                              -x-
-                              "this"
-                              "long"]
+        now1             (-> [-| "some"
+                              -| "input"
+                              -| "of"
+                              -| "mine"
+                              -| "that|"
+                              -|
+                              -+ "this"
+                              -+ "long"]
                              (derive-hud))
-        now2             (-> [-x-
-                              ...
-                              "input"
-                              "of"
-                              ...
-                              "that"
-                              "is|"
-                              -x-
-                              "this"
-                              "long"]
+        now2             (-> [-|
+                              -| "input"
+                              -| "of"
+                              -|
+                              -| "that"
+                              -| "is|"
+                              -+ "this"
+                              -+ "long"]
                              (derive-hud))
         expected1        (-> ["some"
                               "input"
@@ -422,3 +388,75 @@
     (is (= actual-voff2 expected-voff2))
     (is (= actual-view2 expected-view2))
     (is (= actual-cursor2 expected-cursor2))))
+
+(deftest corrects-text-growth-at-lower-view
+  (let [then            (-> [-| "some"
+                             -| "input"
+                             -| "of"
+                             -| "mine"
+                             -| "that"
+                             -| "is|"
+                             -+ "this"
+                             -+ "long"]
+                            (derive-hud))
+        now             (-> [-| "some"
+                             -| "input"
+                             -| "of"
+                             -| "mine"
+                             -| "that"
+                             -| "is|"
+                             "suddenly"
+                             -+ "this"
+                             -+ "long"]
+                            (derive-hud))
+        expected        (-> ["some"
+                             "input"
+                             "of"
+                             "mine"
+                             "that"
+                             "is|"]
+                            (i/from-tagged-strings))
+        actual-voff     (h/correct-between now then)
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+
+        expected-voff   3
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-voff expected-voff))
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
+
+(deftest corrects-text-growth-at-upper-view
+  (let [then            (-> [-| "|some"
+                             -| "input"
+                             -| "of"
+                             -| "mine"
+                             -| "that"
+                             -| "is"]
+                            (derive-hud))
+        now             (-> [""
+                             -| "|some"
+                             -| "input"
+                             -| "of"
+                             -| "mine"
+                             -| "that"
+                             -| "is"]
+                            (derive-hud))
+        expected        (-> [""
+                             "|some"
+                             "input"
+                             "of"
+                             "mine"
+                             "that"]
+                            (i/from-tagged-strings))
+        actual-voff     (h/correct-between now then)
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+
+        expected-voff   1
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-voff expected-voff))
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
