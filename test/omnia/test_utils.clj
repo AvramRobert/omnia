@@ -124,10 +124,6 @@
         (r/with-input-area input-seeker)
         (r/with-hud (h/hud hud-seeker view-size)))))
 
-(s/defn context-from :- Context
-  [text :- Seeker]
-  (-> {:text-area (gen/return text)} (gen-context) (one)))
-
 (def up e/move-up)
 (def down e/move-down)
 (def left e/move-left)

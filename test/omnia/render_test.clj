@@ -5,6 +5,7 @@
             [omnia.repl.hud :as h]
             [omnia.repl.text :as i]
             [omnia.repl.context :as c]
+            [omnia.repl.events :as e]
             [omnia.schema.syntax :as ct]
             [omnia.config.defaults :as d]
             [omnia.test-utils :refer :all]
@@ -361,9 +362,8 @@
 
 (deftest culled-single-line-partial-clean-up
   (let [context (-> ["|this is a context"]
-                    (i/from-tagged-strings)
-                    (context-from)
-                    (process [select-right select-right select-right select-left]))
+                    (derive-context)
+                    (process [e/select-right e/select-right e/select-right e/select-left]))
         expected (-> ["th⦇i⦈s is a context"] (i/from-tagged-strings))]
     (-> context
         (execute (fn [terminal _ context]
@@ -377,9 +377,8 @@
 
 (deftest culled-single-line-complete-clean-up
   (let [context (-> ["|This is a context"]
-                    (i/from-tagged-strings)
-                    (context-from)
-                    (process [right select-right select-right left]))
+                    (derive-context)
+                    (process [e/move-right e/select-right e/select-right e/move-left]))
         expected (-> ["T⦇hi⦈s is a context"]
                      (i/from-tagged-strings))]
     (-> context
@@ -395,9 +394,8 @@
 (deftest culled-multi-line-complete-clean-up
   (let [context (-> ["These |are"
                      "multiple lines"]
-                    (i/from-tagged-strings)
-                    (context-from)
-                    (process [select-down right]))
+                    (derive-context)
+                    (process [e/select-down e/move-right]))
         expected (-> ["These ⦇are"
                       "multip⦈le lines"]
                      (i/from-tagged-strings))]
@@ -414,9 +412,8 @@
 (deftest culled-multi-line-partial-clean-up
   (let [context (-> ["These |are"
                      "multiple lines"]
-                    (i/from-tagged-strings)
-                    (context-from)
-                    (process [select-down select-left]))
+                    (derive-context)
+                    (process [e/select-down e/select-left]))
         expected (-> ["These are"
                       "multi⦇p⦈le lines"]
                      (i/from-tagged-strings))]
