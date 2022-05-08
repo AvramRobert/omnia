@@ -155,10 +155,6 @@
                 (r/process default-config event)
                 (:context))) ctx events))
 
-(s/defn overview :- s/Int
-  [ctx :- Context]
-  (-> ctx (r/preview-hud) (h/view-offset)))
-
 (s/defn project-y :- s/Int
   [ctx :- Context]
   (let [view (r/preview-hud ctx)
@@ -362,15 +358,16 @@
                       :field-of-view  (if (zero? fov) (count (concat input persisted)) fov)
                       :view-offset    voff
                       :scroll-offset  soff}
-             [:input :---] (recur input view offset [] cs fov voff soff parsing)
-             [:input :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
-             [:view  :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
-             [:view  :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [:input :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [_      :-$]  (recur persisted view offset input cs fov voff (inc soff) parsing)
-             [:view   _]   (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
-             [:offset _]   (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
-             :else         (recur persisted view offset (conj input c) cs fov voff soff :input))))
+             [:input  :---] (recur input view offset [] cs fov voff soff parsing)
+             [:input  :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view   :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view   :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:input  :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:offset :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [_       :-$]  (recur persisted view offset input cs fov voff (inc soff) parsing)
+             [:view   _]    (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
+             [:offset _]    (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
+             :else          (recur persisted view offset (conj input c) cs fov voff soff :input))))
 
 (s/defn derive-context :- Context
   ([def :- ContextDefinition]

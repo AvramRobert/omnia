@@ -12,7 +12,7 @@
             [omnia.schema.text :refer [Seeker]]
             [omnia.repl.events :as e]))
 
-;; 0. Manipulation
+;; I. Manipulation
 
 (deftest replacing-main-hud-refreshes-preview
   (let [context    (-> ["existing input|"]
@@ -46,125 +46,6 @@
                      (:clipboard))
         expected (i/from-tagged-strings ["existing input"])]
     (is (= expected actual))))
-
-;; I. Calibrating
-
-(comment
-  {:prefilled-size 5
-   :view-size      27
-   :text-area      (gen-text-area-of 29)}
-  "Context params:
-      => cannot change: 14%
-
-         can change: 85%
-         can view: 79%
-         cannot view: 21%"
-
-  "2 hidden lines => 10 total : 8 viewable : 2 unviewable")
-
-(defn correct-under-insertion-top [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (should-be #(-> % (process [enter]) (overview) (= 1))
-                 #(-> % (process [enter enter]) (overview) (= 2)))))
-
-(defn correct-under-insertion-bottom [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up])
-      (at-view-bottom)
-      (process [enter enter enter enter])
-      (should-be #(= (overview %) 2))))
-
-(defn correct-under-insertion-end [ctx]
-  (-> ctx
-      (at-input-end)
-      (at-line-start)
-      (process [enter enter enter enter])
-      (should-be #(= (overview %) 0))))
-
-(defn correct-under-insertion-in-multi-line [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up down down down])
-      (should-be #(= (overview %) 2)
-                 #(-> % (process [enter]) (overview) (= 3))
-                 #(-> % (process [enter enter]) (overview) (= 4)))))
-
-(defn correct-under-multi-copied-insertion [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up])
-      (at-view-bottom)
-      (process [select-up select-up copy])
-      (should-be #(-> % (process [paste]) (overview) (= 4))
-                 #(-> % (process [down down paste]) (overview) (= 2)))))
-
-(defn correct-under-multi-selected-deletion [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up down down down select-up select-up delete-previous])
-      (should-be #(= (overview %) 0))))
-
-(defn correct-under-change-variance [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up down down down enter select-down select-down delete-previous])
-      (should-be #(= (overview %) 1)
-                 #(-> % (process [enter enter enter select-up select-up select-up delete-previous]) (overview) (= 1))
-                 #(-> % (process [select-down select-down delete-previous]) (overview) (= 0))
-                 #(-> % (process [select-up select-up delete-previous]) (overview) (= 0))
-                 #(-> % (process [enter select-up delete-previous]) (overview) (= 1)))))
-
-(defn correct-under-rebounded-deletion [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (process [up up select-down select-down select-down delete-previous])
-      (should-be #(= (overview %) 0))))
-
-
-(defn correct-under-hud-enlargement [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (should-be #(-> % (process [up up]) (resize-view-by 1) (overview) (= 1))
-                 #(-> % (process [up up]) (resize-view-by 2) (overview) (= 0))
-                 #(-> % (process [select-all delete-previous]) (resize-view-by 2) (overview) (= 0)))))
-
-(defn correct-under-hud-shrinking [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (should-be #(-> % (process [up up]) (resize-view-by -1) (overview) (= 3))
-                 #(-> % (process [up up]) (resize-view-by -2) (overview) (= 4))
-                 #(-> % (process [up up]) (resize-view-by -3) (overview) (= 5))
-                 #(-> % (process [select-all delete-previous]) (resize-view-by -3) (overview) (= 0)))))
-
-(defn correct-under-hud-size-variance [ctx]
-  (-> ctx
-      (at-main-view-start)
-      (should-be #(-> % (process [up up]) (resize-view-by 2) (resize-view-by -2) (overview) (= 2))
-                 #(-> % (process [up up]) (resize-view-by 2) (resize-view-by -1) (overview) (= 1))
-                 #(-> % (process [up up]) (resize-view-by -2) (resize-view-by 1) (overview) (= 3))
-                 #(-> % (process [up up]) (resize-view-by -4) (resize-view-by 2) (overview) (= 4)))))
-
-(defn calibrating [ctx]
-  (correct-under-multi-selected-deletion ctx)
-  (correct-under-change-variance ctx)
-  (correct-under-rebounded-deletion ctx)
-
-  (correct-under-insertion-top ctx)
-  (correct-under-insertion-bottom ctx)
-  (correct-under-insertion-end ctx)
-  (correct-under-insertion-in-multi-line ctx)
-  (correct-under-multi-copied-insertion ctx)
-  (correct-under-hud-enlargement ctx)
-  (correct-under-hud-shrinking ctx)
-  (correct-under-hud-size-variance ctx))
-
-(defspec calibrating-test 100
-  (for-all [tctx (gen-context {:prefilled-size 5
-                               :view-size      27
-                               :text-area      (gen-text-area-of 29)})]
-    (calibrating tctx)))
 
 ;; II. Scrolling
 
@@ -485,7 +366,7 @@
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
-;; IX. Highlighting
+;; VIII. Highlighting
 
 (deftest gc-same-line-selection
   (testing "Moving left"
@@ -709,7 +590,7 @@
         (is (= expected-high nil) "Highlights mismatch")
         (is (= expected-gc garbage) "Garbage mismatch")))))
 
-;; X. Parenthesis matching
+;; IX. Parenthesis matching
 
 (deftest matches-parentheses
   (let [context         (-> ["persisted"
