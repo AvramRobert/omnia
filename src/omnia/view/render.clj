@@ -16,14 +16,14 @@
             [omnia.schema.common :refer [Point Region]])
   (:import (omnia.view.terminal Terminal)))
 
-(s/def highlight-priority :- {HighlightType s/Int}
+(s/def highlighting-priority :- {HighlightInstructionType s/Int}
   {:selection    3
    :closed-paren 2
    :open-paren   1
    :manual       0})
 
-(s/defn additive-diff :- (s/maybe HighlightInfo)
-  [current :- HighlightInfo, former :- HighlightInfo]
+(s/defn additive-diff :- (s/maybe HighlightInstructionData)
+  [current :- HighlightInstructionData, former :- HighlightInstructionData]
   (let [{[xs ys]   :start
          [xe ye]   :end} (:region current)
         {[xs' ys'] :start
@@ -54,15 +54,15 @@
           (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
       :else current)))
 
-(s/defn prioritise :- [HighlightInfo]
-  [highlights :- Highlights]
-  (->> highlights (sort-by (comp highlight-priority key)) (map #(nth % 1))))
+(s/defn prioritise :- [HighlightInstructionData]
+  [instructions :- HighlightInstructions]
+  (->> instructions (sort-by (comp highlighting-priority key)) (map #(nth % 1))))
 
-(s/defn cull :- [HighlightInfo]
+(s/defn cull :- [HighlightInstructionData]
   "Diffs the `current` highlight against the `former` highlight.
   Returns only the diffed region from the `current` that doesn't overlap
   with anything in the `former`."
-  [ctx :- Context, current :- Highlights, former :- Highlights]
+  [ctx :- Context, current :- HighlightInstructions, former :- HighlightInstructions]
   (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
         previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
     (if (= preview-ov previous-ov)
@@ -108,7 +108,7 @@
 (s/defn print-highlight!
   [terminal  :- Terminal
    hud       :- Hud
-   highlight :- HighlightInfo]
+   highlight :- HighlightInstructionData]
   (let [selection (->> highlight (:region) (h/clip-selection hud))
         scheme    (->> highlight (:scheme))
         styles    (->> highlight (:styles))

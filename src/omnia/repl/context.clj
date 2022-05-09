@@ -7,7 +7,7 @@
             [omnia.schema.event :as e]
             [omnia.schema.context :refer :all]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.render :refer [Highlights HighlightInfo HighlightType RenderingStrategy]]
+            [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.nrepl :refer [NReplClient]]
@@ -95,11 +95,11 @@
   [ctx :- Context]
   (:nrepl ctx))
 
-(s/defn highlights :- Highlights
+(s/defn highlights :- HighlightInstructions
   [ctx :- Context]
   (:highlights ctx))
 
-(s/defn garbage :- Highlights
+(s/defn garbage :- HighlightInstructions
   [ctx :- Context]
   (:garbage ctx))
 
@@ -144,44 +144,44 @@
   (assoc-new ctx :garbage {}))
 
 (s/defn with-garbage :- Context
-  [ctx :- Context, highlights :- Highlights]
+  [ctx :- Context, highlights :- HighlightInstructions]
   (assoc ctx :garbage highlights))
 
 (s/defn with-highlight :- Context
   [ctx :- Context,
-   h-type :- HighlightType,
-   highlight :- HighlightInfo]
+   h-type :- HighlightInstructionType,
+   highlight :- HighlightInstructionData]
   (assoc-in ctx [:highlights h-type] highlight))
 
 (s/defn with-selection :- Context
-  [ctx :- Context, highlight :- HighlightInfo]
+  [ctx :- Context, highlight :- HighlightInstructionData]
   (with-highlight ctx :selection highlight))
 
 (s/defn with-parens :- Context
-  [ctx :- Context, open :- HighlightInfo, closed :- HighlightInfo]
+  [ctx :- Context, open :- HighlightInstructionData, closed :- HighlightInstructionData]
   (-> ctx
       (with-highlight :open-paren open)
       (with-highlight :closed-paren closed)))
 
-(s/defn make-manual :- HighlightInfo
+(s/defn make-manual :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:clean-up))
    :styles []})
 
-(s/defn make-selection :- HighlightInfo
+(s/defn make-selection :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:selection))
    :styles []})
 
-(s/defn make-paren :- HighlightInfo
+(s/defn make-paren :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:clean-up))
    :styles [:underline]})
 
-(s/defn make-garbage :- HighlightInfo
+(s/defn make-garbage :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:clean-up))

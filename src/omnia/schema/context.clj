@@ -17,8 +17,8 @@
    :suggestions   h/Hud
    :documentation h/Hud
    :signatures    h/Hud
-   :highlights    r/Highlights
-   :garbage       r/Highlights})
+   :highlights    r/HighlightInstructions
+   :garbage       r/HighlightInstructions})
 
 (s/def ProcessingStep
   {:status  (s/enum :continue :terminate)

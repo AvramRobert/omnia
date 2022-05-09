@@ -1,11 +1,6 @@
 CURRENT TASK:
 
 Global issues:
- - Rename Highlighting schemas. There's:
-    * omnia.schema.config/Highlighting - represents the Highlighting configuration
-    * omnia.schema.render/HighlightInfo - a block used to tell the rendering engine what to highlight
-    * omnia.schema.render/HighlightType - what sort of types the rendering engine knows how to highlight
-    * omnia.schema.render/Highlights - an association between a HighlightType and a HighlightInfo
 
 omnia.repl.text issues:
   - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`

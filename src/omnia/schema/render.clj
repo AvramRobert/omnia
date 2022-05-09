@@ -6,11 +6,11 @@
 (def RenderingStrategy
   (s/enum :diff :total :clear))
 
-(def HighlightInfo
+(def HighlightInstructionData
   {:region u/Region
    :scheme c/Highlighting
    :styles [x/Style]})
 
-(def HighlightType (s/enum :selection :open-paren :closed-paren :manual))
+(def HighlightInstructionType (s/enum :selection :open-paren :closed-paren :manual))
 
-(def Highlights {HighlightType HighlightInfo})
+(def HighlightInstructions {HighlightInstructionType HighlightInstructionData})

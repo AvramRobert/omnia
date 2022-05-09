@@ -11,7 +11,7 @@
             [omnia.config.defaults :refer [default-user-config default-user-highlighting]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.render :refer [HighlightInfo HighlightType]]
+            [omnia.schema.render :refer [HighlightInstructionData HighlightInstructionType]]
             [omnia.schema.terminal :refer [TerminalSpec]]
             [omnia.schema.text :refer [Text Line]]
             [omnia.schema.hud :refer [Hud]]
@@ -63,7 +63,7 @@
                 (r/process default-config event)
                 (:context))) ctx events))
 
-(s/defn highlight-from :- HighlightInfo
+(s/defn highlight-from :- HighlightInstructionData
   [region :- Region]
   {:region region
    :scheme default-user-highlighting
