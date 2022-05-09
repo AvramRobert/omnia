@@ -31,7 +31,7 @@
          (is))))
 
 (defn empty-completion [client]
-  (let [expected i/empty-seeker]
+  (let [expected i/empty-text]
     (->> "nonesense-this"
          (i/from-string)
          (r/complete! client)
@@ -53,7 +53,7 @@
          (is))))
 
 (defn missing-signature [client]
-  (let [expected i/empty-seeker
+  (let [expected i/empty-text
         client'  (->> "(def a 1)" (i/from-string) (r/evaluate! client))]
     (->> "a"
          (i/from-string)
@@ -63,7 +63,7 @@
          (is))))
 
 (defn empty-signature [client]
-  (let [expected i/empty-seeker]
+  (let [expected i/empty-text]
     (->> "nonesense-this"
          (i/from-string)
          (r/signature! client)
@@ -86,7 +86,7 @@
          (is))))
 
 (defn missing-docs [client]
-  (let [expected i/empty-seeker
+  (let [expected i/empty-text
         client'  (->> "(defn bla [x] x)" (i/from-string) (r/evaluate! client))]
     (->> "bla"
          (i/from-string)
@@ -96,7 +96,7 @@
          (is))))
 
 (defn empty-documentation [client]
-  (let [expected i/empty-seeker]
+  (let [expected i/empty-text]
     (->> "nonesense-this"
          (i/from-string)
          (r/docs! client)
@@ -111,18 +111,18 @@
 
 (defn value-evaluation [client]
   (let [result (->> ["(+ 1 1)"]
-                    (i/from-tagged-strings)
+                    (derive-text)
                     (r/evaluate! client)
                     (r/result))
-        expected (i/from-tagged-strings ["" "2" ""])]
+        expected (derive-text ["" "2" ""])]
     (is (= (:lines expected) (:lines result)))))
 
 (defn out-evaluation [client]
   (let [result   (->> ["(println (+ 1 1))"]
-                      (i/from-tagged-strings)
+                      (derive-text)
                       (r/evaluate! client)
                       (r/result))
-        expected (i/from-tagged-strings ["2" "" "nil" ""])]
+        expected (derive-text ["2" "" "nil" ""])]
     (is (= (:lines result) (:lines expected)))))
 
 (defn exception-evaluation [client]

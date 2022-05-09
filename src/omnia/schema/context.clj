@@ -13,7 +13,7 @@
    :previous-hud  h/Hud
    :persisted-hud h/Hud
    :preview-hud   h/Hud
-   :input-area    t/Seeker
+   :input-area    t/Text
    :suggestions   h/Hud
    :documentation h/Hud
    :signatures    h/Hud

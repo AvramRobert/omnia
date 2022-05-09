@@ -3,7 +3,7 @@
             [omnia.schema.text :as t]))
 
 (def Hud
-  {:text          t/Seeker
+  {:text          t/Text
    :field-of-view s/Int
    :scroll-offset s/Int
    :view-offset   s/Int})

@@ -1,9 +1,6 @@
 CURRENT TASK:
 
- - Rewrite tests using deftest and the more straightforward concept of `from-tagged-strings`. (context, text, render, nrepl)
-
 Global issues:
- - Chuck away most of the context helpers from `test-utils` after simplifying tests using `from-marked-text`.
  - Rename Highlighting schemas. There's:
     * omnia.schema.config/Highlighting - represents the Highlighting configuration
     * omnia.schema.render/HighlightInfo - a block used to tell the rendering engine what to highlight
@@ -11,8 +8,6 @@ Global issues:
     * omnia.schema.render/Highlights - an association between a HighlightType and a HighlightInfo
 
 omnia.repl.text issues:
-  - Rename `Seeker` to `Text`
-  - Move `from-tagged-strings` to `test-utils` (next to the new context function)
   - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
   - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
@@ -20,9 +15,9 @@ omnia.repl.text issues:
   - Patch chunk-delete, make it more efficient
   - rename region coordinates "from" and "until" instead of "start" "end"
   - debug-string should also display the selection and cursor
-  - the clipboard doesn't need to be a focken seeker, does it??!
+  - the clipboard doesn't need to be a focken text, does it??!
   - the history doesn't need to have a focken clipboard either, does it??
-    Comet to think of it, the history needn't be a seeker either -_-
+    Come to think of it, the history needn't be a text either -_-
   - Reverse parameter order?
 
 omnia.repl.syntax issues:

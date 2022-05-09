@@ -11,7 +11,7 @@
             [omnia.util.misc :refer [slurp-or-else]]
             [omnia.schema.nrepl :refer :all]
             [omnia.schema.common :refer [=> StringUUID StringBool]]
-            [omnia.schema.text :refer [Seeker]]))
+            [omnia.schema.text :refer [Text]]))
 
 (def handler
   (->> '[cider-nrepl/wrap-complete
@@ -20,7 +20,7 @@
        (map resolve)
        (apply nrepl-server/default-handler)))
 
-(s/defn read-history :- Seeker
+(s/defn read-history :- Text
   [path :- s/Str]
   (->> [""]
        (slurp-or-else path)
@@ -42,27 +42,27 @@
   ((:client repl) req))
 
 (s/defn make-eval-request :- EvalRequest
-  [seeker :- Seeker]
+  [text :- Text]
   {:op   :eval
-   :code (i/as-string seeker)})
+   :code (i/as-string text)})
 
 (s/defn make-complete-request :- InfoRequest
-  [seeker :- Seeker
+  [text :- Text
    ns :- s/Symbol]
   {:op     :complete
    :ns     ns
-   :symbol (-> seeker
+   :symbol (-> text
                (i/expand-select)
                (i/extract)
                (i/as-string)
                (trim-newline))})
 
 (s/defn make-info-request :- InfoRequest
-  [seeker :- Seeker
+  [text :- Text
    ns :- s/Symbol]
   {:op     :info
    :ns     ns
-   :symbol (-> seeker
+   :symbol (-> text
                (i/expand-select)
                (i/extract)
                (i/as-string)
@@ -70,16 +70,16 @@
 
 (s/defn with-result :- NReplClient
   [repl   :- NReplClient
-   result :- Seeker]
+   result :- Text]
   (assoc repl :result result))
 
 (s/defn remember :- NReplClient
   [repl :- NReplClient
-   seeker :- Seeker]
-  (if (or (i/equivalent? seeker i/empty-seeker)
-          (i/equivalent? seeker i/empty-line))
+   text :- Text]
+  (if (or (i/equivalent? text i/empty-text)
+          (i/equivalent? text i/empty-line))
     repl
-    (update repl :history #(conj % seeker))))
+    (update repl :history #(conj % text))))
 
 (s/defn reset-timeline :- NReplClient
   [repl :- NReplClient]
@@ -95,19 +95,19 @@
   (let [max (-> repl (:history) (count))]
     (update repl :timeline #(inc< % max))))
 
-(s/defn then :- Seeker
+(s/defn then :- Text
   [repl :- NReplClient]
-  (nth (:history repl) (:timeline repl) i/empty-seeker))
+  (nth (:history repl) (:timeline repl) i/empty-text))
 
-(s/defn result :- Seeker
+(s/defn result :- Text
   [repl :- NReplClient]
   (:result repl))
 
 (s/defn complete! :- NReplClient
   [repl :- NReplClient
-   seeker :- Seeker]
+   text :- Text]
   (let [result (->> (:ns repl)
-                    (make-complete-request seeker)
+                    (make-complete-request text)
                     (send! repl)
                     (first)
                     (:completions)
@@ -129,33 +129,33 @@
 
 (s/defn evaluate! :- NReplClient
   [repl   :- NReplClient
-   seeker :- Seeker]
-  (let [result (->> (make-eval-request seeker)
+   text :- Text]
+  (let [result (->> (make-eval-request text)
                     (send! repl)
                     (reduce accrete-response "")
                     (i/from-string)
                     (i/end)
                     (i/new-line))]
     (-> repl
-        (remember seeker)
+        (remember text)
         (with-result result)
         (reset-timeline))))
 
 (s/defn info! :- (s/maybe NReplResponse)
   [repl   :- NReplClient
-   seeker :- Seeker]
-  (let [result      (->> (:ns repl) (make-info-request seeker) (send! repl) (first))
+   text :- Text]
+  (let [result      (->> (:ns repl) (make-info-request text) (send! repl) (first))
         [_ no-info] (:status result)]
     (when (nil? no-info) result)))
 
 (s/defn docs! :- NReplClient
   [repl   :- NReplClient
-   seeker :- Seeker]
-  (let [result (or (some-> repl (info! seeker) (:doc) (i/from-string))
-                   i/empty-seeker)]
+   text :- Text]
+  (let [result (or (some-> repl (info! text) (:doc) (i/from-string))
+                   i/empty-text)]
     (-> repl (with-result result) (reset-timeline))))
 
-(s/defn make-candidates :- (s/maybe [Seeker])
+(s/defn make-candidates :- (s/maybe [Text])
   [response :- NReplResponse]
   (let [name      (:name response)
         ns        (:ns response)
@@ -164,9 +164,9 @@
 
 (s/defn signature! :- NReplClient
   [repl :- NReplClient
-   seeker :- Seeker]
-  (let [result (or (some-> repl (info! seeker) (make-candidates) (i/joined))
-                   i/empty-seeker)]
+   text :- Text]
+  (let [result (or (some-> repl (info! text) (make-candidates) (i/joined))
+                   i/empty-text)]
     (-> repl (with-result result) (reset-timeline))))
 
 (s/defn start-server!
@@ -201,4 +201,4 @@
      :client   (or client (connect config))
      :history  history
      :timeline (count history)
-     :result   i/empty-seeker}))
+     :result   i/empty-text}))

@@ -6,14 +6,14 @@
 
 (def Expansion (s/enum :word :expr))
 
-(def Seeker
+(def Text
   {:lines     [Line]
    ;; position in text, the cursor is placed at the index where a character can be input
    :cursor    u/Point
    :size      s/Int
    :expansion Expansion
-   :history   [(s/recursive #'Seeker)]
-   :rhistory  [(s/recursive #'Seeker)]
+   :history   [(s/recursive #'Text)]
+   :rhistory  [(s/recursive #'Text)]
    ;; range of text selected. Inclusive start and exclusive in end
    :selection (s/maybe u/Region)
-   :clipboard (s/maybe (s/recursive #'Seeker))})
+   :clipboard (s/maybe (s/recursive #'Text))})

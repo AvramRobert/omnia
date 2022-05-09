@@ -112,11 +112,11 @@
   (let [selection (->> highlight (:region) (h/clip-selection hud))
         scheme    (->> highlight (:scheme))
         styles    (->> highlight (:styles))
-        seeker    (h/text hud)
+        text    (h/text hud)
         [xs ys]   (:start selection)
         [xe ye]   (:end selection)]
     (doseq [y (range ys (inc ye))]
-      (let [line  (i/line-at seeker y)
+      (let [line  (i/line-at text y)
             xs    (if (= y ys) xs 0)
             xe    (if (= y ye) xe (count line))
             y'    (h/project-y hud y)]

@@ -9,7 +9,7 @@
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [Highlights HighlightInfo HighlightType RenderingStrategy]]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.text :refer [Seeker]]
+            [omnia.schema.text :refer [Text]]
             [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.common :refer [=> Region]]
             [omnia.util.collection :refer [map-vals assoc-new]]
@@ -22,7 +22,7 @@
 (def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
 (defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 
-(s/defn header :- [Seeker]
+(s/defn header :- [Text]
   [host :- s/Int
    port :- s/Int]
   (let [repl-info (nrepl-info host port)]
@@ -71,7 +71,7 @@
   [ctx :- Context]
   (:previous-hud ctx))
 
-(s/defn input-area :- Seeker
+(s/defn input-area :- Text
   [ctx :- Context]
   (:input-area ctx))
 
@@ -187,7 +187,7 @@
    :scheme (-> config (:syntax) (:clean-up))
    :styles []})
 
-(s/defn with-input-area [ctx :- Context, input :- Seeker] :- Context
+(s/defn with-input-area [ctx :- Context, input :- Text] :- Context
   (let [clipboard (or (:clipboard input)
                       (-> ctx (input-area) (:clipboard)))
         new-text  (assoc input :clipboard clipboard)]
@@ -341,13 +341,13 @@
    f   :- (=> NReplClient NReplClient)]
   (let [clipboard   (-> ctx (input-area) (:clipboard))
         then-server (-> ctx (nrepl-client) (f))
-        then-seeker (-> then-server
+        then-text (-> then-server
                         (r/then)
                         (i/end)
                         (i/reset-clipboard clipboard))]
     (-> ctx
         (with-client then-server)
-        (with-input-area then-seeker)
+        (with-input-area then-text)
         (refresh))))
 
 (s/defn prev-eval :- Context
@@ -441,7 +441,7 @@
 
 (s/defn reformat :- Context
   [ctx :- Context]
-  (let [formatted (-> ctx (input-area) (f/format-seeker))]
+  (let [formatted (-> ctx (input-area) (f/format-text))]
     (-> ctx (with-input-area formatted) (refresh))))
 
 (s/defn inject :- Context
@@ -453,7 +453,7 @@
 
 (s/defn input :- Context
   [ctx  :- Context
-   f    :- (=> Seeker Seeker)]
+   f    :- (=> Text Text)]
   (let [new-input (-> ctx (input-area) (f))]
     (-> ctx (with-input-area new-input) (refresh))))
 

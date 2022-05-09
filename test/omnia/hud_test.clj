@@ -63,7 +63,7 @@
         expected        (-> ["beginning"
                              "some"
                              "text|"]
-                            (i/from-tagged-strings))
+                            (derive-text))
         actual-view     (-> hud (h/project-hud) (:lines))
         actual-cursor   (-> hud (h/project-hud) (:cursor))
         expected-view   (:lines expected)
@@ -78,7 +78,7 @@
                             (derive-hud))
         expected        (-> ["some"
                              "t|ext"]
-                            (i/from-tagged-strings))
+                            (derive-text))
         actual-view     (-> hud (h/project-hud) (:lines))
         actual-cursor   (-> hud (h/project-hud) (:cursor))
         expected-view   (:lines expected)
@@ -94,7 +94,7 @@
                             (derive-hud))
         expected        (-> ["so|me"
                              "text"]
-                            (i/from-tagged-strings))
+                            (derive-text))
         actual-view     (-> hud (h/project-hud) (:lines))
         actual-cursor   (-> hud (h/project-hud) (:cursor))
         expected-view   (:lines expected)
@@ -110,7 +110,7 @@
                             (derive-hud))
         expected        (-> ["|some"
                              "text"]
-                            (i/from-tagged-strings))
+                            (derive-text))
         actual-view     (-> hud (h/project-hud) (:lines))
         actual-cursor   (-> hud (h/project-hud) (:cursor))
         expected-view   (:lines expected)
@@ -127,7 +127,7 @@
                             (derive-hud))
         expected        (-> ["begi|nning"
                              "some"]
-                            (i/from-tagged-strings))
+                            (derive-text))
         actual-view     (-> hud (h/project-hud) (:lines))
         actual-cursor   (-> hud (h/project-hud) (:cursor))
         expected-view   (:lines expected)
@@ -142,7 +142,7 @@
                          (derive-hud))
         expected     (-> ["⦇piece of"
                           "text⦈"]
-                         (i/from-tagged-strings))
+                         (derive-text))
         actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
         expected-sel (:selection expected)]
     (is (= actual-sel expected-sel))))
@@ -154,7 +154,7 @@
                          (derive-hud))
         expected     (-> ["⦇some"
                           "piece of⦈"]
-                         (i/from-tagged-strings))
+                         (derive-text))
         actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
         expected-sel (:selection expected)]
     (is (= actual-sel expected-sel))))
@@ -166,7 +166,7 @@
                          (derive-hud))
         expected     (-> ["⦇some"
                           "piece of⦈"]
-                         (i/from-tagged-strings))
+                         (derive-text))
         actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
         expected-sel (:selection expected)]
     (is (= actual-sel expected-sel))))
@@ -174,7 +174,7 @@
 (deftest supports-pop-up-windows
   (let [hud               (-> ["1"] (derive-hud))
         window            (-> ["a" "b" "c"]
-                              (i/from-tagged-strings)
+                              (derive-text)
                               (h/riffle-window 2))
         expected1         (-> ["1"
                                "------"
@@ -236,7 +236,7 @@
 
 (deftest supports-correction-in-pop-up-windows
   (let [window              (-> ["a" "b" "c"]
-                                (i/from-tagged-strings)
+                                (derive-text)
                                 (h/riffle-window 2))
         hud1                (-> [-| "current"
                                  -| "text|"

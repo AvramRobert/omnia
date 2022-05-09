@@ -118,14 +118,14 @@
    :host     s/Str
    :port     s/Int
    :client   InternalClient
-   :history  [t/Seeker]
+   :history  [t/Text]
    :timeline s/Int
-   :result   t/Seeker})
+   :result   t/Text})
 
 (def REPLConfig
   {:host                     s/Str
    :port                     s/Int
    (s/optional-key :client)  InternalClient
    (s/optional-key :ns)      s/Symbol
-   (s/optional-key :history) [t/Seeker]
+   (s/optional-key :history) [t/Text]
    (s/optional-key :timeout) s/Int})

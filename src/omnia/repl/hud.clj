@@ -6,7 +6,7 @@
             [omnia.util.misc :refer [omnia-version]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.common :refer [Point Region]]
-            [omnia.schema.text :refer [Seeker Line]]
+            [omnia.schema.text :refer [Text Line]]
             [omnia.schema.nrepl :refer [NReplClient]]))
 
 (def continuation (t/from-string "..."))
@@ -28,16 +28,16 @@
 
    scroll-offset:
       * when scrolling, how many lines have been scrolled"
-  [seeker :- Seeker
+  [text :- Text
    fov    :- s/Int]
-  {:text        seeker
+  {:text        text
    :field-of-view fov
    :view-offset   0
    :scroll-offset 0})
 
 (s/defn hud-of :- Hud
   [fov :- s/Int]
-  (hud t/empty-seeker fov))
+  (hud t/empty-text fov))
 
 (s/def empty-hud :- Hud
   (hud-of 0))
@@ -54,7 +54,7 @@
   [hud :- Hud]
   (:scroll-offset hud))
 
-(s/defn text :- Seeker
+(s/defn text :- Text
   [hud :- Hud]
   (:text hud))
 
@@ -127,9 +127,9 @@
         y-end          (++ y-start fov)]
     (bounded-subvec (:lines text) y-start y-end)))
 
-(s/defn project-hud :- Seeker
+(s/defn project-hud :- Text
   [hud :- Hud]
-  (-> hud (project-hud-text) (t/seeker) (t/reset-to (project-hud-cursor hud))))
+  (-> hud (project-hud-text) (t/create-text) (t/reset-to (project-hud-cursor hud))))
 
 (s/defn clip-selection :- Region
   [hud :- Hud
@@ -207,13 +207,13 @@
    (assoc hud :view-offset (correct-between hud previous-hud))))
 
 (s/defn enrich-with :- Hud
-  [hud :- Hud, seekers :- [Seeker]]
-  (update hud :text #(apply t/join-many % seekers)))
+  [hud :- Hud, texts :- [Text]]
+  (update hud :text #(apply t/join-many % texts)))
 
 (s/defn riffle-window :- Hud
-  [seeker :- Seeker
+  [text :- Text
    size :- s/Int]
-  (let [content (->> seeker (t/start) (t/end-x))]
+  (let [content (->> text (t/start) (t/end-x))]
     (-> (hud-of size) (enrich-with [content]) (corrected))))
 
 (s/defn riffle [hud :- Hud] :- Hud
@@ -262,7 +262,7 @@
   [hud :- Hud, size :- s/Int]
   (assoc hud :field-of-view size :scroll-offset 0))
 
-(s/defn paginate :- Seeker
+(s/defn paginate :- Text
   [hud :- Hud]
   (let [truncated? (-> hud (view-offset) (zero?) (not))
         extend    #(if truncated? (t/append % continuation) %)]

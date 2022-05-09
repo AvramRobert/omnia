@@ -43,8 +43,8 @@
               line  = '\n'
               <text>  = #'[^()\\[\\]\\{\\}\\n]*'"))
 
-(defn spaces [seeker]
-  (->> (i/current-line seeker)
+(defn spaces [text]
+  (->> (i/current-line text)
        (take-while i/space?)
        (count)))
 
@@ -59,9 +59,9 @@
         (i/move-x #(-> % (+ form-indent) (- real-indent)))
         (assoc :clipboard clipboard))))
 
-(defn deform [seeker]
-  (let [cursor-onset (spaces seeker)]
-    (-> seeker
+(defn deform [text]
+  (let [cursor-onset (spaces text)]
+    (-> text
         (i/rebase (fn [lines]
                     (mapv #(->> % (drop-while i/space?) (vec)) lines)))
         (i/move-x #(-- % cursor-onset)))))
@@ -112,8 +112,8 @@
                (fmt-edn %)
                (fmt-lisp %))))
 
-(defn format-seeker [seeker]
-  (fmt seeker
+(defn format-text [text]
+  (fmt text
        #(let [original (deform %)]
           (->> (i/as-string original)
                (fmt-lisp)

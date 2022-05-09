@@ -286,3 +286,53 @@
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= prev-off pers-off 0))))))
+
+(deftest reads-text-from-lines
+  (->> [{:input  ["123"]
+         :expect {:lines     [[\1 \2 \3]]
+                  :cursor    [0 0]
+                  :selection nil}}
+        {:input  ["1" "2|"]
+         :expect {:lines     [[\1] [\2]]
+                  :cursor    [1 1]
+                  :selection nil}}
+
+        {:input  ["1|" "2"]
+         :expect {:lines     [[\1] [\2]]
+                  :cursor    [1 0]
+                  :selection nil}}
+
+        {:input  ["123" ""]
+         :expect {:lines     [[\1 \2 \3] []]
+                  :cursor    [0 0]
+                  :selection nil}}
+
+        {:input  ["12" "" "3|2" "4"]
+         :expect {:lines     [[\1 \2] [] [\3 \2] [\4]]
+                  :cursor    [1 2]
+                  :selection nil}}
+
+        {:input  ["1⦇2⦈|3"]
+         :expect {:lines     [[\1 \2 \3]]
+                  :cursor    [2 0]
+                  :selection {:start [1 0] :end [2 0]}}}
+
+        {:input  ["1⦇23" "⦈|45"]
+         :expect {:lines     [[\1 \2 \3] [\4 \5]]
+                  :cursor    [0 1]
+                  :selection {:start [1 0] :end [0 1]}}}
+
+        {:input  ["123⦇" "⦈|45"]
+         :expect {:lines     [[\1 \2 \3] [\4 \5]]
+                  :cursor    [0 1]
+                  :selection {:start [3 0] :end [0 1]}}}
+
+        {:input  ["1⦇23" "⦈|"]
+         :expect {:lines     [[\1 \2 \3] []]
+                  :cursor    [0 1]
+                  :selection {:start [1 0] :end [0 1]}}}]
+       (run! (fn [{:keys [input expect]}]
+               (let [text (derive-text input)]
+                 (is (= (:lines text) (:lines expect)))
+                 (is (= (:cursor text) (:cursor expect)))
+                 (is (= (:selection text) (:selection expect))))))))

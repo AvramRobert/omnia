@@ -6,14 +6,14 @@
             [clojure.test :refer [is deftest testing]]
             [omnia.test-utils :refer :all]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.text :refer [Seeker]]))
+            [omnia.schema.text :refer [Text]]))
 
 ;; I. Manipulation
 
 (deftest replacing-main-hud-refreshes-preview
   (let [context    (-> ["existing input|"]
                        (derive-context))
-        enrichment (i/from-tagged-strings ["some input|"])
+        enrichment (derive-text ["some input|"])
         actual     (-> context
                        (r/with-hud (-> context
                                        (r/persisted-hud)
@@ -31,7 +31,7 @@
                      (process [e/select-all e/copy (e/character \a) e/select-all e/copy])
                      (r/input-area)
                      (:clipboard))
-        expected (i/from-tagged-strings ["existing inputa"])]
+        expected (derive-text ["existing inputa"])]
     (is (= expected actual))))
 
 (deftest clipboard-is-propagated
@@ -40,7 +40,7 @@
                      (process [e/select-all e/copy (e/character \a) (e/character \b)])
                      (r/input-area)
                      (:clipboard))
-        expected (i/from-tagged-strings ["existing input"])]
+        expected (derive-text ["existing input"])]
     (is (= expected actual))))
 
 ;; II. Scrolling

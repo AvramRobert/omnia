@@ -9,7 +9,7 @@
             [omnia.view.render :refer :all]
             [clojure.test :refer [deftest is]]
             [omnia.util.collection :refer [map-vals]]
-            [omnia.schema.text :refer [Seeker]]
+            [omnia.schema.text :refer [Text]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.config :refer [Config]]
@@ -50,14 +50,14 @@
 (def cleanup-background (get d/default-colours ct/default))
 
 (s/defn selected-chars :- [Character]
-  [text :- Seeker]
+  [text :- Text]
   (->> text
        (i/extract)
        (:lines)
        (mapcat identity)))
 
 (s/defn selected-cursors :- [Point]
-  [text :- Seeker]
+  [text :- Text]
   (letfn [(index [lines]
             (map-indexed
               (fn [y line]
@@ -83,7 +83,7 @@
                         (process [e/jump-select-right e/delete-previous]))
         expected    (-> ["some"
                          "⦇small     ⦈"]
-                        (i/from-tagged-strings))
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
@@ -124,7 +124,7 @@
                         (process [e/select-up e/delete-previous]))
         expected    (-> ["⦇text     "
                          "limit⦈"]
-                        (i/from-tagged-strings))
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
@@ -165,7 +165,7 @@
                         (derive-context)
                         (process [e/select-right]))
         expected    (-> ["some"
-                         "te⦇x⦈t"] (i/from-tagged-strings))
+                         "te⦇x⦈t"] (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
@@ -188,10 +188,10 @@
                            (process [e/move-left]))
         expected-left  (-> ["⦇(⦈some)"
                             "text"]
-                           (i/from-tagged-strings))
+                           (derive-text))
         expected-right (-> ["(some⦇)⦈"
                             "text"]
-                           (i/from-tagged-strings))
+                           (derive-text))
         exp-cursors    (concat (selected-cursors expected-left)
                                (selected-cursors expected-right))
         exp-chars      (concat (selected-chars expected-left)
@@ -218,7 +218,7 @@
                         (process [e/move-left]))
         expected    (-> ["⦇(⦈some"
                          "piece"]
-                        (i/from-tagged-strings))
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)
         exp-style   [:underline]]
@@ -241,7 +241,7 @@
                          -| "|this is a context"]
                         (derive-context)
                         (process [e/select-right e/select-right e/select-right e/select-left]))
-        expected    (-> ["th⦇i⦈s is a context"] (i/from-tagged-strings))
+        expected    (-> ["th⦇i⦈s is a context"] (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
@@ -261,7 +261,7 @@
                         (derive-context)
                         (process [e/move-right e/select-right e/select-right e/move-left]))
         expected    (-> ["T⦇hi⦈s is a context"]
-                        (i/from-tagged-strings))
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
@@ -283,7 +283,7 @@
                         (process [e/select-down e/select-left]))
         expected    (-> ["These are"
                          "multi⦇p⦈le lines"]
-                        (i/from-tagged-strings))
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
@@ -305,7 +305,7 @@
                         (process [e/select-down e/move-right]))
         expected    (-> ["These ⦇are"
                          "multip⦈le lines"]
-                        (i/from-tagged-strings))
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> context
