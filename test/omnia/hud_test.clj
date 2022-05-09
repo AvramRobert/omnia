@@ -4,6 +4,173 @@
             [omnia.repl.text :as i]
             [omnia.repl.hud :as h]))
 
+; extract (clip-sel (select-all (hud))) == project-hud (hud)
+(deftest total-selection-law
+  (is true))
+
+; project-sel (select (hud)) = map project-cursor (select (hud))
+(deftest distributive-projection-law
+  (is true))
+
+; extract (select (hud)) `contains` extract (project-hud (hud)) (project-sel (select (hud))
+(deftest containment-projection-law
+  (is true))
+
+(deftest projects-y-coordinate
+  (let [hud        (-> ["beginning"
+                        -| "some"
+                        -| "t|ext"]
+                       (derive-hud))
+        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+        expected-y 1]
+    (is (= expected-y actual-y))))
+
+(deftest projects-offset-y-coordinate
+  (let [hud        (-> [-| "beginning"
+                        -| "so|me"
+                        -+ "text"]
+                       (derive-hud))
+        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+        expected-y 1]
+    (is (= expected-y actual-y))))
+
+(deftest projects-scrolled-y-coordinate
+  (let [hud        (-> [ "beginning"
+                        -|
+                        -| "so|me"
+                        -$ "text"]
+                       (derive-hud))
+        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+        expected-y 0]
+    (is (= expected-y actual-y))))
+
+(deftest projects-scrolled-and-offset-y-coordinate
+  (let [hud        (-> ["beginning"
+                        -|
+                        -+ "so|me"
+                        -+ "text"
+                        -$ "entry"]
+                       (derive-hud))
+        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+        expected-y 0]
+    (is (= expected-y actual-y))))
+
+(deftest projects-entire-hud
+  (let [hud             (-> [-| "beginning"
+                             -| "some"
+                             -| "text|"]
+                            (derive-hud))
+        expected        (-> ["beginning"
+                             "some"
+                             "text|"]
+                            (i/from-tagged-strings))
+        actual-view     (-> hud (h/project-hud) (:lines))
+        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
+
+(deftest projects-field-of-view
+  (let [hud             (-> ["beginning"
+                             -| "some"
+                             -| "t|ext"]
+                            (derive-hud))
+        expected        (-> ["some"
+                             "t|ext"]
+                            (i/from-tagged-strings))
+        actual-view     (-> hud (h/project-hud) (:lines))
+        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
+
+(deftest projects-offset-field-of-view
+  (let [hud             (-> ["beginning"
+                             -| "so|me"
+                             -| "text"
+                             -+ "somewhere"]
+                            (derive-hud))
+        expected        (-> ["so|me"
+                             "text"]
+                            (i/from-tagged-strings))
+        actual-view     (-> hud (h/project-hud) (:lines))
+        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
+
+(deftest projects-scrolled-field-of-view
+  (let [hud             (-> ["beginning"
+                             -| "some"
+                             -| "|text"
+                             -$ "somewhere"]
+                            (derive-hud))
+        expected        (-> ["|some"
+                             "text"]
+                            (i/from-tagged-strings))
+        actual-view     (-> hud (h/project-hud) (:lines))
+        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
+
+(deftest projects-scrolled-and-offset-field-of-view
+  (let [hud             (-> ["beginning"
+                             -| "some|"
+                             -|
+                             -+ "text"
+                             -$ "somewhere"]
+                            (derive-hud))
+        expected        (-> ["begi|nning"
+                             "some"]
+                            (i/from-tagged-strings))
+        actual-view     (-> hud (h/project-hud) (:lines))
+        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        expected-view   (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-view expected-view))
+    (is (= actual-cursor expected-cursor))))
+
+(deftest projects-total-selections
+  (let [hud          (-> ["some"
+                          -| "⦇piece of"
+                          -| "text⦈"]
+                         (derive-hud))
+        expected     (-> ["⦇piece of"
+                          "text⦈"]
+                         (i/from-tagged-strings))
+        actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
+        expected-sel (:selection expected)]
+    (is (= actual-sel expected-sel))))
+
+(deftest projects-offset-total-selections
+  (let [hud          (-> [-| "⦇some"
+                          -| "piece of⦈"
+                          -+ "text"]
+                         (derive-hud))
+        expected     (-> ["⦇some"
+                          "piece of⦈"]
+                         (i/from-tagged-strings))
+        actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
+        expected-sel (:selection expected)]
+    (is (= actual-sel expected-sel))))
+
+(deftest projects-offset-partial-selections
+  (let [hud          (-> [-| "⦇some"
+                          -| "piece of"
+                          -+ "text⦈"]
+                         (derive-hud))
+        expected     (-> ["⦇some"
+                          "piece of⦈"]
+                         (i/from-tagged-strings))
+        actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
+        expected-sel (:selection expected)]
+    (is (= actual-sel expected-sel))))
+
 (deftest supports-pop-up-windows
   (let [hud               (-> ["1"] (derive-hud))
         window            (-> ["a" "b" "c"]

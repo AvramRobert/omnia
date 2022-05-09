@@ -1,8 +1,7 @@
 (ns omnia.text-test
-  (:require [clojure.test :refer [deftest is testing]]
-            [omnia.repl.text :as i]
+  (:require [omnia.repl.text :as i]
+            [clojure.test :refer [deftest is testing]]
             [omnia.util.debug :refer [time-return]]
-            [omnia.util.generator :refer [one many]]
             [omnia.util.collection :refer [run-indexed!]]
             [omnia.test-utils :refer :all]))
 
@@ -2090,7 +2089,8 @@
         (let [actual    (-> ["hel⦇lo"
                              "⦈|world"]
                             (i/from-tagged-strings)
-                            (i/select-left) (i/select-left))
+                            (i/select-left)
+                            (i/select-left))
               expected  (-> ["hel⦇l⦈|o"
                              "world"]
                             (i/from-tagged-strings))

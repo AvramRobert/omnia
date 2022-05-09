@@ -8,9 +8,7 @@
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
             [clojure.set :refer [map-invert]]
-            [omnia.util.generator :refer [do-gen
-                                          one
-                                          gen-user-keymap
+            [omnia.util.generator :refer [gen-user-keymap
                                           gen-user-terminal
                                           gen-user-highlighting
                                           gen-user-key-binding]]

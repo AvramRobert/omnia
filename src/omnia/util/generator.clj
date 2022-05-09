@@ -10,12 +10,6 @@
       (fn [expr [bn# bb#]]
         `(gen/bind ~bb# (fn [~bn#] ~expr))) `(gen/fmap (fn [~n#] ~@body) ~b#) bound)))
 
-(defn one [generator] (rand-nth (gen/sample generator)))
-
-(defn many
-  ([generator] (many generator (rand-int 100)))
-  ([generator n] (vec (repeatedly n #(one generator)))))
-
 (def gen-rgb
   (gen/vector (gen/choose 0 255) 3))
 

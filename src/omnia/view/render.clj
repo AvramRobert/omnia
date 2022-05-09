@@ -173,8 +173,8 @@
   [terminal :- Terminal
    config   :- Config
    ctx      :- Context]
-  (let [now      (-> ctx (c/preview-hud) (h/project-view))
-        then     (-> ctx (c/previous-hud) (h/project-view))
+  (let [now      (-> ctx (c/preview-hud) (h/project-hud-text))
+        then     (-> ctx (c/previous-hud) (h/project-hud-text))
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
@@ -191,8 +191,8 @@
    ctx      :- Context]
   (let [preview  (c/preview-hud ctx)
         previous (c/previous-hud ctx)
-        now      (h/project-view preview)
-        then     (h/project-view previous)
+        now      (h/project-hud-text preview)
+        then     (h/project-hud-text previous)
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (h/view-offset preview) (h/view-offset previous))

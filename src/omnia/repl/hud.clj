@@ -116,7 +116,7 @@
   [hud :- Hud]
   (project-cursor hud (-> hud (text) (:cursor))))
 
-(s/defn project-view :- [Line]
+(s/defn project-hud-text :- [Line]
   [hud :- Hud]
   (let [text           (text hud)
         fov            (field-of-view hud)
@@ -129,7 +129,7 @@
 
 (s/defn project-hud :- Seeker
   [hud :- Hud]
-  (-> hud (project-view) (t/seeker) (t/reset-to (project-hud-cursor hud))))
+  (-> hud (project-hud-text) (t/seeker) (t/reset-to (project-hud-cursor hud))))
 
 (s/defn clip-selection :- Region
   [hud :- Hud

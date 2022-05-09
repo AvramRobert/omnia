@@ -1,16 +1,12 @@
 (ns omnia.context-test
-  (:require [schema.core :as s]
-            [omnia.repl.hud :as h]
+  (:require [omnia.repl.hud :as h]
             [omnia.repl.context :as r]
             [omnia.repl.text :as i]
+            [omnia.repl.events :as e]
             [clojure.test :refer [is deftest testing]]
-            [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.test.check.properties :refer [for-all]]
-            [omnia.util.generator :refer [one]]
             [omnia.test-utils :refer :all]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.text :refer [Seeker]]
-            [omnia.repl.events :as e]))
+            [omnia.schema.text :refer [Seeker]]))
 
 ;; I. Manipulation
 
@@ -372,7 +368,7 @@
   (testing "Moving left"
     (let [result     (-> ["This| is a line"]
                          (derive-context)
-                         (process [select-left select-left select-right]))
+                         (process [e/select-left e/select-left e/select-right]))
           highlights (-> ["Thi⦇s⦈ is a line"]
                          (derive-context)
                          (r/highlights)
@@ -391,7 +387,7 @@
   (testing "Moving right"
     (let [result     (-> ["|This is a line"]
                          (derive-context)
-                         (process [select-right select-right select-left]))
+                         (process [e/select-right e/select-right e/select-left]))
           highlights (-> ["⦇T⦈his is a line"]
                          (derive-context)
                          (r/highlights)
@@ -413,7 +409,7 @@
                              "a |large"
                              "context"]
                             (derive-context)
-                            (process [select-all select-up select-up]))
+                            (process [e/select-all e/select-up e/select-up]))
           highlights    (-> ["⦇This is⦈"
                              "a large"
                              "context"]
@@ -438,7 +434,7 @@
                              "a |large"
                              "context"]
                             (derive-context)
-                            (process [select-all select-up select-up select-left]))
+                            (process [e/select-all e/select-up e/select-up e/select-left]))
           highlights    (-> ["⦇This i⦈s"
                              "a large"
                              "context"]
@@ -463,7 +459,7 @@
                              "a |large"
                              "context"]
                             (derive-context)
-                            (process [select-all select-up select-up select-right]))
+                            (process [e/select-all e/select-up e/select-up e/select-right]))
           highlights    (-> ["⦇This is"
                              "⦈a large"
                              "context"]
@@ -488,7 +484,7 @@
                              "a |large"
                              "context"]
                             (derive-context)
-                            (process [select-all select-up select-up select-down]))
+                            (process [e/select-all e/select-up e/select-up e/select-down]))
           highlights    (-> ["⦇This is"
                              "a large⦈"
                              "context"]
@@ -513,7 +509,7 @@
                              "a |large"
                              "context"]
                             (derive-context)
-                            (process [select-all select-up select-up select-down select-left]))
+                            (process [e/select-all e/select-up e/select-up e/select-down e/select-left]))
           highlights    (-> ["⦇This is"
                              "a larg⦈e"
                              "context"]
@@ -538,7 +534,7 @@
                              "a |large"
                              "context"]
                             (derive-context)
-                            (process [select-all select-up select-up select-down select-right]))
+                            (process [e/select-all e/select-up e/select-up e/select-down e/select-right]))
           highlights    (-> ["⦇This is"
                              "a large"
                              "⦈context"]
@@ -563,7 +559,7 @@
     (let [result        (-> ["Some |context"
                              "with lines"]
                             (derive-context)
-                            (process [select-all right]))
+                            (process [e/select-all e/move-right]))
           garbage       (-> ["⦇Some context"
                              "with lines⦈"]
                             (derive-context)
@@ -579,7 +575,7 @@
     (testing "Multiple lines"
       (let [result        (-> ["Some |context"]
                               (derive-context)
-                              (process [select-right select-right right]))
+                              (process [e/select-right e/select-right e/move-right]))
             garbage       (-> ["Some ⦇co⦈ntext"]
                               (derive-context)
                               (r/highlights)

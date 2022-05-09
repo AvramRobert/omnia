@@ -77,7 +77,7 @@
                            (gen-key-binding-from))]
       (let [screen (terminal-screen-with {:read-input [(t/to-key-stroke binding)]})]
         (is (= e/ignore (t/impl-get-input-event! screen context-strokes text-events)))))))
-/
+
 (defspec put-char NR-OF-TESTS
   (for-all [char  gen/char-alphanumeric
             fg    gen-rgb
