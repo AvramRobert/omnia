@@ -2219,7 +2219,7 @@
 (deftest joins
   (let [text1     (-> ["hel|lo" "world"] (derive-text) (i/select-right))
         text2     (-> ["n|ew" "lines"] (derive-text) (i/select-right))
-        conjoined (i/join-many text1 text2)
+        conjoined (i/join text1 text2)
         text      (:lines conjoined)
         cursor    (:cursor conjoined)
         selection (:selection conjoined)]

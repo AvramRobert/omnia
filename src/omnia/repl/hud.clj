@@ -206,7 +206,7 @@
 
 (s/defn enrich-with :- Hud
   [hud :- Hud, texts :- [Text]]
-  (update hud :text #(apply t/join-many % texts)))
+  (update hud :text #(apply t/join % texts)))
 
 (s/defn riffle-window :- Hud
   [text :- Text
@@ -276,6 +276,6 @@
         ph        (:size text)
         top       (-> text (t/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> text (t/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (assoc hud :text (-> (t/join-many top delimiter paginated)
+    (assoc hud :text (-> (t/join top delimiter paginated)
                          (t/end-x)
                          (t/append delimiter bottom)))))

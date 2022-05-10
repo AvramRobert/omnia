@@ -355,29 +355,29 @@
    f    :- (=> Text Text)]
   "Algorithm for figuring out new region.
    Given
-      Cc = current cursor
-      Cd = displaced cursor
+      Cc = current cursor (:cursor text)
+      Cd = displaced cursor (:cursor (f text))
 
-   If no selection already present:
-      Ck = Cc
-      Move to c)
+   I. If no selection already present:
+          Ck = Cc
+          Move to II
 
-   Else:
-    let
+      Else:
+      let
         Cs = region start cursor
         Ce = region end cursor
 
-    a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
-       The coordinate (Cm) closest to the current cursor (Cc) is the one move:
+        a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
+           The coordinate (Cm) closest to the current cursor (Cc) is the one move:
 
-         Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
+              Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
 
-    b. Determine which coordinate hasn't moved.
-       The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
+        b. Determine which coordinate hasn't moved.
+           The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
 
-         Ck = {Cs, Ce} - Cr
+             Ck = {Cs, Ce} - Cr
 
-    c. Determine new region area.
+   II. Determine new region area.
        Sort the remainder coordinate (Ck) and the displaced coordinate (Cd) ascendingly.
        The lower coordinate becomes start and the other the end. Equality implies a cancelled out-region:
 
@@ -436,21 +436,17 @@
       (reduce text texts)))
 
 (s/defn join :- Text
-  [this-text :- Text
-   that-text :- Text]
-  (let [ths       (:size this-text)
-        move      (fn [[x y]] [x (+ y ths)])
-        cursor    (:cursor that-text)
-        selection (:selection that-text)]
-    (-> (append this-text that-text)
-        (reset-to (move cursor))
-        (reset-selection (when-let [{start :start end :end} selection]
-                           {:start (move start)
-                            :end   (move end)})))))
-
-(s/defn join-many :- Text
   [text :- Text, & texts :- [Text]]
-  (reduce join text texts))
+  (reduce (fn [this that]
+            (let [ths       (:size this)
+                  move      (fn [[x y]] [x (+ y ths)])
+                  cursor    (:cursor that)
+                  selection (:selection that)]
+              (-> (append this that)
+                  (reset-to (move cursor))
+                  (reset-selection (when-let [{start :start end :end} selection]
+                                     {:start (move start)
+                                      :end   (move end)}))))) text texts))
 
 (s/defn joined :- Text
   [texts :- [Text]]
