@@ -19,7 +19,7 @@
        (reduce [from seed] coll)
        (nth 1))))
 
-(defn dissoc-idx [idx vector]
+(defn dissoc-nth [vector idx]
   (vec (concat (take idx vector) (drop (inc idx) vector))))
 
 (defn run-indexed! [f coll]

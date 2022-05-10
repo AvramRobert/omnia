@@ -57,15 +57,16 @@
 
 (s/defn selected-cursors :- [Point]
   [text :- Text]
-  (letfn [(index [lines]
-            (map-indexed
-              (fn [y line]
-                (map-indexed
-                  (fn [x _] [x y]) line)) lines))]
-    (->> (i/rebase text index)
-         (i/extract)
-         (:lines)
-         (mapcat identity))))
+  (->> text
+       (:lines)
+       (map-indexed
+         (fn [y line]
+           (map-indexed
+             (fn [x _] [x y]) line)))
+       (i/reset-lines text)
+       (i/extract)
+       (:lines)
+       (mapcat identity)))
 
 (s/defn inspect
   [state :- RenderedElements p]

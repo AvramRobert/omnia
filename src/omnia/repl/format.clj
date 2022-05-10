@@ -55,15 +55,15 @@
         form-indent (-> formatted (assoc :cursor (:cursor original)) (spaces))
         real-indent (spaces original)]
     (-> original
-        (i/rebase (fn [_] (:lines formatted)))
+        (i/reset-lines (:lines formatted))
         (i/move-x #(-> % (+ form-indent) (- real-indent)))
         (assoc :clipboard clipboard))))
 
 (defn deform [text]
-  (let [cursor-onset (spaces text)]
+  (let [cursor-onset (spaces text)
+        lines        (:lines text)]
     (-> text
-        (i/rebase (fn [lines]
-                    (mapv #(->> % (drop-while i/space?) (vec)) lines)))
+        (i/reset-lines (mapv #(->> % (drop-while i/space?) (vec)) lines))
         (i/move-x #(-- % cursor-onset)))))
 
 (defn edn-document

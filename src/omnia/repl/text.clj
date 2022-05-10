@@ -5,7 +5,7 @@
             [clojure.set :refer [union map-invert]]
             [omnia.schema.text :refer [Text Line Expansion]]
             [omnia.schema.common :refer [=> Point Region Pair]]
-            [omnia.util.collection :refer [do-until dissoc-idx]]))
+            [omnia.util.collection :refer [do-until dissoc-nth]]))
 
 (def empty-text
   {:lines     []
@@ -23,16 +23,20 @@
                           (set (keys open-pairs))
                           (set (keys closed-pairs))))
 
-(s/defn resize :- Text
-  [text :- Text]
-  (assoc text :size (-> text :lines count)))
-
 (s/defn create-text :- Text
   ([lines :- [Line]]
    (create-text lines [0 0]))
   ([lines :- [Line]
     cursor :- Point]
-   (-> empty-text (assoc :lines (vec lines) :cursor cursor) (resize))))
+   (let [lines (vec lines)]
+     {:lines     lines
+      :cursor    cursor
+      :size      (count lines)
+      :expansion :word
+      :clipboard nil
+      :selection nil
+      :history   '()
+      :rhistory  '()})))
 
 (s/def empty-line :- Text
   (create-text [[]]))
@@ -55,13 +59,40 @@
                   (drop-while #(not= % \newline))
                   (drop 1))))))
 
+(s/defn reset-lines :- Text
+  [text :- Text
+   lines :- [Line]]
+  (let [lines (vec lines)]
+    (assoc text :lines lines :size (count lines))))
+
+(s/defn reset-expansion :- Text
+  [text :- Text
+   scope :- Expansion]
+  (assoc text :expansion scope))
+
+(s/defn reset-selection :- Text
+  [text :- Text
+   region :- (s/maybe Region)]
+  (assoc text :selection region))
+
+(s/defn reset-clipboard :- Text
+  [text :- Text
+   content :- (s/maybe Text)]
+  (assoc text :clipboard content))
+
+(s/defn reset-history :- Text
+  [text :- Text
+   undo-history :- [Text]
+   redo-history :- [Text]]
+  (assoc text :history undo-history :rhistory redo-history))
+
+(s/defn selecting? :- s/Bool
+  [text :- Text]
+  (-> text :selection some?))
+
 (s/defn space? :- s/Bool
   [character :- Character]
   (= \space character))
-
-(s/defn rebase :- Text
-  [text :- Text f]
-  (-> text (update :lines (comp vec f)) (resize)))
 
 (s/defn line-at :- Line
   [text :- Text, y :- s/Int]
@@ -86,12 +117,11 @@
    `f` is expected to return valid `lines` of text.
    These then replace the initial lines on the text."
   [text :- Text
-   f :- (=> [Line] [Line] [Line])]
-  (let [[_ y] (:cursor text)]
-    (rebase text #(->> (split-at y %)
-                       (mapv vec)
-                       (apply f)
-                       (mapv vec)))))
+   f    :- (=> [Line] [Line] [Line])]
+  (let [[_ y] (:cursor text)
+        [l r] (split-at y (:lines text))
+        lines (concat (f (vec l) (vec r)))]
+    (reset-lines text lines)))
 
 (s/defn split :- Text
   "Looks at the line where the cursor is currently placed.
@@ -103,7 +133,7 @@
    These then replace the one line on which `f` was applied and get merged with the rest."
   [text :- Text
    f :- (=> Line Line [Line])]
-  (let [[x _] (:cursor text)]
+  (let [[x y] (:cursor text)]
     (peer text (fn [l [line & r]]
                  (let [lines (->> line (split-at x) (mapv vec) (apply f))]
                    (concat l lines r))))))
@@ -116,10 +146,11 @@
     - return `nil` which deletes the current one"
   [text :- Text
    f :- (=> Line (s/maybe Line))]
-  (let [[_ y] (:cursor text)]
+  (let [[_ y] (:cursor text)
+        lines (:lines text)]
     (if-let [line' (f (current-line text))]
-      (rebase text #(assoc % y (vec line')))
-      (rebase text #(dissoc-idx y %)))))
+      (reset-lines text (assoc lines y (vec line')))
+      (reset-lines text (dissoc-nth lines y)))))
 
 (s/defn slice :- Text
   "Looks at the line where the cursor is currently placed.
@@ -131,7 +162,12 @@
    This then replaces the line on which `f` was applied."
   [text :- Text
    f :- (=> Line Line Line)]
-  (split text (fn [l r] [(f l r)])))
+  (let [[x y] (:cursor text)
+        lines (:lines text)
+        line  (line-at text y)
+        [l r] (split-at x line)
+        line' (f (vec l) (vec r))]
+    (reset-lines text (assoc lines y line'))))
 
 (s/defn slicel :- Text
   [text :- Text
@@ -302,31 +338,6 @@
   [text :- Text]
   (jump text do-move-right current-char))
 
-(s/defn reset-expansion :- Text
-  [text :- Text
-   scope :- Expansion]
-  (assoc text :expansion scope))
-
-(s/defn selecting? :- s/Bool
-  [text :- Text]
-  (-> text :selection some?))
-
-(s/defn reset-selection :- Text
-  [text :- Text
-   region :- (s/maybe Region)]
-  (assoc text :selection region))
-
-(s/defn reset-clipboard :- Text
-  [text :- Text
-   content :- (s/maybe Text)]
-  (assoc text :clipboard content))
-
-(s/defn reset-history :- Text
-  [text :- Text
-   undo-history :- [Text]
-   redo-history :- [Text]]
-  (assoc text :history undo-history :rhistory redo-history))
-
 (s/defn distance :- s/Int
   "Amount of characters between two points in the text space."
   [[xs ys] :- Point
@@ -426,7 +437,7 @@
 (s/defn append :- Text
   [text :- Text, & texts :- [Text]]
   (-> (fn [this that]
-        (rebase this #(concat % (:lines that))))
+        (reset-lines text (concat (:lines this) (:lines that))))
       (reduce text texts)))
 
 (s/defn join :- Text
@@ -566,11 +577,11 @@
   [text :- Text]
   (when (selecting? text)
     (let [[xs ys] (-> text (:selection) (:start))
-          [xe ye] (-> text (:selection) (:end))]
+          [xe ye] (-> text (:selection) (:end))
+          lines   (-> text (:lines))]
       (-> text
+          (reset-lines (->> lines (take (inc ye)) (drop ys)))
           (reset-selection nil)
-          (rebase (fn [lines]
-                    (->> lines (take (inc ye)) (drop ys))))
           (end)
           (switch (fn [line] (take xe line)))
           (start)
@@ -781,8 +792,9 @@
 (s/defn indent :- Text
   [text :- Text
    amount :- s/Int]
-  (let [padding (repeat amount \space)]
-    (rebase text (fn [lines] (mapv #(vec (concat padding %)) lines)))))
+  (let [padding (repeat amount \space)
+        lines   (->> text (:lines) (mapv #(vec (concat padding %))))]
+    (reset-lines text lines)))
 
 (s/defn equivalent? :- s/Bool
   [this :- Text

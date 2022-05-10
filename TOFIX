@@ -3,8 +3,6 @@ CURRENT TASK:
 Global issues:
 
 omnia.repl.text issues:
-  - Don't use rebase
-  - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
   - Patch chunk-delete, make it more efficient
   - rename region coordinates "from" and "until" instead of "start" "end"
@@ -12,6 +10,7 @@ omnia.repl.text issues:
   - the clipboard doesn't need to be a focken text, does it??!
   - the history doesn't need to have a focken clipboard either, does it??
     Come to think of it, the history needn't be a text either -_-
+  - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Reverse parameter order?
 
 omnia.repl.syntax issues:
