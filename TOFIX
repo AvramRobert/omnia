@@ -3,6 +3,7 @@ CURRENT TASK:
 Global issues:
 
 omnia.repl.text issues:
+  - Don't use rebase
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
   - Patch chunk-delete, make it more efficient

@@ -108,18 +108,12 @@
                  (let [lines (->> line (split-at x) (mapv vec) (apply f))]
                    (concat l lines r))))))
 
-(s/defn enrich :- Text
-  "Looks at the current line. Applies a function `f` on it
-  that should return more than one line."
-  [text :- Text
-   f :- (=> Line [Line])]
-  (split text (fn [l r] (f (vec (concat l r))))))
-
 (s/defn switch :- Text
   "Looks at the line where the cursor is currently.
   Applies a function `f` on that line.
-  `f` is expected to return a new line of text and
-  replaces the one line on which it was applied."
+  `f` can:
+    - return a new line (replaces the old one)
+    - return `nil` which deletes the current one"
   [text :- Text
    f :- (=> Line (s/maybe Line))]
   (let [[_ y] (:cursor text)]
@@ -578,7 +572,7 @@
           (rebase (fn [lines]
                     (->> lines (take (inc ye)) (drop ys))))
           (end)
-          (enrich (fn [line] [(take xe line)]))
+          (switch (fn [line] (take xe line)))
           (start)
           (switch (fn [line]
                     (let [entire-line?        (= xs (count line))
