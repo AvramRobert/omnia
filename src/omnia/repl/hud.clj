@@ -1,13 +1,11 @@
 (ns omnia.repl.hud
   (:require [schema.core :as s]
             [omnia.repl.text :as t]
-            [omnia.util.arithmetic :refer [++ -- mod* inc< dec<]]
+            [omnia.util.arithmetic :refer [++ -- mod*]]
             [omnia.util.collection :refer [bounded-subvec assoc-new]]
-            [omnia.util.misc :refer [omnia-version]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.common :refer [Point Region]]
-            [omnia.schema.text :refer [Text Line]]
-            [omnia.schema.nrepl :refer [NReplClient]]))
+            [omnia.schema.text :refer [Text Line]]))
 
 (def continuation (t/from-string "..."))
 (def delimiter (t/from-string "------"))

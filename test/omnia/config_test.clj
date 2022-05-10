@@ -7,12 +7,10 @@
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [clojure.set :refer [map-invert]]
             [omnia.util.generator :refer [gen-user-keymap
                                           gen-user-terminal
                                           gen-user-highlighting
                                           gen-user-key-binding]]
-            [omnia.util.collection :refer [map-vals]]
             [omnia.schema.config :refer [KeyMap Highlighting Terminal]]))
 
 (def ^:const NR-OF-TESTS 100)

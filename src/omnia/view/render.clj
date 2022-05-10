@@ -5,15 +5,14 @@
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
             [omnia.repl.syntax :as st]
-            [omnia.util.collection :refer [merge-common-with map-vals reduce-idx]]
-            [omnia.schema.render :refer :all]
+            [omnia.util.collection :refer [merge-common-with reduce-idx]]
+            [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
+            [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.text :refer [Line]]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.config :refer [Config]]
-            [omnia.schema.common :refer [Point Region]])
+            [omnia.schema.config :refer [Config]])
   (:import (omnia.view.terminal Terminal)))
 
 (s/def highlighting-priority :- {HighlightInstructionType s/Int}

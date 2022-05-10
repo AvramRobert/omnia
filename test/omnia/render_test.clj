@@ -10,10 +10,9 @@
             [clojure.test :refer [deftest is]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.common :refer [Point Region =>]]
+            [omnia.schema.common :refer [Point =>]]
             [omnia.view.terminal :as t])
   (:import (clojure.lang Atom)))
 

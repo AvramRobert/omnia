@@ -1,12 +1,9 @@
 (ns omnia.context-test
   (:require [omnia.repl.hud :as h]
             [omnia.repl.context :as r]
-            [omnia.repl.text :as i]
             [omnia.repl.events :as e]
             [clojure.test :refer [is deftest testing]]
-            [omnia.test-utils :refer :all]
-            [omnia.schema.context :refer [Context]]
-            [omnia.schema.text :refer [Text]]))
+            [omnia.test-utils :refer :all]))
 
 ;; I. Manipulation
 

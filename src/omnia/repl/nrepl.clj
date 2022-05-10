@@ -5,12 +5,10 @@
             [nrepl.server :as nrepl-server]
             [nrepl.core :as nrepl-core]
             [cider.nrepl :as cider-nrepl]
-            [clojure.string :refer [split-lines trim-newline join]]
-            [halfling.task :refer [task]]
+            [clojure.string :refer [split-lines trim-newline]]
             [omnia.util.arithmetic :refer [dec< inc<]]
             [omnia.util.misc :refer [slurp-or-else]]
             [omnia.schema.nrepl :refer :all]
-            [omnia.schema.common :refer [=> StringUUID StringBool]]
             [omnia.schema.text :refer [Text]]))
 
 (def handler

@@ -4,9 +4,7 @@
             [omnia.schema.syntax :as st]
             [omnia.schema.config :as c]
             [omnia.schema.keymap :as k]
-            [clojure.set :refer [map-invert]]
             [omnia.repl.events :refer [character event ignore]]
-            [omnia.util.collection :refer [map-vals]]
             [omnia.util.misc :refer [omnia-version]])
   (:import (com.googlecode.lanterna SGR TerminalPosition TextCharacter TextColor TextColor$RGB)
            (com.googlecode.lanterna.terminal DefaultTerminalFactory TerminalResizeListener)

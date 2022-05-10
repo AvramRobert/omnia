@@ -1,8 +1,7 @@
 (ns omnia.repl.syntax
   (:require [schema.core :as s]
             [omnia.schema.common :refer [=>]]
-            [omnia.schema.syntax :as t]
-            [clojure.set :refer [intersection]]))
+            [omnia.schema.syntax :as t]))
 
 (def ^:private ^:const  open-list-node :open-list)
 (def ^:private ^:const  closed-list-node :close-list)

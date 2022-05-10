@@ -11,12 +11,12 @@
             [omnia.config.defaults :refer [default-user-config default-user-highlighting]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.render :refer [HighlightInstructionData HighlightInstructionType]]
+            [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [TerminalSpec]]
             [omnia.schema.text :refer [Text Line]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.event :refer [Event]]
-            [omnia.schema.common :refer [Point Region]]
+            [omnia.schema.common :refer [Region]]
             [omnia.schema.nrepl :refer [ValueResponse CompletionResponse NReplClient NReplResponse]])
   (:import (java.util UUID)))
 

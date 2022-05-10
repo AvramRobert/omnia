@@ -8,7 +8,7 @@
 
 (def Text
   {:lines     [Line]
-   ;; position in text, the cursor is placed at the index where a character can be input
+   ;; position in text. The cursor is placed at the index where a character can be input
    :cursor    u/Point
    :size      s/Int
    :expansion Expansion

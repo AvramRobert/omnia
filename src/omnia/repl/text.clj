@@ -5,7 +5,7 @@
             [clojure.set :refer [union map-invert]]
             [omnia.schema.text :refer [Text Line Expansion]]
             [omnia.schema.common :refer [=> Point Region Pair]]
-            [omnia.util.collection :refer [do-until reduce-idx dissoc-idx]]))
+            [omnia.util.collection :refer [do-until dissoc-idx]]))
 
 (def empty-text
   {:lines     []

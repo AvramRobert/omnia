@@ -1,7 +1,6 @@
 (ns omnia.hud-test
   (:require [clojure.test :refer :all]
             [omnia.test-utils :refer :all]
-            [omnia.repl.text :as i]
             [omnia.repl.hud :as h]))
 
 ; extract (clip-sel (select-all (hud))) == project-hud (hud)

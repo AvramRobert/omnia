@@ -1,6 +1,5 @@
 (ns omnia.config.defaults
   (:require [schema.core :as s]
-            [omnia.util.collection :refer [map-vals]]
             [omnia.schema.config :as c]
             [omnia.schema.event :as e]
             [omnia.schema.syntax :as t]))

@@ -1,6 +1,5 @@
 (ns omnia.syntax-test
   (:require [clojure.test :refer [deftest is]]
-            [clojure.string :refer [split]]
             [clojure.set :refer [difference]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.repl.syntax :as h]

@@ -5,7 +5,7 @@
             [omnia.repl.text :as i]
             [omnia.repl.format :as f]
             [omnia.schema.event :as e]
-            [omnia.schema.context :refer :all]
+            [omnia.schema.context :refer [Context ProcessingStep]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
             [omnia.schema.hud :refer [Hud]]
