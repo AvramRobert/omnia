@@ -3,7 +3,6 @@ CURRENT TASK:
 Global issues:
 
 omnia.repl.text issues:
-  - Remove `initial-region`, merge with `adjust-against`, move implementation to `select-with`
   - Remove adjoin and join. adjoin is not append and is variable arity. Make join the same.
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y

@@ -350,62 +350,54 @@
       (> ys ye) (chars-between [xe ye] [xs ys])
       :else (chars-between [xs ys] [xe ye]))))
 
-(s/defn adjust-against :- (s/maybe Region)
+(s/defn select-with :- Text
+  [text :- Text
+   f    :- (=> Text Text)]
   "Algorithm for figuring out new region.
    Given
       Cc = current cursor
       Cd = displaced cursor
-      Cs = region start cursor
-      Ce = region end cursor
 
-   a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
-      The coordinate (Cm) closest to the current cursor (Cc) is the one move:
+   If no selection already present:
+      Ck = Cc
+      Move to c)
 
-        Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
+   Else:
+    let
+        Cs = region start cursor
+        Ce = region end cursor
 
-   b. Determine which coordinate hasn't moved.
-      The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
+    a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
+       The coordinate (Cm) closest to the current cursor (Cc) is the one move:
 
-        Ck = {Cs, Ce} - Cr
+         Cm = min (abs (distance (Cs, Cc)), abs(distance (Ce, Cc)))
 
-   c. Determine new region area.
-      Sort the remainder coordinate (Ck) and the displaced coordinate (Cd) ascendingly.
-      The lower coordinate becomes start and the other the end. Equality implies a cancelled out-region:
+    b. Determine which coordinate hasn't moved.
+       The remainder coordinate (Ck) after subtracting the moved coordinate (Cm) from the region coordinate set:
 
-        { start, end } = sort (Cd, Ck) { nil, iff start = end
-                                       { {start, end}, iff start =/ end"
-  ; FIXME: Merge this with `initial-region` and put in `select-with`
-  [text :- Text
-   displaced :- Text]
-  (let [Cc (:cursor text)
-        Cd (:cursor displaced)
-        Cs (-> text (:selection) (:start))
-        Ce (-> text (:selection) (:end))
-        Cm (min-key #(distance % Cc text) Cs Ce)
-        Ck (if (= Cm Cs) Ce Cs)
-        [start end] (sort-by (juxt second first) [Cd Ck])]
-    (if (= start end)
-      nil
-      {:start start :end end})))
+         Ck = {Cs, Ce} - Cr
 
-(s/defn initial-region :- (s/maybe Region)
-  [text :- Text
-   displaced :- Text]
-  (let [Cc (:cursor text)
-        Cd (:cursor displaced)
-        [start end] (sort-by (juxt second first) [Cc Cd])]
-    (if (= start end)
-      nil
-      {:start start
-       :end   end})))
+    c. Determine new region area.
+       Sort the remainder coordinate (Ck) and the displaced coordinate (Cd) ascendingly.
+       The lower coordinate becomes start and the other the end. Equality implies a cancelled out-region:
 
-(s/defn select-with :- Text
-  [text :- Text
-   f :- (=> Text Text)]
-  (let [text' (f text)]
-    (if (selecting? text)
-      (reset-selection text' (adjust-against text text'))
-      (reset-selection text' (initial-region text text')))))
+         { start, end } = sort (Cd, Ck) { nil, iff start = end
+                                        { {start, end}, iff start =/ end"
+  (let [text'     (f text)
+        Cc        (:cursor text)
+        Cd        (:cursor text')
+        Ck        (if (selecting? text)
+                    (let [Cs (-> text (:selection) (:start))
+                          Ce (-> text (:selection) (:end))
+                          Cm (min-key #(distance % Cc text) Cs Ce)]
+                      (if (= Cm Cs) Ce Cs))
+                    Cc)
+        [start end] (sort-by (juxt second first) [Cd Ck])
+        selection (if (= start end)
+                    nil
+                    {:start start
+                     :end   end})]
+    (reset-selection text' selection)))
 
 (s/defn select-right :- Text
   [text :- Text]
