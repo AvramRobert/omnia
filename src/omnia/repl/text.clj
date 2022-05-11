@@ -519,19 +519,19 @@
 (s/defn do-delete-previous :- Text
   [text :- Text]
   (cond
-    (selecting? text) (chunk-delete text)
-    (pair? text) (pair-delete text)
+    (selecting? text)                    (chunk-delete text)
+    (pair? text)                         (pair-delete text)
     (paired-tokens (previous-char text)) (do-move-left text)
-    :else (simple-delete text)))
+    :else                                (simple-delete text)))
 
 (s/defn do-delete-current :- Text
   [text :- Text]
   (cond
-    (selecting? text) (chunk-delete text)
-    (pair? text) (-> text (pair-delete) (do-move-left))
-    (paired-tokens (current-char text)) text
-    (at-end? text) text
-    :else (-> text (do-move-right) (simple-delete))))
+    (selecting? text)                   (chunk-delete text)
+    (pair? text)                        (pair-delete text)
+    (paired-tokens (current-char text)) (do-move-right text)
+    (at-end? text)                      text
+    :else                               (-> text (do-move-right) (simple-delete))))
 
 (s/defn simple-insert :- Text
   [text :- Text

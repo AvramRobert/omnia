@@ -565,31 +565,49 @@
           [\{ \}]
           [\" \"]]
          (run! (fn [[l r]]
-                 (let [text            (derive-text [(str l "|" r)])
-                       previous        (i/delete-previous text)
-                       previous-lines  (:lines previous)
-                       previous-cursor (:cursor previous)
-                       current         (i/delete-current text)
-                       current-lines   (:lines current)
-                       current-cursor  (:cursor current)]
-                   (is (= previous-lines current-lines [[]]))
-                   (is (= previous-cursor current-cursor [0 0])))))))
+                 (let [text1           (-> [(str "text" l "|" r "here")]
+                                           (derive-text)
+                                           (i/delete-previous))
+                       text2           (-> [(str "text" l "|" r "here")]
+                                           (derive-text)
+                                           (i/delete-current))
+                       expected        (-> ["text|here"]
+                                           (derive-text))
+                       actual-lines1   (:lines text1)
+                       actual-cursor1  (:cursor text1)
+                       actual-lines2   (:lines text2)
+                       actual-cursor2  (:cursor text2)
+                       expected-lines  (:lines expected)
+                       expected-cursor (:cursor expected)]
+                   (is (= actual-lines1 actual-lines2 expected-lines))
+                   (is (= actual-cursor1 actual-cursor2 expected-cursor)))))))
 
   (testing "Does not delete orphaned pairs"
     (->> [\( \) \{ \} \[ \] \"]
          (run! (fn [orphan]
-                 (let [previous        (-> [(str orphan "|")]
-                                           (derive-text)
-                                           (i/delete-previous))
-                       current         (-> [(str "|" orphan)]
-                                           (derive-text)
-                                           (i/delete-current))
-                       previous-lines  (:lines previous)
-                       previous-cursor (:cursor previous)
-                       current-lines   (:lines current)
-                       current-cursor  (:cursor current)]
-                   (is (= previous-lines current-lines [[orphan]]))
-                   (is (= previous-cursor current-cursor [0 0]))))))))
+                 (let [text1            (-> [(str orphan "|")]
+                                            (derive-text)
+                                            (i/delete-previous))
+                       text2            (-> [(str "|" orphan)]
+                                            (derive-text)
+                                            (i/delete-current))
+                       expected1        (-> [(str "|" orphan)]
+                                            (derive-text))
+                       expected2        (-> [(str orphan "|")]
+                                            (derive-text))
+                       actual-lines1    (:lines text1)
+                       actual-cursor1   (:cursor text1)
+                       actual-lines2    (:lines text2)
+                       actual-cursor2   (:cursor text2)
+                       expected-lines1  (:lines expected1)
+                       expected-cursor1 (:cursor expected1)
+                       expected-lines2  (:lines expected2)
+                       expected-cursor2 (:cursor expected2)]
+                   (is (= actual-lines1 expected-lines1))
+                   (is (= actual-cursor1 expected-cursor1))
+
+                   (is (= actual-lines2 expected-lines2))
+                   (is (= actual-cursor2 expected-cursor2))))))))
 
 (deftest deletes-selections
   (testing "Deletes selection by means of deleting previous character"
