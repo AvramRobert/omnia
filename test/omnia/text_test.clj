@@ -498,65 +498,91 @@
 
 (deftest deletes-previous-character
   (testing "Deletes previous character within a line"
-    (let [text   (-> ["hell|o"]
-                     (derive-text)
-                     (i/delete-previous))
-          lines  (:lines text)
-          cursor (:cursor text)]
-      (is (= lines [[\h \e \l \o]]))
-      (is (= cursor [3 0]))))
+    (let [text            (-> ["hell|o"]
+                              (derive-text)
+                              (i/delete-previous))
+          expected        (-> ["hel|o"]
+                              (derive-text))
+          actual-lines    (:lines text)
+          actual-cursor   (:cursor text)
+          expected-lines  (:lines expected)
+          expected-cursor (:cursor expected)]
+      (is (= actual-lines expected-lines))
+      (is (= actual-cursor expected-cursor))))
 
   (testing "Deletes previous characters over multiple lines"
-    (let [text   (-> ["hello"
-                      "w|orld"]
-                     (derive-text)
-                     (i/delete-previous)
-                     (i/delete-previous)
-                     (i/delete-previous))
-          lines  (:lines text)
-          cursor (:cursor text)]
-      (is (= lines [[\h \e \l \l \o \r \l \d]]))
-      (is (= cursor [4 0]))))
+    (let [text            (-> ["hello"
+                               "w|orld"]
+                              (derive-text)
+                              (i/delete-previous)
+                              (i/delete-previous)
+                              (i/delete-previous))
+          expected        (-> ["hell|orld"]
+                              (derive-text))
+          actual-lines    (:lines text)
+          actual-cursor   (:cursor text)
+          expected-lines  (:lines expected)
+          expected-cursor (:cursor expected)]
+      (is (= actual-lines expected-lines))
+      (is (= actual-cursor expected-cursor))))
 
   (testing "Stops deleting previous character when a bound is reached"
-    (let [text   (-> ["|hello"]
-                     (derive-text)
-                     (i/delete-previous))
-          lines  (:lines text)
-          cursor (:cursor text)]
-      (is (= lines [[\h \e \l \l \o]]))
-      (is (= cursor [0 0])))))
+    (let [text            (-> ["|hello"
+                               "world"]
+                              (derive-text))
+          processed       (-> text
+                              (i/delete-previous)
+                              (i/delete-previous))
+          actual-lines    (:lines processed)
+          actual-cursor   (:cursor processed)
+          expected-lines  (:lines text)
+          expected-cursor (:cursor text)]
+      (is (= actual-lines expected-lines))
+      (is (= actual-cursor expected-cursor)))))
 
 (deftest deletes-current-character
   (testing "Deletes current character within a line"
-    (let [text   (-> ["hell|o"]
-                     (derive-text)
-                     (i/delete-current))
-          lines  (:lines text)
-          cursor (:cursor text)]
-      (is (= lines [[\h \e \l \l]]))
-      (is (= cursor [4 0]))))
+    (let [text            (-> ["hell|o"]
+                              (derive-text)
+                              (i/delete-current))
+          expected        (-> ["hell|"]
+                              (derive-text))
+          actual-lines    (:lines text)
+          actual-cursor   (:cursor text)
+          expected-lines  (:lines expected)
+          expected-cursor (:cursor expected)]
+      (is (= actual-lines expected-lines))
+      (is (= actual-cursor expected-cursor))))
 
   (testing "Deletes current characters over multiple lines"
-    (let [text   (-> ["hell|o"
-                      "world"]
-                     (derive-text)
-                     (i/delete-current)
-                     (i/delete-current)
-                     (i/delete-current))
-          lines  (:lines text)
-          cursor (:cursor text)]
-      (is (= lines [[\h \e \l \l \o \r \l \d]]))
-      (is (= cursor [4 0]))))
+    (let [text            (-> ["hell|o"
+                               "world"]
+                              (derive-text)
+                              (i/delete-current)
+                              (i/delete-current)
+                              (i/delete-current))
+          expected        (-> ["hell|orld"]
+                              (derive-text))
+          actual-lines    (:lines text)
+          actual-cursor   (:cursor text)
+          expected-lines  (:lines expected)
+          expected-cursor (:cursor expected)]
+      (is (= actual-lines expected-lines))
+      (is (= actual-cursor expected-cursor))))
 
   (testing "Stops deleting current character when a bound is reached"
-    (let [text   (-> ["hello|"]
-                     (derive-text)
-                     (i/delete-current))
-          lines  (:lines text)
-          cursor (:cursor text)]
-      (is (= lines [[\h \e \l \l \o]]))
-      (is (= cursor [5 0])))))
+    (let [text            (-> ["hello"
+                               "world|"]
+                              (derive-text))
+          processed       (-> text
+                              (i/delete-current)
+                              (i/delete-current))
+          actual-lines    (:lines processed)
+          actual-cursor   (:cursor processed)
+          expected-lines  (:lines text)
+          expected-cursor (:cursor text)]
+      (is (= actual-lines expected-lines))
+      (is (= actual-cursor expected-cursor)))))
 
 (deftest deletes-pairs
   (testing "Deletes pairs when next to each other"

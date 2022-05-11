@@ -486,12 +486,18 @@
         max-x (-> text (line-at y) (count))]
     (and (= x max-x) (= y max-y))))
 
+(s/defn at-start? :- s/Bool
+  [text :- Text]
+  (let [[x y] (:cursor text)]
+    (and (= x 0) (= y 0))))
+
 (s/defn do-delete-previous :- Text
   [text :- Text]
   (cond
     (selecting? text)                    (chunk-delete text)
     (pair? text)                         (pair-delete text)
     (paired-tokens (previous-char text)) (do-move-left text)
+    (at-start? text)                     text
     :else                                (simple-delete text)))
 
 (s/defn do-delete-current :- Text
