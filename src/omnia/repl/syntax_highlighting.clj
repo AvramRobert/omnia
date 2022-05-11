@@ -291,16 +291,18 @@
                  comment-node
                  comma-node)]
     {:node       number-node
-     :emission   (fn [_ [a b & _]]
-                   (case [a b]
-                     [\+ \+]   t/texts
-                     [\- \-]   t/texts
-                     [\+ \-]   t/texts
-                     [\- \+]   t/texts
-                     [\+ nil]  t/texts
-                     [\- nil]  t/texts
-                     [nil nil] t/texts
-                     t/numbers))
+     :emission   (fn [n [a b & _]]
+                   (letfn [(emit [other]
+                             (if (= n open-list-node) t/functions other))]
+                     (case [a b]
+                       [\+ \+]   (emit t/texts)
+                       [\- \-]   (emit t/texts)
+                       [\+ \-]   (emit t/texts)
+                       [\- \+]   (emit t/texts)
+                       [\+ nil]  (emit t/texts)
+                       [\- nil]  (emit t/texts)
+                       [nil nil] (emit t/texts)
+                       (emit t/numbers))))
      :transition #(lookup % number-node)}))
 
 (s/def open-string :- State
@@ -453,7 +455,7 @@
             (recur result
                    (conj accumulate char)
                    state'
-                   node
+                   prev-node
                    rest)
             (recur (f result state (emit prev-node accumulate) accumulate)
                    [char]

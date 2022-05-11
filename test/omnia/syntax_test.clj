@@ -40,8 +40,8 @@
           :let [detections         (-> string (catalog-detections) (rest)) ;; remove the initial `break` state
                 detected-states    (mapv :state detections)
                 detected-emissions (mapv :emission detections)]]
-    (is (= emissions detected-emissions) (str "For input: " chars))
-    (is (= (node-set states) (node-set detected-states)) (str "For input: " chars))))
+    (is (= emissions detected-emissions) (str "For input: " string))
+    (is (= (node-set states) (node-set detected-states)) (str "For input: " string))))
 
 (s/defn transition-catalog :- TransitionCatalog
   [state :- State]
@@ -73,8 +73,8 @@
 (deftest detect-functions
   (test-detections
     [["(heh)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
-     #_["(+ab)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
-     #_["(-ab)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
+     ["(+ab)"   [h/open-list h/number h/number h/number h/close-list] [sy/lists sy/functions sy/lists]]
+     ["(-ab)"   [h/open-list h/number h/number h/number h/close-list] [sy/lists sy/functions sy/lists]]
      ["(nil "   [h/open-list h/function h/function h/function h/space] [sy/lists sy/functions sy/texts]]]))
 
 (deftest detect-lists
@@ -146,17 +146,19 @@
 
 (deftest detect-numbers
   (test-detections
-    [["123"  [h/number] [sy/numbers]]
-     ["123a" [h/number] [sy/numbers]]
-     ["+123" [h/number] [sy/numbers]]
-     ["-123" [h/number] [sy/numbers]]
-     ["+-12" [h/number] [sy/texts]]
-     ["-+12" [h/number] [sy/texts]]
-     ["+"    [h/number] [sy/texts]]
-     ["-"    [h/number] [sy/texts]]
-     ["a123" [h/text]   [sy/texts]]
-     ["a+1"  [h/text]   [sy/texts]]
-     ["a-1"  [h/text]   [sy/texts]]]))
+    [["123"   [h/number]             [sy/numbers]]
+     ["123a"  [h/number]             [sy/numbers]]
+     ["+123"  [h/number]             [sy/numbers]]
+     ["-123"  [h/number]             [sy/numbers]]
+     ["+-12"  [h/number]             [sy/texts]]
+     ["-+12"  [h/number]             [sy/texts]]
+     ["+"     [h/number]             [sy/texts]]
+     ["-"     [h/number]             [sy/texts]]
+     ["a123"  [h/text]               [sy/texts]]
+     ["a+1"   [h/text]               [sy/texts]]
+     ["a-1"   [h/text]               [sy/texts]]
+     ["(+123" [h/open-list h/number] [sy/lists sy/numbers]] ;; FIXME
+     ["(-123" [h/open-list h/number] [sy/lists sy/numbers]]]))
 
 (deftest detect-strings
   (test-detections
