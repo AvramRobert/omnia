@@ -189,16 +189,6 @@
         line' (vec (f (vec l) (vec r)))]
     (reset-lines text (assoc lines y line'))))
 
-(s/defn slicel :- Text
-  [text :- Text
-   f :- (=> Line Line)]
-  (slice text (fn [l r] (concat (f l) r))))
-
-(s/defn slicer :- Text
-  [text :- Text
-   f :- (=> Line Line)]
-  (slice text (fn [l r] (concat l (f r)))))
-
 (s/defn move-x :- Text
   [text :- Text
    f :- (=> s/Int s/Int)]
@@ -388,22 +378,6 @@
                      :end   end})]
     (reset-selection text' selection)))
 
-(s/defn select-right :- Text
-  [text :- Text]
-  (select-with text do-move-right))
-
-(s/defn select-left :- Text
-  [text :- Text]
-  (select-with text do-move-left))
-
-(s/defn select-up :- Text
-  [text :- Text]
-  (select-with text do-move-up))
-
-(s/defn select-down :- Text
-  [text :- Text]
-  (select-with text do-move-down))
-
 (s/defn do-jump-select-right :- Text
   [text :- Text]
   (select-with text do-jump-right))
@@ -464,16 +438,15 @@
 
 (s/defn simple-delete :- Text
   [text :- Text]
-  (let [[x y]  (:cursor text)]
-    (if (> x 0)
-      (-> text
-          (do-move-left)
-          (slice (fn [l r] (concat l (vec (rest r))))))
-      (-> text
-          (do-move-left)
-          (peer
-            (fn [l [a b & r]]
-              (concat (conj l (vec (concat a b))) r)))))))
+  (if (> (x text) 0)
+    (-> text
+        (do-move-left)
+        (slice (fn [l r] (concat l (vec (rest r))))))
+    (-> text
+        (do-move-left)
+        (peer
+          (fn [l [a b & r]]
+            (concat (conj l (vec (concat a b))) r))))))
 
 (s/defn pair-delete :- Text
   [text :- Text]
@@ -503,18 +476,18 @@
 (s/defn pair? :- s/Bool
   [text :- Text]
   (m/match [(previous-char text) (current-char text)]
-           [\( \)] true
-           [\[ \]] true
-           [\{ \}] true
-           [\" \"] true
-           :else false))
+    [\( \)] true
+    [\[ \]] true
+    [\{ \}] true
+    [\" \"] true
+    :else false))
 
 (s/defn at-end? :- s/Bool
   [text :- Text]
   (let [[x y] (:cursor text)
-        text-size (:size text)
-        line-size (-> text (current-line) (count))]
-    (and (= x line-size) (= y (dec text-size)))))
+        max-y (-> text (:size) (dec))
+        max-x (-> text (line-at y) (count))]
+    (and (= x max-x) (= y max-y))))
 
 (s/defn do-delete-previous :- Text
   [text :- Text]
@@ -536,12 +509,18 @@
 (s/defn simple-insert :- Text
   [text :- Text
    value :- Character]
-  (-> text (slicel #(conj % value)) (move-x inc)))
+  (let [[x y] (:cursor text)]
+    (-> text
+        (slice (fn [l r] (concat (conj l value) r)))
+        (reset-cursor [(inc x) y]))))
 
 (s/defn pair-insert :- Text
   [text :- Text
-   [l r] :- [Character]]
-  (-> text (slicel #(conj % l r)) (move-x inc)))
+   [pl pr] :- [Character]]
+  (let [[x y] (:cursor text)]
+    (-> text
+        (slice (fn [l r] (concat (conj l pl pr) r)))
+        (reset-cursor [(inc x) y]))))
 
 (s/defn delete-selected :- Text
   [text :- Text]
@@ -554,19 +533,19 @@
    input :- Character]
   (let [overwritten (delete-selected text)]
     (m/match [input (current-char overwritten)]
-             [\) \)] (move-x text inc)
-             [\] \]] (move-x text inc)
-             [\} \}] (move-x text inc)
-             [\" \"] (move-x text inc)
-             [\( _] (pair-insert text [\( \)])
-             [\[ _] (pair-insert text [\[ \]])
-             [\{ _] (pair-insert text [\{ \}])
-             [\) _] (pair-insert text [\( \)])
-             [\] _] (pair-insert text [\[ \]])
-             [\} _] (pair-insert text [\{ \}])
-             [\" _] (pair-insert text [\" \"])
-             [\space _] (simple-insert text input)
-             :else (simple-insert overwritten input))))
+      [\) \)] (move-x text inc)
+      [\] \]] (move-x text inc)
+      [\} \}] (move-x text inc)
+      [\" \"] (move-x text inc)
+      [\( _] (pair-insert text [\( \)])
+      [\[ _] (pair-insert text [\[ \]])
+      [\{ _] (pair-insert text [\{ \}])
+      [\) _] (pair-insert text [\( \)])
+      [\] _] (pair-insert text [\[ \]])
+      [\} _] (pair-insert text [\{ \}])
+      [\" _] (pair-insert text [\" \"])
+      [\space _] (simple-insert text input)
+      :else (simple-insert overwritten input))))
 
 (s/defn extract :- (s/maybe Text)
   [text :- Text]
@@ -761,16 +740,18 @@
           (assoc :rhistory (rest rhistory))
           (assoc :history (-> text (clean-history) (cons history)))))))
 
-(s/defn auto-complete :- Text
-  [text :- Text, input :- [Character]]
-  (if (empty? input)
-    text
-    (-> text
-        (do-expand-select)
-        (do-delete-previous)
-        (slicer #(concat input %))
-        (move-x #(+ % (count input))))))
-
+(s/defn do-auto-complete :- Text
+  [text :- Text,
+   input :- [Character]]
+  (let [[x y] (:cursor text)]
+    (if (empty? input)
+      text
+      (-> text
+          (do-expand-select)
+          (do-delete-previous)
+          (slice (fn [l r] (concat l input r)))
+          (reset-cursor [(+ x (count input)) y])))))
+;
 (s/defn as-string :- s/Str
   [text :- Text]
   (->> text
@@ -850,6 +831,22 @@
   [text :- Text]
   (-> text (add-to-history) (do-paste) (deselect)))
 
+(s/defn select-right :- Text
+  [text :- Text]
+  (select-with text do-move-right))
+
+(s/defn select-left :- Text
+  [text :- Text]
+  (select-with text do-move-left))
+
+(s/defn select-up :- Text
+  [text :- Text]
+  (select-with text do-move-up))
+
+(s/defn select-down :- Text
+  [text :- Text]
+  (select-with text do-move-down))
+
 (s/defn select-all :- Text
   [text :- Text]
   (-> text (do-select-all)))
@@ -873,3 +870,8 @@
 (s/defn redo :- Text
   [text :- Text]
   (-> text (do-redo)))
+
+(s/defn auto-complete :- Text
+  [text :- Text
+   value :- [Character]]
+  (-> text (do-auto-complete value) (deselect)))

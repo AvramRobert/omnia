@@ -684,69 +684,120 @@
 ;; VII. Inserting
 
 (deftest inserts-literals
-  (let [text (derive-text ["|some text"])
-        num  (-> text (i/insert \1) (i/previous-char))
-        char (-> text (i/insert \a) (i/previous-char))]
-    (is (= num \1))
-    (is (= char \a))))
+  (let [text            (-> ["so|me text"]
+                            (derive-text)
+                            (i/insert \a))
+        expected        (-> ["soa|me text"]
+                            (derive-text))
+        actual-lines    (:lines text)
+        actual-cursor   (:cursor text)
+        expected-lines  (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-lines expected-lines))
+    (is (= actual-cursor expected-cursor))))
 
 (deftest inserts-pairs
   (->> [[\( \)] [\[ \]] [\{ \}] [\" \"]]
        (run!
          (fn [[l r]]
-           (let [left-pair  (-> i/empty-text (i/insert l) (i/current-line))
-                 right-pair (-> i/empty-text (i/insert r) (i/current-line))]
-             (is (= left-pair right-pair [l r])))))))
+           (let [text            (-> ["te|xt"]
+                                     (derive-text)
+                                     (i/insert l))
+                 expected        (-> [(str "te" l "|" r "xt")]
+                                     (derive-text))
+                 actual-lines    (:lines text)
+                 actual-cursor   (:cursor text)
+                 expected-lines  (:lines expected)
+                 expected-cursor (:cursor expected)]
+             (is (= actual-lines expected-lines))
+             (is (= actual-cursor expected-cursor)))))))
 
 (deftest inserts-ignoring-existing-neighouring-closed-parens
   (->> [[\( \)] [\[ \]] [\{ \}]]
        (run!
          (fn [[l r]]
-           (let [text (-> [(str l "text" "|" r)]
-                           (derive-text)
-                           (i/insert r)
-                           (i/current-line))]
-             (is (= text [l \t \e \x \t r])))))))
+           (let [text            (-> [(str l "text" "|" r)]
+                                     (derive-text)
+                                     (i/insert r))
+                 expected        (-> [(str l "text" r "|")]
+                                     (derive-text))
+                 actual-lines    (:lines text)
+                 actual-cursor   (:cursor text)
+                 expected-lines  (:lines expected)
+                 expected-cursor (:cursor expected)]
+             (is (= actual-lines expected-lines))
+             (is (= actual-cursor expected-cursor)))))))
 
 (deftest inserts-creating-new-open-parens-when-neighouring-open-parens
   (->> [[\( \)] [\[ \]] [\{ \}]]
        (run!
          (fn [[l r]]
-           (let [text (-> [(str "|" l "text" r)]
-                           (derive-text)
-                           (i/insert l)
-                           (i/current-line))]
-             (is (= text [l r l \t \e \x \t r])))))))
+           (let [text            (-> [(str "|" l "text" r)]
+                                     (derive-text)
+                                     (i/insert l))
+                 expected        (-> [(str l "|" r l "text" r)]
+                                     (derive-text))
+                 actual-lines    (:lines text)
+                 actual-cursor   (:cursor text)
+                 expected-lines  (:lines expected)
+                 expected-cursor (:cursor expected)]
+             (is (= actual-lines expected-lines))
+             (is (= actual-cursor expected-cursor)))))))
 
-(deftest inserts-ignoring-existing-existing-neighbouring-string-pair
-  (let [left-hand  (-> ["|\"text\""]
-                        (derive-text)
-                        (i/insert \")
-                        (i/current-line))
-        right-hand (-> ["\"text|\""]
-                        (derive-text)
-                        (i/insert \")
-                        (i/current-line))]
-    (is (= left-hand right-hand [\" \t \e \x \t \"]))))
+(deftest inserts-ignoring-existing-neighbouring-string-pair
+  (let [text1            (-> ["|\"text\""]
+                             (derive-text)
+                             (i/insert \"))
+        text2            (-> ["\"text|\""]
+                             (derive-text)
+                             (i/insert \"))
+        expected1        (-> ["\"|text\""]
+                             (derive-text))
+        expected2        (-> ["\"text\"|"]
+                             (derive-text))
+        actual-lines1    (:lines text1)
+        actual-cursor1   (:cursor text1)
+        actual-lines2    (:lines text2)
+        actual-cursor2   (:cursor text2)
+        expected-lines1  (:lines expected1)
+        expected-cursor1 (:cursor expected1)
+        expected-lines2  (:lines expected2)
+        expected-cursor2 (:cursor expected2)]
+    (is (= actual-lines1 expected-lines1))
+    (is (= actual-cursor1 expected-cursor1))
+    (is (= actual-lines2 expected-lines2))
+    (is (= actual-cursor2 expected-cursor2))))
 
 (deftest inserts-replacing-selection-in-line
-  (let [text (-> ["|one line"]
-                  (derive-text)
-                  (i/jump-select-right)
-                  (i/insert \a)
-                  (i/current-line))]
-    (is (= text [\a \space \l \i \n \e]))))
+  (let [text            (-> ["|one line"]
+                            (derive-text)
+                            (i/jump-select-right)
+                            (i/insert \a))
+        expected        (-> ["a| line"]
+                            (derive-text))
+        actual-lines    (:lines text)
+        actual-cursor   (:cursor text)
+        expected-lines  (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-lines expected-lines))
+    (is (= actual-cursor expected-cursor))))
 
 (deftest inserts-replacing-selection-between-lines
-  (let [text (-> ["one |line"
-                   "two lines"]
-                  (derive-text)
-                  (i/jump-select-right)
-                  (i/jump-select-right)
-                  (i/jump-select-right)
-                  (i/insert \a)
-                  (:lines))]
-    (is (= text [[\o \n \e \space \a \space \l \i \n \e \s]]))))
+  (let [text            (-> ["one |line"
+                             "two lines"]
+                            (derive-text)
+                            (i/jump-select-right)
+                            (i/jump-select-right)
+                            (i/jump-select-right)
+                            (i/insert \a))
+        expected        (-> ["one a| lines"]
+                            (derive-text))
+        actual-lines    (:lines text)
+        actual-cursor   (:cursor text)
+        expected-lines  (:lines expected)
+        expected-cursor (:cursor expected)]
+    (is (= actual-lines expected-lines))
+    (is (= actual-cursor expected-cursor))))
 
 ;; VIII. Jumping
 
@@ -2276,7 +2327,7 @@
     (is (= cursor [2 2]))
     (is (= selection {:start [1 2] :end [2 2]}))))
 
-;; XI. Expansion
+;; XI. Expanding
 
 (deftest proper-match-parens
   (testing "Closed pair expansion"
@@ -2693,6 +2744,7 @@
              (check entry expected))))))
 
 ;; XVI. Extracting
+
 (deftest extracts-regions
   (testing "Extracts with new lines lower"
     (let [text     (-> ["he⦇llo"
@@ -2829,3 +2881,22 @@
     (is (empty? h-clip))
     (is (empty? rh-clip))
     (is (= [[\w]] clipboard))))
+
+;; XVIII. Auto-completing
+
+(deftest can-autocomplete-text
+  (let [text1     (-> ["some"
+                       "things cha|nge"]
+                      (derive-text)
+                      (i/auto-complete [\n \o \t]))
+        text2     (-> ["some"
+                       "things | change"]
+                      (derive-text)
+                      (i/auto-complete [\n \o \t]))
+        expected1 (-> ["some"
+                       "things not|"]
+                      (derive-text))
+        expected2 (-> ["not|"]
+                      (derive-text))]
+    (is (= text1 expected1))
+    (is (= text2 expected2))))
