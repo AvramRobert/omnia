@@ -1,10 +1,23 @@
 (ns omnia.syntax-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [schema.core :as s]
+            [omnia.repl.syntax-highlighting :as h]
+            [omnia.schema.syntax :as sy]
+            [clojure.test :refer [deftest is]]
             [clojure.set :refer [difference]]
             [omnia.util.collection :refer [map-vals]]
-            [omnia.repl.syntax :as h]
-            [omnia.schema.syntax :as sh]))
+            [omnia.schema.syntax-highlighting :refer [Node State]]
+            [omnia.schema.syntax :refer [SyntaxElement]]))
 
+(s/def TransitionCatalog
+  {:allowed    #{Node}
+   :disallowed #{Node}})
+
+(s/def EmissionCatalog
+  [{:state      State
+    :emission   SyntaxElement
+    :accumulate [Character]}])
+
+;; because there aren't any explicit triggers for function and text, we provide some for testing purposes
 (def triggers
   (assoc h/triggers
     (:node h/function) #{\x \^ \*}
@@ -13,35 +26,34 @@
 (defn node-set [states]
   (->> states (map :node) (set)))
 
-(defn catalog-detections [stream]
+(s/defn catalog-detections :- EmissionCatalog
+  [string :- s/Str]
   (h/fold'
-    (fn [vec state emission value]
-      (conj vec {:state state
-                 :emission emission
-                 :value value})) [] stream))
+    (fn [catalog state emission accumulate]
+      (conj catalog {:state      state
+                     :emission   emission
+                     :accumulate accumulate})) [] string))
 
-(defn test-detections [data]
-  (doseq [[chars states emissions] data
-          :let [detections         (-> chars (catalog-detections) (rest)) ;; remove the initial `break` state
+(defn test-detections
+  [specs]
+  (doseq [[string states emissions] specs
+          :let [detections         (-> string (catalog-detections) (rest)) ;; remove the initial `break` state
                 detected-states    (mapv :state detections)
                 detected-emissions (mapv :emission detections)]]
     (is (= emissions detected-emissions) (str "For input: " chars))
     (is (= (node-set states) (node-set detected-states)) (str "For input: " chars))))
 
-(defn catalog-transitions [f]
-  (for [[t-node chars] triggers
-        char chars
-        :let [next-node (f char)]]
-    (if (= t-node next-node)
-      {:allowed [t-node]}
-      {:disallowed [t-node]})))
-
-(defn transitions [state]
-  (->> state
-       (:transition)
-       (catalog-transitions)
-       (apply merge-with concat)
-       (map-vals set)))
+(s/defn transition-catalog :- TransitionCatalog
+  [state :- State]
+  (let [f    (:transition state)
+        init {:allowed #{} :disallowed #{}}]
+    (reduce-kv
+      (fn [catalog node chars]
+        (reduce (fn [catalog char]
+                  (let [node' (f char)]
+                    (if (= node node')
+                      (update catalog :allowed conj node)
+                      (update catalog :disallowed conj node)))) catalog chars)) init triggers)))
 
 (defn diffed-message [case expected-set actual-set]
   (if (> (count expected-set) (count actual-set))
@@ -50,7 +62,7 @@
 
 (defn test-transitions [{:keys [state allowed disallowed]}]
   (let [{actual-allowed    :allowed
-         actual-disallowed :disallowed} (transitions state)
+         actual-disallowed :disallowed} (transition-catalog state)
         expected-allowed    (node-set allowed)
         expected-disallowed (node-set disallowed)]
     (is (= expected-allowed actual-allowed)
@@ -58,126 +70,127 @@
     (is (= expected-disallowed actual-disallowed)
         (diffed-message "disallowed" expected-disallowed actual-disallowed))))
 
+(deftest detect-functions
+  (test-detections
+    [["(heh)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
+     #_["(+ab)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
+     #_["(-ab)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
+     ["(nil "   [h/open-list h/function h/function h/function h/space] [sy/lists sy/functions sy/texts]]]))
+
 (deftest detect-lists
   (test-detections
-    [["()"      [h/open-list h/close-list]                                  [sh/lists sh/lists]]
-     ["(heh)"   [h/open-list h/function h/function h/function h/close-list] [sh/lists sh/functions sh/lists]]
-     [")heh"    [h/close-list h/text h/text h/text]                         [sh/lists sh/texts]]
-     [")("      [h/close-list h/open-list]                                  [sh/lists sh/lists]]
-     ["( ab )"  [h/open-list h/space h/text h/text h/space h/close-list]    [sh/lists sh/texts sh/texts sh/texts sh/lists]]
-     ["a (\n )" [h/text h/space h/open-list h/break h/space h/close-list]   [sh/texts sh/texts sh/lists sh/texts sh/texts sh/lists]]]))
+    [["()"      [h/open-list h/close-list]                                  [sy/lists sy/lists]]
+     [")heh"    [h/close-list h/text h/text h/text]                         [sy/lists sy/texts]]
+     [")("      [h/close-list h/open-list]                                  [sy/lists sy/lists]]
+     ["( ab )"  [h/open-list h/space h/text h/text h/space h/close-list]    [sy/lists sy/texts sy/texts sy/texts sy/lists]]
+     ["a (\n )" [h/text h/space h/open-list h/break h/space h/close-list]   [sy/texts sy/texts sy/lists sy/texts sy/texts sy/lists]]]))
 
 (deftest detect-vectors
   (test-detections
-    [["[]"      [h/open-vector h/close-vector]                                [sh/vectors sh/vectors]]
-     ["[heh]"   [h/open-vector h/text h/text h/text h/close-vector]           [sh/vectors sh/texts sh/vectors]]
-     ["]["      [h/close-vector h/open-vector]                                [sh/vectors sh/vectors]]
-     ["]heh"    [h/close-vector h/text h/text h/text]                         [sh/vectors sh/texts]]
-     ["h[ "     [h/text h/open-vector h/space]                                [sh/texts sh/vectors sh/texts]]
-     ["a [\n ]" [h/text h/space h/open-vector h/break h/space h/close-vector] [sh/texts sh/texts sh/vectors sh/texts sh/texts sh/vectors]]]))
+    [["[]"      [h/open-vector h/close-vector]                                [sy/vectors sy/vectors]]
+     ["[heh]"   [h/open-vector h/text h/text h/text h/close-vector]           [sy/vectors sy/texts sy/vectors]]
+     ["]["      [h/close-vector h/open-vector]                                [sy/vectors sy/vectors]]
+     ["]heh"    [h/close-vector h/text h/text h/text]                         [sy/vectors sy/texts]]
+     ["h[ "     [h/text h/open-vector h/space]                                [sy/texts sy/vectors sy/texts]]
+     ["a [\n ]" [h/text h/space h/open-vector h/break h/space h/close-vector] [sy/texts sy/texts sy/vectors sy/texts sy/texts sy/vectors]]]))
 
 (deftest detect-maps
   (test-detections
-    [["{}"      [h/open-map h/close-map]                                [sh/maps sh/maps]]
-     ["{heh}"   [h/open-map h/text h/text h/text h/close-map]           [sh/maps sh/texts sh/maps]]
-     ["}{"      [h/close-map h/open-map]                                [sh/maps sh/maps]]
-     ["}heh"    [h/close-map h/text h/text h/text]                      [sh/maps sh/texts]]
-     ["a {\n }" [h/text h/space h/open-map h/break h/space h/close-map] [sh/texts sh/texts sh/maps sh/texts sh/texts sh/maps]]]))
+    [["{}"      [h/open-map h/close-map]                                [sy/maps sy/maps]]
+     ["{heh}"   [h/open-map h/text h/text h/text h/close-map]           [sy/maps sy/texts sy/maps]]
+     ["}{"      [h/close-map h/open-map]                                [sy/maps sy/maps]]
+     ["}heh"    [h/close-map h/text h/text h/text]                      [sy/maps sy/texts]]
+     ["a {\n }" [h/text h/space h/open-map h/break h/space h/close-map] [sy/texts sy/texts sy/maps sy/texts sy/texts sy/maps]]]))
 
 (deftest detect-breaks
   (test-detections
-    [["a\n\n"    [h/text h/break]                                         [sh/texts sh/texts]]
-     ["a\nb\nc"  [h/text h/break h/text h/break h/text]                   [sh/texts sh/texts sh/texts sh/texts sh/texts]]
-     [";a \n\""  [h/com-ment h/com-ment h/com-ment h/break h/open-string] [sh/comments sh/texts sh/strings]]]))
+    [["a\n\n"    [h/text h/break]                                         [sy/texts sy/texts]]
+     ["a\nb\nc"  [h/text h/break h/text h/break h/text]                   [sy/texts sy/texts sy/texts sy/texts sy/texts]]
+     [";a \n\""  [h/com-ment h/com-ment h/com-ment h/break h/open-string] [sy/comments sy/texts sy/strings]]]))
 
 (deftest detect-spaces
   (test-detections
-    [["   " [h/space]               [sh/texts]]
-     ["a b" [h/text h/space h/text] [sh/texts sh/texts sh/texts]]]))
+    [["   " [h/space]               [sy/texts]]
+     ["a b" [h/text h/space h/text] [sy/texts sy/texts sy/texts]]]))
 
 (deftest detect-comments
   (test-detections
-    [[";c 1"   [h/com-ment h/com-ment h/com-ment h/com-ment] [sh/comments]]
-     [";;c("   [h/com-ment h/com-ment h/com-ment]            [sh/comments]]
-     [";+1\""  [h/com-ment h/com-ment h/com-ment h/com-ment] [sh/comments]]
-     ["; \n("  [h/com-ment h/com-ment h/break h/open-list]   [sh/comments sh/texts sh/lists]]]))
-
-(deftest detect-functions
-  (test-detections
-    [["(he)"  [h/open-list h/function h/function h/close-list]      [sh/lists sh/functions sh/lists]]
-     ["(nil " [h/open-list h/function h/function h/function h/space] [sh/lists sh/functions sh/texts]]]))
+    [[";c 1"   [h/com-ment h/com-ment h/com-ment h/com-ment] [sy/comments]]
+     [";;c("   [h/com-ment h/com-ment h/com-ment]            [sy/comments]]
+     [";+1\""  [h/com-ment h/com-ment h/com-ment h/com-ment] [sy/comments]]
+     ["; \n("  [h/com-ment h/com-ment h/break h/open-list]   [sy/comments sy/texts sy/lists]]]))
 
 (deftest detect-chars
   (test-detections
-    [["\\a"        [h/escape h/character]                      [sh/characters sh/characters]]
-     ["\\\\"       [h/escape h/character h/escape h/character] [sh/characters sh/characters]]
-     ["\\abc"      [h/escape h/character h/text h/text]        [sh/characters sh/characters sh/texts]]
-     ["\\"         [h/escape]                                  [sh/characters]]
-     ["\\space"    [h/escape h/special-character]              [sh/characters sh/characters]]
-     ["\\newline"  [h/escape h/special-character]              [sh/characters sh/characters]]
-     ["\\spacex"   [h/escape h/special-character]              [sh/characters sh/texts]]
-     ["\\newlinex" [h/escape h/special-character]              [sh/characters sh/texts]]
+    [["\\a"        [h/escape h/character]                      [sy/characters sy/characters]]
+     ["\\\\"       [h/escape h/character h/escape h/character] [sy/characters sy/characters]]
+     ["\\abc"      [h/escape h/character h/text h/text]        [sy/characters sy/characters sy/texts]]
+     ["\\"         [h/escape]                                  [sy/characters]]
+     ["\\space"    [h/escape h/special-character]              [sy/characters sy/characters]]
+     ["\\newline"  [h/escape h/special-character]              [sy/characters sy/characters]]
+     ["\\spacex"   [h/escape h/special-character]              [sy/characters sy/texts]]
+     ["\\newlinex" [h/escape h/special-character]              [sy/characters sy/texts]]
      ["[\\a \\]]"  [h/open-vector h/escape h/character h/space
-                    h/escape h/character h/close-vector]       [sh/vectors sh/characters sh/characters
-                                                               sh/texts sh/characters sh/characters sh/vectors]]]))
+                    h/escape h/character h/close-vector]       [sy/vectors sy/characters sy/characters
+                                                               sy/texts sy/characters sy/characters sy/vectors]]]))
 
 (deftest detect-keywords
   (test-detections
-    [[":he"   [h/key-word h/key-word h/key-word]             [sh/keywords]]
-     ["(:he"  [h/open-list h/key-word h/key-word h/key-word] [sh/lists sh/keywords]]
-     ["a:he"  [h/text]                                       [sh/texts]]
-     ["::he"  [h/key-word h/key-word h/key-word h/key-word]  [sh/keywords]]
-     [":1:a"  [h/key-word h/key-word h/key-word h/key-word]  [sh/keywords]]
-     [": \""  [h/key-word h/space h/open-string]             [sh/keywords sh/texts sh/strings]]
-     [":\n\"" [h/key-word h/break h/open-string]             [sh/keywords sh/texts sh/strings]]]))
+    [[":he"   [h/key-word h/key-word h/key-word]             [sy/keywords]]
+     ["(:he"  [h/open-list h/key-word h/key-word h/key-word] [sy/lists sy/keywords]]
+     ["a:he"  [h/text]                                       [sy/texts]]
+     ["::he"  [h/key-word h/key-word h/key-word h/key-word]  [sy/keywords]]
+     [":1:a"  [h/key-word h/key-word h/key-word h/key-word]  [sy/keywords]]
+     [": \""  [h/key-word h/space h/open-string]             [sy/keywords sy/texts sy/strings]]
+     [":\n\"" [h/key-word h/break h/open-string]             [sy/keywords sy/texts sy/strings]]]))
 
 (deftest detect-numbers
   (test-detections
-    [["123"  [h/number] [sh/numbers]]
-     ["123a" [h/number] [sh/numbers]]
-     ["+123" [h/number] [sh/numbers]]
-     ["-123" [h/number] [sh/numbers]]
-     ["+-12" [h/number] [sh/texts]]
-     ["-+12" [h/number] [sh/texts]]
-     ["+"    [h/number] [sh/texts]]
-     ["-"    [h/number] [sh/texts]]
-     ["a123" [h/text]   [sh/texts]]
-     ["a+1"  [h/text]   [sh/texts]]
-     ["a-1"  [h/text]   [sh/texts]]]))
+    [["123"  [h/number] [sy/numbers]]
+     ["123a" [h/number] [sy/numbers]]
+     ["+123" [h/number] [sy/numbers]]
+     ["-123" [h/number] [sy/numbers]]
+     ["+-12" [h/number] [sy/texts]]
+     ["-+12" [h/number] [sy/texts]]
+     ["+"    [h/number] [sy/texts]]
+     ["-"    [h/number] [sy/texts]]
+     ["a123" [h/text]   [sy/texts]]
+     ["a+1"  [h/text]   [sy/texts]]
+     ["a-1"  [h/text]   [sy/texts]]]))
 
 (deftest detect-strings
   (test-detections
-    [["\"\""     [h/open-string h/close-string]                                           [sh/strings sh/strings]]
-     ["\"h\""    [h/open-string h/open-string h/close-string]                             [sh/strings sh/strings]]
-     ["\"h b\""  [h/open-string h/open-string h/open-string h/open-string h/close-string] [sh/strings sh/strings]]
-     ["\"l"      [h/open-string h/open-string]                                            [sh/strings]]
-     ["\"l\nl\"" [h/open-string h/open-string h/open-string h/open-string h/close-string] [sh/strings sh/strings]]]))
+    [["\"\""     [h/open-string h/close-string]                                           [sy/strings sy/strings]]
+     ["\"h\""    [h/open-string h/open-string h/close-string]                             [sy/strings sy/strings]]
+     ["\"h b\""  [h/open-string h/open-string h/open-string h/open-string h/close-string] [sy/strings sy/strings]]
+     ["\"l"      [h/open-string h/open-string]                                            [sy/strings]]
+     ["\"l\nl\"" [h/open-string h/open-string h/open-string h/open-string h/close-string] [sy/strings sy/strings]]]))
 
 (deftest detect-text
   (test-detections
-    [["abc"  [h/text]                  [sh/texts]]
-     ["a1+"  [h/text]                  [sh/texts]]
-     ["a 1"  [h/text h/space h/number] [sh/texts sh/texts sh/numbers]]]))
+    [["abc"  [h/text]                  [sy/texts]]
+     ["a1+"  [h/text]                  [sy/texts]]
+     ["a 1"  [h/text h/space h/number] [sy/texts sy/texts sy/numbers]]]))
 
 (deftest detect-words
   (test-detections
-    [["true"   [h/word h/word h/word h/word]               [sh/words]]
-     ["false"  [h/word h/word h/word h/word h/word]        [sh/words]]
-     ["nil"    [h/word h/word h/word]                      [sh/words]]
-     ["truex"  [h/word h/word h/word h/word h/word]        [sh/texts]]
-     ["falsex" [h/word h/word h/word h/word h/word h/word] [sh/texts]]
-     ["nilx"   [h/word h/word h/word h/word]               [sh/texts]]
-     ["n:/1"   [h/word]                                    [sh/texts]]]))
+    [["true"   [h/word h/word h/word h/word]               [sy/words]]
+     ["false"  [h/word h/word h/word h/word h/word]        [sy/words]]
+     ["nil"    [h/word h/word h/word]                      [sy/words]]
+     ["truex"  [h/word h/word h/word h/word h/word]        [sy/texts]]
+     ["falsex" [h/word h/word h/word h/word h/word h/word] [sy/texts]]
+     ["nilx"   [h/word h/word h/word h/word]               [sy/texts]]
+     ["n:/1"   [h/word]                                    [sy/texts]]]))
 
 (deftest detect-commas
   (test-detections
-    [[","       [h/comma]                          [sh/commas]]
-     ["a,b"     [h/text h/comma h/text]            [sh/texts sh/commas sh/texts]]
-     ["1,2"     [h/number h/comma h/number]        [sh/numbers sh/commas sh/numbers]]
-     [":a,1"    [h/key-word h/comma h/number]      [sh/keywords sh/commas sh/numbers]]
-     ["(,)"     [h/open-list h/comma h/close-list] [sh/lists sh/commas sh/lists]]
-     ["nil,"    [h/word h/comma]                   [sh/words sh/commas]]
-     ["\\c,\\a" [h/escape h/character, h/comma h/escape, h/character]  [sh/characters sh/characters sh/commas sh/characters sh/characters]]]))
+    [[","       [h/comma]                          [sy/commas]]
+     ["a,b"     [h/text h/comma h/text]            [sy/texts sy/commas sy/texts]]
+     ["1,2"     [h/number h/comma h/number]        [sy/numbers sy/commas sy/numbers]]
+     [":a,1"    [h/key-word h/comma h/number]      [sy/keywords sy/commas sy/numbers]]
+     ["(,)"     [h/open-list h/comma h/close-list] [sy/lists sy/commas sy/lists]]
+     ["nil,"    [h/word h/comma]                   [sy/words sy/commas]]
+     ["\\c,\\a" [h/escape h/character, h/comma h/escape, h/character]  [sy/characters sy/characters sy/commas sy/characters sy/characters]]]))
 
 (deftest open-list-transitions
   (test-transitions

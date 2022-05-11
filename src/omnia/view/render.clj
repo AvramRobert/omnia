@@ -4,7 +4,7 @@
             [omnia.repl.text :as i]
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
-            [omnia.repl.syntax :as st]
+            [omnia.repl.syntax-highlighting :as st]
             [omnia.util.collection :refer [merge-common-with reduce-idx]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
             [omnia.schema.config :refer [Highlighting]]

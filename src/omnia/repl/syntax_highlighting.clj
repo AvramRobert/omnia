@@ -1,54 +1,8 @@
-(ns omnia.repl.syntax
+(ns omnia.repl.syntax-highlighting
   (:require [schema.core :as s]
             [omnia.schema.common :refer [=>]]
-            [omnia.schema.syntax :as t]))
-
-(def ^:private ^:const  open-list-node :open-list)
-(def ^:private ^:const  closed-list-node :close-list)
-(def ^:private ^:const  open-vector-node :open-vector)
-(def ^:private ^:const  closed-vector-node :close-vector)
-(def ^:private ^:const  open-map-node :open-map)
-(def ^:private ^:const  closed-map-node :close-map)
-(def ^:private ^:const  escape-node :escape)
-(def ^:private ^:const  character-node :character)
-(def ^:private ^:const  special-character-node :special-character)
-(def ^:private ^:const  number-node :number)
-(def ^:private ^:const  open-string-node :open-string)
-(def ^:private ^:const  closed-string-node :close-string)
-(def ^:private ^:const  keyword-node :keyword)
-(def ^:private ^:const  function-node :function)
-(def ^:private ^:const  comment-node :comment)
-(def ^:private ^:const  word-node :word)
-(def ^:private ^:const  text-node :text)
-(def ^:private ^:const  break-node :break)
-(def ^:private ^:const  space-node :space)
-(def ^:private ^:const  comma-node :comma)
-
-(def Node (s/enum open-list-node
-                  closed-list-node
-                  open-vector-node
-                  closed-vector-node
-                  open-map-node
-                  closed-map-node
-                  open-string-node
-                  closed-string-node
-                  escape-node
-                  character-node
-                  special-character-node
-                  number-node
-                  keyword-node
-                  function-node
-                  comment-node
-                  word-node
-                  text-node
-                  break-node
-                  space-node
-                  comma-node))
-
-(def State
-  {:node       Node
-   :emission   (=> [Character] t/SyntaxElement)
-   :transition (=> Character (s/maybe Node))})
+            [omnia.schema.syntax :as t]
+            [omnia.schema.syntax-highlighting :refer :all]))
 
 (def triggers
   {space-node             #{\space},
@@ -217,7 +171,8 @@
                  comment-node
                  comma-node)]
     {:node       word-node
-     :emission   #(if (words %) t/words t/texts)
+     :emission   (fn [_ acc]
+                   (if (words acc) t/words t/texts))
      :transition #(lookup % word-node)}))
 
 (s/def open-vector :- State
@@ -336,7 +291,7 @@
                  comment-node
                  comma-node)]
     {:node       number-node
-     :emission   (fn [[a b & _]]
+     :emission   (fn [_ [a b & _]]
                    (case [a b]
                      [\+ \+]   t/texts
                      [\- \-]   t/texts
@@ -391,10 +346,10 @@
                  number-node
                  keyword-node)]
     {:node       special-character-node
-     :emission   #(if (or (special-characters %)
-                          (= (count %) 1))
-                    t/characters
-                    t/texts)
+     :emission   (fn [_ acc]
+                   (if (or (special-characters acc) (= (count acc) 1))
+                     t/characters
+                     t/texts))
      :transition #(lookup % special-character-node)}))
 
 (s/def escape :- State
@@ -476,27 +431,38 @@
    comment-node           com-ment
    comma-node             comma})
 
-(defn consume-with [f]
-  (fn [[intermediate accumulate state] char]
-    (let [node       (:node state)
-          transition (:transition state)
-          emission   (:emission state)
-          node'      (transition char)
-          state'     (get node->state node')]
-      (if (= node node')
-        [intermediate (conj accumulate char) state']
-        [(f intermediate state (emission accumulate) accumulate) [char] state']))))
-
 ;; 1. We apply the function one last time to "flush" any accumulation that wasn't processed.
 ;; 2. Because the initial state is a `break`, the highlighter always emits an initial empty :text
-(defn fold' [f init chars]
-  (let [consumption        (consume-with f)
-        [output acc state] (reduce consumption [init [] break] chars)
-        emission           ((:emission state) acc)]
-    (f output state emission acc)))
+(s/defn fold' :- s/Any
+  [f      :- (=> s/Any State t/SyntaxElement [Character])
+   init   :- s/Any
+   stream :- CharStream]
+  (loop [result        init
+         accumulate    []
+         state         break
+         prev-node     break-node
+         [char & rest] stream]
+    (let [node       (:node state)
+          transition (:transition state)
+          emit       (:emission state)]
+      (if (nil? char)
+        (f result state (emit prev-node accumulate) accumulate)
+        (let [node'  (transition char)
+              state' (get node->state node')]
+          (if (= node node')
+            (recur result
+                   (conj accumulate char)
+                   state'
+                   node
+                   rest)
+            (recur (f result state (emit prev-node accumulate) accumulate)
+                   [char]
+                   state'
+                   node
+                   rest)))))))
 
-(defn fold [f init stream]
+(s/defn fold :- s/Any
+  [f      :- (=> s/Any t/SyntaxElement [Character])
+   init   :- s/Any
+   stream :- CharStream]
   (fold' (fn [result _ emission acc] (f result emission acc)) init stream))
-
-(defn consume [f stream]
-  (fold (fn [_ emission acc] (f emission acc)) nil stream))
