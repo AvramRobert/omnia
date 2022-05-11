@@ -283,13 +283,13 @@
 (deftest shows-suggestions
   (let [context           (-> ["persisted"
                                ---
-                               "1|"]
+                               "s|ome things are"]
                               (derive-context {:response
                                                (completion-response ["option-1"
                                                                      "option-2"])}))
         expected1         (-> ["persisted"
                                ---
-                               "option-1"
+                               "option-1 things are"
                                "------"
                                " option-1|"
                                " option-2"
@@ -297,7 +297,7 @@
                               (derive-context))
         expected2         (-> ["persisted"
                                ---
-                               "option-2"
+                               "option-2 things are"
                                "------"
                                " option-1"
                                " option-2|"

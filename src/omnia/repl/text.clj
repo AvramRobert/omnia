@@ -740,7 +740,22 @@
           (assoc :rhistory (rest rhistory))
           (assoc :history (-> text (clean-history) (cons history)))))))
 
+(s/defn slicer :- Text
+  [text :- Text
+   f :- (=> Line Line)]
+  (slice text (fn [l r] (concat l (f r)))))
+
 (s/defn do-auto-complete :- Text
+  [text :- Text, input :- [Character]]
+  (if (empty? input)
+    text
+    (-> text
+        (do-expand-select)
+        (do-delete-previous)
+        (slicer #(concat input %))
+        (move-x #(+ % (count input))))))
+
+#_(s/defn do-auto-complete :- Text
   [text :- Text,
    input :- [Character]]
   (let [[x y] (:cursor text)]
@@ -874,4 +889,4 @@
 (s/defn auto-complete :- Text
   [text :- Text
    value :- [Character]]
-  (-> text (do-auto-complete value) (deselect)))
+  (-> text (do-auto-complete value) #_(deselect)))
