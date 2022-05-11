@@ -267,13 +267,11 @@
 
 (s/defn do-move-up :- Text
   [text :- Text]
-  (let [[x y] (:cursor text)]
-    (reset-cursor text [x (dec y)])))
+  (move-y text dec))
 
 (s/defn do-move-down :- Text
   [text :- Text]
-  (let [[x y] (:cursor text)]
-    (reset-cursor text [x (inc y)])))
+  (move-y text inc))
 
 (s/defn current-char :- (s/maybe Character)
   [text :- Text]
@@ -450,10 +448,9 @@
 
 (s/defn pair-delete :- Text
   [text :- Text]
-  (let [[x y] (:cursor text)]
-    (-> text
-        (reset-cursor [(dec x) y])
-        (slice (fn [l r] (concat l (drop 2 r)))))))
+  (-> text
+      (move-x dec)
+      (slice (fn [l r] (concat l (drop 2 r))))))
 
 (s/defn chunk-delete :- Text
   [text :- Text]
@@ -509,18 +506,16 @@
 (s/defn simple-insert :- Text
   [text :- Text
    value :- Character]
-  (let [[x y] (:cursor text)]
-    (-> text
-        (slice (fn [l r] (concat (conj l value) r)))
-        (reset-cursor [(inc x) y]))))
+  (-> text
+      (slice (fn [l r] (concat (conj l value) r)))
+      (move-x inc)))
 
 (s/defn pair-insert :- Text
   [text :- Text
    [pl pr] :- [Character]]
-  (let [[x y] (:cursor text)]
-    (-> text
-        (slice (fn [l r] (concat (conj l pl pr) r)))
-        (reset-cursor [(inc x) y]))))
+  (-> text
+      (slice (fn [l r] (concat (conj l pl pr) r)))
+      (move-x inc)))
 
 (s/defn delete-selected :- Text
   [text :- Text]
@@ -743,32 +738,16 @@
           (assoc :rhistory (rest rhistory))
           (assoc :history (-> text (clean-history) (cons history)))))))
 
-(s/defn slicer :- Text
-  [text :- Text
-   f :- (=> Line Line)]
-  (slice text (fn [l r] (concat l (f r)))))
-
 (s/defn do-auto-complete :- Text
-  [text :- Text, input :- [Character]]
+  [text :- Text,
+   input :- [Character]]
   (if (empty? input)
     text
     (-> text
         (do-expand-select)
         (do-delete-previous)
-        (slicer #(concat input %))
+        (slice (fn [l r] (concat l input r)))
         (move-x #(+ % (count input))))))
-
-#_(s/defn do-auto-complete :- Text
-  [text :- Text,
-   input :- [Character]]
-  (let [[x y] (:cursor text)]
-    (if (empty? input)
-      text
-      (-> text
-          (do-expand-select)
-          (do-delete-previous)
-          (slice (fn [l r] (concat l input r)))
-          (reset-cursor [(+ x (count input)) y])))))
 ;
 (s/defn as-string :- s/Str
   [text :- Text]
@@ -892,4 +871,4 @@
 (s/defn auto-complete :- Text
   [text :- Text
    value :- [Character]]
-  (-> text (do-auto-complete value) #_(deselect)))
+  (-> text (do-auto-complete value) (deselect)))

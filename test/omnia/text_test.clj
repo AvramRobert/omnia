@@ -2942,7 +2942,7 @@
 
 ;; XVIII. Auto-completing
 
-#_(deftest can-autocomplete-text
+(deftest can-autocomplete-text
   (let [text1     (-> ["some"
                        "things cha|nge"]
                       (derive-text)

@@ -3,7 +3,6 @@ CURRENT TASK:
 Global issues:
 
 omnia.repl.text issues:
-  - Use reset-to [cursor] as a main to change positions. Make that bound properly. Remove move-x move-y
   - rename region coordinates "from" and "until" instead of "start" "end"
   - debug-string should also display the selection and cursor
   - the clipboard doesn't need to be a focken text, does it??!
