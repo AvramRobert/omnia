@@ -59,11 +59,28 @@
                   (drop-while #(not= % \newline))
                   (drop 1))))))
 
+(s/defn line-at :- Line
+  [text :- Text, y :- s/Int]
+  (-> text (:lines) (nth y [])))
+
 (s/defn reset-lines :- Text
   [text :- Text
    lines :- [Line]]
   (let [lines (vec lines)]
     (assoc text :lines lines :size (count lines))))
+
+(s/defn reset-cursor :- Text
+  [text  :- Text
+   [x y] :- Point]
+  (let [size   (-> text (:size) (dec))
+        y'     (cond (< y 0)    0
+                     (> y size) size
+                     :else      y)
+        length (-> text (line-at y') (count))
+        x'     (cond (< x 0)      0
+                     (> x length) length
+                     :else        x)]
+    (assoc text :cursor [x' y'])))
 
 (s/defn reset-expansion :- Text
   [text :- Text
@@ -86,6 +103,14 @@
    redo-history :- [Text]]
   (assoc text :history undo-history :rhistory redo-history))
 
+(s/defn y :- s/Int
+  [text :- Text]
+  (-> text (:cursor) (nth 1)))
+
+(s/defn x :- s/Int
+  [text :- Text]
+  (-> text (:cursor) (nth 0)))
+
 (s/defn selecting? :- s/Bool
   [text :- Text]
   (-> text :selection some?))
@@ -94,14 +119,9 @@
   [character :- Character]
   (= \space character))
 
-(s/defn line-at :- Line
-  [text :- Text, y :- s/Int]
-  (-> text (:lines) (nth y [])))
-
 (s/defn current-line :- Line
   [text :- Text]
-  (let [y (-> text (:cursor) (nth 1))]
-    (line-at text y)))
+  (line-at text (y text)))
 
 (s/defn char-at :- (s/maybe Character)
   [text :- Text
@@ -166,7 +186,7 @@
         lines (:lines text)
         line  (line-at text y)
         [l r] (split-at x line)
-        line' (f (vec l) (vec r))]
+        line' (vec (f (vec l) (vec r)))]
     (reset-lines text (assoc lines y line'))))
 
 (s/defn slicel :- Text
@@ -179,56 +199,40 @@
    f :- (=> Line Line)]
   (slice text (fn [l r] (concat l (f r)))))
 
-;; FIXME: There should be only 1 `reset-cursor` function
-;; That function should be use in every `move-*`
-;; No more higher order functions: as much as we can
-;; The reset function should check bounds.
-;; THATS THE ONLY THING THAT SHOULD
-(s/defn move :- Text
-  [text :- Text
-   f :- (=> Point Point)]
-  (update text :cursor f))
-
-(s/defn reset-to :- Text
-  [text :- Text
-   cursor :- Point]
-  (move text (constantly cursor)))
-
 (s/defn move-x :- Text
   [text :- Text
    f :- (=> s/Int s/Int)]
-  (move text
-        (fn [[x y]]
-          (let [length (-> text current-line count)
-                nx     (f x)]
-            (if (<= 0 nx length)
-              [nx y]
-              [x y])))))
+  (let [[x y] (:cursor text)]
+    (reset-cursor text [(f x) y])))
 
 (s/defn move-y :- Text
   [text :- Text
    f :- (=> s/Int s/Int)]
-  (move text
-        (fn [[x y]]
-          (let [height (:size text)
-                ny     (f y)]
-            (if (<= 0 ny (dec height))
-              [x ny]
-              [x y])))))
+  (let [[x y] (:cursor text)]
+    (reset-cursor text [x (f y)])))
 
 (s/defn reset-x :- Text
   [text :- Text
    value :- s/Int]
-  (move-x text (fn [_] value)))
+  (reset-cursor text [value (y text)]))
 
 (s/defn reset-y :- Text
   [text :- Text
    value :- s/Int]
-  (move-y text (fn [_] value)))
+  (reset-cursor text [(x text) value]))
 
 (s/defn end-x :- Text
   [text :- Text]
-  (move text (fn [[_ y]] [(-> text current-line count) y])))
+  (let [[x y] (:cursor text)
+        max   (-> text (line-at y) (count))]
+    (reset-cursor text [max y])))
+
+(s/defn end-y :- Text
+  [text :- Text]
+  (let [[x y] (:cursor text)
+        size  (:size text)
+        max   (dec size)]
+    (reset-cursor text [x max])))
 
 (s/defn start-x :- Text
   [text :- Text]
@@ -238,68 +242,48 @@
   [text :- Text]
   (reset-y text 0))
 
-(s/defn end-y :- Text
-  [text :- Text]
-  (let [height (:size text)
-        y-max  (if (zero? height) 0 (dec height))]
-    (move text (fn [[x _]] [x y-max]))))
-
 (s/defn start :- Text
   [text :- Text]
-  (-> text (start-y) (start-x)))
+  (reset-cursor text [0 0]))
 
 (s/defn end :- Text
   [text :- Text]
-  (-> text (end-y) (end-x)))
-
-(s/defn move-right-with :- Text
-  [text :- Text
-   f :- (=> Text Text)]
-  (let [h (-> text :size dec)
-        w (-> text current-line count)]
-    (m/match [(:cursor text)]
-             [[w h]] text
-             [[w _]] (-> text (move-y inc) (start-x) (f))
-             :else (move-x text inc))))
-
-(s/defn move-left-with :- Text
-  [text :- Text
-   f :- (=> Text Text)]
-  (m/match [(:cursor text)]
-           [[0 0]] text
-           [[0 _]] (-> text (move-y dec) (end-x) (f))
-           :else (move-x text dec)))
+  (let [y (-> text (:size) (dec))
+        x (-> text (line-at y) (count))]
+    (reset-cursor text [x y])))
 
 (s/defn do-move-left :- Text
   [text :- Text]
-  (move-left-with text identity))
+  (let [[x y] (:cursor text)
+        y'     (dec y)
+        length (-> text (line-at y') (count))]
+    (cond
+      (> x 0)         (reset-cursor text [(dec x) y])
+      (and (= x 0)
+           (>= y' 0)) (reset-cursor text [length y'])
+      :else            text)))
 
 (s/defn do-move-right :- Text
   [text :- Text]
-  (move-right-with text identity))
+  (let [[x y]  (:cursor text)
+        size   (:size text)
+        y'     (inc y)
+        length (-> text (line-at y) (count))]
+    (cond
+      (< x length)      (reset-cursor text [(inc x) y])
+      (and (= x length)
+           (< y' size)) (reset-cursor text [0 y'])
+      :else              text)))
 
 (s/defn do-move-up :- Text
   [text :- Text]
-  (let [[x y] (:cursor text)
-        y' (dec y)]
-    (if (< y' 0)
-      text
-      (let [x' (-> text (line-at y') (count))]
-        (if (> x x')
-          (reset-to text [x' y'])
-          (reset-to text [x y']))))))
+  (let [[x y] (:cursor text)]
+    (reset-cursor text [x (dec y)])))
 
 (s/defn do-move-down :- Text
   [text :- Text]
-  (let [[x y] (:cursor text)
-        y'   (inc y)
-        size (:size text)]
-    (if (>= y' size)
-      text
-      (let [x' (-> text (line-at y') (count))]
-        (if (> x x')
-          (reset-to text [x' y'])
-          (reset-to text [x y']))))))
+  (let [[x y] (:cursor text)]
+    (reset-cursor text [x (inc y)])))
 
 (s/defn current-char :- (s/maybe Character)
   [text :- Text]
@@ -448,7 +432,7 @@
                   cursor    (:cursor that)
                   selection (:selection that)]
               (-> (append this that)
-                  (reset-to (move cursor))
+                  (reset-cursor (move cursor))
                   (reset-selection (when-let [{start :start end :end} selection]
                                      {:start (move start)
                                       :end   (move end)}))))) text texts))
@@ -456,12 +440,6 @@
 (s/defn joined :- Text
   [texts :- [Text]]
   (reduce join empty-text texts))
-
-(s/defn merge-lines :- Text
-  [text :- Text]
-  (peer text (fn [l [a b & t]]
-               (-> (conj l (concat a b))
-                   (concat t)))))
 
 (s/defn do-new-line :- Text
   [text :- Text]
@@ -486,24 +464,41 @@
 
 (s/defn simple-delete :- Text
   [text :- Text]
-  (-> text
-      (slicel drop-last)
-      (move-left-with merge-lines)))
+  (let [[x y]  (:cursor text)]
+    (if (> x 0)
+      (-> text
+          (do-move-left)
+          (slice (fn [l r] (concat l (vec (rest r))))))
+      (-> text
+          (do-move-left)
+          (peer
+            (fn [l [a b & r]]
+              (concat (conj l (vec (concat a b))) r)))))))
 
 (s/defn pair-delete :- Text
   [text :- Text]
-  (-> text
-      (slice #(concat (drop-last %1) (rest %2)))
-      (move-x dec)))
+  (let [[x y] (:cursor text)]
+    (-> text
+        (reset-cursor [(dec x) y])
+        (slice (fn [l r] (concat l (drop 2 r)))))))
 
-;; FIXME: Don't use simple delete, do a dedicated transformation on the lines
 (s/defn chunk-delete :- Text
   [text :- Text]
-  (let [start (-> text (:selection) (:start))
-        end   (-> text (:selection) (:end))]
-    (-> text
-        (reset-to end)
-        (do-until simple-delete #(= (:cursor %) start)))))
+  (let [[xs ys] (-> text (:selection) (:start))
+        [xe ye] (-> text (:selection) (:end))]
+    (if (= ys ye)
+      (-> text
+          (reset-cursor [xs ys])
+          (slice (fn [l r] (concat l (drop (- xe xs) r)))))
+      (let [lines  (:lines text)
+            left   (->> (line-at text ys) (take xs))
+            right  (->> (line-at text ye) (drop xe))
+            line   (concat left right)
+            top    (take ys lines)
+            bottom (->> lines (drop (inc ye)) (cons line))]
+        (-> text
+            (reset-cursor [xs ys])
+            (reset-lines (concat top bottom)))))))
 
 (s/defn pair? :- s/Bool
   [text :- Text]
@@ -548,7 +543,7 @@
    [l r] :- [Character]]
   (-> text (slicel #(conj % l r)) (move-x inc)))
 
-(s/defn overwrite :- Text
+(s/defn delete-selected :- Text
   [text :- Text]
   (if (selecting? text)
     (do-delete-previous text)
@@ -557,7 +552,7 @@
 (s/defn do-insert :- Text
   [text :- Text
    input :- Character]
-  (let [overwritten (overwrite text)]
+  (let [overwritten (delete-selected text)]
     (m/match [input (current-char overwritten)]
              [\) \)] (move-x text inc)
              [\] \]] (move-x text inc)
@@ -607,23 +602,23 @@
 (s/defn do-paste :- Text
   [text :- Text]
   (let [copied (some-> text (:clipboard) (end))
-        [x y] (some-> copied (:cursor))]
+        [x y]  (some-> copied (:cursor))]
     (m/match [copied]
-             [{:lines [a]}] (-> (overwrite text)
-                                (split #(vector (concat %1 a %2)))
-                                (move-y #(+ % y))
-                                (move-x #(+ % x)))
-             [{:lines [a b]}] (-> (overwrite text)
-                                  (split #(vector (concat %1 a) (concat b %2)))
-                                  (move-y #(+ % y))
-                                  (reset-x x))
-             [{:lines [a & b]}] (-> (overwrite text)
-                                    (split #(concat [(concat %1 a)]
-                                                    (drop-last b)
-                                                    [(concat (last b) %2)]))
-                                    (move-y #(+ % y))
-                                    (reset-x x))
-             :else text)))
+      [{:lines [a]}] (-> (delete-selected text)
+                         (slice #(concat %1 a %2))
+                         (move-y #(+ % y))
+                         (move-x #(+ % x)))
+      [{:lines [a b]}] (-> (delete-selected text)
+                           (split #(vector (concat %1 a) (concat b %2)))
+                           (move-y #(+ % y))
+                           (reset-x x))
+      [{:lines [a & b]}] (-> (delete-selected text)
+                             (split #(concat [(concat %1 a)]
+                                             (drop-last b)
+                                             [(concat (last b) %2)]))
+                             (move-y #(+ % y))
+                             (reset-x x))
+      :else text)))
 
 (s/defn do-select-all :- Text
   [text :- Text]
@@ -678,7 +673,7 @@
   (let [init-cursor (:cursor (start text))
         expand-from (-> text (:selection) (:start) (or (:cursor text)))]
     (loop [seen-chars ()
-           current    (reset-to text expand-from)]
+           current    (reset-cursor text expand-from)]
       (let [char      (previous-char current)
             last-seen (first seen-chars)]
         (cond

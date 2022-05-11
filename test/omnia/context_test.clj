@@ -349,8 +349,8 @@
         expected (-> ["persisted"
                       ---
                       "1"
-                      "------"
-                      "|------"]
+                      "------|"
+                      "------"]
                      (derive-context))
         actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
         actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))

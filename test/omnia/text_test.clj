@@ -189,60 +189,88 @@
 ;; IV. Moving
 
 (deftest moves-right
-  (let [text (-> ["h|ello"]
-                 (derive-text)
-                 (i/move-right)
-                 (i/current-char))]
-    (is (= text \l))))
+  (testing "Moves right"
+    (testing "in a line"
+      (let [text          (-> ["h|ello"]
+                              (derive-text)
+                              (i/move-right))
+            expected      (-> ["he|llo"]
+                              (derive-text))
+            actual-char   (i/current-char text)]
+        (is (= text expected))
+        (is (= actual-char \l))))
 
-(deftest moves-right-between-lines
-  (let [text (-> ["hell|o"
-                  "world"]
-                 (derive-text)
-                 (i/move-right)
-                 (i/move-right)
-                 (i/current-char))]
-    (is (= text \w))))
+    (testing "between lines"
+      (let [text          (-> ["hell|o"
+                               "world"]
+                              (derive-text)
+                              (i/move-right)
+                              (i/move-right))
+            expected      (-> ["hello"
+                               "|world"]
+                              (derive-text))
+            actual-char   (i/current-char text)]
+        (is (= text expected))
+        (is (= actual-char \w))))
 
-(deftest stops-moving-right-at-text-end
-  (let [text      (-> ["hello"
-                       "world|"]
-                      (derive-text)
-                      (i/move-right)
-                      (i/move-right))
-        curr-char (i/current-char text)
-        prev-char (i/previous-char text)]
-    (is (= curr-char nil))
-    (is (= prev-char \d))))
+    (testing "stopping at end"
+      (let [text      (-> ["hello"
+                           "worl|d"]
+                          (derive-text)
+                          (i/move-right)
+                          (i/move-right)
+                          (i/move-right))
+            expected  (-> ["hello"
+                           "world|"]
+                          (derive-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= text expected))
+        (is (= curr-char nil))
+        (is (= prev-char \d))))))
 
 (deftest moves-left
-  (let [text (-> ["h|ello"]
-                 (derive-text)
-                 (i/move-left)
-                 (i/current-char))]
-    (is (= text \h))))
+  (testing "Moves left"
+    (testing "in a line"
+      (let [text        (-> ["h|ello"]
+                            (derive-text)
+                            (i/move-left))
+            expected    (-> ["|hello"]
+                            (derive-text))
+            actual-char (i/current-char text)]
+        (is (= text expected))
+        (is (= actual-char \h))))
 
-(deftest moves-left-between-lines
-  (let [text      (-> ["hello"
-                       "w|orld"]
-                      (derive-text)
-                      (i/move-left)
-                      (i/move-left))
-        curr-char (i/current-char text)
-        prev-char (i/previous-char text)]
-    (is (= curr-char nil))
-    (is (= prev-char \o))))
+    (testing "between lines"
+      (let [text      (-> ["hello"
+                           "w|orld"]
+                          (derive-text)
+                          (i/move-left)
+                          (i/move-left))
+            expected  (-> ["hello|"
+                           "world"]
+                          (derive-text))
+            cur-char  (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= text expected))
+        (is (= cur-char nil))
+        (is (= prev-char \o))))
 
-(deftest stops-moving-left-at-text-start
-  (let [text      (-> ["|hello"
-                       "world"]
-                      (derive-text)
-                      (i/move-left)
-                      (i/move-left))
-        curr-char (i/current-char text)
-        prev-char (i/previous-char text)]
-    (is (= curr-char \h))
-    (is (= prev-char nil))))
+    (testing "stopping at start"
+      (let [text      (-> ["h|ello"
+                           "world"]
+                          (derive-text)
+                          (i/move-left)
+                          (i/move-left)
+                          (i/move-left))
+            expected  (-> ["|hello"
+                           "world"]
+                          (derive-text))
+            curr-char (i/current-char text)
+            prev-char (i/previous-char text)]
+        (is (= text expected))
+        (is (= prev-char nil))
+        (is (= curr-char \h))))))
 
 (deftest moves-up
   (testing "LINE MIDDLE -"

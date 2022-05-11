@@ -312,8 +312,8 @@
                             (derive-hud)
                             (h/pop-up h/empty-hud))
         expected        (-> ["input"
-                             "------"
-                             "|------"]
+                             "------|"
+                             "------"]
                             (derive-hud))
         actual-view     (-> context (h/text) (:lines))
         actual-cursor   (-> context (h/text) (:cursor))

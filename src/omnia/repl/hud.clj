@@ -127,7 +127,7 @@
 
 (s/defn project-hud :- Text
   [hud :- Hud]
-  (-> hud (project-hud-text) (t/create-text) (t/reset-to (project-hud-cursor hud))))
+  (-> hud (project-hud-text) (t/create-text) (t/reset-cursor (project-hud-cursor hud))))
 
 (s/defn clip-selection :- Region
   [hud :- Hud
