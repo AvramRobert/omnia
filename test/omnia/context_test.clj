@@ -326,8 +326,9 @@
   (let [context          (-> ["persisted"
                               ---
                               "1|"]
-                             (derive-context {:response (completion-response ["option-1"
-                                                                                    "option-2"])})
+                             (derive-context {:response
+                                              (completion-response ["option-1"
+                                                                    "option-2"])})
                              (process [e/suggest e/suggest (e/character \a)]))
         expected         (-> ["persisted"
                               ---

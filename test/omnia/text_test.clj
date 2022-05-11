@@ -2349,22 +2349,34 @@
 (deftest expands-to-words
   (let [word1-start     (-> ["|some line"] (derive-text) (i/expand-select) (i/extract) (:lines))
         word1-middle    (-> ["so|me line"] (derive-text) (i/expand-select) (i/extract) (:lines))
-        sentence-middle (-> ["some| line"] (derive-text) (i/expand-select) (i/extract) (:lines))
+        word1-end       (-> ["some| line"] (derive-text) (i/expand-select) (i/extract) (:lines))
         word2-start     (-> ["some |line"] (derive-text) (i/expand-select) (i/extract) (:lines))
         word2-middle    (-> ["some li|ne"] (derive-text) (i/expand-select) (i/extract) (:lines))
         word2-end       (-> ["some line|"] (derive-text) (i/expand-select) (i/extract) (:lines))]
-    (is (= word1-start word1-middle [[\s \o \m \e]]))
-    (is (= word2-start word2-middle word2-end [[\l \i \n \e]]))
-    (is (= sentence-middle [[\s \o \m \e \space \l \i \n \e]]))))
+    (is (= word1-start word1-middle word1-end [[\s \o \m \e]]))
+    (is (= word2-start word2-middle word2-end [[\l \i \n \e]]))))
 
-(deftest expands-over-multiple-lines-from-space
-  (let [from-space (-> ["first| "
-                        "second"]
-                       (derive-text)
-                       (i/expand-select)
-                       (i/extract)
-                       (:lines))]
-    (is (= from-space [[\f \i \r \s \t \space] [\s \e \c \o \n \d]]))))
+(deftest expands-over-lines
+  (let [text1     (-> ["first |"
+                       "second"]
+                      (derive-text)
+                      (i/expand-select)
+                      (i/extract)
+                      (:lines))
+        text2     (-> ["first | second"]
+                      (derive-text)
+                      (i/expand-select)
+                      (i/extract)
+                      (:lines))
+        expected1 (-> ["first "
+                       "second|"]
+                      (derive-text)
+                      (:lines))
+        expected2 (-> ["first  second|"]
+                      (derive-text)
+                      (:lines))]
+    (is (= text1 expected1))
+    (is (= text2 expected2))))
 
 (deftest expands-over-exprs
   (->> [[\( \)] [\[ \]] [\{ \}]]
@@ -2457,6 +2469,52 @@
               (is (= o-expr [[ol] [il \s \o \m \e] [\w \o \r \d ir] [or]]))))
           parens))
       parens)))
+
+(deftest covers-all-expansion-cases
+  (->> [{:text     ["(|hello )"]
+         :expected ["hello"]}
+
+        {:text     ["(| hello )"]
+         :expected ["( hello )"]}
+
+        {:text     ["|( some )"]
+         :expected ["( some )"]}
+
+        {:text     ["( some |)"]
+         :expected ["( some )"]}
+
+        {:text     ["( some\"|)"]
+         :expected ["( some\")"]}
+
+        {:text     ["( some )|with"]
+         :expected ["( some )"]}
+
+        {:text     ["(|)"]
+         :expected ["()"]}
+
+        {:text     [" |some text"]
+         :expected ["some"]}
+
+        {:text     ["some | text"]
+         :expected ["some  text"]}
+
+        {:text     ["| some text"]
+         :expected [" some text"]}
+
+        {:text     ["some text |"]
+         :expected ["some text "]}]
+       (run! (fn [entry]
+               (let [actual   (-> entry
+                                  (:text)
+                                  (derive-text)
+                                  (i/do-expand-select)
+                                  (i/extract)
+                                  (:lines))
+                     expected (-> entry
+                                  (:expected)
+                                  (derive-text)
+                                  (:lines))]
+                 (is (= actual expected) (str "Failed: " (:text entry))))))))
 
 ;; XII. Copying
 
@@ -2884,7 +2942,7 @@
 
 ;; XVIII. Auto-completing
 
-(deftest can-autocomplete-text
+#_(deftest can-autocomplete-text
   (let [text1     (-> ["some"
                        "things cha|nge"]
                       (derive-text)
