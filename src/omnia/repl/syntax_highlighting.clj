@@ -53,6 +53,7 @@
                  escape-node
                  comma-node)]
     {:node       function-node
+     :pair       none
      :emission   (constantly t/functions)
      :transition #(lookup % function-node)}))
 
@@ -73,6 +74,7 @@
                  number-node
                  comma-node)]
     {:node       open-list-node
+     :pair       closed-list-node
      :emission   (constantly t/lists)
      :transition #(lookup % function-node)}))
 
@@ -94,6 +96,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-list-node
+     :pair       none
      :emission   (constantly t/lists)
      :transition #(lookup % text-node)}))
 
@@ -112,6 +115,7 @@
                  comment-node
                  comma-node)]
     {:node       text-node
+     :pair       none
      :emission   (constantly t/texts)
      :transition #(lookup % text-node)}))
 
@@ -133,6 +137,7 @@
                  break-node
                  comma-node)]
     {:node       break-node
+     :pair       none
      :emission   (constantly t/texts)
      :transition #(lookup % text-node)}))
 
@@ -154,6 +159,7 @@
                  space-node
                  comma-node)]
     {:node       space-node
+     :pair       none
      :emission   (constantly t/texts)
      :transition #(lookup % text-node)}))
 
@@ -171,6 +177,7 @@
                  comment-node
                  comma-node)]
     {:node       word-node
+     :pair       none
      :emission   (fn [_ acc]
                    (if (words acc) t/words t/texts))
      :transition #(lookup % word-node)}))
@@ -193,6 +200,7 @@
                  keyword-node
                  comma-node)]
     {:node       open-vector-node
+     :pair       closed-vector-node
      :emission   (constantly t/vectors)
      :transition #(lookup % text-node)}))
 
@@ -214,6 +222,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-vector-node
+     :pair       none
      :emission   (constantly t/vectors)
      :transition #(lookup % text-node)}))
 
@@ -235,6 +244,7 @@
                  keyword-node
                  comma-node)]
     {:node       open-map-node
+     :pair       closed-map-node
      :emission   (constantly t/maps)
      :transition #(lookup % text-node)}))
 
@@ -256,6 +266,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-map-node
+     :pair       none
      :emission   (constantly t/maps)
      :transition #(lookup % text-node)}))
 
@@ -274,6 +285,7 @@
                  comment-node
                  comma-node)]
     {:node       keyword-node
+     :pair       none
      :emission   (constantly t/keywords)
      :transition #(lookup % keyword-node)}))
 
@@ -294,6 +306,7 @@
         number?   #(contains? #{\0 \1 \2 \3 \4 \5 \6 \7 \8} %)
         function? #(= % open-list-node)]
     {:node       number-node
+     :pair       none
      :emission   (fn [n [a b & _]]
                    (cond
                      (and (sign? a) (number? b)) t/numbers
@@ -305,6 +318,7 @@
 (s/def open-string :- State
   (let [lookup (transitions closed-string-node)]
     {:node       open-string-node
+     :pair       none
      :emission   (constantly t/strings)
      :transition #(lookup % open-string-node)}))
 
@@ -325,6 +339,7 @@
                  number-node
                  keyword-node)]
     {:node       character-node
+     :pair       none
      :emission   (constantly t/characters)
      :transition #(lookup % text-node)}))
 
@@ -345,6 +360,7 @@
                  number-node
                  keyword-node)]
     {:node       special-character-node
+     :pair       none
      :emission   (fn [_ acc]
                    (if (or (special-characters acc) (= (count acc) 1))
                      t/characters
@@ -357,12 +373,14 @@
                  space-node
                  special-character-node)]
     {:node       escape-node
+     :pair       none
      :emission   (constantly t/characters)
      :transition #(lookup % character-node)}))
 
 (s/def com-ment :- State
   (let [lookup (transitions break-node)]
     {:node       comment-node
+     :pair       none
      :emission   (constantly t/comments)
      :transition #(lookup % comment-node)}))
 
@@ -384,6 +402,7 @@
                  keyword-node
                  comma-node)]
     {:node       closed-string-node
+     :pair       none
      :emission   (constantly t/strings)
      :transition #(lookup % text-node)}))
 
@@ -405,6 +424,7 @@
                  keyword-node
                  comma-node)]
     {:node       comma-node
+     :pair       none
      :emission   (constantly t/commas)
      :transition #(lookup % text-node)}))
 
@@ -436,29 +456,41 @@
   [f      :- (=> s/Any State t/SyntaxElement [Character])
    init   :- s/Any
    stream :- CharStream]
-  (loop [result        init
-         accumulate    []
-         state         break
-         prev-node     break-node
-         [char & rest] stream]
-    (let [node       (:node state)
-          transition (:transition state)
-          emit       (:emission state)]
+  (loop [result         init
+         accumulate     []
+         state          break
+         state-stack   '()
+         [char & chars] stream]
+    (let [node          (:node state)
+          transition    (:transition state)
+          emit          (:emission state)
+          pair          (:pair state)
+          pushed-node   (-> state-stack (first) (:node))
+          expected-pair (-> state-stack (first) (:pair))]
       (if (nil? char)
-        (f result state (emit prev-node accumulate) accumulate)
+        (f result state (emit pushed-node accumulate) accumulate)
         (let [node'  (transition char)
               state' (get node->state node')]
           (if (= node node')
-            (recur result
-                   (conj accumulate char)
-                   state'
-                   prev-node
-                   rest)
-            (recur (f result state (emit prev-node accumulate) accumulate)
-                   [char]
-                   state'
-                   node
-                   rest)))))))
+            (cond
+              (= pair none)
+              (recur result (conj accumulate char) state' state-stack chars)
+
+              (= node expected-pair)
+              (recur result (conj accumulate char) state' (rest state-stack) chars)
+
+              :else
+              (recur result (conj accumulate char) state' (cons state state-stack) chars))
+
+            (cond
+              (= pair none)
+              (recur (f result state (emit pushed-node accumulate) accumulate) [char] state' state-stack chars)
+
+              (= node expected-pair)
+              (recur (f result state (emit pushed-node accumulate) accumulate) [char] state' (rest state-stack) chars)
+
+              :else
+              (recur (f result state (emit pushed-node accumulate) accumulate) [char] state' (cons state state-stack) chars))))))))
 
 (s/defn fold :- s/Any
   [f      :- (=> s/Any t/SyntaxElement [Character])

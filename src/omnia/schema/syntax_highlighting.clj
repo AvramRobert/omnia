@@ -46,18 +46,24 @@
    space-node
    comma-node])
 
+(def ^:const none :none)
+
 (def Node (apply s/enum nodes))
 (def TransitionFn (=> Character (s/maybe Node)))
-(def EmissionFn (=> Node [Character] SyntaxElement))
+(def EmissionFn (=> (s/maybe Node) [Character] SyntaxElement))
 (def CharStream (s/cond-pre s/Str [Character]))
+(def PairNode (s/cond-pre (s/eq none) Node))
 
 (def State
   "State in the syntax highlighting state-machine:
    node       - unique node in the state-machine graph
+   pair       - a node associated with this one which together form a pair
+              - if defined, this state is pushed back and kept until a node matching its pair is encountered
    emission   - function that computes the emitted `SyntaxElement`
-              - the computation is made based on the previous node
+              - the computation is made based on a possibly pushed-down previous node
                 and the characters accumulated while processing this state
    transition - function that computes the nodes this state can transition to"
-  {:node       Node
-   :emission   EmissionFn
-   :transition TransitionFn})
+  {:node           Node
+   :pair           PairNode
+   :emission       EmissionFn
+   :transition     TransitionFn})
