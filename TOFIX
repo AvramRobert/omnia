@@ -6,6 +6,7 @@ omnia.repl.text issues:
   - remove the text history from the text itself
         -> define a separate component that is carried recursively with the repl processing as a separate parameter.
         -> That way, the text won't become large and the transformations will be quick.
+        -> Perhaps we can put the repl's evaluation history inside this construct aswell
 
   - rename region coordinates "from" and "until" instead of "start" "end"
   - the clipboard doesn't need to be a focken text, does it??!
@@ -14,9 +15,6 @@ omnia.repl.text issues:
   - debug-string should also display the selection and cursor
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Reverse parameter order?
-
-omnia.repl.syntax issues:
-  - Add set-highlighting
 
 omnia.repl.context issues:
   - perhaps there is a way of removing the NReplClient from the Context
