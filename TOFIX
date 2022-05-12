@@ -16,11 +16,6 @@ omnia.repl.text issues:
   - Reverse parameter order?
 
 omnia.repl.syntax issues:
-  - Add previous node to transition evaluator of syntax highlighter
-    -> can be part of the transition function of every node. Should allow me to make context-based transitions
-  - Fix number highlighter:
-       * (-> 1 ) => renders `->` in number colouring because `-` is part of the number node
-       * if I keep track of what the previous state was, I can change the emission
   - Add set-highlighting
 
 omnia.repl.context issues:
