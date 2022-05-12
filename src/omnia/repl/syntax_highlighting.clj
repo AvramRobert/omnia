@@ -289,20 +289,17 @@
                  closed-map-node
                  open-string-node
                  comment-node
-                 comma-node)]
+                 comma-node)
+        sign?     #(contains? #{\+ \-} %)
+        number?   #(contains? #{\0 \1 \2 \3 \4 \5 \6 \7 \8} %)
+        function? #(= % open-list-node)]
     {:node       number-node
      :emission   (fn [n [a b & _]]
-                   (letfn [(emit [other]
-                             (if (= n open-list-node) t/functions other))]
-                     (case [a b]
-                       [\+ \+]   (emit t/texts)
-                       [\- \-]   (emit t/texts)
-                       [\+ \-]   (emit t/texts)
-                       [\- \+]   (emit t/texts)
-                       [\+ nil]  (emit t/texts)
-                       [\- nil]  (emit t/texts)
-                       [nil nil] (emit t/texts)
-                       (emit t/numbers))))
+                   (cond
+                     (and (sign? a) (number? b)) t/numbers
+                     (number? a)                 t/numbers
+                     (function? n)               t/functions
+                     :else                       t/texts))
      :transition #(lookup % number-node)}))
 
 (s/def open-string :- State

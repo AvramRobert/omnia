@@ -1,10 +1,9 @@
-(ns omnia.syntax-test
+(ns omnia.syntax-highlighting-test
   (:require [schema.core :as s]
             [omnia.repl.syntax-highlighting :as h]
             [omnia.schema.syntax :as sy]
             [clojure.test :refer [deftest is]]
             [clojure.set :refer [difference]]
-            [omnia.util.collection :refer [map-vals]]
             [omnia.schema.syntax-highlighting :refer [Node State]]
             [omnia.schema.syntax :refer [SyntaxElement]]))
 
@@ -73,9 +72,9 @@
 (deftest detect-functions
   (test-detections
     [["(heh)"   [h/open-list h/function h/function h/function h/close-list] [sy/lists sy/functions sy/lists]]
-     ["(+ab)"   [h/open-list h/number h/number h/number h/close-list] [sy/lists sy/functions sy/lists]]
-     ["(-ab)"   [h/open-list h/number h/number h/number h/close-list] [sy/lists sy/functions sy/lists]]
-     ["(nil "   [h/open-list h/function h/function h/function h/space] [sy/lists sy/functions sy/texts]]]))
+     ["(+ab)"   [h/open-list h/number h/number h/number h/close-list]       [sy/lists sy/functions sy/lists]]
+     ["(-ab)"   [h/open-list h/number h/number h/number h/close-list]       [sy/lists sy/functions sy/lists]]
+     ["(nil "   [h/open-list h/function h/function h/function h/space]      [sy/lists sy/functions sy/texts]]]))
 
 (deftest detect-lists
   (test-detections
