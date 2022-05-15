@@ -14,7 +14,7 @@
             [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [TerminalSpec]]
             [omnia.schema.text :refer [Text Line]]
-            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.hud :refer [View]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.common :refer [Region]]
             [omnia.schema.nrepl :refer [ValueResponse CompletionResponse NReplClient NReplResponse]])
@@ -252,12 +252,12 @@
            (r/with-preview ctx (-> ctx
                                    (r/preview-hud)
                                    (h/with-view-offset view-offset)))
-           (r/with-previous ctx (h/hud-of field-of-view))
+           (r/with-previous ctx (h/view-of field-of-view))
            (if (some? highlights)
              (r/with-highlight ctx :manual (r/make-manual default-config highlights))
              ctx)))))
 
-(s/defn derive-hud :- Hud
+(s/defn derive-hud :- View
   "Derives a hud based on a list of tagged strings.
    Behaves similarly to `derive-context`, but derives a simple hud.
    Ignores context-specific information like the persisted area."
@@ -268,6 +268,6 @@
                 scroll-offset]} (parse def)]
     (-> input-area
         (derive-text)
-        (h/hud field-of-view)
+        (h/view field-of-view)
         (h/with-view-offset view-offset)
         (h/with-scroll-offset scroll-offset))))

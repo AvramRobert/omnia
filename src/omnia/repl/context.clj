@@ -8,7 +8,7 @@
             [omnia.schema.context :refer [Context ProcessingStep]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
-            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.hud :refer [View]]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.common :refer [=> Region]]
@@ -33,41 +33,41 @@
      i/empty-line
      caret]))
 
-(s/defn init-hud :- Hud
+(s/defn init-hud :- View
   [size :- s/Int,
    repl :- NReplClient]
   (let [header (header (:host repl) (:port repl))]
-    (-> (h/hud-of size)
+    (-> (h/view-of size)
         (h/enrich-with header))))
 
 (s/defn context :- Context
   [view-size :- s/Int
    repl      :- NReplClient]
   (let [input     i/empty-line
-        previous  (h/hud-of view-size)
+        previous  (h/view-of view-size)
         persisted (init-hud view-size repl)
         preview   (h/enrich-with persisted [input])]
-    {:nrepl          repl
+    {:nrepl         repl
      :render        :diff
      :previous-hud  previous
      :persisted-hud persisted
      :preview-hud   preview
      :input-area    input
-     :suggestions   h/empty-hud
-     :documentation h/empty-hud
-     :signatures    h/empty-hud
+     :suggestions   h/empty-view
+     :documentation h/empty-view
+     :signatures    h/empty-view
      :highlights    {}
      :garbage       {}}))
 
-(s/defn preview-hud :- Hud
+(s/defn preview-hud :- View
   [ctx :- Context]
   (:preview-hud ctx))
 
-(s/defn persisted-hud :- Hud
+(s/defn persisted-hud :- View
   [ctx :- Context]
   (:persisted-hud ctx))
 
-(s/defn previous-hud :- Hud
+(s/defn previous-hud :- View
   [ctx :- Context]
   (:previous-hud ctx))
 
@@ -79,15 +79,15 @@
   [ctx :- Context]
   (-> ctx (persisted-hud) (h/field-of-view)))
 
-(s/defn suggestions :- Hud
+(s/defn suggestions :- View
   [ctx :- Context]
   (:suggestions ctx))
 
-(s/defn signatures :- Hud
+(s/defn signatures :- View
   [ctx :- Context]
   (:signatures ctx))
 
-(s/defn documentation :- Hud
+(s/defn documentation :- View
   [ctx :- Context]
   (:documentation ctx))
 
@@ -114,25 +114,25 @@
     :preview-hud (-> ctx (persisted-hud) (h/enrich-with [(:input-area ctx)]))))
 
 (s/defn with-previous :- Context
-  [ctx :- Context, hud :- Hud]
+  [ctx :- Context, hud :- View]
   (assoc ctx :previous-hud hud))
 
 (s/defn with-preview :- Context
-  [ctx :- Context, hud :- Hud]
+  [ctx :- Context, hud :- View]
   (assoc ctx
     :previous-hud (:preview-hud ctx)
     :preview-hud hud))
 
 (s/defn with-persisted :- Context
-  [ctx :- Context, hud :- Hud]
+  [ctx :- Context, hud :- View]
   (assoc ctx :persisted-hud hud))
 
 (s/defn with-unrefreshed-preview :- Context
-  [ctx :- Context, hud :- Hud]
+  [ctx :- Context, hud :- View]
   (assoc ctx :preview-hud hud))
 
 (s/defn with-hud :- Context
-  [ctx :- Context, hud :- Hud]
+  [ctx :- Context, hud :- View]
   (-> ctx (with-persisted hud) (refresh)))
 
 (s/defn reset-highlights :- Context
@@ -198,15 +198,15 @@
   (assoc ctx :nrepl repl))
 
 (s/defn with-suggestions :- Context
-  [ctx :- Context, suggestions :- Hud]
+  [ctx :- Context, suggestions :- View]
   (assoc-new ctx :suggestions suggestions))
 
 (s/defn with-documentation :- Context
-  [ctx :- Context, documentation :- Hud]
+  [ctx :- Context, documentation :- View]
   (assoc-new ctx :documentation documentation))
 
 (s/defn with-signatures :- Context
-  [ctx :- Context, signatures :- Hud]
+  [ctx :- Context, signatures :- View]
   (assoc-new ctx :signatures signatures))
 
 (s/defn with-render :- Context
@@ -215,15 +215,15 @@
 
 (s/defn reset-suggestions :- Context
   [ctx :- Context]
-  (with-suggestions ctx h/empty-hud))
+  (with-suggestions ctx h/empty-view))
 
 (s/defn reset-documentation :- Context
   [ctx :- Context]
-  (with-documentation ctx h/empty-hud))
+  (with-documentation ctx h/empty-view))
 
 (s/defn reset-signatures :- Context
   [ctx :- Context]
-  (with-signatures ctx h/empty-hud))
+  (with-signatures ctx h/empty-view))
 
 (s/defn re-render :- Context
   [ctx :- Context]
@@ -328,13 +328,13 @@
   (let [preview (-> ctx (preview-hud) (h/scroll-down))]
     (with-preview ctx preview)))
 
-(s/defn scroll-stop :- Context
+(s/defn reset-scroll :- Context
   [ctx :- Context]
   (if (-> ctx (preview-hud) (h/scroll-offset) (zero?))
     ctx
     (-> ctx
-        (with-persisted (-> ctx (persisted-hud) (h/scroll-stop)))
-        (with-unrefreshed-preview (-> ctx (preview-hud) (h/scroll-stop))))))
+        (with-persisted (-> ctx (persisted-hud) (h/reset-scroll)))
+        (with-unrefreshed-preview (-> ctx (preview-hud) (h/reset-scroll))))))
 
 (s/defn eval-at :- Context
   [ctx :- Context,
@@ -371,7 +371,7 @@
         (with-input-area i/empty-line)
         (with-hud new-hud))))
 
-(s/defn suggestion-window :- Hud
+(s/defn suggestion-window :- View
   [ctx :- Context]
   (let [text  (input-area ctx)
         repl  (nrepl-client ctx)
@@ -397,7 +397,7 @@
         (with-preview preview)
         (deselect))))
 
-(s/defn signature-window :- Hud
+(s/defn signature-window :- View
   [ctx :- Context]
   (let [text (input-area ctx)
         repl (nrepl-client ctx)
@@ -418,7 +418,7 @@
         (with-signatures signatures)
         (with-preview preview))))
 
-(s/defn documentation-window :- Hud
+(s/defn documentation-window :- View
   [ctx :- Context]
   (let [text (input-area ctx)
         repl (nrepl-client ctx)
@@ -472,20 +472,20 @@
    config :- Config
    event  :- e/Event]
   (letfn [(perform [ctx f]
-            (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (input f) (calibrate) (highlight config) (match-parens config) (diff-render) (continue)))]
+            (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (input f) (calibrate) (highlight config) (match-parens config) (diff-render) (continue)))]
     (condp = (:action event)
       e/inject (-> ctx (inject event) (diff-render) (continue))
-      e/docs (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens config) (diff-render) (continue))
-      e/signature (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens config) (diff-render) (continue))
-      e/suggest (-> ctx (gc config) (scroll-stop) (reset-documentation) (reset-signatures) (suggest) (match-parens config) (diff-render) (continue))
+      e/docs (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens config) (diff-render) (continue))
+      e/signature (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens config) (diff-render) (continue))
+      e/suggest (-> ctx (gc config) (reset-scroll) (reset-documentation) (reset-signatures) (suggest) (match-parens config) (diff-render) (continue))
       e/scroll-up (-> ctx (gc config) (scroll-up) (deselect) (highlight config) (diff-render) (continue))
       e/scroll-down (-> ctx (gc config) (scroll-down) (deselect) (highlight config) (diff-render) (continue))
-      e/prev-eval (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight config) (match-parens config) (diff-render) (continue))
-      e/next-eval (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight config) (match-parens config) (diff-render) (continue))
-      e/indent (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight config) (match-parens config) (diff-render) (continue))
-      e/clear (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight config) (match-parens config) (clear-render) (continue))
-      e/evaluate (-> ctx (gc config) (scroll-stop) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight config) (diff-render) (continue))
-      e/exit (-> ctx (gc config) (scroll-stop) (deselect) (highlight config) (diff-render) (exit) (terminate))
+      e/prev-eval (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight config) (match-parens config) (diff-render) (continue))
+      e/next-eval (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight config) (match-parens config) (diff-render) (continue))
+      e/indent (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight config) (match-parens config) (diff-render) (continue))
+      e/clear (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight config) (match-parens config) (clear-render) (continue))
+      e/evaluate (-> ctx (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight config) (diff-render) (continue))
+      e/exit (-> ctx (gc config) (reset-scroll) (deselect) (highlight config) (diff-render) (exit) (terminate))
       e/resize (-> ctx (resize event) (calibrate) (re-render) (continue))
       e/expand-select (-> ctx (perform i/expand-select))
       e/select-all (-> ctx (perform i/select-all))

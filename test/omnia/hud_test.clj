@@ -63,8 +63,8 @@
                              "some"
                              "text|"]
                             (derive-text))
-        actual-view     (-> hud (h/project-hud) (:lines))
-        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        actual-view     (-> hud (h/project) (:lines))
+        actual-cursor   (-> hud (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
@@ -78,8 +78,8 @@
         expected        (-> ["some"
                              "t|ext"]
                             (derive-text))
-        actual-view     (-> hud (h/project-hud) (:lines))
-        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        actual-view     (-> hud (h/project) (:lines))
+        actual-cursor   (-> hud (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
@@ -94,8 +94,8 @@
         expected        (-> ["so|me"
                              "text"]
                             (derive-text))
-        actual-view     (-> hud (h/project-hud) (:lines))
-        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        actual-view     (-> hud (h/project) (:lines))
+        actual-cursor   (-> hud (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
@@ -110,8 +110,8 @@
         expected        (-> ["|some"
                              "text"]
                             (derive-text))
-        actual-view     (-> hud (h/project-hud) (:lines))
-        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        actual-view     (-> hud (h/project) (:lines))
+        actual-cursor   (-> hud (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
@@ -127,8 +127,8 @@
         expected        (-> ["begi|nning"
                              "some"]
                             (derive-text))
-        actual-view     (-> hud (h/project-hud) (:lines))
-        actual-cursor   (-> hud (h/project-hud) (:cursor))
+        actual-view     (-> hud (h/project) (:lines))
+        actual-cursor   (-> hud (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
@@ -276,16 +276,16 @@
                                  "------"]
                                 (derive-hud))
         actual-view-offset1 (h/view-offset hud1)
-        actual-view1        (-> hud1 (h/project-hud) (:lines))
-        actual-cursor1      (-> hud1 (h/project-hud) (:cursor))
+        actual-view1        (-> hud1 (h/project) (:lines))
+        actual-cursor1      (-> hud1 (h/project) (:cursor))
 
         actual-view-offset2 (h/view-offset hud2)
-        actual-view2        (-> hud2 (h/project-hud) (:lines))
-        actual-cursor2      (-> hud2 (h/project-hud) (:cursor))
+        actual-view2        (-> hud2 (h/project) (:lines))
+        actual-cursor2      (-> hud2 (h/project) (:cursor))
 
         actual-view-offset3 (h/view-offset hud3)
-        actual-view3        (-> hud3 (h/project-hud) (:lines))
-        actual-cursor3      (-> hud3 (h/project-hud) (:cursor))
+        actual-view3        (-> hud3 (h/project) (:lines))
+        actual-cursor3      (-> hud3 (h/project) (:cursor))
 
         expected-view1      (-> expected1 (h/text) (:lines))
         expected-cursor1    (-> expected1 (h/text) (:cursor))
@@ -310,7 +310,7 @@
 (deftest supports-empty-pop-windows
   (let [context         (-> ["input|"]
                             (derive-hud)
-                            (h/pop-up h/empty-hud))
+                            (h/pop-up h/empty-view))
         expected        (-> ["input"
                              "------|"
                              "------"]
@@ -369,20 +369,20 @@
                               -+ "long"]
                              (derive-hud))
         actual-voff1     (h/correct-between now1 then)
-        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:lines))
-        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:cursor))
+        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
+        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
 
         actual-voff2     (h/correct-between now2 then)
-        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:lines))
-        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:cursor))
+        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project) (:lines))
+        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project) (:cursor))
 
         expected-voff1   1
-        expected-view1   (-> expected1 (h/project-hud) (:lines))
-        expected-cursor1 (-> expected1 (h/project-hud) (:cursor))
+        expected-view1   (-> expected1 (h/project) (:lines))
+        expected-cursor1 (-> expected1 (h/project) (:cursor))
 
         expected-voff2   2
-        expected-view2   (-> expected2 (h/project-hud) (:lines))
-        expected-cursor2 (-> expected2 (h/project-hud) (:cursor))]
+        expected-view2   (-> expected2 (h/project) (:lines))
+        expected-cursor2 (-> expected2 (h/project) (:cursor))]
     (is (= actual-voff1 expected-voff1))
     (is (= actual-view1 expected-view1))
     (is (= actual-cursor1 expected-cursor1))
@@ -438,20 +438,20 @@
                               -| "lo|ng"]
                              (derive-hud))
         actual-voff1     (h/correct-between now1 then)
-        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:lines))
-        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:cursor))
+        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
+        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
 
         actual-voff2     (h/correct-between now2 then)
-        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:lines))
-        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:cursor))
+        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project) (:lines))
+        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project) (:cursor))
 
         expected-voff1   1
-        expected-view1   (-> expected1 (h/project-hud) (:lines))
-        expected-cursor1 (-> expected1 (h/project-hud) (:cursor))
+        expected-view1   (-> expected1 (h/project) (:lines))
+        expected-cursor1 (-> expected1 (h/project) (:cursor))
 
         expected-voff2   0
-        expected-view2   (-> expected2 (h/project-hud) (:lines))
-        expected-cursor2 (-> expected2 (h/project-hud) (:cursor))]
+        expected-view2   (-> expected2 (h/project) (:lines))
+        expected-cursor2 (-> expected2 (h/project) (:cursor))]
     (is (= actual-voff1 expected-voff1))
     (is (= actual-view1 expected-view1))
     (is (= actual-cursor1 expected-cursor1))
@@ -490,12 +490,12 @@
                             (derive-hud))
 
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   2
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
@@ -560,29 +560,29 @@
                               -| "long"]
                              (derive-hud))
         actual-voff1     (h/correct-between now1 then)
-        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:lines))
-        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:cursor))
+        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
+        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
 
         actual-voff2     (h/correct-between now2 then)
-        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:lines))
-        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:cursor))
+        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project) (:lines))
+        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project) (:cursor))
 
 
         actual-voff3     (h/correct-between now3 then)
-        actual-view3     (-> now3 (h/with-view-offset actual-voff3) (h/project-hud) (:lines))
-        actual-cursor3   (-> now3 (h/with-view-offset actual-voff3) (h/project-hud) (:cursor))
+        actual-view3     (-> now3 (h/with-view-offset actual-voff3) (h/project) (:lines))
+        actual-cursor3   (-> now3 (h/with-view-offset actual-voff3) (h/project) (:cursor))
 
         expected-voff1   1
-        expected-view1   (-> expected1 (h/project-hud) (:lines))
-        expected-cursor1 (-> expected1 (h/project-hud) (:cursor))
+        expected-view1   (-> expected1 (h/project) (:lines))
+        expected-cursor1 (-> expected1 (h/project) (:cursor))
 
         expected-voff2   0
-        expected-view2   (-> expected2 (h/project-hud) (:lines))
-        expected-cursor2 (-> expected2 (h/project-hud) (:cursor))
+        expected-view2   (-> expected2 (h/project) (:lines))
+        expected-cursor2 (-> expected2 (h/project) (:cursor))
 
         expected-voff3   0
-        expected-view3   (-> expected3 (h/project-hud) (:lines))
-        expected-cursor3 (-> expected3 (h/project-hud) (:cursor))]
+        expected-view3   (-> expected3 (h/project) (:lines))
+        expected-cursor3 (-> expected3 (h/project) (:cursor))]
     (is (= actual-voff1 expected-voff1))
     (is (= actual-view1 expected-view1))
     (is (= actual-cursor1 expected-cursor1))
@@ -626,12 +626,12 @@
                              -+ "long"]
                             (derive-hud))
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   3
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
@@ -663,12 +663,12 @@
                              -+ "is"]
                             (derive-hud))
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   2
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
@@ -706,12 +706,12 @@
                              -+ "long"]
                             (derive-hud))
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   4
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
@@ -743,12 +743,12 @@
                              -| "|"]
                             (derive-hud))
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   0
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
@@ -797,20 +797,20 @@
                               -+ "long"]
                              (derive-hud))
         actual-voff1     (h/correct-between now1 then)
-        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:lines))
-        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project-hud) (:cursor))
+        actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
+        actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
 
         actual-voff2     (h/correct-between now2 expected1)
-        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:lines))
-        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project-hud) (:cursor))
+        actual-view2     (-> now2 (h/with-view-offset actual-voff2) (h/project) (:lines))
+        actual-cursor2   (-> now2 (h/with-view-offset actual-voff2) (h/project) (:cursor))
 
         expected-voff1   2
-        expected-view1   (-> expected1 (h/project-hud) (:lines))
-        expected-cursor1 (-> expected1 (h/project-hud) (:cursor))
+        expected-view1   (-> expected1 (h/project) (:lines))
+        expected-cursor1 (-> expected1 (h/project) (:cursor))
 
         expected-voff2   1
-        expected-view2   (-> expected2 (h/project-hud) (:lines))
-        expected-cursor2 (-> expected2 (h/project-hud) (:cursor))]
+        expected-view2   (-> expected2 (h/project) (:lines))
+        expected-cursor2 (-> expected2 (h/project) (:cursor))]
     (is (= actual-voff1 expected-voff1))
     (is (= actual-view1 expected-view1))
     (is (= actual-cursor1 expected-cursor1))
@@ -849,12 +849,12 @@
                              -+ "large"]
                             (derive-hud))
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   1
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
@@ -888,12 +888,12 @@
                              -+ "large"]
                             (derive-hud))
         actual-voff     (h/correct-between now then)
-        actual-view     (-> now (h/with-view-offset actual-voff) (h/project-hud) (:lines))
-        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project-hud) (:cursor))
+        actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
+        actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
 
         expected-voff   3
-        expected-view   (-> expected (h/project-hud) (:lines))
-        expected-cursor (-> expected (h/project-hud) (:cursor))]
+        expected-view   (-> expected (h/project) (:lines))
+        expected-cursor (-> expected (h/project) (:cursor))]
     (is (= actual-voff expected-voff))
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))

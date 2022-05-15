@@ -9,7 +9,7 @@
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
             [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.text :refer [Line]]
-            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.hud :refer [View]]
             [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.config :refer [Config]])
@@ -106,7 +106,7 @@
 
 (s/defn print-highlight!
   [terminal  :- Terminal
-   hud       :- Hud
+   hud       :- View
    highlight :- HighlightInstructionData]
   (let [selection (->> highlight (:region) (h/clip-selection hud))
         scheme    (->> highlight (:scheme))
@@ -156,7 +156,7 @@
   [terminal :- Terminal
    ctx      :- Context]
   (let [preview  (c/preview-hud ctx)
-        [x y]    (h/project-hud-cursor preview)]
+        [x y]    (h/project-view-cursor preview)]
     (t/move! terminal x y)))
 
 ;; === Rendering strategies ===
@@ -172,8 +172,8 @@
   [terminal :- Terminal
    config   :- Config
    ctx      :- Context]
-  (let [now      (-> ctx (c/preview-hud) (h/project-hud-text))
-        then     (-> ctx (c/previous-hud) (h/project-hud-text))
+  (let [now      (-> ctx (c/preview-hud) (h/project-view-text))
+        then     (-> ctx (c/previous-hud) (h/project-view-text))
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
@@ -190,8 +190,8 @@
    ctx      :- Context]
   (let [preview  (c/preview-hud ctx)
         previous (c/previous-hud ctx)
-        now      (h/project-hud-text preview)
-        then     (h/project-hud-text previous)
+        now      (h/project-view-text preview)
+        then     (h/project-view-text previous)
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (h/view-offset preview) (h/view-offset previous))

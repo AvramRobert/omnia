@@ -2,6 +2,12 @@ CURRENT TASK:
 
 Global issues:
 
+ * Rename "Hud" to "View"
+ * Rename "Context" to "Hud"
+ * Create a separate "Context" data structure, that will replace "ProcessingStep"
+ * Put everything that is updated throughout the repl lifetime in the "ProcessingStep" as separate fields
+ * Always create a new processing step, never assoc into it. That should make it work.
+
 omnia.repl.text issues:
   - remove the text history from the text itself
         -> define a separate component that is carried recursively with the repl processing as a separate parameter.

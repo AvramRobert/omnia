@@ -3,15 +3,15 @@
             [omnia.repl.text :as t]
             [omnia.util.arithmetic :refer [++ -- mod*]]
             [omnia.util.collection :refer [bounded-subvec assoc-new]]
-            [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.hud :refer [View]]
             [omnia.schema.common :refer [Point Region]]
             [omnia.schema.text :refer [Text Line]]))
 
 (def continuation (t/from-string "..."))
 (def delimiter (t/from-string "------"))
 
-(s/defn hud :- Hud
-  "A hud is a structure enclosing some form of text that supports
+(s/defn view :- View
+  "A `View` is a structure enclosing some form of text that supports
    projecting that text within a bounded view.
    It uses the following attributes to keep track of the projection.
 
@@ -27,123 +27,142 @@
    scroll-offset:
       * when scrolling, how many lines have been scrolled"
   [text :- Text
-   fov    :- s/Int]
-  {:text        text
+   fov :- s/Int]
+  {:text          text
    :field-of-view fov
    :view-offset   0
    :scroll-offset 0})
 
-(s/defn hud-of :- Hud
-  [fov :- s/Int]
-  (hud t/empty-text fov))
+(s/defn view-of :- View
+  [size :- s/Int]
+  (view t/empty-text size))
 
-(s/def empty-hud :- Hud
-  (hud-of 0))
+(s/def empty-view :- View
+  (view-of 0))
 
 (s/defn view-offset :- s/Int
-  [hud :- Hud]
-  (:view-offset hud))
+  [view :- View]
+  (:view-offset view))
 
 (s/defn field-of-view :- s/Int
-  [hud :- Hud]
-  (:field-of-view hud))
+  [view :- View]
+  (:field-of-view view))
 
 (s/defn scroll-offset :- s/Int
-  [hud :- Hud]
-  (:scroll-offset hud))
+  [view :- View]
+  (:scroll-offset view))
 
 (s/defn text :- Text
-  [hud :- Hud]
-  (:text hud))
+  [view :- View]
+  (:text view))
+
+(s/defn reset-scroll :- View
+  [view :- View]
+  (assoc-new view :scroll-offset 0))
+
+(s/defn reset-text :- View
+  [view :- View
+   text :- Text]
+  (assoc view :text text))
+
+(s/defn reset-view :- View
+  ([view :- View]
+   (reset-view view 0))
+  ([view :- View, view-offset :- s/Int]
+   (assoc-new view :view-offset view-offset)))
+
+(s/defn resize :- View
+  [view :- View, field-of-view :- s/Int]
+  (assoc view :field-of-view field-of-view :scroll-offset 0))
 
 (s/defn hollow? :- s/Bool
-  [hud :- Hud]
-  (-> hud (text) (:lines) (empty?)))
+  [view :- View]
+  (-> view (text) (:lines) (empty?)))
 
-(s/defn with-view-offset :- Hud
-  [hud :- Hud, offset :- s/Int]
-  (assoc hud :view-offset offset))
+(s/defn with-view-offset :- View
+  [view :- View, offset :- s/Int]
+  (assoc view :view-offset offset))
 
-(s/defn with-scroll-offset :- Hud
-  [hud :- Hud, offset :- s/Int]
-  (assoc hud :scroll-offset offset))
+(s/defn with-scroll-offset :- View
+  [view :- View, offset :- s/Int]
+  (assoc view :scroll-offset offset))
 
 (s/defn current-line :- [Character]
-  [hud :- Hud]
-  (-> hud (text) (t/current-line)))
+  [view :- View]
+  (-> view (text) (t/current-line)))
 
 (s/defn engulfed-size :- s/Int
-  [hud :- Hud]
-  (let [fov      (field-of-view hud)
-        s-off    (scroll-offset hud)
-        v-off    (view-offset hud)]
+  [view :- View]
+  (let [fov   (field-of-view view)
+        s-off (scroll-offset view)
+        v-off (view-offset view)]
     (+ fov v-off s-off)))
 
 (s/defn bottom-y :- s/Int
-  [hud :- Hud]
+  [view :- View]
   "The lower y bound of a page (exclusive)
   bottom-y = height - view-offset - 1
   Subtract 1 because we count from 0"
-  (let [v-off  (view-offset hud)
-        height (-> hud (text) (:size))]
+  (let [v-off  (view-offset view)
+        height (-> view (text) (:size))]
     (-- height v-off 1)))
 
 (s/defn top-y :- s/Int
-  [hud :- Hud]
+  [view :- View]
   "The upper y bound of a page (inclusive)
   top-y = (height - fov - ov)"
-  (let [fov    (field-of-view hud)
-        v-off  (view-offset hud)
-        height (-> hud (text) (:size))]
+  (let [fov    (field-of-view view)
+        v-off  (view-offset view)
+        height (-> view (text) (:size))]
     (-- height fov v-off)))
 
 (s/defn project-y :- s/Int
-  [hud :- Hud, y :- s/Int]
+  [view :- View, y :- s/Int]
   "given hud-y, screen-y = hud-y - top-y
    given screen-y, hud-y = screen-y + top-y"
-  (let [fov (field-of-view hud)
-        h   (-> hud (text) (:size))
-        ys  (top-y hud)]
+  (let [fov (field-of-view view)
+        h   (-> view (text) (:size))
+        ys  (top-y view)]
     (if (> h fov) (-- y ys) y)))
 
 (s/defn project-cursor :- Point
-  [hud :- Hud, [x hy] :- Point]
-  [x (project-y hud hy)])
+  [view :- View, [x hy] :- Point]
+  [x (project-y view hy)])
 
-(s/defn project-hud-cursor :- Point
-  [hud :- Hud]
-  (project-cursor hud (-> hud (text) (:cursor))))
+(s/defn project-view-cursor :- Point
+  [view :- View]
+  (project-cursor view (-> view (text) (:cursor))))
 
-(s/defn project-hud-text :- [Line]
-  [hud :- Hud]
-  (let [text           (text hud)
-        fov            (field-of-view hud)
-        v-off          (view-offset hud)
-        s-off          (scroll-offset hud)
+(s/defn project-view-text :- [Line]
+  [view :- View]
+  (let [text           (text view)
+        fov            (field-of-view view)
+        v-off          (view-offset view)
+        s-off          (scroll-offset view)
         viewable-chunk (+ fov v-off s-off)
         y-start        (-- (:size text) viewable-chunk)
         y-end          (++ y-start fov)]
     (bounded-subvec (:lines text) y-start y-end)))
 
-(s/defn project-hud :- Text
-  [hud :- Hud]
-  (-> hud (project-hud-text) (t/create-text) (t/reset-cursor (project-hud-cursor hud))))
+(s/defn project :- Text
+  [view :- View]
+  (-> view (project-view-text) (t/create-text) (t/reset-cursor (project-view-cursor view))))
 
 (s/defn clip-selection :- Region
-  [hud :- Hud
+  [view :- View
    selection :- Region]
-  (let [fov             (field-of-view hud)
-        h               (-> hud (text) (:size))
+  (let [fov             (field-of-view view)
+        h               (-> view (text) (:size))
         [xs ys]         (:start selection)
         [xe ye]         (:end selection)
-        top             (top-y hud)
-        bottom          (bottom-y hud)
+        top             (top-y view)
+        bottom          (bottom-y view)
         unpaged?        (< h fov)
         clipped-top?    (< ys top)
         clipped-bottom? (> ye bottom)
         visible-top?    (<= top ys bottom)
         visible-bottom? (<= top ye bottom)
-        end-bottom      (-> hud (text) (t/reset-y bottom) (t/end-x) (:cursor))]
+        end-bottom      (-> view (text) (t/reset-y bottom) (t/end-x) (:cursor))]
     (cond
       unpaged?              selection
       (and visible-top?
@@ -161,24 +180,24 @@
   "projecting y outside the bounds leads to:
    a) -n when upper bound is exceeded by n
    b) fov + n numbers, when lower bound exceeded by n"
-  [hud :- Hud
+  [view :- View
    region :- Region]
-  (-> hud
+  (-> view
       (clip-selection region)
-      (update :start (partial project-cursor hud))
-      (update :end (partial project-cursor hud))))
+      (update :start (partial project-cursor view))
+      (update :end (partial project-cursor view))))
 
 (s/defn correct-between :- s/Int
-  [hud :- Hud
-   previous-hud :- Hud]
-  (let [fov         (field-of-view hud)
-        v-off       (view-offset hud)
-        h           (-> hud (text) (:size))
-        [_ y]       (-> hud (text) (:cursor))
-        pfov        (field-of-view previous-hud)
-        ph          (-> previous-hud (text) (:size))
-        upper-y     (top-y hud)                             ;; the top viewable y
-        lower-y     (bottom-y hud)                          ;; the lower viewable y
+  [view :- View
+   previous-view :- View]
+  (let [fov         (field-of-view view)
+        v-off       (view-offset view)
+        h           (-> view (text) (:size))
+        [_ y]       (-> view (text) (:cursor))
+        pfov        (field-of-view previous-view)
+        ph          (-> previous-view (text) (:size))
+        upper-y     (top-y view)                             ;; the top viewable y
+        lower-y     (bottom-y view)                          ;; the lower viewable y
         over-upper? (< y upper-y)
         over-lower? (> y lower-y)
         at-lower?   (= y lower-y)
@@ -197,85 +216,72 @@
       over-lower? (-- v-off (- y lower-y))                     ;; we've exceeded the lower bound
       :else v-off)))
 
-(s/defn corrected :- Hud
-  ([hud :- Hud]
-   (corrected hud hud))
-  ([hud :- Hud,
-    previous-hud :- Hud]
-   (assoc hud :view-offset (correct-between hud previous-hud))))
+(s/defn corrected :- View
+  ([view :- View]
+   (corrected view view))
+  ([view :- View,
+    previous-hud :- View]
+   (assoc view :view-offset (correct-between view previous-hud))))
 
-(s/defn enrich-with :- Hud
-  [hud :- Hud, texts :- [Text]]
-  (update hud :text #(apply t/join % texts)))
+(s/defn enrich-with :- View
+  [view :- View, texts :- [Text]]
+  (let [text (text view)]
+    (->> texts (apply t/join text) (reset-text view))))
 
-(s/defn riffle-window :- Hud
+(s/defn riffle-window :- View
   [text :- Text
    size :- s/Int]
   (let [content (->> text (t/start) (t/end-x))]
-    (-> (hud-of size) (enrich-with [content]) (corrected))))
+    (-> (view-of size) (enrich-with [content]) (corrected))))
 
-(s/defn riffle [hud :- Hud] :- Hud
-  (let [[_ y]  (-> hud (text) :cursor)
-        height (-> hud (text) :size)
+(s/defn riffle :- View
+  [view :- View]
+  (let [text   (text view)
+        [_ y]  (:cursor text)
+        height (:size text)
         y'     (mod* (inc y) height)]
-    (-> hud (update :text #(t/reset-y % y')) (corrected))))
+    (-> view
+        (reset-text (t/reset-y text y'))
+        (corrected))))
 
-(s/defn scroll-up :- Hud
-  [hud :- Hud]
-  (let [offset     (scroll-offset hud)
-        chunk-size (engulfed-size hud)
-        text-size  (-> hud (text) (:size))
+(s/defn scroll-up :- View
+  [view :- View]
+  (let [offset     (scroll-offset view)
+        chunk-size (engulfed-size view)
+        text-size  (-> view (text) (:size))
         result     (if (>= chunk-size text-size) text-size (inc offset))]
-    (assoc-new hud :scroll-offset result)))
+    (assoc-new view :scroll-offset result)))
 
-(s/defn scroll-down :- Hud
-  [hud :- Hud]
-  (let [offset (scroll-offset hud)
+(s/defn scroll-down :- View
+  [view :- View]
+  (let [offset (scroll-offset view)
         result (if (zero? offset) offset (dec offset))]
-    (assoc-new hud :scroll-offset result)))
+    (assoc-new view :scroll-offset result)))
 
-(s/defn scroll-stop :- Hud
-  [hud :- Hud]
-  (assoc-new hud :scroll-offset 0))
+(s/defn show :- String
+  [view :- View]
+  (-> view (text) (t/debug-string)))
 
-(s/defn view :- String
-  [hud :- Hud]
-  (-> hud (text) (t/debug-string)))
-
-(s/defn deselect :- Hud
-  [hud :- Hud]
-  (update hud :text t/deselect))
-
-(s/defn selection? :- s/Bool
-  [hud :- Hud]
-  (-> hud (text) (t/selecting?)))
-
-(s/defn reset-view :- Hud
-  ([hud :- Hud]
-   (reset-view hud 0))
-  ([hud :- Hud, overview :- s/Int]
-   (assoc-new hud :view-offset overview)))
-
-(s/defn resize :- Hud
-  [hud :- Hud, size :- s/Int]
-  (assoc hud :field-of-view size :scroll-offset 0))
+(s/defn deselect :- View
+  [view :- View]
+  (->> view (text) (t/deselect) (reset-text view)))
 
 (s/defn paginate :- Text
-  [hud :- Hud]
-  (let [truncated? (-> hud (view-offset) (zero?) (not))
+  [view :- View]
+  (let [truncated? (-> view (view-offset) (zero?) (not))
         extend    #(if truncated? (t/append % continuation) %)]
-    (-> hud
-        (project-hud)
+    (-> view
+        (project)
         (extend)
         (t/indent 1))))
 
-(s/defn pop-up :- Hud
-  [hud :- Hud, embedded :- Hud]
-  (let [text      (text hud)
+(s/defn pop-up :- View
+  [view :- View, embedded :- View]
+  (let [text      (text view)
         paginated (paginate embedded)
         ph        (:size text)
         top       (-> text (t/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> text (t/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
-    (assoc hud :text (-> (t/join top delimiter paginated)
-                         (t/end-x)
-                         (t/append delimiter bottom)))))
+    (assoc view :text (-> (t/join top delimiter paginated)
+                          (t/end-x)
+                          (t/append delimiter bottom)))))

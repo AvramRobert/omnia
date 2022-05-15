@@ -16,7 +16,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))))
@@ -30,7 +30,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
         (is (= persisted header))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t]]))))
@@ -44,7 +44,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
         (is (= persisted header))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t]]))))
@@ -61,7 +61,7 @@
             header     (:lines default-header)
             persisted  (-> context (r/persisted-hud) (h/text) (:lines))
             input      (-> context (r/input-area) (:lines))
-            viewable   (-> context (r/preview-hud) (h/project-hud) (:lines))
+            viewable   (-> context (r/preview-hud) (h/project) (:lines))
             view-off   (-> context (r/preview-hud) (h/view-offset))
             scroll-off (-> context (r/preview-hud) (h/scroll-offset))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d]])))
@@ -79,7 +79,7 @@
           header    (:lines default-header)
           persisted (-> context (r/persisted-hud) (h/text) (:lines))
           input     (-> context (r/input-area) (:lines))
-          viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+          viewable  (-> context (r/preview-hud) (h/project) (:lines))]
       (is (= persisted header))
       (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
       (is (= viewable [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))))
@@ -97,7 +97,7 @@
             header     (:lines default-header)
             persisted  (-> context (r/persisted-hud) (h/text) (:lines))
             input      (-> context (r/input-area) (:lines))
-            viewable   (-> context (r/preview-hud) (h/project-hud) (:lines))
+            viewable   (-> context (r/preview-hud) (h/project) (:lines))
             highlights (-> context (r/highlights) (:manual) (:region))
             ys         (-> header (count) (+ 2))
             ye         (inc ys)]
@@ -118,7 +118,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
@@ -135,7 +135,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))]
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]])))))
@@ -153,7 +153,7 @@
             header      (:lines default-header)
             persisted   (-> context (r/persisted-hud) (h/text) (:lines))
             input       (-> context (r/input-area) (:lines))
-            viewable    (-> context (r/preview-hud) (h/project-hud) (:lines))
+            viewable    (-> context (r/preview-hud) (h/project) (:lines))
             lights      (-> context (r/highlights) (:manual) (:region))
             proj-lights (-> context (r/preview-hud) (h/project-selection lights))
             ys          (-> header (count) (+ 2))
@@ -175,7 +175,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))
             prev-off  (-> context (r/preview-hud) (h/view-offset))
             pers-off  (-> context (r/persisted-hud) (h/view-offset))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -197,7 +197,7 @@
               header    (:lines default-header)
               persisted (-> context (r/persisted-hud) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project) (:lines))
               prev-off  (-> context (r/preview-hud) (h/view-offset))
               pers-off  (-> context (r/persisted-hud) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -218,7 +218,7 @@
               header    (:lines default-header)
               persisted (-> context (r/persisted-hud) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project) (:lines))
               prev-off  (-> context (r/preview-hud) (h/view-offset))
               pers-off  (-> context (r/persisted-hud) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -239,7 +239,7 @@
               header    (:lines default-header)
               persisted (-> context (r/persisted-hud) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project) (:lines))
               prev-off  (-> context (r/preview-hud) (h/view-offset))
               pers-off  (-> context (r/persisted-hud) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -259,7 +259,7 @@
               header    (:lines default-header)
               persisted (-> context (r/persisted-hud) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+              viewable  (-> context (r/preview-hud) (h/project) (:lines))
               prev-off  (-> context (r/preview-hud) (h/view-offset))
               pers-off  (-> context (r/persisted-hud) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -279,7 +279,7 @@
             header    (:lines default-header)
             persisted (-> context (r/persisted-hud) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project-hud) (:lines))
+            viewable  (-> context (r/preview-hud) (h/project) (:lines))
             prev-off  (-> context (r/preview-hud) (h/view-offset))
             pers-off  (-> context (r/persisted-hud) (h/view-offset))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))

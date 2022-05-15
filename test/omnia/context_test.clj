@@ -60,8 +60,8 @@
                               -$ "input|"
                               -+ "area"]
                              (derive-context))
-        actual-preview   (-> context (r/preview-hud) (h/project-hud) (:lines))
-        expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
+        actual-preview   (-> context (r/preview-hud) (h/project) (:lines))
+        expected-preview (-> expected (r/preview-hud) (h/project) (:lines))
         expected-cursor  (-> context (r/preview-hud) (h/text) (:cursor))
         actual-cursor    (-> expected (r/preview-hud) (h/text) (:cursor))
         actual-offset    (-> context (r/preview-hud) (h/scroll-offset))
@@ -91,8 +91,8 @@
                               -+ "area"]
                              (derive-context))
         processed        (process context [e/scroll-down e/scroll-down])
-        actual-preview   (-> processed (r/preview-hud) (h/project-hud) (:lines))
-        expected-preview (-> expected (r/preview-hud) (h/project-hud) (:lines))
+        actual-preview   (-> processed (r/preview-hud) (h/project) (:lines))
+        expected-preview (-> expected (r/preview-hud) (h/project) (:lines))
         actual-cursor    (-> processed (r/preview-hud) (h/text) (:cursor))
         expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))
         actual-offset    (-> processed (r/preview-hud) (h/scroll-offset))
@@ -142,7 +142,7 @@
                                  -+ "area"]
                                 (derive-context))
         scrolled            (process context [e/scroll-up e/scroll-up])
-        reset               (r/scroll-stop scrolled)
+        reset               (r/reset-scroll scrolled)
         init-scroll-offset  (-> scrolled (r/preview-hud) (h/scroll-offset))
         reset-scroll-offset (-> reset (r/preview-hud) (h/scroll-offset))]
     (is (= init-scroll-offset 2))

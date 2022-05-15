@@ -8,15 +8,14 @@
 
 (def Context
   {:nrepl         n/NReplClient
-   :config        c/Config
    :render        r/RenderingStrategy
-   :previous-hud  h/Hud
-   :persisted-hud h/Hud
-   :preview-hud   h/Hud
+   :previous-hud  h/View
+   :persisted-hud h/View
+   :preview-hud   h/View
    :input-area    t/Text
-   :suggestions   h/Hud
-   :documentation h/Hud
-   :signatures    h/Hud
+   :suggestions   h/View
+   :documentation h/View
+   :signatures    h/View
    :highlights    r/HighlightInstructions
    :garbage       r/HighlightInstructions})
 
