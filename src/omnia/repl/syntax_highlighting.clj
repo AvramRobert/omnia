@@ -2,8 +2,7 @@
   (:require [schema.core :as s]
             [omnia.schema.common :refer [=>]]
             [omnia.schema.syntax :as t]
-            [omnia.schema.syntax-highlighting :refer :all]
-            [omnia.util.collection :refer [map-vals]]))
+            [omnia.schema.syntax-highlighting :refer :all]))
 
 (s/defn >open-list :- t/SyntaxElement
   [node :- (s/maybe Node), chars :- [Character]]
@@ -219,9 +218,9 @@
    -closed-list   -null
    -open-vector   -closed-vector
    -closed-vector -null
-   -open-map      -open-map
+   -open-map      -closed-map
    -closed-map    -null
-   -open-string   -null
+   -open-string   -closed-string
    -closed-string -null
    -break         -null
    -space         -null
