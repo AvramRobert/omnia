@@ -1,177 +1,177 @@
-(ns omnia.hud-test
+(ns omnia.view-test
   (:require [clojure.test :refer :all]
             [omnia.test-utils :refer :all]
-            [omnia.repl.hud :as h]))
+            [omnia.repl.view :as h]))
 
-; extract (clip-sel (select-all (hud))) == project-hud (hud)
+; extract (clip-sel (select-all view)) == project view
 (deftest total-selection-law
   (is true))
 
-; project-sel (select (hud)) = map project-cursor (select (hud))
+; project-sel (select view) = map project-cursor (select view)
 (deftest distributive-projection-law
   (is true))
 
-; extract (select (hud)) `contains` extract (project-hud (hud)) (project-sel (select (hud))
+; extract (select view) `contains` extract (project view) (project-selection (select view))
 (deftest containment-projection-law
   (is true))
 
 (deftest projects-y-coordinate
-  (let [hud        (-> ["beginning"
+  (let [view        (-> ["beginning"
                         -| "some"
                         -| "t|ext"]
-                       (derive-hud))
-        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+                       (derive-view))
+        actual-y   (h/project-y view (-> view (h/text) (:cursor) (second)))
         expected-y 1]
     (is (= expected-y actual-y))))
 
 (deftest projects-offset-y-coordinate
-  (let [hud        (-> [-| "beginning"
+  (let [view        (-> [-| "beginning"
                         -| "so|me"
                         -+ "text"]
-                       (derive-hud))
-        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+                       (derive-view))
+        actual-y   (h/project-y view (-> view (h/text) (:cursor) (second)))
         expected-y 1]
     (is (= expected-y actual-y))))
 
 (deftest projects-scrolled-y-coordinate
-  (let [hud        (-> [ "beginning"
+  (let [view        (-> [ "beginning"
                         -|
                         -| "so|me"
                         -$ "text"]
-                       (derive-hud))
-        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+                       (derive-view))
+        actual-y   (h/project-y view (-> view (h/text) (:cursor) (second)))
         expected-y 0]
     (is (= expected-y actual-y))))
 
 (deftest projects-scrolled-and-offset-y-coordinate
-  (let [hud        (-> ["beginning"
+  (let [view        (-> ["beginning"
                         -|
                         -+ "so|me"
                         -+ "text"
                         -$ "entry"]
-                       (derive-hud))
-        actual-y   (h/project-y hud (-> hud (h/text) (:cursor) (second)))
+                       (derive-view))
+        actual-y   (h/project-y view (-> view (h/text) (:cursor) (second)))
         expected-y 0]
     (is (= expected-y actual-y))))
 
-(deftest projects-entire-hud
-  (let [hud             (-> [-| "beginning"
+(deftest projects-entire-view
+  (let [view             (-> [-| "beginning"
                              -| "some"
                              -| "text|"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> ["beginning"
                              "some"
                              "text|"]
                             (derive-text))
-        actual-view     (-> hud (h/project) (:lines))
-        actual-cursor   (-> hud (h/project) (:cursor))
+        actual-view     (-> view (h/project) (:lines))
+        actual-cursor   (-> view (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
 (deftest projects-field-of-view
-  (let [hud             (-> ["beginning"
+  (let [view             (-> ["beginning"
                              -| "some"
                              -| "t|ext"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> ["some"
                              "t|ext"]
                             (derive-text))
-        actual-view     (-> hud (h/project) (:lines))
-        actual-cursor   (-> hud (h/project) (:cursor))
+        actual-view     (-> view (h/project) (:lines))
+        actual-cursor   (-> view (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
 (deftest projects-offset-field-of-view
-  (let [hud             (-> ["beginning"
+  (let [view            (-> ["beginning"
                              -| "so|me"
                              -| "text"
                              -+ "somewhere"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> ["so|me"
                              "text"]
                             (derive-text))
-        actual-view     (-> hud (h/project) (:lines))
-        actual-cursor   (-> hud (h/project) (:cursor))
+        actual-view     (-> view (h/project) (:lines))
+        actual-cursor   (-> view (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
 (deftest projects-scrolled-field-of-view
-  (let [hud             (-> ["beginning"
+  (let [view            (-> ["beginning"
                              -| "some"
                              -| "|text"
                              -$ "somewhere"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> ["|some"
                              "text"]
                             (derive-text))
-        actual-view     (-> hud (h/project) (:lines))
-        actual-cursor   (-> hud (h/project) (:cursor))
+        actual-view     (-> view (h/project) (:lines))
+        actual-cursor   (-> view (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
 (deftest projects-scrolled-and-offset-field-of-view
-  (let [hud             (-> ["beginning"
+  (let [view            (-> ["beginning"
                              -| "some|"
                              -|
                              -+ "text"
                              -$ "somewhere"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> ["begi|nning"
                              "some"]
                             (derive-text))
-        actual-view     (-> hud (h/project) (:lines))
-        actual-cursor   (-> hud (h/project) (:cursor))
+        actual-view     (-> view (h/project) (:lines))
+        actual-cursor   (-> view (h/project) (:cursor))
         expected-view   (:lines expected)
         expected-cursor (:cursor expected)]
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
 (deftest projects-total-selections
-  (let [hud          (-> ["some"
+  (let [view          (-> ["some"
                           -| "⦇piece of"
                           -| "text⦈"]
-                         (derive-hud))
+                         (derive-view))
         expected     (-> ["⦇piece of"
                           "text⦈"]
                          (derive-text))
-        actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
+        actual-sel   (h/project-selection view (-> view (h/text) (:selection)))
         expected-sel (:selection expected)]
     (is (= actual-sel expected-sel))))
 
 (deftest projects-offset-total-selections
-  (let [hud          (-> [-| "⦇some"
+  (let [view         (-> [-| "⦇some"
                           -| "piece of⦈"
                           -+ "text"]
-                         (derive-hud))
+                         (derive-view))
         expected     (-> ["⦇some"
                           "piece of⦈"]
                          (derive-text))
-        actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
+        actual-sel   (h/project-selection view (-> view (h/text) (:selection)))
         expected-sel (:selection expected)]
     (is (= actual-sel expected-sel))))
 
 (deftest projects-offset-partial-selections
-  (let [hud          (-> [-| "⦇some"
+  (let [view         (-> [-| "⦇some"
                           -| "piece of"
                           -+ "text⦈"]
-                         (derive-hud))
+                         (derive-view))
         expected     (-> ["⦇some"
                           "piece of⦈"]
                          (derive-text))
-        actual-sel   (h/project-selection hud (-> hud (h/text) (:selection)))
+        actual-sel   (h/project-selection view (-> view (h/text) (:selection)))
         expected-sel (:selection expected)]
     (is (= actual-sel expected-sel))))
 
 (deftest supports-pop-up-windows
-  (let [hud               (-> ["1"] (derive-hud))
+  (let [view              (-> ["1"] (derive-view))
         window            (-> ["a" "b" "c"]
                               (derive-text)
                               (h/riffle-window 2))
@@ -181,24 +181,24 @@
                                " b"
                                " ..."
                                "------"]
-                              (derive-hud))
+                              (derive-view))
         expected2         (-> ["1"
                                "------"
                                " a"
                                " b|"
                                " ..."
                                "------"]
-                              (derive-hud))
+                              (derive-view))
         expected3         (-> ["1"
                                "------"
                                " b"
                                " c|"
                                "------"]
-                              (derive-hud))
-        processed1        (h/pop-up hud window)
-        processed2        (h/pop-up hud (h/riffle window))
-        processed3        (h/pop-up hud (h/riffle (h/riffle window)))
-        processed4        (h/pop-up hud (h/riffle (h/riffle (h/riffle window))))
+                              (derive-view))
+        processed1        (h/pop-up view window)
+        processed2        (h/pop-up view (h/riffle window))
+        processed3        (h/pop-up view (h/riffle (h/riffle window)))
+        processed4        (h/pop-up view (h/riffle (h/riffle (h/riffle window))))
 
         actual-view1      (-> processed1 (h/text) (:lines))
         actual-cursor1    (-> processed1 (h/text) (:cursor))
@@ -237,14 +237,14 @@
   (let [window              (-> ["a" "b" "c"]
                                 (derive-text)
                                 (h/riffle-window 2))
-        hud1                (-> [-| "current"
+        view1               (-> [-| "current"
                                  -| "text|"
                                  -| "input"
                                  -+ "not viewable"
                                  -+ "not viewable"]
-                                (derive-hud)
+                                (derive-view)
                                 (h/pop-up window))
-        hud2                (-> [-| "current|"
+        view2               (-> [-| "current|"
                                  -| "text"
                                  -| "that"
                                  -| "is"
@@ -252,40 +252,40 @@
                                  -| "enough"
                                  -+ "not viewable"
                                  -+ "not viewable"]
-                                (derive-hud)
+                                (derive-view)
                                 (h/pop-up window))
-        hud3                (-> ["current"
+        view3               (-> ["current"
                                  -| "text"
                                  -| "that|"
                                  -| "is"]
-                                (derive-hud)
+                                (derive-view)
                                 (h/pop-up window))
         expected1           (-> ["------"
                                  " a|"
                                  " b"]
-                                (derive-hud))
+                                (derive-view))
         expected2           (-> ["current|"
                                  "------"
                                  " a|"
                                  " b"
                                  " ..."
                                  "------"]
-                                (derive-hud))
+                                (derive-view))
         expected3           (-> [" b|"
                                  " ..."
                                  "------"]
-                                (derive-hud))
-        actual-view-offset1 (h/view-offset hud1)
-        actual-view1        (-> hud1 (h/project) (:lines))
-        actual-cursor1      (-> hud1 (h/project) (:cursor))
+                                (derive-view))
+        actual-view-offset1 (h/view-offset view1)
+        actual-view1        (-> view1 (h/project) (:lines))
+        actual-cursor1      (-> view1 (h/project) (:cursor))
 
-        actual-view-offset2 (h/view-offset hud2)
-        actual-view2        (-> hud2 (h/project) (:lines))
-        actual-cursor2      (-> hud2 (h/project) (:cursor))
+        actual-view-offset2 (h/view-offset view2)
+        actual-view2        (-> view2 (h/project) (:lines))
+        actual-cursor2      (-> view2 (h/project) (:cursor))
 
-        actual-view-offset3 (h/view-offset hud3)
-        actual-view3        (-> hud3 (h/project) (:lines))
-        actual-cursor3      (-> hud3 (h/project) (:cursor))
+        actual-view-offset3 (h/view-offset view3)
+        actual-view3        (-> view3 (h/project) (:lines))
+        actual-cursor3      (-> view3 (h/project) (:cursor))
 
         expected-view1      (-> expected1 (h/text) (:lines))
         expected-cursor1    (-> expected1 (h/text) (:cursor))
@@ -309,12 +309,12 @@
 
 (deftest supports-empty-pop-windows
   (let [context         (-> ["input|"]
-                            (derive-hud)
+                            (derive-view)
                             (h/pop-up h/empty-view))
         expected        (-> ["input"
                              "------|"
                              "------"]
-                            (derive-hud))
+                            (derive-view))
         actual-view     (-> context (h/text) (:lines))
         actual-cursor   (-> context (h/text) (:cursor))
         expected-view   (-> expected (h/text) (:lines))
@@ -331,7 +331,7 @@
                               -| "is"
                               -| "this"
                               -| "long"]
-                             (derive-hud))
+                             (derive-view))
         now1             (-> ["some"
                               "input|"
                               -| "of"
@@ -340,7 +340,7 @@
                               -| "is"
                               -| "this"
                               -| "long"]
-                             (derive-hud))
+                             (derive-view))
         now2             (-> ["some|"
                               "input"
                               -| "of"
@@ -349,7 +349,7 @@
                               -| "is"
                               -| "this"
                               -| "long"]
-                             (derive-hud))
+                             (derive-view))
         expected1        (-> ["some"
                               -| "input|"
                               -| "of"
@@ -358,7 +358,7 @@
                               -| "is"
                               -| "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         expected2        (-> [-| "some|"
                               -| "input"
                               -| "of"
@@ -367,7 +367,7 @@
                               -| "is"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         actual-voff1     (h/correct-between now1 then)
         actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
         actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
@@ -400,7 +400,7 @@
                               -| "is|"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         now1             (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -409,7 +409,7 @@
                               -| "is"
                               -+ "th|is"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         now2             (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -418,7 +418,7 @@
                               -| "is"
                               -+ "this"
                               -+ "lo|ng"]
-                             (derive-hud))
+                             (derive-view))
         expected1        (-> [   "some"
                               -| "input"
                               -| "of"
@@ -427,7 +427,7 @@
                               -| "is"
                               -| "th|is"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         expected2        (-> [   "some"
                                  "input"
                               -| "of"
@@ -436,7 +436,7 @@
                               -| "is"
                               -| "this"
                               -| "lo|ng"]
-                             (derive-hud))
+                             (derive-view))
         actual-voff1     (h/correct-between now1 then)
         actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
         actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
@@ -469,7 +469,7 @@
                              -| "is|"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [-| "some"
                              -| "input"
                              -| "o|f"
@@ -478,7 +478,7 @@
                              -| "is"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> [-| "some"
                              -| "input"
                              -| "o|f"
@@ -487,7 +487,7 @@
                              -| "is"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
 
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
@@ -509,7 +509,7 @@
                               -| "is|"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         now1             (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -518,7 +518,7 @@
                               -|
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         now2             (-> [-|
                               -| "input"
                               -| "of"
@@ -527,7 +527,7 @@
                               -| "is|"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         now3             (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -536,7 +536,7 @@
                               -| "is|"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         expected1        (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -544,21 +544,21 @@
                               -| "that|"
                               -| "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         expected2        (-> [-| "input"
                               -| "of"
                               -| "that"
                               -| "is|"
                               -| "this"
                               -| "long"]
-                             (derive-hud))
+                             (derive-view))
         expected3        (-> [-| "some"
                               -| "input"
                               -| "of"
                               -| "is|"
                               -| "this"
                               -| "long"]
-                             (derive-hud))
+                             (derive-view))
         actual-voff1     (h/correct-between now1 then)
         actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
         actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
@@ -604,7 +604,7 @@
                              -| "is|"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -614,7 +614,7 @@
                              "suddenly"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -624,7 +624,7 @@
                              -+ "suddenly"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
         actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
@@ -643,7 +643,7 @@
                              -| "mine"
                              -| "that"
                              -| "is"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [""
                              ""
                              -| "|some"
@@ -652,7 +652,7 @@
                              -| "mine"
                              -| "that"
                              -| "is"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> [-| ""
                              -| ""
                              -| "|some"
@@ -661,7 +661,7 @@
                              -| "mine"
                              -+ "that"
                              -+ "is"]
-                            (derive-hud))
+                            (derive-view))
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
         actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
@@ -682,7 +682,7 @@
                              -| "is"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -693,7 +693,7 @@
                              -| "is"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -704,7 +704,7 @@
                              -+ "is"
                              -+ "this"
                              -+ "long"]
-                            (derive-hud))
+                            (derive-view))
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
         actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
@@ -723,7 +723,7 @@
                              -| "mine"
                              -| "that"
                              -| "is|"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -732,7 +732,7 @@
                              -| "is"
                              ""
                              "|"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> ["some"
                              "input"
                              -| "of"
@@ -741,7 +741,7 @@
                              -| "is"
                              -| ""
                              -| "|"]
-                            (derive-hud))
+                            (derive-view))
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
         actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
@@ -760,7 +760,7 @@
                               -| "mine"
                               -| "that"
                               -| "is|"]
-                             (derive-hud))
+                             (derive-view))
         now1             (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -769,7 +769,7 @@
                               -| "is|"
                               "this"
                               "long"]
-                             (derive-hud))
+                             (derive-view))
         now2             (-> [-| "some"
                               -| "input"
                               -|
@@ -778,7 +778,7 @@
                               -| "is|"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         expected1        (-> [-| "some"
                               -| "input"
                               -| "of"
@@ -787,7 +787,7 @@
                               -| "is|"
                               -+ "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         expected2        (-> [-| "some"
                               -| "input"
                               -| "mine"
@@ -795,7 +795,7 @@
                               -| "is|"
                               -| "this"
                               -+ "long"]
-                             (derive-hud))
+                             (derive-view))
         actual-voff1     (h/correct-between now1 then)
         actual-view1     (-> now1 (h/with-view-offset actual-voff1) (h/project) (:lines))
         actual-cursor1   (-> now1 (h/with-view-offset actual-voff1) (h/project) (:cursor))
@@ -819,7 +819,7 @@
     (is (= actual-view2 expected-view2))
     (is (= actual-cursor2 expected-cursor2))))
 
-(deftest corrects-text-following-hud-enlargement
+(deftest corrects-text-following-view-enlargement
   (let [then            (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -828,7 +828,7 @@
                              -| "is|"
                              -+ "this"
                              -+ "large"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -838,7 +838,7 @@
                              -| "this"
                              -+
                              -+ "large"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -847,7 +847,7 @@
                              -| "is|"
                              -| "this"
                              -+ "large"]
-                            (derive-hud))
+                            (derive-view))
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
         actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))
@@ -859,7 +859,7 @@
     (is (= actual-view expected-view))
     (is (= actual-cursor expected-cursor))))
 
-(deftest corrects-text-following-hud-shrinkage
+(deftest corrects-text-following-view-shrinkage
   (let [then            (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -868,7 +868,7 @@
                              -| "is|"
                              -+ "this"
                              -+ "large"]
-                            (derive-hud))
+                            (derive-view))
         now             (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -877,7 +877,7 @@
                              "is"
                              -+ "this"
                              -+ "large"]
-                            (derive-hud))
+                            (derive-view))
         expected        (-> [-| "some"
                              -| "input"
                              -| "of"
@@ -886,7 +886,7 @@
                              -+ "is"
                              -+ "this"
                              -+ "large"]
-                            (derive-hud))
+                            (derive-view))
         actual-voff     (h/correct-between now then)
         actual-view     (-> now (h/with-view-offset actual-voff) (h/project) (:lines))
         actual-cursor   (-> now (h/with-view-offset actual-voff) (h/project) (:cursor))

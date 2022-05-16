@@ -3,7 +3,7 @@
             [clojure.core.match :as m]
             [omnia.config.core :as c]
             [omnia.repl.text :as i]
-            [omnia.repl.hud :as h]
+            [omnia.repl.view :as h]
             [omnia.repl.context :as r]
             [omnia.repl.nrepl :as n]
             [omnia.view.terminal :as t]
@@ -14,7 +14,7 @@
             [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [TerminalSpec]]
             [omnia.schema.text :refer [Text Line]]
-            [omnia.schema.hud :refer [View]]
+            [omnia.schema.view :refer [View]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.common :refer [Region]]
             [omnia.schema.nrepl :refer [ValueResponse CompletionResponse NReplClient NReplResponse]])
@@ -142,8 +142,8 @@
 (s/def Scroll-Area-Definition (s/eq -$))
 (s/def TextDefinition s/Str)
 
-(s/def HudDefinition (s/cond-pre View-Area-Definition TextDefinition Offset-Area-Definition Scroll-Area-Definition))
-(s/def ContextDefinition (s/cond-pre HudDefinition Input-Area-Definition))
+(s/def ViewDefinition (s/cond-pre View-Area-Definition TextDefinition Offset-Area-Definition Scroll-Area-Definition))
+(s/def ContextDefinition (s/cond-pre ViewDefinition Input-Area-Definition))
 
 (s/def NReplProps {(s/maybe :response) NReplResponse
                    (s/maybe :history)  [s/Str]})
@@ -223,45 +223,45 @@
                  field-of-view
                  view-offset
                  scroll-offset]} (parse def)
-         nrepl-client         (nrepl-client (:response props {})
-                                            (->> []
-                                                 (:history props)
-                                                 (reverse)
-                                                 (mapv i/from-string)))
-         context              (r/context field-of-view nrepl-client)
-         parsed-input         (derive-text input-area)
-         parsed-persisted     (if (empty? persisted-area)
-                                []
-                                [(derive-text persisted-area)])
-         persisted-hud        (-> context
-                                  (r/persisted-hud)
-                                  (h/enrich-with parsed-persisted)
-                                  (h/with-view-offset view-offset)
-                                  (h/with-scroll-offset scroll-offset))
-         highlights           (-> context
-                                  (r/persisted-hud)
-                                  (h/text)
-                                  (:lines)
-                                  (concat persisted-area input-area)
-                                  (derive-text)
-                                  (:selection))]
+         nrepl-client     (nrepl-client (:response props {})
+                                        (->> []
+                                             (:history props)
+                                             (reverse)
+                                             (mapv i/from-string)))
+         context          (r/context field-of-view nrepl-client)
+         parsed-input     (derive-text input-area)
+         parsed-persisted (if (empty? persisted-area)
+                            []
+                            [(derive-text persisted-area)])
+         persisted-view   (-> context
+                              (r/persisted-view)
+                              (h/enrich-with parsed-persisted)
+                              (h/with-view-offset view-offset)
+                              (h/with-scroll-offset scroll-offset))
+         highlights       (-> context
+                              (r/persisted-view)
+                              (h/text)
+                              (:lines)
+                              (concat persisted-area input-area)
+                              (derive-text)
+                              (:selection))]
      (as-> context ctx
-           (r/with-persisted ctx persisted-hud)
+           (r/with-persisted-view ctx persisted-view)
            (r/with-input-area ctx parsed-input)
-           (r/refresh ctx)
-           (r/with-preview ctx (-> ctx
-                                   (r/preview-hud)
-                                   (h/with-view-offset view-offset)))
-           (r/with-previous ctx (h/view-of field-of-view))
+           (r/refresh-view ctx)
+           (r/switch-current-view ctx (-> ctx
+                                          (r/current-view)
+                                          (h/with-view-offset view-offset)))
+           (r/with-previous-view ctx (h/view-of field-of-view))
            (if (some? highlights)
-             (r/with-highlight ctx :manual (r/make-manual default-config highlights))
+             (r/with-manual ctx (r/create-manual-highlight default-config highlights))
              ctx)))))
 
-(s/defn derive-hud :- View
-  "Derives a hud based on a list of tagged strings.
-   Behaves similarly to `derive-context`, but derives a simple hud.
+(s/defn derive-view :- View
+  "Derives a view based on a list of tagged strings.
+   Behaves similarly to `derive-context`, but derives a simple view.
    Ignores context-specific information like the persisted area."
-  [def :- HudDefinition]
+  [def :- ViewDefinition]
   (let [{:keys [input-area
                 field-of-view
                 view-offset

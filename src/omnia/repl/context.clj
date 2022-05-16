@@ -1,14 +1,14 @@
 (ns omnia.repl.context
   (:require [schema.core :as s]
             [omnia.repl.nrepl :as r]
-            [omnia.repl.hud :as h]
+            [omnia.repl.view :as h]
             [omnia.repl.text :as i]
             [omnia.repl.format :as f]
             [omnia.schema.event :as e]
             [omnia.schema.context :refer [Context ProcessingStep]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
-            [omnia.schema.hud :refer [View]]
+            [omnia.schema.view :refer [View]]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.common :refer [=> Region]]
@@ -33,7 +33,7 @@
      i/empty-line
      caret]))
 
-(s/defn init-hud :- View
+(s/defn init-view :- View
   [size :- s/Int,
    repl :- NReplClient]
   (let [header (header (:host repl) (:port repl))]
@@ -45,31 +45,31 @@
    repl      :- NReplClient]
   (let [input     i/empty-line
         previous  (h/view-of view-size)
-        persisted (init-hud view-size repl)
-        preview   (h/enrich-with persisted [input])]
-    {:nrepl         repl
-     :render        :diff
-     :previous-hud  previous
-     :persisted-hud persisted
-     :preview-hud   preview
-     :input-area    input
-     :suggestions   h/empty-view
-     :documentation h/empty-view
-     :signatures    h/empty-view
-     :highlights    {}
-     :garbage       {}}))
+        persisted (init-view view-size repl)
+        current   (h/enrich-with persisted [input])]
+    {:nrepl          repl
+     :render         :diff
+     :previous-view  previous
+     :persisted-view persisted
+     :current-view   current
+     :input-area     input
+     :suggestions    h/empty-view
+     :documentation  h/empty-view
+     :signatures     h/empty-view
+     :highlights     {}
+     :garbage        {}}))
 
-(s/defn preview-hud :- View
+(s/defn current-view :- View
   [ctx :- Context]
-  (:preview-hud ctx))
+  (:current-view ctx))
 
-(s/defn persisted-hud :- View
+(s/defn persisted-view :- View
   [ctx :- Context]
-  (:persisted-hud ctx))
+  (:persisted-view ctx))
 
-(s/defn previous-hud :- View
+(s/defn previous-view :- View
   [ctx :- Context]
-  (:previous-hud ctx))
+  (:previous-view ctx))
 
 (s/defn input-area :- Text
   [ctx :- Context]
@@ -77,7 +77,7 @@
 
 (s/defn view-size :- s/Int
   [ctx :- Context]
-  (-> ctx (persisted-hud) (h/field-of-view)))
+  (-> ctx (persisted-view) (h/field-of-view)))
 
 (s/defn suggestions :- View
   [ctx :- Context]
@@ -107,33 +107,31 @@
   [ctx :- Context]
   (:render ctx))
 
-(s/defn refresh :- Context
+(s/defn with-previous-view :- Context
+  [ctx :- Context, view :- View]
+  (assoc ctx :previous-view view))
+
+(s/defn with-current-view :- Context
+  [ctx :- Context, view :- View]
+  (assoc ctx :current-view view))
+
+(s/defn with-persisted-view :- Context
+  [ctx :- Context, view :- View]
+  (assoc ctx :persisted-view view))
+
+(s/defn switch-current-view :- Context
+  [ctx :- Context, view :- View]
+  (-> ctx
+      (with-previous-view (current-view ctx))
+      (with-current-view view)))
+
+(s/defn refresh-view :- Context
   [ctx :- Context]
-  (assoc ctx
-    :previous-hud (preview-hud ctx)
-    :preview-hud (-> ctx (persisted-hud) (h/enrich-with [(:input-area ctx)]))))
+  (switch-current-view ctx (-> ctx (persisted-view) (h/enrich-with [(input-area ctx)]))))
 
-(s/defn with-previous :- Context
-  [ctx :- Context, hud :- View]
-  (assoc ctx :previous-hud hud))
-
-(s/defn with-preview :- Context
-  [ctx :- Context, hud :- View]
-  (assoc ctx
-    :previous-hud (:preview-hud ctx)
-    :preview-hud hud))
-
-(s/defn with-persisted :- Context
-  [ctx :- Context, hud :- View]
-  (assoc ctx :persisted-hud hud))
-
-(s/defn with-unrefreshed-preview :- Context
-  [ctx :- Context, hud :- View]
-  (assoc ctx :preview-hud hud))
-
-(s/defn with-hud :- Context
-  [ctx :- Context, hud :- View]
-  (-> ctx (with-persisted hud) (refresh)))
+(s/defn switch-view :- Context
+  [ctx :- Context, view :- View]
+  (-> ctx (with-persisted-view view) (refresh-view)))
 
 (s/defn reset-highlights :- Context
   [ctx :- Context]
@@ -163,25 +161,29 @@
       (with-highlight :open-paren open)
       (with-highlight :closed-paren closed)))
 
-(s/defn make-manual :- HighlightInstructionData
+(s/defn with-manual :- Context
+  [ctx :- Context, highlights :- HighlightInstructionData]
+  (with-highlight ctx :manual highlights))
+
+(s/defn create-manual-highlight :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:clean-up))
    :styles []})
 
-(s/defn make-selection :- HighlightInstructionData
+(s/defn create-selection-highlight :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:selection))
    :styles []})
 
-(s/defn make-paren :- HighlightInstructionData
+(s/defn create-paren-highlight :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:clean-up))
    :styles [:underline]})
 
-(s/defn make-garbage :- HighlightInstructionData
+(s/defn create-garbage-highlight :- HighlightInstructionData
   [config :- Config, region :- Region]
   {:region region
    :scheme (-> config (:syntax) (:clean-up))
@@ -240,9 +242,9 @@
 (s/defn highlight :- Context
   [ctx :- Context
    config :- Config]
-  (let [text (-> ctx (preview-hud) (h/text))]
+  (let [text (-> ctx (current-view) (h/text))]
     (if (i/selecting? text)
-      (with-selection ctx (make-selection config (:selection text)))
+      (with-selection ctx (create-selection-highlight config (:selection text)))
       ctx)))
 
 (s/defn gc :- Context
@@ -250,22 +252,22 @@
    config :- Config]
   (let [garbage (->> ctx
                      (highlights)
-                     (map-vals #(make-garbage config (:region %))))]
+                     (map-vals #(create-garbage-highlight config (:region %))))]
     (-> ctx (with-garbage garbage) (reset-highlights))))
 
 (s/defn match :- Context
   [ctx :- Context
    config :- Config]
-  (if-let [pair (-> ctx (preview-hud) (h/text) (i/find-pair))]
-    (let [open   (make-paren config (:left pair))
-          closed (make-paren config (:right pair))]
+  (if-let [pair (-> ctx (current-view) (h/text) (i/find-pair))]
+    (let [open   (create-paren-highlight config (:left pair))
+          closed (create-paren-highlight config (:right pair))]
       (with-parens ctx open closed))
     ctx))
 
 (s/defn match-parens :- Context
   [ctx :- Context
    config :- Config]
-  (let [text (-> ctx (preview-hud) (h/text))]
+  (let [text (-> ctx (current-view) (h/text))]
     (cond
       (i/open-pairs (i/current-char text)) (match ctx config)
       (i/closed-pairs (i/previous-char text)) (match ctx config)
@@ -273,68 +275,68 @@
 
 (s/defn calibrate :- Context
   [ctx :- Context]
-  (let [nov       (h/correct-between (preview-hud ctx)
-                                     (previous-hud ctx))
+  (let [nov       (h/correct-between (current-view ctx)
+                                     (previous-view ctx))
         persisted (-> ctx
-                      (persisted-hud)
-                      (h/reset-view nov))
+                      (persisted-view)
+                      (h/with-view-offset nov))
         preview   (-> ctx
-                      (preview-hud)
-                      (h/reset-view nov))]
+                      (current-view)
+                      (h/with-view-offset nov))]
     (-> ctx
-        (with-persisted persisted)
-        (with-unrefreshed-preview preview))))
+        (with-persisted-view persisted)
+        (with-current-view preview))))
 
 (s/defn resize :- Context
   [ctx :- Context
    event :- e/Event]
-  (let [persisted (persisted-hud ctx)
+  (let [persisted (persisted-view ctx)
         new-fov   (-> event (:value) (second))]
     (-> ctx
-        (with-persisted (h/resize persisted new-fov))
-        (refresh))))
+        (with-persisted-view (h/resize persisted new-fov))
+        (refresh-view))))
 
 (s/defn clear :- Context
   [ctx :- Context]
   (let [size  (view-size ctx)
         nrepl (nrepl-client ctx)]
-    (with-hud ctx (init-hud size nrepl))))
+    (switch-view ctx (init-view size nrepl))))
 
 (s/defn exit :- Context
   [ctx :- Context]
   (let [preview (-> ctx
-                    (preview-hud)
+                    (current-view)
                     (h/enrich-with [goodbye])
-                    (h/reset-view))]
-    (with-preview ctx preview)))
+                    (h/reset-view-offset))]
+    (switch-current-view ctx preview)))
 
 (s/defn deselect :- Context
   [ctx :- Context]
-  (let [preview   (-> ctx (preview-hud) (h/deselect))
-        persisted (-> ctx (persisted-hud) (h/deselect))
+  (let [preview   (-> ctx (current-view) (h/deselect))
+        persisted (-> ctx (persisted-view) (h/deselect))
         input     (-> ctx (input-area) (i/deselect))]
     (-> ctx
-        (with-unrefreshed-preview preview)
-        (with-persisted persisted)
+        (with-current-view preview)
+        (with-persisted-view persisted)
         (with-input-area input))))
 
 (s/defn scroll-up :- Context
   [ctx :- Context]
-  (let [preview (-> ctx (preview-hud) (h/scroll-up))]
-    (with-preview ctx preview)))
+  (let [preview (-> ctx (current-view) (h/scroll-up))]
+    (switch-current-view ctx preview)))
 
 (s/defn scroll-down :- Context
   [ctx :- Context]
-  (let [preview (-> ctx (preview-hud) (h/scroll-down))]
-    (with-preview ctx preview)))
+  (let [preview (-> ctx (current-view) (h/scroll-down))]
+    (switch-current-view ctx preview)))
 
 (s/defn reset-scroll :- Context
   [ctx :- Context]
-  (if (-> ctx (preview-hud) (h/scroll-offset) (zero?))
+  (if (-> ctx (current-view) (h/scroll-offset) (zero?))
     ctx
     (-> ctx
-        (with-persisted (-> ctx (persisted-hud) (h/reset-scroll)))
-        (with-unrefreshed-preview (-> ctx (preview-hud) (h/reset-scroll))))))
+        (with-persisted-view (-> ctx (persisted-view) (h/reset-scroll)))
+        (with-current-view (-> ctx (current-view) (h/reset-scroll))))))
 
 (s/defn eval-at :- Context
   [ctx :- Context,
@@ -348,7 +350,7 @@
     (-> ctx
         (with-client then-server)
         (with-input-area then-text)
-        (refresh))))
+        (refresh-view))))
 
 (s/defn prev-eval :- Context
   [ctx :- Context]
@@ -363,13 +365,13 @@
   (let [current-input (input-area ctx)
         client'       (-> ctx (nrepl-client) (r/evaluate! current-input))
         result        (r/result client')
-        new-hud       (-> ctx
-                          (persisted-hud)
+        new-view      (-> ctx
+                          (persisted-view)
                           (h/enrich-with [current-input result caret]))]
     (-> ctx
         (with-client client')
         (with-input-area i/empty-line)
-        (with-hud new-hud))))
+        (switch-view new-view))))
 
 (s/defn suggestion-window :- View
   [ctx :- Context]
@@ -388,13 +390,13 @@
                         (input-area)
                         (i/auto-complete suggestion))
         preview     (-> ctx
-                        (persisted-hud)
+                        (persisted-view)
                         (h/enrich-with [text])
                         (h/pop-up suggestions))]
     (-> ctx
         (with-suggestions suggestions)
         (with-input-area text)
-        (with-preview preview)
+        (switch-current-view preview)
         (deselect))))
 
 (s/defn signature-window :- View
@@ -411,12 +413,12 @@
   (let [signatures (signature-window ctx)
         text       (input-area ctx)
         preview    (-> ctx
-                      (persisted-hud)
+                      (persisted-view)
                       (h/enrich-with [text])
                       (h/pop-up signatures))]
     (-> ctx
         (with-signatures signatures)
-        (with-preview preview))))
+        (switch-current-view preview))))
 
 (s/defn documentation-window :- View
   [ctx :- Context]
@@ -432,17 +434,17 @@
   (let [documentation (documentation-window ctx)
         text          (input-area ctx)
         preview       (-> ctx
-                          (persisted-hud)
+                          (persisted-view)
                           (h/enrich-with [text])
                           (h/pop-up documentation))]
     (-> ctx
         (with-documentation documentation)
-        (with-preview preview))))
+        (switch-current-view preview))))
 
 (s/defn reformat :- Context
   [ctx :- Context]
   (let [formatted (-> ctx (input-area) (f/format-text))]
-    (-> ctx (with-input-area formatted) (refresh))))
+    (-> ctx (with-input-area formatted) (refresh-view))))
 
 (s/defn inject :- Context
   [ctx   :- Context
@@ -455,7 +457,7 @@
   [ctx  :- Context
    f    :- (=> Text Text)]
   (let [new-input (-> ctx (input-area) (f))]
-    (-> ctx (with-input-area new-input) (refresh))))
+    (-> ctx (with-input-area new-input) (refresh-view))))
 
 (s/defn continue :- ProcessingStep
   [ctx :- Context]

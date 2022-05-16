@@ -1,5 +1,5 @@
 (ns omnia.context-test
-  (:require [omnia.repl.hud :as h]
+  (:require [omnia.repl.view :as h]
             [omnia.repl.context :as r]
             [omnia.repl.events :as e]
             [clojure.test :refer [is deftest testing]]
@@ -7,19 +7,19 @@
 
 ;; I. Manipulation
 
-(deftest replacing-main-hud-refreshes-preview
+(deftest replacing-main-view-refreshes-preview
   (let [context    (-> ["existing input|"]
                        (derive-context))
         enrichment (derive-text ["some input|"])
         actual     (-> context
-                       (r/with-hud (-> context
-                                       (r/persisted-hud)
-                                       (h/enrich-with [enrichment])))
-                       (r/preview-hud))
+                       (r/switch-view (-> context
+                                          (r/persisted-view)
+                                          (h/enrich-with [enrichment])))
+                       (r/current-view))
         expected   (-> ["existing input"
                         "some text|"]
                        (derive-context)
-                       (r/preview-hud))]
+                       (r/current-view))]
     (= expected actual)))
 
 (deftest clipboard-is-renewed
@@ -52,7 +52,7 @@
                               -+ "area"]
                              (derive-context)
                              (process [e/scroll-up e/scroll-up e/scroll-up]))
-        expected         (-> [-| "some"
+         expected         (-> [-| "some"
                               -| "persisted"
                               -$ "area"
                               ---
@@ -60,12 +60,12 @@
                               -$ "input|"
                               -+ "area"]
                              (derive-context))
-        actual-preview   (-> context (r/preview-hud) (h/project) (:lines))
-        expected-preview (-> expected (r/preview-hud) (h/project) (:lines))
-        expected-cursor  (-> context (r/preview-hud) (h/text) (:cursor))
-        actual-cursor    (-> expected (r/preview-hud) (h/text) (:cursor))
-        actual-offset    (-> context (r/preview-hud) (h/scroll-offset))
-        expected-offset  (-> expected (r/preview-hud) (h/scroll-offset))]
+        actual-preview   (-> context (r/current-view) (h/project) (:lines))
+        expected-preview (-> expected (r/current-view) (h/project) (:lines))
+        expected-cursor  (-> context (r/current-view) (h/text) (:cursor))
+        actual-cursor    (-> expected (r/current-view) (h/text) (:cursor))
+        actual-offset    (-> context (r/current-view) (h/scroll-offset))
+        expected-offset  (-> expected (r/current-view) (h/scroll-offset))]
     (is (= actual-offset expected-offset 3))
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
@@ -91,12 +91,12 @@
                               -+ "area"]
                              (derive-context))
         processed        (process context [e/scroll-down e/scroll-down])
-        actual-preview   (-> processed (r/preview-hud) (h/project) (:lines))
-        expected-preview (-> expected (r/preview-hud) (h/project) (:lines))
-        actual-cursor    (-> processed (r/preview-hud) (h/text) (:cursor))
-        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))
-        actual-offset    (-> processed (r/preview-hud) (h/scroll-offset))
-        expected-offset  (-> expected (r/preview-hud) (h/scroll-offset))]
+        actual-preview   (-> processed (r/current-view) (h/project) (:lines))
+        expected-preview (-> expected (r/current-view) (h/project) (:lines))
+        actual-cursor    (-> processed (r/current-view) (h/text) (:cursor))
+        expected-cursor  (-> expected (r/current-view) (h/text) (:cursor))
+        actual-offset    (-> processed (r/current-view) (h/scroll-offset))
+        expected-offset  (-> expected (r/current-view) (h/scroll-offset))]
     (is (= actual-offset expected-offset 1))
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
@@ -111,8 +111,8 @@
                              -+ "area"]
                             (derive-context))
         scrolled        (process context (repeat 100 e/scroll-up))
-        init-offset     (-> context (r/preview-hud) (h/scroll-offset))
-        scrolled-offset (-> scrolled (r/preview-hud) (h/scroll-offset))]
+        init-offset     (-> context (r/current-view) (h/scroll-offset))
+        scrolled-offset (-> scrolled (r/current-view) (h/scroll-offset))]
     (is (= init-offset 0))
     (is (= scrolled-offset 12))))
 
@@ -127,8 +127,8 @@
                                (derive-context))
         scrolled-up        (process context (repeat 100 e/scroll-up))
         scrolled-down      (process context (repeat 100 e/scroll-down))
-        actual-up-offset   (-> scrolled-up (r/preview-hud) (h/scroll-offset))
-        actual-down-offset (-> scrolled-down (r/preview-hud) (h/scroll-offset))]
+        actual-up-offset   (-> scrolled-up (r/current-view) (h/scroll-offset))
+        actual-down-offset (-> scrolled-down (r/current-view) (h/scroll-offset))]
     (is (= actual-up-offset 12))
     (is (= actual-down-offset 0))))
 
@@ -143,8 +143,8 @@
                                 (derive-context))
         scrolled            (process context [e/scroll-up e/scroll-up])
         reset               (r/reset-scroll scrolled)
-        init-scroll-offset  (-> scrolled (r/preview-hud) (h/scroll-offset))
-        reset-scroll-offset (-> reset (r/preview-hud) (h/scroll-offset))]
+        init-scroll-offset  (-> scrolled (r/current-view) (h/scroll-offset))
+        reset-scroll-offset (-> reset (r/current-view) (h/scroll-offset))]
     (is (= init-scroll-offset 2))
     (is (= reset-scroll-offset 0))))
 
@@ -160,12 +160,12 @@
                            "some inputa|"]
                           (derive-context))
         processed     (process context [(e/character \a)])
-        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
-        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
-        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
-        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))
-        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-previous (-> context (r/preview-hud) (h/text) (:lines))]
+        actual-cursor     (-> processed (r/current-view) (h/text) (:cursor))
+        actual-preview    (-> processed (r/current-view) (h/text) (:lines))
+        actual-previous   (-> processed (r/previous-view) (h/text) (:lines))
+        expected-cursor   (-> expected (r/current-view) (h/text) (:cursor))
+        expected-preview  (-> expected (r/current-view) (h/text) (:lines))
+        expected-previous (-> context (r/current-view) (h/text) (:lines))]
     (is (= actual-preview expected-preview))
     (is (= actual-previous expected-previous))
     (is (= actual-cursor expected-cursor))))
@@ -180,12 +180,12 @@
                               (derive-context))
         expected          (-> ["input|"] (derive-context))
         processed         (process context [e/clear])
-        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))
-        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
-        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
-        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))
-        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-previous (-> context (r/preview-hud) (h/text) (:lines))]
+        actual-cursor     (-> processed (r/current-view) (h/text) (:cursor))
+        actual-preview    (-> processed (r/current-view) (h/text) (:lines))
+        actual-previous   (-> processed (r/previous-view) (h/text) (:lines))
+        expected-cursor   (-> expected (r/current-view) (h/text) (:cursor))
+        expected-preview  (-> expected (r/current-view) (h/text) (:lines))
+        expected-previous (-> context (r/current-view) (h/text) (:lines))]
     (is (= actual-preview expected-preview))
     (is (= actual-previous expected-previous))
     (is (= actual-cursor expected-cursor))))
@@ -207,12 +207,12 @@
                                ---
                                "|"]
                               (derive-context))
-        expected-previous (-> context (r/preview-hud) (h/text) (:lines))
-        expected-preview  (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-cursor   (-> expected (r/preview-hud) (h/text) (:cursor))
-        actual-preview    (-> processed (r/preview-hud) (h/text) (:lines))
-        actual-previous   (-> processed (r/previous-hud) (h/text) (:lines))
-        actual-cursor     (-> processed (r/preview-hud) (h/text) (:cursor))]
+        expected-previous (-> context (r/current-view) (h/text) (:lines))
+        expected-preview  (-> expected (r/current-view) (h/text) (:lines))
+        expected-cursor   (-> expected (r/current-view) (h/text) (:cursor))
+        actual-preview    (-> processed (r/current-view) (h/text) (:lines))
+        actual-previous   (-> processed (r/previous-view) (h/text) (:lines))
+        actual-cursor     (-> processed (r/current-view) (h/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))
     (is (= actual-previous expected-previous))))
@@ -236,18 +236,18 @@
         processed1         (process context [e/prev-eval])
         processed2         (process context [e/prev-eval e/prev-eval])
         processed3         (process context [e/prev-eval e/prev-eval e/next-eval])
-        actual-preview1    (-> processed1 (r/preview-hud) (h/text) (:lines))
-        actual-cursor1     (-> processed1 (r/preview-hud) (h/text) (:cursor))
-        expected-preview1  (-> expected1 (r/preview-hud) (h/text) (:lines))
-        expected-cursor1   (-> expected1 (r/preview-hud) (h/text) (:cursor))
+        actual-preview1    (-> processed1 (r/current-view) (h/text) (:lines))
+        actual-cursor1     (-> processed1 (r/current-view) (h/text) (:cursor))
+        expected-preview1  (-> expected1 (r/current-view) (h/text) (:lines))
+        expected-cursor1   (-> expected1 (r/current-view) (h/text) (:cursor))
 
-        actual-preview2    (-> processed2 (r/preview-hud) (h/text) (:lines))
-        actual-cursor2     (-> processed2 (r/preview-hud) (h/text) (:cursor))
-        expected-preview2  (-> expected2 (r/preview-hud) (h/text) (:lines))
-        expected-cursor2   (-> expected2 (r/preview-hud) (h/text) (:cursor))
+        actual-preview2    (-> processed2 (r/current-view) (h/text) (:lines))
+        actual-cursor2     (-> processed2 (r/current-view) (h/text) (:cursor))
+        expected-preview2  (-> expected2 (r/current-view) (h/text) (:lines))
+        expected-cursor2   (-> expected2 (r/current-view) (h/text) (:cursor))
 
-        actual-preview3    (-> processed3 (r/preview-hud) (h/text) (:lines))
-        actual-cursor3     (-> processed3 (r/preview-hud) (h/text) (:cursor))]
+        actual-preview3    (-> processed3 (r/current-view) (h/text) (:lines))
+        actual-cursor3     (-> processed3 (r/current-view) (h/text) (:cursor))]
     (is (= actual-preview1 expected-preview1))
     (is (= actual-cursor1 expected-cursor1))
 
@@ -271,10 +271,10 @@
                               ---
                               "prev-eval-2text|"]
                              (derive-context))
-        actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
-        actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
-        expected-preview (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))]
+        actual-preview   (-> context (r/current-view) (h/text) (:lines))
+        actual-cursor    (-> context (r/current-view) (h/text) (:cursor))
+        expected-preview (-> expected (r/current-view) (h/text) (:lines))
+        expected-cursor  (-> expected (r/current-view) (h/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
@@ -306,17 +306,17 @@
         processed1        (process context [e/suggest])
         processed2        (process context [e/suggest e/suggest])
 
-        actual1-preview   (-> processed1 (r/preview-hud) (h/text) (:lines))
-        actual1-cursor    (-> processed1 (r/preview-hud) (h/text) (:cursor))
+        actual1-preview   (-> processed1 (r/current-view) (h/text) (:lines))
+        actual1-cursor    (-> processed1 (r/current-view) (h/text) (:cursor))
 
-        actual2-preview   (-> processed2 (r/preview-hud) (h/text) (:lines))
-        actual2-cursor    (-> processed2 (r/preview-hud) (h/text) (:cursor))
+        actual2-preview   (-> processed2 (r/current-view) (h/text) (:lines))
+        actual2-cursor    (-> processed2 (r/current-view) (h/text) (:cursor))
 
-        expected1-preview (-> expected1 (r/preview-hud) (h/text) (:lines))
-        expected1-cursor  (-> expected1 (r/preview-hud) (h/text) (:cursor))
+        expected1-preview (-> expected1 (r/current-view) (h/text) (:lines))
+        expected1-cursor  (-> expected1 (r/current-view) (h/text) (:cursor))
 
-        expected2-preview (-> expected2 (r/preview-hud) (h/text) (:lines))
-        expected2-cursor  (-> expected2 (r/preview-hud) (h/text) (:cursor))]
+        expected2-preview (-> expected2 (r/current-view) (h/text) (:lines))
+        expected2-cursor  (-> expected2 (r/current-view) (h/text) (:cursor))]
     (is (= actual1-preview expected1-preview))
     (is (= actual2-preview expected2-preview))
     (is (= actual1-cursor expected1-cursor))
@@ -334,10 +334,10 @@
                               ---
                               "option-2a|"]
                              (derive-context))
-        actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
-        actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
-        expected-preview (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))]
+        actual-preview   (-> context (r/current-view) (h/text) (:lines))
+        actual-cursor    (-> context (r/current-view) (h/text) (:cursor))
+        expected-preview (-> expected (r/current-view) (h/text) (:lines))
+        expected-cursor  (-> expected (r/current-view) (h/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
@@ -353,10 +353,10 @@
                       "------|"
                       "------"]
                      (derive-context))
-        actual-preview   (-> context (r/preview-hud) (h/text) (:lines))
-        actual-cursor    (-> context (r/preview-hud) (h/text) (:cursor))
-        expected-preview (-> expected (r/preview-hud) (h/text) (:lines))
-        expected-cursor  (-> expected (r/preview-hud) (h/text) (:cursor))]
+        actual-preview   (-> context (r/current-view) (h/text) (:lines))
+        actual-cursor    (-> context (r/current-view) (h/text) (:cursor))
+        expected-preview (-> expected (r/current-view) (h/text) (:lines))
+        expected-cursor  (-> expected (r/current-view) (h/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 

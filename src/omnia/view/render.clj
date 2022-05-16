@@ -2,14 +2,14 @@
   (:require [schema.core :as s]
             [omnia.view.terminal :as t]
             [omnia.repl.text :as i]
-            [omnia.repl.hud :as h]
+            [omnia.repl.view :as h]
             [omnia.repl.context :as c]
             [omnia.repl.syntax-highlighting :as st]
             [omnia.util.collection :refer [merge-common-with reduce-idx]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
             [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.text :refer [Line]]
-            [omnia.schema.hud :refer [View]]
+            [omnia.schema.view :refer [View]]
             [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.config :refer [Config]])
@@ -62,8 +62,8 @@
   Returns only the diffed region from the `current` that doesn't overlap
   with anything in the `former`."
   [ctx :- Context, current :- HighlightInstructions, former :- HighlightInstructions]
-  (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
-        previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
+  (let [preview-ov  (-> ctx (c/current-view) (h/view-offset))
+        previous-ov (-> ctx (c/previous-view) (h/view-offset))]
     (if (= preview-ov previous-ov)
       ;; a nil from additive-diff means the highlights that don't have a diff
       (prioritise (merge-common-with additive-diff current former))
@@ -106,19 +106,19 @@
 
 (s/defn print-highlight!
   [terminal  :- Terminal
-   hud       :- View
+   view       :- View
    highlight :- HighlightInstructionData]
-  (let [selection (->> highlight (:region) (h/clip-selection hud))
+  (let [selection (->> highlight (:region) (h/clip-selection view))
         scheme    (->> highlight (:scheme))
         styles    (->> highlight (:styles))
-        text    (h/text hud)
+        text      (h/text view)
         [xs ys]   (:start selection)
         [xe ye]   (:end selection)]
     (doseq [y (range ys (inc ye))]
       (let [line  (i/line-at text y)
             xs    (if (= y ys) xs 0)
             xe    (if (= y ye) xe (count line))
-            y'    (h/project-y hud y)]
+            y'    (h/project-y view y)]
         (doseq [x' (range xs xe)]
           (put-char! terminal (nth line x') x' y' texts scheme styles))))))
 
@@ -128,7 +128,7 @@
    ctx      :- Context]
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
-        preview    (c/preview-hud ctx)
+        preview    (c/current-view ctx)
         text       (h/text preview)]
     (doseq [highlight (cull ctx garbage highlights)]
       (let [region (->> highlight (:region) (h/clip-selection preview))
@@ -148,14 +148,14 @@
    ctx      :- Context]
   (let [highlights (c/highlights ctx)
         garbage    (c/garbage ctx)
-        preview    (c/preview-hud ctx)]
+        preview    (c/current-view ctx)]
     (doseq [highlight (cull ctx highlights garbage)]
       (print-highlight! terminal preview highlight))))
 
 (s/defn set-position!
   [terminal :- Terminal
    ctx      :- Context]
-  (let [preview  (c/preview-hud ctx)
+  (let [preview  (c/current-view ctx)
         [x y]    (h/project-view-cursor preview)]
     (t/move! terminal x y)))
 
@@ -172,8 +172,8 @@
   [terminal :- Terminal
    config   :- Config
    ctx      :- Context]
-  (let [now      (-> ctx (c/preview-hud) (h/project-view-text))
-        then     (-> ctx (c/previous-hud) (h/project-view-text))
+  (let [now      (-> ctx (c/current-view) (h/project-view-text))
+        then     (-> ctx (c/previous-view) (h/project-view-text))
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
@@ -188,8 +188,8 @@
   [terminal :- Terminal
    config   :- Config
    ctx      :- Context]
-  (let [preview  (c/preview-hud ctx)
-        previous (c/previous-hud ctx)
+  (let [preview  (c/current-view ctx)
+        previous (c/previous-view ctx)
         now      (h/project-view-text preview)
         then     (h/project-view-text previous)
         scheme   (-> config (:syntax) (:standard))
@@ -209,8 +209,8 @@
   [terminal :- Terminal
    config   :- Config
    ctx      :- Context]
-  (let [preview-ov  (-> ctx (c/preview-hud) (h/view-offset))
-        previous-ov (-> ctx (c/previous-hud) (h/view-offset))]
+  (let [preview-ov  (-> ctx (c/current-view) (h/view-offset))
+        previous-ov (-> ctx (c/previous-view) (h/view-offset))]
     (when (not= preview-ov previous-ov)
       (render-total! terminal config ctx))))
 

@@ -1,4 +1,4 @@
-(ns omnia.schema.hud
+(ns omnia.schema.view
   (:require [schema.core :as s]
             [omnia.schema.text :as t]))
 

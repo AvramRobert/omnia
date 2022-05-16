@@ -1,9 +1,9 @@
-(ns omnia.repl.hud
+(ns omnia.repl.view
   (:require [schema.core :as s]
             [omnia.repl.text :as t]
             [omnia.util.arithmetic :refer [++ -- mod*]]
             [omnia.util.collection :refer [bounded-subvec assoc-new]]
-            [omnia.schema.hud :refer [View]]
+            [omnia.schema.view :refer [View]]
             [omnia.schema.common :refer [Point Region]]
             [omnia.schema.text :refer [Text Line]]))
 
@@ -27,9 +27,9 @@
    scroll-offset:
       * when scrolling, how many lines have been scrolled"
   [text :- Text
-   fov :- s/Int]
+   size :- s/Int]
   {:text          text
-   :field-of-view fov
+   :field-of-view size
    :view-offset   0
    :scroll-offset 0})
 
@@ -65,11 +65,9 @@
    text :- Text]
   (assoc view :text text))
 
-(s/defn reset-view :- View
-  ([view :- View]
-   (reset-view view 0))
-  ([view :- View, view-offset :- s/Int]
-   (assoc-new view :view-offset view-offset)))
+(s/defn reset-view-offset :- View
+  [view :- View]
+  (assoc-new view :view-offset 0))
 
 (s/defn resize :- View
   [view :- View, field-of-view :- s/Int]
@@ -118,8 +116,8 @@
 
 (s/defn project-y :- s/Int
   [view :- View, y :- s/Int]
-  "given hud-y, screen-y = hud-y - top-y
-   given screen-y, hud-y = screen-y + top-y"
+  "given view-y, screen-y = view-y - top-y
+   given screen-y, view-y = screen-y + top-y"
   (let [fov (field-of-view view)
         h   (-> view (text) (:size))
         ys  (top-y view)]
@@ -220,8 +218,8 @@
   ([view :- View]
    (corrected view view))
   ([view :- View,
-    previous-hud :- View]
-   (assoc view :view-offset (correct-between view previous-hud))))
+    previous-view :- View]
+   (assoc view :view-offset (correct-between view previous-view))))
 
 (s/defn enrich-with :- View
   [view :- View, texts :- [Text]]

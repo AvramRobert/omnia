@@ -2,7 +2,7 @@
   (:require [clojure.test :refer :all]
             [omnia.test-utils :refer :all]
             [omnia.repl.context :as r]
-            [omnia.repl.hud :as h]))
+            [omnia.repl.view :as h]))
 
 (deftest reads-context-from-definition
   (testing "can detect"
@@ -14,9 +14,9 @@
                            "area|"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))))
@@ -28,9 +28,9 @@
                            -+ "area"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))]
         (is (= persisted header))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t]]))))
@@ -42,9 +42,9 @@
                            -$ "area"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))]
         (is (= persisted header))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t]]))))
@@ -59,11 +59,11 @@
                             -+ "hidden"]
                            (derive-context))
             header     (:lines default-header)
-            persisted  (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted  (-> context (r/persisted-view) (h/text) (:lines))
             input      (-> context (r/input-area) (:lines))
-            viewable   (-> context (r/preview-hud) (h/project) (:lines))
-            view-off   (-> context (r/preview-hud) (h/view-offset))
-            scroll-off (-> context (r/preview-hud) (h/scroll-offset))]
+            viewable   (-> context (r/current-view) (h/project) (:lines))
+            view-off   (-> context (r/current-view) (h/view-offset))
+            scroll-off (-> context (r/current-view) (h/scroll-offset))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d]])))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a] [\h \i \d \d \e \n]]))
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t]]))
@@ -77,9 +77,9 @@
                          "area"]
                         (derive-context))
           header    (:lines default-header)
-          persisted (-> context (r/persisted-hud) (h/text) (:lines))
+          persisted (-> context (r/persisted-view) (h/text) (:lines))
           input     (-> context (r/input-area) (:lines))
-          viewable  (-> context (r/preview-hud) (h/project) (:lines))]
+          viewable  (-> context (r/current-view) (h/project) (:lines))]
       (is (= persisted header))
       (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
       (is (= viewable [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))))
@@ -95,9 +95,9 @@
                             -| "area"]
                            (derive-context))
             header     (:lines default-header)
-            persisted  (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted  (-> context (r/persisted-view) (h/text) (:lines))
             input      (-> context (r/input-area) (:lines))
-            viewable   (-> context (r/preview-hud) (h/project) (:lines))
+            viewable   (-> context (r/current-view) (h/project) (:lines))
             highlights (-> context (r/highlights) (:manual) (:region))
             ys         (-> header (count) (+ 2))
             ye         (inc ys)]
@@ -116,9 +116,9 @@
                            -| "input|"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))))
@@ -133,9 +133,9 @@
                            -| "input|"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]])))))
@@ -151,11 +151,11 @@
                              -+ "area"]
                             (derive-context))
             header      (:lines default-header)
-            persisted   (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted   (-> context (r/persisted-view) (h/text) (:lines))
             input       (-> context (r/input-area) (:lines))
-            viewable    (-> context (r/preview-hud) (h/project) (:lines))
+            viewable    (-> context (r/current-view) (h/project) (:lines))
             lights      (-> context (r/highlights) (:manual) (:region))
-            proj-lights (-> context (r/preview-hud) (h/project-selection lights))
+            proj-lights (-> context (r/current-view) (h/project-selection lights))
             ys          (-> header (count) (+ 2))
             ye          (inc ys)]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -173,11 +173,11 @@
                            -+ "viewable|"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))
-            prev-off  (-> context (r/preview-hud) (h/view-offset))
-            pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))
+            prev-off  (-> context (r/current-view) (h/view-offset))
+            pers-off  (-> context (r/persisted-view) (h/view-offset))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
         (is (= viewable [[\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
@@ -195,11 +195,11 @@
                              -+ "input"]
                             (derive-context))
               header    (:lines default-header)
-              persisted (-> context (r/persisted-hud) (h/text) (:lines))
+              persisted (-> context (r/persisted-view) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project) (:lines))
-              prev-off  (-> context (r/preview-hud) (h/view-offset))
-              pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+              viewable  (-> context (r/current-view) (h/project) (:lines))
+              prev-off  (-> context (r/current-view) (h/view-offset))
+              pers-off  (-> context (r/persisted-view) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
           (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
           (is (= viewable [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
@@ -216,11 +216,11 @@
                              -+ "input"]
                             (derive-context))
               header    (:lines default-header)
-              persisted (-> context (r/persisted-hud) (h/text) (:lines))
+              persisted (-> context (r/persisted-view) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project) (:lines))
-              prev-off  (-> context (r/preview-hud) (h/view-offset))
-              pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+              viewable  (-> context (r/current-view) (h/project) (:lines))
+              prev-off  (-> context (r/current-view) (h/view-offset))
+              pers-off  (-> context (r/persisted-view) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
           (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
           (is (= viewable [[\i \n \p \u \t] [\a \r \e \a]]))
@@ -237,11 +237,11 @@
                              -+ "input"]
                             (derive-context))
               header    (:lines default-header)
-              persisted (-> context (r/persisted-hud) (h/text) (:lines))
+              persisted (-> context (r/persisted-view) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project) (:lines))
-              prev-off  (-> context (r/preview-hud) (h/view-offset))
-              pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+              viewable  (-> context (r/current-view) (h/project) (:lines))
+              prev-off  (-> context (r/current-view) (h/view-offset))
+              pers-off  (-> context (r/persisted-view) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
           (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\i \n \p \u \t]]))
           (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\i \n \p \u \t]]))
@@ -257,11 +257,11 @@
                              -+ "input"]
                             (derive-context))
               header    (:lines default-header)
-              persisted (-> context (r/persisted-hud) (h/text) (:lines))
+              persisted (-> context (r/persisted-view) (h/text) (:lines))
               input     (-> context (r/input-area) (:lines))
-              viewable  (-> context (r/preview-hud) (h/project) (:lines))
-              prev-off  (-> context (r/preview-hud) (h/view-offset))
-              pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+              viewable  (-> context (r/current-view) (h/project) (:lines))
+              prev-off  (-> context (r/current-view) (h/view-offset))
+              pers-off  (-> context (r/persisted-view) (h/view-offset))]
           (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
           (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
           (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e]]))
@@ -277,11 +277,11 @@
                            -| "input|"]
                           (derive-context))
             header    (:lines default-header)
-            persisted (-> context (r/persisted-hud) (h/text) (:lines))
+            persisted (-> context (r/persisted-view) (h/text) (:lines))
             input     (-> context (r/input-area) (:lines))
-            viewable  (-> context (r/preview-hud) (h/project) (:lines))
-            prev-off  (-> context (r/preview-hud) (h/view-offset))
-            pers-off  (-> context (r/persisted-hud) (h/view-offset))]
+            viewable  (-> context (r/current-view) (h/project) (:lines))
+            prev-off  (-> context (r/current-view) (h/view-offset))
+            pers-off  (-> context (r/persisted-view) (h/view-offset))]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\i \n \p \u \t] [\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
         (is (= viewable [[\a \r \e \a] [\v \i \e \w \a \b \l \e] [\i \n \p \u \t]]))
