@@ -6,6 +6,9 @@
   (s/constrained [s/Int] #(= 2 (count %))))
 
 (def Region
+  "Denotes a region between two points.
+    from - inclusive
+    until - exclusive"
   {:from  Point
    :until Point})
 
@@ -15,8 +18,6 @@
 
 (def StringUUID
   (s/pred #(try (UUID/fromString %) true (catch Exception _ false))))
-
-(def StringBool (s/enum "true" "false"))
 
 (defn =>
   ([in out]
