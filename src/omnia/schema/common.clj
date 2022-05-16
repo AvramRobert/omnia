@@ -6,8 +6,8 @@
   (s/constrained [s/Int] #(= 2 (count %))))
 
 (def Region
-  {:start Point
-   :end   Point})
+  {:from  Point
+   :until Point})
 
 (def Pair
   {:left  Region

@@ -327,56 +327,56 @@
     (is (= expected (:region result)))))
 
 (deftest upper-x-diff
-  (let [a {:start [4 1] :end [4 3]}
-        b {:start [0 1] :end [4 3]}
-        r {:start [0 1] :end [4 1]}]
+  (let [a {:from [4 1] :until [4 3]}
+        b {:from [0 1] :until [4 3]}
+        r {:from [0 1] :until [4 1]}]
     (check-diff {:now a :then b :expected nil})
     (check-diff {:now b :then a :expected r})))
 
 (deftest lower-x-diff
-  (let [a {:start [2 1] :end [2 4]}
-        b {:start [2 1] :end [5 4]}
-        r {:start [2 4] :end [5 4]}]
+  (let [a {:from [2 1] :until [2 4]}
+        b {:from [2 1] :until [5 4]}
+        r {:from [2 4] :until [5 4]}]
     (check-diff {:now a :then b :expected nil})
     (check-diff {:now b :then a :expected r})))
 
 (deftest upper-y-diff
-  (let [a {:start [4 4] :end [7 6]}
-        b {:start [2 1] :end [7 6]}
-        r {:start [2 1] :end [4 4]}]
+  (let [a {:from [4 4] :until [7 6]}
+        b {:from [2 1] :until [7 6]}
+        r {:from [2 1] :until [4 4]}]
     (check-diff {:now a :then b :expected nil})
     (check-diff {:now b :then a :expected r})))
 
 (deftest lower-y-diff
-  (let [a {:start [2 1] :end [4 2]}
-        b {:start [2 1] :end [6 5]}
-        r {:start [4 2] :end [6 5]}]
+  (let [a {:from [2 1] :until [4 2]}
+        b {:from [2 1] :until [6 5]}
+        r {:from [4 2] :until [6 5]}]
     (check-diff {:now a :then b :expected nil})
     (check-diff {:now b :then a :expected r})))
 
 (deftest scissor-upper-y
-  (let [a  {:start [2 1] :end [4 1]}
-        a' {:start [2 0] :end [4 1]}
-        b  {:start [4 1] :end [2 2]}
-        r  {:start [2 0] :end [2 1]}]
+  (let [a  {:from [2 1] :until [4 1]}
+        a' {:from [2 0] :until [4 1]}
+        b  {:from [4 1] :until [2 2]}
+        r  {:from [2 0] :until [2 1]}]
     (check-diff {:now a :then b :expected a})
     (check-diff {:now a' :then a :expected r})))
 
 (deftest scissor-lower-y
-  (let [a  {:start [2 2] :end [4 2]}
-        a' {:start [2 2] :end [4 3]}
-        b  {:start [4 1] :end [2 2]}
-        r  {:start [4 2] :end [4 3]}]
+  (let [a  {:from [2 2] :until [4 2]}
+        a' {:from [2 2] :until [4 3]}
+        b  {:from [4 1] :until [2 2]}
+        r  {:from [4 2] :until [4 3]}]
     (check-diff {:now a :then b :expected a})
     (check-diff {:now a' :then a :expected r})))
 
 (deftest keep-diff
-  (let [a {:start [2 3] :end [4 5]}
-        b {:start [2 3] :end [4 5]}]
+  (let [a {:from [2 3] :until [4 5]}
+        b {:from [2 3] :until [4 5]}]
     (check-diff {:now a :then b :expected nil})))
 
 (deftest no-diff
-  (let [a {:start [2 3] :end [4 5]}
-        b {:start [4 5] :end [4 6]}]
+  (let [a {:from [2 3] :until [4 5]}
+        b {:from [4 5] :until [4 6]}]
     (check-diff {:now a :then b :expected a})
     (check-diff {:now b :then a :expected b})))

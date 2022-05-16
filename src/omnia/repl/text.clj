@@ -341,8 +341,8 @@
 
       Else:
       let
-        Cs = region start cursor
-        Ce = region end cursor
+        Cs = region from cursor
+        Ce = region until cursor
 
         a. Determine which region cursor (Cs or Ce) is going to move and be replaced by the displaced cursor (Cd).
            The coordinate (Cm) closest to the current cursor (Cc) is the one move:
@@ -358,22 +358,22 @@
        Sort the remainder coordinate (Ck) and the displaced coordinate (Cd) ascendingly.
        The lower coordinate becomes start and the other the end. Equality implies a cancelled out-region:
 
-         { start, end } = sort (Cd, Ck) { nil, iff start = end
-                                        { {start, end}, iff start =/ end"
+         { from, until } = sort (Cd, Ck) { nil, iff from = until
+                                         { {from, until}, iff from =/ until"
   (let [text'     (f text)
         Cc        (:cursor text)
         Cd        (:cursor text')
         Ck        (if (selecting? text)
-                    (let [Cs (-> text (:selection) (:start))
-                          Ce (-> text (:selection) (:end))
+                    (let [Cs (-> text (:selection) (:from))
+                          Ce (-> text (:selection) (:until))
                           Cm (min-key #(distance % Cc text) Cs Ce)]
                       (if (= Cm Cs) Ce Cs))
                     Cc)
-        [start end] (sort-by (juxt second first) [Cd Ck])
-        selection (if (= start end)
+        [from until] (sort-by (juxt second first) [Cd Ck])
+        selection (if (= from until)
                     nil
-                    {:start start
-                     :end   end})]
+                    {:from  from
+                     :until until})]
     (reset-selection text' selection)))
 
 (s/defn do-jump-select-right :- Text
@@ -405,9 +405,9 @@
                   selection (:selection that)]
               (-> (append this that)
                   (reset-cursor (move cursor))
-                  (reset-selection (when-let [{start :start end :end} selection]
-                                     {:start (move start)
-                                      :end   (move end)}))))) text texts))
+                  (reset-selection (when-let [{start :from end :until} selection]
+                                     {:from  (move start)
+                                      :until (move end)}))))) text texts))
 
 (s/defn joined :- Text
   [texts :- [Text]]
@@ -454,8 +454,8 @@
 
 (s/defn chunk-delete :- Text
   [text :- Text]
-  (let [[xs ys] (-> text (:selection) (:start))
-        [xe ye] (-> text (:selection) (:end))]
+  (let [[xs ys] (-> text (:selection) (:from))
+        [xe ye] (-> text (:selection) (:until))]
     (if (= ys ye)
       (-> text
           (reset-cursor [xs ys])
@@ -551,8 +551,8 @@
 (s/defn extract :- (s/maybe Text)
   [text :- Text]
   (when (selecting? text)
-    (let [[xs ys] (-> text (:selection) (:start))
-          [xe ye] (-> text (:selection) (:end))
+    (let [[xs ys] (-> text (:selection) (:from))
+          [xe ye] (-> text (:selection) (:until))
           lines   (-> text (:lines))]
       (-> text
           (reset-lines (->> lines (take (inc ye)) (drop ys)))
@@ -603,8 +603,8 @@
 (s/defn do-select-all :- Text
   [text :- Text]
   (-> text
-      (reset-selection {:start [0 0]
-                        :end   (-> text (end) (:cursor))})
+      (reset-selection {:from  [0 0]
+                        :until (-> text (end) (:cursor))})
       (end)))
 
 (defn- pairs? [this that]
@@ -622,7 +622,7 @@
            current     (do-move-right text)]
       (let [char (current-char current)]
         (cond
-          (zero? open-parens) {:start init-cursor :end (:cursor current)}
+          (zero? open-parens) {:from init-cursor :until (:cursor current)}
           (pairs? init-char char) (recur (dec open-parens) (do-move-right current))
           (= text-end-cursor (:cursor current)) nil
           (= init-char char) (recur (inc open-parens) (do-move-right current))
@@ -640,7 +640,7 @@
            current       (do-move-left text)]
       (let [char (current-char current)]
         (cond
-          (zero? closed-parens) {:start end-cursor :end init-cursor}
+          (zero? closed-parens) {:from end-cursor :until init-cursor}
           (pairs? init-char char) (recur (dec closed-parens) (:cursor current) (do-move-left current))
           (= text-start-cursor (:cursor current)) nil
           (= init-char char) (recur (inc closed-parens) nil (do-move-left current))
@@ -651,7 +651,7 @@
   "This assumes that the cursor isn't neighbouring any parens.
    It moves backwards until it finds an open parens and proceeds with an opened-parens-expansion."
   (let [init-cursor (:cursor (start text))
-        expand-from (-> text (:selection) (:start) (or (:cursor text)))]
+        expand-from (-> text (:selection) (:from) (or (:cursor text)))]
     (loop [seen-chars ()
            current    (reset-cursor text expand-from)]
       (let [char      (previous-char current)
@@ -666,8 +666,8 @@
 
 (s/defn word-expansion-right :- Region
   [text :- Text]
-  {:start (:cursor text)
-   :end   (:cursor (do-jump-right text))})
+  {:from  (:cursor text)
+   :until (:cursor (do-jump-right text))})
 
 (s/defn word-expansion-left :- Region
   [text :- Text]
@@ -696,12 +696,12 @@
 (s/defn find-pair :- (s/maybe Pair)
   [text :- Text]
   (letfn [(to-pair [region]
-            (let [[xs ys] (:start region)
-                  [xe ye] (:end region)]
-              {:left  {:start [xs ys]
-                       :end   [(inc xs) ys]}
-               :right {:start [(dec xe) ye]
-                       :end   [xe ye]}}))]
+            (let [[xs ys] (:from region)
+                  [xe ye] (:until region)]
+              {:left  {:from  [xs ys]
+                       :until [(inc xs) ys]}
+               :right {:from  [(dec xe) ye]
+                       :until [xe ye]}}))]
     (cond
       (contains? open-pairs (current-char text)) (some-> text (open-paren-expansion) (to-pair))
       (contains? open-pairs (previous-char text)) (some-> text (do-move-left) (open-paren-expansion) (to-pair))
@@ -713,8 +713,8 @@
   [text :- Text]
   (let [expansion (if-let [expansion (derive-expansion text)]
                     expansion
-                    {:start (:cursor (start text))
-                     :end   (:cursor (end text))})]
+                    {:from  (:cursor (start text))
+                     :until (:cursor (end text))})]
     (-> text
         (reset-selection expansion)
         (reset-expansion :expr))))

@@ -14,7 +14,7 @@
 (def escape :escape)
 (def insert :insert)
 (def home :home)
-(def end :end)
+(def end :until)
 (def reverse-tab :reverse-tab)
 (def f1 :f1)
 (def f2 :f2)

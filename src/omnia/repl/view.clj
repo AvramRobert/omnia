@@ -151,8 +151,8 @@
    selection :- Region]
   (let [fov             (field-of-view view)
         h               (-> view (text) (:size))
-        [xs ys]         (:start selection)
-        [xe ye]         (:end selection)
+        [xs ys]         (:from selection)
+        [xe ye]         (:until selection)
         top             (top-y view)
         bottom          (bottom-y view)
         unpaged?        (< h fov)
@@ -162,17 +162,17 @@
         visible-bottom? (<= top ye bottom)
         end-bottom      (-> view (text) (t/reset-y bottom) (t/end-x) (:cursor))]
     (cond
-      unpaged?              selection
+      unpaged? selection
       (and visible-top?
            visible-bottom?) selection
       (and visible-top?
-           clipped-bottom?) {:start [xs ys]
-                             :end   end-bottom}
+           clipped-bottom?) {:from  [xs ys]
+                             :until end-bottom}
       (and visible-bottom?
-           clipped-top?) {:start [0 top]
-                          :end   [xe ye]}
-      :else {:start [0 bottom]
-             :end   [0 bottom]})))
+           clipped-top?) {:from  [0 top]
+                          :until [xe ye]}
+      :else {:from  [0 bottom]
+             :until [0 bottom]})))
 
 (s/defn project-selection :- Region
   "projecting y outside the bounds leads to:
@@ -182,8 +182,8 @@
    region :- Region]
   (-> view
       (clip-selection region)
-      (update :start (partial project-cursor view))
-      (update :end (partial project-cursor view))))
+      (update :from (partial project-cursor view))
+      (update :until (partial project-cursor view))))
 
 (s/defn correct-between :- s/Int
   [view :- View

@@ -104,7 +104,7 @@
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a] [\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
-        (is (= highlights {:start [2 ys] :end [4 ye]}))))
+        (is (= highlights {:from [2 ys] :until [4 ye]}))))
 
     (testing "engulfing persisted area"
       (let [context   (-> [-| "persisted"
@@ -161,8 +161,8 @@
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
         (is (= input [[\b \e \h \i \n \d] [\a \r \e \a] [\i \n \p \u \t] [\a \r \e \a]]))
         (is (= viewable [[\b \e \h \i \n \d] [\a \r \e \a]]))
-        (is (= lights {:start [2 ys] :end [4 ye]}))
-        (is (= proj-lights {:start [2 0] :end [4 1]}))))
+        (is (= lights {:from [2 ys] :until [4 ye]}))
+        (is (= proj-lights {:from [2 0] :until [4 1]}))))
 
     (testing "view at the start"
       (let [context   (-> ["persisted"
@@ -315,22 +315,22 @@
         {:input  ["1⦇2⦈|3"]
          :expect {:lines     [[\1 \2 \3]]
                   :cursor    [2 0]
-                  :selection {:start [1 0] :end [2 0]}}}
+                  :selection {:from [1 0] :until [2 0]}}}
 
         {:input  ["1⦇23" "⦈|45"]
          :expect {:lines     [[\1 \2 \3] [\4 \5]]
                   :cursor    [0 1]
-                  :selection {:start [1 0] :end [0 1]}}}
+                  :selection {:from [1 0] :until [0 1]}}}
 
         {:input  ["123⦇" "⦈|45"]
          :expect {:lines     [[\1 \2 \3] [\4 \5]]
                   :cursor    [0 1]
-                  :selection {:start [3 0] :end [0 1]}}}
+                  :selection {:from [3 0] :until [0 1]}}}
 
         {:input  ["1⦇23" "⦈|"]
          :expect {:lines     [[\1 \2 \3] []]
                   :cursor    [0 1]
-                  :selection {:start [1 0] :end [0 1]}}}]
+                  :selection {:from [1 0] :until [0 1]}}}]
        (run! (fn [{:keys [input expect]}]
                (let [text (derive-text input)]
                  (is (= (:lines text) (:lines expect)))

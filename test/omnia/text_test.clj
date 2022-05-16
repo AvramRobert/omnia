@@ -2351,7 +2351,7 @@
                  [\n \e \w]
                  [\l \i \n \e \s]]))
     (is (= cursor [2 2]))
-    (is (= selection {:start [1 2] :end [2 2]}))))
+    (is (= selection {:from [1 2] :until [2 2]}))))
 
 ;; XI. Expanding
 
@@ -2360,16 +2360,16 @@
     (let [pair     (-> ["[1 2 3|]"]
                        (derive-text)
                        (i/find-pair))
-          expected {:left  {:start [0 0] :end [1 0]}
-                    :right {:start [6 0] :end [7 0]}}]
+          expected {:left  {:from [0 0] :until [1 0]}
+                    :right {:from [6 0] :until [7 0]}}]
       (is (= pair expected))))
 
   (testing "open pair expansion"
     (let [pair     (-> ["|[1 2 3]"]
                        (derive-text)
                        (i/find-pair))
-          expected {:left  {:start [0 0] :end [1 0]}
-                    :right {:start [6 0] :end [7 0]}}]
+          expected {:left  {:from [0 0] :until [1 0]}
+                    :right {:from [6 0] :until [7 0]}}]
       (is (= pair expected)))))
 
 (deftest expands-to-words
@@ -2679,12 +2679,12 @@
           (matching [entry expected]
             (let [pair      (-> entry (derive-text) (i/find-pair))
                   expected  (-> expected (derive-text) (:selection))
-                  [xs ys] (:start expected)
-                  [xe ye] (:end expected)
+                  [xs ys] (:from expected)
+                  [xe ye] (:until expected)
                   left      (:left pair)
                   right     (:right pair)
-                  exp-left  {:start [xs ys] :end [(inc xs) ys]}
-                  exp-right {:start [xe ye] :end [(inc xe) ye]}]
+                  exp-left  {:from [xs ys] :until [(inc xs) ys]}
+                  exp-right {:from [xe ye] :until [(inc xe) ye]}]
               (is (= left exp-left) (str "Entry: " entry " left match failed"))
               (is (= right exp-right) (str "Entry: " entry " right match failed"))))]
     (->> [{:entry    ["|[[[45[]]"]

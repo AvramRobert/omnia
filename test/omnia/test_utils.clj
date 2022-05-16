@@ -122,7 +122,7 @@
                   :latest end
                   :y      (count lines)} s))
         (cond-> (i/create-text lines cursor)
-                (and start end (not= start end)) (assoc :selection {:start start :end end}))))))
+                (and start end (not= start end)) (assoc :selection {:from start :until end}))))))
 
 (s/def --- :- s/Keyword
   :---)

@@ -23,10 +23,10 @@
 
 (s/defn additive-diff :- (s/maybe HighlightInstructionData)
   [current :- HighlightInstructionData, former :- HighlightInstructionData]
-  (let [{[xs ys]   :start
-         [xe ye]   :end} (:region current)
-        {[xs' ys'] :start
-         [xe' ye'] :end} (:region former)
+  (let [{[xs ys] :from
+         [xe ye] :until} (:region current)
+        {[xs' ys'] :from
+         [xe' ye'] :until} (:region former)
         exact-start?   (= [xs ys] [xs' ys'])
         exact-end?     (= [xe ye] [xe' ye'])
         similar-start? (= ys ys')
@@ -47,10 +47,10 @@
           (and exact-end? shrunk-top?)) nil
 
       (or (and exact-start? similar-end? grown-right?)
-          (and exact-start? grown-bottom?)) (assoc current :region {:start [xe' ye'] :end [xe ye]})
+          (and exact-start? grown-bottom?)) (assoc current :region {:from [xe' ye'] :until [xe ye]})
 
       (or (and exact-end? similar-start? grown-left?)
-          (and exact-end? grown-top?)) (assoc current :region {:start [xs  ys] :end [xs' ys']})
+          (and exact-end? grown-top?)) (assoc current :region {:from [xs  ys] :until [xs' ys']})
       :else current)))
 
 (s/defn prioritise :- [HighlightInstructionData]
@@ -112,8 +112,8 @@
         scheme    (->> highlight (:scheme))
         styles    (->> highlight (:styles))
         text      (h/text view)
-        [xs ys]   (:start selection)
-        [xe ye]   (:end selection)]
+        [xs ys]   (:from selection)
+        [xe ye]   (:until selection)]
     (doseq [y (range ys (inc ye))]
       (let [line  (i/line-at text y)
             xs    (if (= y ys) xs 0)
@@ -134,8 +134,8 @@
       (let [region (->> highlight (:region) (h/clip-selection preview))
             scheme (->> highlight (:scheme))
             styles (->> highlight (:styles))
-            [xs ys] (:start region)
-            [xe ye] (:end region)]
+            [xs ys] (:from region)
+            [xe ye] (:until region)]
         (doseq [y (range ys (inc ye))
                 :let [line (i/line-at text y)
                       xs   (if (= y ys) xs 0)
