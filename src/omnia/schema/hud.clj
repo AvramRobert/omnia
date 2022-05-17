@@ -1,11 +1,11 @@
-(ns omnia.schema.context
+(ns omnia.schema.hud
   (:require [schema.core :as s]
             [omnia.schema.nrepl :as n]
             [omnia.schema.view :as h]
             [omnia.schema.text :as t]
             [omnia.schema.render :as r]))
 
-(def Context
+(def Hud
   {:nrepl          n/NReplClient
    :render         r/RenderingStrategy
    :previous-view  h/View
@@ -19,5 +19,5 @@
    :garbage        r/HighlightInstructions})
 
 (s/def ProcessingStep
-  {:status  (s/enum :continue :terminate)
-   :context Context})
+  {:status (s/enum :continue :terminate)
+   :hud    Hud})

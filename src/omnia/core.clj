@@ -2,7 +2,7 @@
   (:gen-class)
   (:require [clojure.string :as s]
             [halfling.task :as tsk]
-            [omnia.view.terminal :as t]
+            [omnia.display.terminal :as t]
             [omnia.repl.nrepl :as n]
             [omnia.repl.core :as r]
             [omnia.config.core :as c])

@@ -308,15 +308,15 @@
     (is (= actual-cursor3 expected-cursor3))))
 
 (deftest supports-empty-pop-windows
-  (let [context         (-> ["input|"]
+  (let [view            (-> ["input|"]
                             (derive-view)
                             (h/pop-up h/empty-view))
         expected        (-> ["input"
                              "------|"
                              "------"]
                             (derive-view))
-        actual-view     (-> context (h/text) (:lines))
-        actual-cursor   (-> context (h/text) (:cursor))
+        actual-view     (-> view (h/text) (:lines))
+        actual-cursor   (-> view (h/text) (:cursor))
         expected-view   (-> expected (h/text) (:lines))
         expected-cursor (-> expected (h/text) (:cursor))]
     (is (= actual-view expected-view))

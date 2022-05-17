@@ -4,12 +4,12 @@
             [omnia.config.core :as c]
             [omnia.repl.text :as i]
             [omnia.repl.view :as h]
-            [omnia.repl.context :as r]
+            [omnia.repl.hud :as r]
             [omnia.repl.nrepl :as n]
-            [omnia.view.terminal :as t]
+            [omnia.display.terminal :as t]
             [omnia.util.collection :refer [reduce-idx]]
             [omnia.config.defaults :refer [default-user-config default-user-highlighting]]
-            [omnia.schema.context :refer [Context]]
+            [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [TerminalSpec]]
@@ -56,12 +56,12 @@
       (put! [t ch x y fg bg stls] ((:put! fns unit) t ch x y fg bg stls))
       (get-event! [t] ((:get-event! fns unit) t)))))
 
-(s/defn process :- Context
-  [ctx :- Context, events :- [Event]]
-  (reduce (fn [ctx' event]
-            (-> ctx'
+(s/defn process :- Hud
+  [hud :- Hud, events :- [Event]]
+  (reduce (fn [hud' event]
+            (-> hud'
                 (r/process default-config event)
-                (:context))) ctx events))
+                (:hud))) hud events))
 
 (s/defn highlight-from :- HighlightInstructionData
   [region :- Region]
@@ -143,12 +143,12 @@
 (s/def TextDefinition s/Str)
 
 (s/def ViewDefinition (s/cond-pre View-Area-Definition TextDefinition Offset-Area-Definition Scroll-Area-Definition))
-(s/def ContextDefinition (s/cond-pre ViewDefinition Input-Area-Definition))
+(s/def HudDefinition (s/cond-pre ViewDefinition Input-Area-Definition))
 
 (s/def NReplProps {(s/maybe :response) NReplResponse
                    (s/maybe :history)  [s/Str]})
 
-(s/def ContextProps
+(s/def HudProps
   {:input-area     [Line]
    :persisted-area [Line]
    :view-area      [Line]
@@ -157,13 +157,13 @@
    :view-offset    s/Int
    :scroll-offset  s/Int})
 
-(s/defn parse :- ContextProps
-  [def :- ContextDefinition]
+(s/defn parse :- HudProps
+  [def :- HudDefinition]
   (loop [persisted []
          view      []
          offset    []
          input     []
-         [c & cs]  def
+         [c & cs] def
          fov       0
          voff      0
          soff      0
@@ -176,23 +176,23 @@
                       :field-of-view  (if (zero? fov) (count (concat input persisted)) fov)
                       :view-offset    voff
                       :scroll-offset  soff}
-             [:input  :---] (recur input view offset [] cs fov voff soff parsing)
-             [:input  :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
-             [:view   :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
-             [:view   :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [:input  :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [:offset :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [_       :-$]  (recur persisted view offset input cs fov voff (inc soff) parsing)
-             [:view   _]    (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
-             [:offset _]    (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
-             :else          (recur persisted view offset (conj input c) cs fov voff soff :input))))
+             [:input :---] (recur input view offset [] cs fov voff soff parsing)
+             [:input :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view :-|]   (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view :-+]   (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:input :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:offset :-+] (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [_ :-$]       (recur persisted view offset input cs fov voff (inc soff) parsing)
+             [:view _]     (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
+             [:offset _]   (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
+             :else         (recur persisted view offset (conj input c) cs fov voff soff :input))))
 
-(s/defn derive-context :- Context
-  "Derives a context from a declarative list of tagged strings.
+(s/defn derive-hud :- Hud
+  "Derives a hud from a declarative list of tagged strings.
    Interprets the strings to Text as per `derive-text`.
-   Highlights are however fed to the context highlights.
+   Highlights are however fed to the hud highlights.
 
-   Uses additional tags to derive a context for those strings.
+   Uses additional tags to derive a hud for those strings.
    Tags:
      --- : end of a persisted area and start of an input area
               * if completely missing, the input area assumes the entire text lines in the def
@@ -214,9 +214,9 @@
        -$ (invisible line, increments the scroll-offset)
        -+ line-5-offset
        -+ (invisible line, increments the view-offset)]"
-  ([def :- ContextDefinition]
-   (derive-context def {}))
-  ([def :- ContextDefinition
+  ([def :- HudDefinition]
+   (derive-hud def {}))
+  ([def :- HudDefinition
     props :- NReplProps]
    (let [{:keys [input-area
                  persisted-area
@@ -228,39 +228,39 @@
                                              (:history props)
                                              (reverse)
                                              (mapv i/from-string)))
-         context          (r/context field-of-view nrepl-client)
+         hud              (r/hud field-of-view nrepl-client)
          parsed-input     (derive-text input-area)
          parsed-persisted (if (empty? persisted-area)
                             []
                             [(derive-text persisted-area)])
-         persisted-view   (-> context
+         persisted-view   (-> hud
                               (r/persisted-view)
                               (h/enrich-with parsed-persisted)
                               (h/with-view-offset view-offset)
                               (h/with-scroll-offset scroll-offset))
-         highlights       (-> context
+         highlights       (-> hud
                               (r/persisted-view)
                               (h/text)
                               (:lines)
                               (concat persisted-area input-area)
                               (derive-text)
                               (:selection))]
-     (as-> context ctx
-           (r/with-persisted-view ctx persisted-view)
-           (r/with-input-area ctx parsed-input)
-           (r/refresh-view ctx)
-           (r/switch-current-view ctx (-> ctx
-                                          (r/current-view)
-                                          (h/with-view-offset view-offset)))
-           (r/with-previous-view ctx (h/view-of field-of-view))
+     (as-> hud h
+           (r/with-persisted-view h persisted-view)
+           (r/with-input-area h parsed-input)
+           (r/refresh-view h)
+           (r/switch-current-view h (-> h
+                                        (r/current-view)
+                                        (h/with-view-offset view-offset)))
+           (r/with-previous-view h (h/view-of field-of-view))
            (if (some? highlights)
-             (r/with-manual ctx (r/create-manual-highlight default-config highlights))
-             ctx)))))
+             (r/with-manual h (r/create-manual-highlight default-config highlights))
+             h)))))
 
 (s/defn derive-view :- View
   "Derives a view based on a list of tagged strings.
-   Behaves similarly to `derive-context`, but derives a simple view.
-   Ignores context-specific information like the persisted area."
+   Behaves similarly to `derive-hud`, but derives a simple view.
+   Ignores hud-specific information like the persisted area."
   [def :- ViewDefinition]
   (let [{:keys [input-area
                 field-of-view

@@ -1,19 +1,19 @@
 (ns omnia.render-test
   (:require [schema.core :as s]
-            [omnia.repl.context :as r]
+            [omnia.repl.hud :as r]
             [omnia.repl.text :as i]
             [omnia.repl.events :as e]
             [omnia.schema.syntax :as ct]
             [omnia.config.defaults :as d]
             [omnia.test-utils :refer :all]
-            [omnia.view.render :refer :all]
+            [omnia.display.render :refer :all]
             [clojure.test :refer [deftest is]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.context :refer [Context]]
+            [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.common :refer [Point =>]]
-            [omnia.view.terminal :as t])
+            [omnia.display.terminal :as t])
   (:import (clojure.lang Atom)))
 
 (def RenderedElements
@@ -24,8 +24,8 @@
    :stls    Atom})
 
 (s/defn execute :- RenderedElements
-  [context :- Context,
-   f       :- (=> t/Terminal Config Context Context)]
+  [hud :- Hud,
+   f :- (=> t/Terminal Config Hud Hud)]
   (let [chars    (atom [])
         cursors  (atom [])
         bgs      (atom [])
@@ -38,8 +38,8 @@
                                     (run! #(acc stls %) stl)
                                     (acc chars ch)
                                     (acc cursors [x y]))
-                            :size (fn [] (r/view-size context))})
-        _        (f terminal default-config context)]
+                            :size (fn [] (r/view-size hud))})
+        _        (f terminal default-config hud)]
     {:chars   chars
      :cursors cursors
      :bgs     bgs
@@ -75,18 +75,18 @@
 ;; I. Diffed rendering
 
 (deftest clears-removed-characters-in-diff
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
                          -| "some"
                          -| "small |text"]
-                        (derive-context)
+                        (derive-hud)
                         (process [e/jump-select-right e/delete-previous]))
         expected    (-> ["some"
                          "⦇small     ⦈"]
                         (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
+    (-> hud
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -97,13 +97,13 @@
             (is (= exp-chars chars)))))))
 
 (deftest skips-rendering-when-no-diff
-  (let [context (-> ["persisted"
-                     ---
-                     -| "some"
-                     -| "small |text"]
-                    (derive-context)
-                    (process [e/move-right e/move-right]))]
-    (-> context
+  (let [hud (-> ["persisted"
+                 ---
+                 -| "some"
+                 -| "small |text"]
+                (derive-hud)
+                (process [e/move-right e/move-right]))]
+    (-> hud
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -114,20 +114,20 @@
             (is (empty? stls)))))))
 
 (deftest falls-back-to-total-rendering-when-impossible-diff
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
                          "some"
                          -| "exceeding"
                          -| "|text"
                          -+ "limit"]
-                        (derive-context)
+                        (derive-hud)
                         (process [e/select-up e/delete-previous]))
         expected    (-> ["⦇text     "
                          "limit⦈"]
                         (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
+    (-> hud
         (execute render-diff!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -140,12 +140,12 @@
 ;; II. No rendering
 
 (deftest renders-nothing
-  (let [context (-> ["persisted"
-                     ---
-                     -| "some"
-                     -| "text"]
-                    (derive-context))]
-    (-> context
+  (let [hud (-> ["persisted"
+                 ---
+                 -| "some"
+                 -| "text"]
+                (derive-hud))]
+    (-> hud
         (execute render-nothing!)
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
@@ -158,19 +158,19 @@
 ;; III. Selection highlighting
 
 (deftest renders-only-selected-areas
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
                          -| "some"
                          -| "te|xt"]
-                        (derive-context)
+                        (derive-hud)
                         (process [e/select-right]))
         expected    (-> ["some"
                          "te⦇x⦈t"] (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
-        (execute (fn [terminal config context]
-                   (render-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal config hud]
+                   (render-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -180,11 +180,11 @@
             (is (= exp-chars chars)))))))
 
 (deftest renders-using-styles
-  (let [context        (-> ["persisted"
+  (let [hud            (-> ["persisted"
                             ---
                             -| "(|some)"
                             -| "text"]
-                           (derive-context)
+                           (derive-hud)
                            (process [e/move-left]))
         expected-left  (-> ["⦇(⦈some)"
                             "text"]
@@ -197,9 +197,9 @@
         exp-chars      (concat (selected-chars expected-left)
                                (selected-chars expected-right))
         exp-style      [:underline :underline]]
-    (-> context
-        (execute (fn [terminal config context]
-                   (render-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal config hud]
+                   (render-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -209,12 +209,12 @@
             (is (= exp-chars chars)))))))
 
 (deftest renders-only-viewable-selections
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
                          -| "(|some"
                          -| "piece"
                          -+ "unviewable)"]
-                        (derive-context)
+                        (derive-hud)
                         (process [e/move-left]))
         expected    (-> ["⦇(⦈some"
                          "piece"]
@@ -222,9 +222,9 @@
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)
         exp-style   [:underline]]
-    (-> context
-        (execute (fn [terminal config context]
-                   (render-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal config hud]
+                   (render-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors fgs bgs stls]}]
             (is (not (empty? bgs)))
@@ -236,17 +236,17 @@
 ;; IV. Clean-up highlighting
 
 (deftest cleans-up-single-lines-through-partial-cull
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
-                         -| "|this is a context"]
-                        (derive-context)
+                         -| "|this is a hud"]
+                        (derive-hud)
                         (process [e/select-right e/select-right e/select-right e/select-left]))
-        expected    (-> ["th⦇i⦈s is a context"] (derive-text))
+        expected    (-> ["th⦇i⦈s is a hud"] (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
-        (execute (fn [terminal _ context]
-                   (clean-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal _ hud]
+                   (clean-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= exp-chars chars))
@@ -255,18 +255,18 @@
             (is (not (empty? fgs))))))))
 
 (deftest cleans-up-single-lines-through-total-cull
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
-                         -| "|This is a context"]
-                        (derive-context)
+                         -| "|This is a hud"]
+                        (derive-hud)
                         (process [e/move-right e/select-right e/select-right e/move-left]))
-        expected    (-> ["T⦇hi⦈s is a context"]
+        expected    (-> ["T⦇hi⦈s is a hud"]
                         (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
-        (execute (fn [terminal _ context]
-                   (clean-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal _ hud]
+                   (clean-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= exp-chars chars))
@@ -275,20 +275,20 @@
             (is (not (empty? fgs))))))))
 
 (deftest cleans-up-multiple-lines-through-partial-cull
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
                          -| "These |are"
                          -| "multiple lines"]
-                        (derive-context)
+                        (derive-hud)
                         (process [e/select-down e/select-left]))
         expected    (-> ["These are"
                          "multi⦇p⦈le lines"]
                         (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
-        (execute (fn [terminal _ context]
-                   (clean-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal _ hud]
+                   (clean-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= exp-chars chars))
@@ -297,20 +297,20 @@
             (is (not (empty? fgs))))))))
 
 (deftest cleans-up-multiple-lines-through-complete-cull
-  (let [context     (-> ["persisted"
+  (let [hud         (-> ["persisted"
                          ---
                          -| "These |are"
                          -| "multiple lines"]
-                        (derive-context)
+                        (derive-hud)
                         (process [e/select-down e/move-right]))
         expected    (-> ["These ⦇are"
                          "multip⦈le lines"]
                         (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
-    (-> context
-        (execute (fn [terminal _ context]
-                   (clean-highlights! terminal context)))
+    (-> hud
+        (execute (fn [terminal _ hud]
+                   (clean-highlights! terminal hud)))
         (inspect
           (fn [{:keys [chars cursors bgs fgs]}]
             (is (= exp-chars chars))

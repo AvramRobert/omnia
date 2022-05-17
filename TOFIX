@@ -2,8 +2,9 @@ CURRENT TASK:
 
 Global issues:
 
- * Rename "Context" to "Hud"
+ * Separate current hud manipulations to a `hud` namespace
  * Create a separate "Context" data structure, that will replace "ProcessingStep"
+ * Create a `context` namespace that basically implements each of the individual events and creates the `Context` data structure and delegates to hud
  * Put everything that is updated throughout the repl lifetime in the "ProcessingStep" as separate fields
  * Always create a new processing step, never assoc into it. That should make it work.
 
@@ -23,7 +24,7 @@ omnia.repl.text issues:
 omnia.repl.context issues:
   - perhaps there is a way of removing the NReplClient from the Context
 
-omnia.view.terminal issues:
+omnia.display.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
 
 Finishing touches:

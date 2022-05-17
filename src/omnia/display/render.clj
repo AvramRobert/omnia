@@ -1,9 +1,9 @@
-(ns omnia.view.render
+(ns omnia.display.render
   (:require [schema.core :as s]
-            [omnia.view.terminal :as t]
+            [omnia.display.terminal :as t]
             [omnia.repl.text :as i]
             [omnia.repl.view :as h]
-            [omnia.repl.context :as c]
+            [omnia.repl.hud :as c]
             [omnia.repl.syntax-highlighting :as st]
             [omnia.util.collection :refer [merge-common-with reduce-idx]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
@@ -11,9 +11,9 @@
             [omnia.schema.text :refer [Line]]
             [omnia.schema.view :refer [View]]
             [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
-            [omnia.schema.context :refer [Context]]
+            [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]])
-  (:import (omnia.view.terminal Terminal)))
+  (:import (omnia.display.terminal Terminal)))
 
 (s/def highlighting-priority :- {HighlightInstructionType s/Int}
   {:selection    3
@@ -61,9 +61,9 @@
   "Diffs the `current` highlight against the `former` highlight.
   Returns only the diffed region from the `current` that doesn't overlap
   with anything in the `former`."
-  [ctx :- Context, current :- HighlightInstructions, former :- HighlightInstructions]
-  (let [preview-ov  (-> ctx (c/current-view) (h/view-offset))
-        previous-ov (-> ctx (c/previous-view) (h/view-offset))]
+  [hud :- Hud, current :- HighlightInstructions, former :- HighlightInstructions]
+  (let [preview-ov  (-> hud (c/current-view) (h/view-offset))
+        previous-ov (-> hud (c/previous-view) (h/view-offset))]
     (if (= preview-ov previous-ov)
       ;; a nil from additive-diff means the highlights that don't have a diff
       (prioritise (merge-common-with additive-diff current former))
@@ -125,12 +125,12 @@
 (s/defn clean-highlights!
   "Note: Cleaning re-prints the entire line to restore syntax highlighting"
   [terminal :- Terminal,
-   ctx      :- Context]
-  (let [highlights (c/highlights ctx)
-        garbage    (c/garbage ctx)
-        preview    (c/current-view ctx)
+   hud      :- Hud]
+  (let [highlights (c/highlights hud)
+        garbage    (c/garbage hud)
+        preview    (c/current-view hud)
         text       (h/text preview)]
-    (doseq [highlight (cull ctx garbage highlights)]
+    (doseq [highlight (cull hud garbage highlights)]
       (let [region (->> highlight (:region) (h/clip-selection preview))
             scheme (->> highlight (:scheme))
             styles (->> highlight (:styles))
@@ -145,17 +145,17 @@
 
 (s/defn render-highlights!
   [terminal :- Terminal,
-   ctx      :- Context]
-  (let [highlights (c/highlights ctx)
-        garbage    (c/garbage ctx)
-        preview    (c/current-view ctx)]
-    (doseq [highlight (cull ctx highlights garbage)]
+   hud      :- Hud]
+  (let [highlights (c/highlights hud)
+        garbage    (c/garbage hud)
+        preview    (c/current-view hud)]
+    (doseq [highlight (cull hud highlights garbage)]
       (print-highlight! terminal preview highlight))))
 
 (s/defn set-position!
   [terminal :- Terminal
-   ctx      :- Context]
-  (let [preview  (c/current-view ctx)
+   hud      :- Hud]
+  (let [preview  (c/current-view hud)
         [x y]    (h/project-view-cursor preview)]
     (t/move! terminal x y)))
 
@@ -171,9 +171,9 @@
 (s/defn render-total!
   [terminal :- Terminal
    config   :- Config
-   ctx      :- Context]
-  (let [now      (-> ctx (c/current-view) (h/project-view-text))
-        then     (-> ctx (c/previous-view) (h/project-view-text))
+   hud      :- Hud]
+  (let [now      (-> hud (c/current-view) (h/project-view-text))
+        then     (-> hud (c/previous-view) (h/project-view-text))
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (dotimes [y limit]
@@ -187,15 +187,15 @@
 (s/defn render-diff!
   [terminal :- Terminal
    config   :- Config
-   ctx      :- Context]
-  (let [preview  (c/current-view ctx)
-        previous (c/previous-view ctx)
+   hud      :- Hud]
+  (let [preview  (c/current-view hud)
+        previous (c/previous-view hud)
         now      (h/project-view-text preview)
         then     (h/project-view-text previous)
         scheme   (-> config (:syntax) (:standard))
         limit    (max (count now) (count then))]
     (if (not= (h/view-offset preview) (h/view-offset previous))
-      (render-total! terminal config ctx)
+      (render-total! terminal config hud)
       (dotimes [y limit]
         (let [line      (nth now y nil)
               line-then (nth then y nil)
@@ -208,18 +208,18 @@
 (s/defn render-nothing!
   [terminal :- Terminal
    config   :- Config
-   ctx      :- Context]
-  (let [preview-ov  (-> ctx (c/current-view) (h/view-offset))
-        previous-ov (-> ctx (c/previous-view) (h/view-offset))]
+   hud      :- Hud]
+  (let [preview-ov  (-> hud (c/current-view) (h/view-offset))
+        previous-ov (-> hud (c/previous-view) (h/view-offset))]
     (when (not= preview-ov previous-ov)
-      (render-total! terminal config ctx))))
+      (render-total! terminal config hud))))
 
 (s/defn render!
-  [ctx      :- Context
+  [hud      :- Hud
    config   :- Config
    terminal :- Terminal]
-  (case (c/rendering ctx)
-    :diff (doto terminal (clean-highlights! ctx) (render-diff! config ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
-    :clear (doto terminal (t/clear!) (render-total! config ctx) (set-position! ctx) (t/refresh!))
-    :nothing (doto terminal (clean-highlights! ctx) (render-nothing! config ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))
-    (doto terminal (render-total! config ctx) (render-highlights! ctx) (set-position! ctx) (t/refresh!))))
+  (case (c/rendering hud)
+    :diff (doto terminal (clean-highlights! hud) (render-diff! config hud) (render-highlights! hud) (set-position! hud) (t/refresh!))
+    :clear (doto terminal (t/clear!) (render-total! config hud) (set-position! hud) (t/refresh!))
+    :nothing (doto terminal (clean-highlights! hud) (render-nothing! config hud) (render-highlights! hud) (set-position! hud) (t/refresh!))
+    (doto terminal (render-total! config hud) (render-highlights! hud) (set-position! hud) (t/refresh!))))

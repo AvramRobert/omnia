@@ -1,4 +1,4 @@
-(ns omnia.view.terminal
+(ns omnia.display.terminal
   (:require [schema.core :as s]
             [omnia.schema.event :as e]
             [omnia.schema.syntax :as st]

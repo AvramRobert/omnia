@@ -1,7 +1,7 @@
 (ns omnia.terminal-test
   (:require [schema.core :as s]
             [clojure.test.check.generators :as gen]
-            [omnia.view.terminal :as t]
+            [omnia.display.terminal :as t]
             [omnia.schema.syntax :as tc]
             [omnia.schema.keymap :as kc]
             [omnia.repl.events :as e]
