@@ -1,7 +1,5 @@
 (ns omnia.schema.terminal
-  (:require [schema.core :as s]))
+  (:require [schema.core :as s]
+            [omnia.display.terminal :as t]))
 
-(def TerminalFn (s/enum :move! :put! :size :clear! :refresh! :stop! :start! :get-event!))
-
-(def TerminalSpec
-  {TerminalFn s/Any})
+(def Terminal (s/pred #(satisfies? t/Terminal %)))

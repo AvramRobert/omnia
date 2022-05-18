@@ -50,7 +50,7 @@
   {:op     :complete
    :ns     ns
    :symbol (-> text
-               (i/expand-select)
+               (i/expand-selection)
                (i/extract)
                (i/as-string)
                (trim-newline))})
@@ -61,7 +61,7 @@
   {:op     :info
    :ns     ns
    :symbol (-> text
-               (i/expand-select)
+               (i/expand-selection)
                (i/extract)
                (i/as-string)
                (trim-newline))})
@@ -88,7 +88,7 @@
   [repl :- NReplClient]
   (update repl :timeline #(dec< % 0)))
 
-(s/defn travel-forward [repl] :- NReplClient
+(s/defn travel-forward :- NReplClient
   [repl :- NReplClient]
   (let [max (-> repl (:history) (count))]
     (update repl :timeline #(inc< % max))))

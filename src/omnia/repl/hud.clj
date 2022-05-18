@@ -23,7 +23,7 @@
 (defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 
 (s/defn header :- [Text]
-  [host :- s/Int
+  [host :- s/Str
    port :- s/Int]
   (let [repl-info (nrepl-info host port)]
     [greeting
@@ -190,7 +190,8 @@
    :scheme (-> config (:syntax) (:clean-up))
    :styles []})
 
-(s/defn with-input-area [hud :- Hud, input :- Text] :- Hud
+(s/defn with-input-area :- Hud
+  [hud :- Hud, input :- Text]
   (let [clipboard (or (:clipboard input)
                       (-> hud (input-area) (:clipboard)))
         new-text  (assoc input :clipboard clipboard)]
@@ -470,48 +471,48 @@
   {:status :terminate
    :hud    hud})
 
-(s/defn process :- ProcessingStep
+#_(s/defn process :- ProcessingStep
   [hud    :- Hud
    config :- Config
    event  :- e/Event]
   (letfn [(perform [hud f]
             (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (input f) (calibrate) (highlight config) (match-parens config) (diff-render) (continue)))]
     (condp = (:action event)
-      e/inject (-> hud (inject event) (diff-render) (continue))
-      e/docs (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens config) (diff-render) (continue))
-      e/signature (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens config) (diff-render) (continue))
-      e/suggest (-> hud (gc config) (reset-scroll) (reset-documentation) (reset-signatures) (suggest) (match-parens config) (diff-render) (continue))
-      e/scroll-up (-> hud (gc config) (scroll-up) (deselect) (highlight config) (diff-render) (continue))
-      e/scroll-down (-> hud (gc config) (scroll-down) (deselect) (highlight config) (diff-render) (continue))
-      e/prev-eval (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight config) (match-parens config) (diff-render) (continue))
-      e/next-eval (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight config) (match-parens config) (diff-render) (continue))
-      e/indent (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight config) (match-parens config) (diff-render) (continue))
-      e/clear (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight config) (match-parens config) (clear-render) (continue))
-      e/evaluate (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight config) (diff-render) (continue))
-      e/exit (-> hud (gc config) (reset-scroll) (deselect) (highlight config) (diff-render) (exit) (terminate))
-      e/resize (-> hud (resize event) (calibrate) (re-render) (continue))
-      e/expand-select (-> hud (perform i/expand-select))
-      e/select-all (-> hud (perform i/select-all))
-      e/copy (-> hud (perform i/copy))
-      e/cut (-> hud (perform i/cut))
-      e/paste (-> hud (perform i/paste))
-      e/move-up (-> hud (perform i/move-up))
-      e/move-down (-> hud (perform i/move-down))
-      e/move-left (-> hud (perform i/move-left))
-      e/move-right (-> hud (perform i/move-right))
-      e/jump-left (-> hud (perform i/jump-left))
-      e/jump-right (-> hud (perform i/jump-right))
-      e/select-up (-> hud (perform i/select-up))
-      e/select-down (-> hud (perform i/select-down))
-      e/select-left (-> hud (perform i/select-left))
-      e/select-right (-> hud (perform i/select-right))
-      e/jump-select-left (-> hud (perform i/jump-select-left))
-      e/jump-select-right (-> hud (perform i/jump-select-right))
-      e/delete-previous (-> hud (perform i/delete-previous))
-      e/delete-current (-> hud (perform i/delete-current))
-      e/new-line (-> hud (perform i/new-line))
-      e/undo (-> hud (perform i/undo))
-      e/redo (-> hud (perform i/redo))
-      e/character (-> hud (perform #(i/insert % (:value event))))
-      e/ignore (-> hud (continue))
-      (continue hud))))
+      ; e/inject (-> hud (inject event) (diff-render) (continue))
+      ; e/docs (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens config) (diff-render) (continue))
+      ; e/signature (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens config) (diff-render) (continue))
+      ; e/suggest (-> hud (gc config) (reset-scroll) (reset-documentation) (reset-signatures) (suggest) (match-parens config) (diff-render) (continue))
+      ; e/scroll-up (-> hud (gc config) (scroll-up) (deselect) (highlight config) (diff-render) (continue))
+      ; e/scroll-down (-> hud (gc config) (scroll-down) (deselect) (highlight config) (diff-render) (continue))
+      ; e/prev-eval (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight config) (match-parens config) (diff-render) (continue))
+      ; e/next-eval (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight config) (match-parens config) (diff-render) (continue))
+      ; e/indent (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight config) (match-parens config) (diff-render) (continue))
+      ; e/clear (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight config) (match-parens config) (clear-render) (continue))
+      ; e/evaluate (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight config) (diff-render) (continue))
+      ; e/exit (-> hud (gc config) (reset-scroll) (deselect) (highlight config) (diff-render) (exit) (terminate))
+      ; e/resize (-> hud (resize event) (calibrate) (re-render) (continue))
+      ; e/expand-selection (-> hud (perform i/expand-selection))
+      ; e/select-all (-> hud (perform i/select-all))
+      ; e/copy (-> hud (perform i/copy))
+      ; e/cut (-> hud (perform i/cut))
+      ; e/paste (-> hud (perform i/paste))
+      ; e/move-up (-> hud (perform i/move-up))
+      ; e/move-down (-> hud (perform i/move-down))
+      ; e/move-left (-> hud (perform i/move-left))
+      ; e/move-right (-> hud (perform i/move-right))
+      ; e/jump-left (-> hud (perform i/jump-left))
+      ; e/jump-right (-> hud (perform i/jump-right))
+      ; e/select-up (-> hud (perform i/select-up))
+      ; e/select-down (-> hud (perform i/select-down))
+      ; e/select-left (-> hud (perform i/select-left))
+      ; e/select-right (-> hud (perform i/select-right))
+      ; e/jump-select-left (-> hud (perform i/jump-select-left))
+      ; e/jump-select-right (-> hud (perform i/jump-select-right))
+      ; e/delete-previous (-> hud (perform i/delete-previous))
+      ; e/delete-current (-> hud (perform i/delete-current))
+      ; e/new-line (-> hud (perform i/new-line))
+      ; e/undo (-> hud (perform i/undo))
+      ; e/redo (-> hud (perform i/redo))
+      ; e/character (-> hud (perform #(i/insert % (:value event))))
+      ; e/ignore (-> hud (continue))
+      #_(continue hud))))

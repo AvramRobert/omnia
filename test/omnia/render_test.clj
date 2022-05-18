@@ -25,7 +25,7 @@
 
 (s/defn execute :- RenderedElements
   [hud :- Hud,
-   f :- (=> t/Terminal Config Hud Hud)]
+   f   :- (=> t/Terminal Config Hud Hud)]
   (let [chars    (atom [])
         cursors  (atom [])
         bgs      (atom [])
@@ -57,16 +57,18 @@
 
 (s/defn selected-cursors :- [Point]
   [text :- Text]
-  (->> text
-       (:lines)
-       (map-indexed
-         (fn [y line]
-           (map-indexed
-             (fn [x _] [x y]) line)))
-       (i/reset-lines text)
-       (i/extract)
-       (:lines)
-       (mapcat identity)))
+  ;; Turn off schema due to the lines actually being cursors
+  (s/without-fn-validation
+    (->> text
+         (:lines)
+         (map-indexed
+           (fn [y line]
+             (map-indexed
+               (fn [x _] [x y]) line)))
+         (i/reset-lines text)
+         (i/extract)
+         (:lines)
+         (mapcat identity))))
 
 (s/defn inspect
   [state :- RenderedElements p]
@@ -165,7 +167,8 @@
                         (derive-hud)
                         (process [e/select-right]))
         expected    (-> ["some"
-                         "te⦇x⦈t"] (derive-text))
+                         "te⦇x⦈t"]
+                        (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
     (-> hud

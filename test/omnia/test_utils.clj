@@ -1,27 +1,39 @@
 (ns omnia.test-utils
   (:require [schema.core :as s]
             [clojure.core.match :as m]
-            [omnia.config.core :as c]
+            [omnia.config.core :as config]
             [omnia.repl.text :as i]
             [omnia.repl.view :as h]
             [omnia.repl.hud :as r]
+            [omnia.repl.context :as c]
             [omnia.repl.nrepl :as n]
             [omnia.display.terminal :as t]
-            [omnia.util.collection :refer [reduce-idx]]
-            [omnia.config.defaults :refer [default-user-config default-user-highlighting]]
+            [omnia.util.collection :refer [reduce-idx map-vals]]
+            [omnia.config.defaults :refer [default-user-config]]
+            [omnia.schema.context :refer [Context]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructionData]]
-            [omnia.schema.terminal :refer [TerminalSpec]]
+            [omnia.schema.terminal :refer [Terminal]]
             [omnia.schema.text :refer [Text Line]]
             [omnia.schema.view :refer [View]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.common :refer [Region]]
-            [omnia.schema.nrepl :refer [ValueResponse CompletionResponse NReplClient NReplResponse]])
+            [omnia.schema.nrepl :refer [ValueResponse CompletionResponse TerminatingResponse NReplClient NReplResponse]])
   (:import (java.util UUID)))
 
+(def TerminalSpec
+  {(s/optional-key :move!)      s/Any
+   (s/optional-key :put!)       s/Any
+   (s/optional-key :size)       s/Any
+   (s/optional-key :clear!)     s/Any
+   (s/optional-key :refresh!)   s/Any
+   (s/optional-key :stop!)      s/Any
+   (s/optional-key :start!)     s/Any
+   (s/optional-key :get-event!) s/Any})
+
 (s/def default-config :- Config
-  (c/convert default-user-config))
+  (config/convert default-user-config))
 
 (s/def default-host :- s/Str
   "")
@@ -43,7 +55,7 @@
               :history history
               :client  (constantly [nrepl-response])})))
 
-(s/defn terminal :- t/Terminal
+(s/defn terminal :- Terminal
   [fns :- TerminalSpec]
   (let [unit (constantly nil)]
     (reify t/Terminal
@@ -56,17 +68,10 @@
       (put! [t ch x y fg bg stls] ((:put! fns unit) t ch x y fg bg stls))
       (get-event! [t] ((:get-event! fns unit) t)))))
 
-(s/defn process :- Hud
-  [hud :- Hud, events :- [Event]]
-  (reduce (fn [hud' event]
-            (-> hud'
-                (r/process default-config event)
-                (:hud))) hud events))
-
 (s/defn highlight-from :- HighlightInstructionData
   [region :- Region]
   {:region region
-   :scheme default-user-highlighting
+   :scheme (-> default-config (:syntax) (:standard))
    :styles []})
 
 (s/defn value-response :- ValueResponse
@@ -87,6 +92,11 @@
                         {:candidate c
                          :type      "var"
                          :ns        "candidate-ns"}) completions)})
+
+(s/def terminating-response :- TerminatingResponse
+  {:id      (str (UUID/randomUUID))
+   :session (str (UUID/randomUUID))
+   :status  ["done"]})
 
 (s/defn derive-text :- Text
   [strings :- [s/Str]]
@@ -136,23 +146,23 @@
 (s/def -| :- s/Keyword
   :-|)
 
-(s/def Input-Area-Definition (s/eq ---))
-(s/def View-Area-Definition (s/eq -|))
-(s/def Offset-Area-Definition (s/eq -+))
-(s/def Scroll-Area-Definition (s/eq -$))
-(s/def TextDefinition s/Str)
+(s/def Input-Area-Tag (s/eq ---))
+(s/def Viewable-Tag (s/eq -|))
+(s/def Offset-Tag (s/eq -+))
+(s/def Scroll-Tag (s/eq -$))
+(s/def Content s/Str)
 
-(s/def ViewDefinition (s/cond-pre View-Area-Definition TextDefinition Offset-Area-Definition Scroll-Area-Definition))
-(s/def HudDefinition (s/cond-pre ViewDefinition Input-Area-Definition))
+(s/def ViewDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag)])
+(s/def HudDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag ViewDefinition Input-Area-Tag)])
 
-(s/def NReplProps {(s/maybe :response) NReplResponse
-                   (s/maybe :history)  [s/Str]})
+(s/def NReplProps {(s/optional-key :response) NReplResponse
+                   (s/optional-key :history)  [s/Str]})
 
 (s/def HudProps
-  {:input-area     [Line]
-   :persisted-area [Line]
-   :view-area      [Line]
-   :hidden-area    [Line]
+  {:input-area     [s/Str]
+   :persisted-area [s/Str]
+   :view-area      [s/Str]
+   :hidden-area    [s/Str]
    :field-of-view  s/Int
    :view-offset    s/Int
    :scroll-offset  s/Int})
@@ -186,6 +196,21 @@
              [:view _]     (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
              [:offset _]   (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
              :else         (recur persisted view offset (conj input c) cs fov voff soff :input))))
+
+(s/defn derive-view :- View
+  "Derives a view based on a list of tagged strings.
+   Behaves similarly to `derive-hud`, but derives a simple view.
+   Ignores hud-specific information like the persisted area."
+  [def :- ViewDefinition]
+  (let [{:keys [input-area
+                field-of-view
+                view-offset
+                scroll-offset]} (parse def)]
+    (-> input-area
+        (derive-text)
+        (h/view field-of-view)
+        (h/with-view-offset view-offset)
+        (h/with-scroll-offset scroll-offset))))
 
 (s/defn derive-hud :- Hud
   "Derives a hud from a declarative list of tagged strings.
@@ -223,7 +248,7 @@
                  field-of-view
                  view-offset
                  scroll-offset]} (parse def)
-         nrepl-client     (nrepl-client (:response props {})
+         nrepl-client     (nrepl-client (:response props terminating-response)
                                         (->> []
                                              (:history props)
                                              (reverse)
@@ -238,11 +263,12 @@
                               (h/enrich-with parsed-persisted)
                               (h/with-view-offset view-offset)
                               (h/with-scroll-offset scroll-offset))
-         highlights       (-> hud
-                              (r/persisted-view)
-                              (h/text)
-                              (:lines)
-                              (concat persisted-area input-area)
+         header           (->> hud
+                               (r/persisted-view)
+                               (h/text)
+                               (:lines)
+                               (mapv #(apply str %)))
+         highlights       (-> (concat header persisted-area input-area)
                               (derive-text)
                               (:selection))]
      (as-> hud h
@@ -257,17 +283,12 @@
              (r/with-manual h (r/create-manual-highlight default-config highlights))
              h)))))
 
-(s/defn derive-view :- View
-  "Derives a view based on a list of tagged strings.
-   Behaves similarly to `derive-hud`, but derives a simple view.
-   Ignores hud-specific information like the persisted area."
-  [def :- ViewDefinition]
-  (let [{:keys [input-area
-                field-of-view
-                view-offset
-                scroll-offset]} (parse def)]
-    (-> input-area
-        (derive-text)
-        (h/view field-of-view)
-        (h/with-view-offset view-offset)
-        (h/with-scroll-offset scroll-offset))))
+;; FIXME: make process create a repl context
+;; make it then get the nrepl response
+(s/defn process :- Hud
+  [hud :- Hud, events :- [Event]]
+  (let [context (c/continue hud)]
+    (->> events
+         (reduce (fn [context' event]
+                   (c/process context' event default-config)) context)
+         (c/hud))))

@@ -8,8 +8,8 @@
 ;; I. Manipulation
 
 (deftest replacing-main-view-refreshes-preview
-  (let [hud    (-> ["existing input|"]
-                   (derive-hud))
+  (let [hud        (-> ["existing input|"]
+                       (derive-hud))
         enrichment (derive-text ["some input|"])
         actual     (-> hud
                        (r/switch-view (-> hud
@@ -43,7 +43,7 @@
 ;; II. Scrolling
 
 (deftest scrolls-up
-  (let [hud          (-> ["some"
+  (let [hud              (-> ["some"
                               "persisted"
                               "area"
                               ---
@@ -52,14 +52,14 @@
                               -+ "area"]
                              (derive-hud)
                              (process [e/scroll-up e/scroll-up e/scroll-up]))
-         expected         (-> [-| "some"
+        expected         (-> [-| "some"
                               -| "persisted"
                               -$ "area"
                               ---
                               -$ "existing"
                               -$ "input|"
                               -+ "area"]
-                              (derive-hud))
+                             (derive-hud))
         actual-preview   (-> hud (r/current-view) (h/project) (:lines))
         expected-preview (-> expected (r/current-view) (h/project) (:lines))
         expected-cursor  (-> hud (r/current-view) (h/text) (:cursor))
@@ -71,7 +71,7 @@
     (is (= actual-cursor expected-cursor))))
 
 (deftest scrolls-down
-  (let [hud          (-> ["some"
+  (let [hud              (-> ["some"
                               "persisted"
                               "area"
                               ---
@@ -102,14 +102,14 @@
     (is (= actual-cursor expected-cursor))))
 
 (deftest stops-scrolling-up-at-bounds
-  (let [hud         (-> ["some"
+  (let [hud             (-> ["some"
                              "persisted"
                              "area"
                              ---
                              -| "existing"
                              -| "input|"
                              -+ "area"]
-                        (derive-hud))
+                            (derive-hud))
         scrolled        (process hud (repeat 100 e/scroll-up))
         init-offset     (-> hud (r/current-view) (h/scroll-offset))
         scrolled-offset (-> scrolled (r/current-view) (h/scroll-offset))]
@@ -117,14 +117,14 @@
     (is (= scrolled-offset 12))))
 
 (deftest stops-scrolling-down-at-bounds
-  (let [hud            (-> ["some"
+  (let [hud                (-> ["some"
                                 "persisted"
                                 "area"
                                 ---
                                 -| "existing"
                                 -| "input|"
                                 -+ "area"]
-                           (derive-hud))
+                               (derive-hud))
         scrolled-up        (process hud (repeat 100 e/scroll-up))
         scrolled-down      (process hud (repeat 100 e/scroll-down))
         actual-up-offset   (-> scrolled-up (r/current-view) (h/scroll-offset))
@@ -133,14 +133,14 @@
     (is (= actual-down-offset 0))))
 
 (deftest resets-scrolling
-  (let [hud             (-> ["some"
+  (let [hud                 (-> ["some"
                                  "persisted"
                                  "area"
                                  ---
                                  -| "existing"
                                  -| "input|"
                                  -+ "area"]
-                            (derive-hud))
+                                (derive-hud))
         scrolled            (process hud [e/scroll-up e/scroll-up])
         reset               (r/reset-scroll scrolled)
         init-scroll-offset  (-> scrolled (r/current-view) (h/scroll-offset))
@@ -151,15 +151,15 @@
 ;; III. Capturing
 
 (deftest captures-input
-  (let [hud       (-> ["persisted"
-                           ---
-                           "some input|"]
-                      (derive-hud))
-        expected      (-> ["persisted"
-                           ---
-                           "some inputa|"]
-                          (derive-hud))
-        processed     (process hud [(e/character \a)])
+  (let [hud               (-> ["persisted"
+                               ---
+                               "some input|"]
+                              (derive-hud))
+        expected          (-> ["persisted"
+                               ---
+                               "some inputa|"]
+                              (derive-hud))
+        processed         (process hud [(e/character \a)])
         actual-cursor     (-> processed (r/current-view) (h/text) (:cursor))
         actual-preview    (-> processed (r/current-view) (h/text) (:lines))
         actual-previous   (-> processed (r/previous-view) (h/text) (:lines))
@@ -173,11 +173,11 @@
 ;; IV. Clearing
 
 (deftest clears-input
-  (let [hud           (-> ["some"
+  (let [hud               (-> ["some"
                                "persisted"
                                ---
                                "input|"]
-                          (derive-hud))
+                              (derive-hud))
         expected          (-> ["input|"] (derive-hud))
         processed         (process hud [e/clear])
         actual-cursor     (-> processed (r/current-view) (h/text) (:cursor))
@@ -193,7 +193,7 @@
 ;; V. Evaluating
 
 (deftest evaluates-input
-  (let [hud           (-> ["persisted"
+  (let [hud               (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
                               (derive-hud {:response (value-response "2")}))
@@ -220,34 +220,34 @@
 ;; VI. Previous and next evaluations
 
 (deftest navigates-through-evaluation-history
-  (let [hud           (-> ["persisted"
+  (let [hud               (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
                               (derive-hud {:history ["past-eval-1"
-                                                         "past-eval-2"]}))
-        expected1          (-> ["persisted"
+                                                     "past-eval-2"]}))
+        expected1         (-> ["persisted"
                                ---
                                "past-eval-1|"]
-                               (derive-hud))
+                              (derive-hud))
         expected2         (-> ["persisted"
                                ---
                                "past-eval-2|"]
                               (derive-hud))
-        processed1         (process hud [e/prev-eval])
-        processed2         (process hud [e/prev-eval e/prev-eval])
-        processed3         (process hud [e/prev-eval e/prev-eval e/next-eval])
-        actual-preview1    (-> processed1 (r/current-view) (h/text) (:lines))
-        actual-cursor1     (-> processed1 (r/current-view) (h/text) (:cursor))
-        expected-preview1  (-> expected1 (r/current-view) (h/text) (:lines))
-        expected-cursor1   (-> expected1 (r/current-view) (h/text) (:cursor))
+        processed1        (process hud [e/prev-eval])
+        processed2        (process hud [e/prev-eval e/prev-eval])
+        processed3        (process hud [e/prev-eval e/prev-eval e/next-eval])
+        actual-preview1   (-> processed1 (r/current-view) (h/text) (:lines))
+        actual-cursor1    (-> processed1 (r/current-view) (h/text) (:cursor))
+        expected-preview1 (-> expected1 (r/current-view) (h/text) (:lines))
+        expected-cursor1  (-> expected1 (r/current-view) (h/text) (:cursor))
 
-        actual-preview2    (-> processed2 (r/current-view) (h/text) (:lines))
-        actual-cursor2     (-> processed2 (r/current-view) (h/text) (:cursor))
-        expected-preview2  (-> expected2 (r/current-view) (h/text) (:lines))
-        expected-cursor2   (-> expected2 (r/current-view) (h/text) (:cursor))
+        actual-preview2   (-> processed2 (r/current-view) (h/text) (:lines))
+        actual-cursor2    (-> processed2 (r/current-view) (h/text) (:cursor))
+        expected-preview2 (-> expected2 (r/current-view) (h/text) (:lines))
+        expected-cursor2  (-> expected2 (r/current-view) (h/text) (:cursor))
 
-        actual-preview3    (-> processed3 (r/current-view) (h/text) (:lines))
-        actual-cursor3     (-> processed3 (r/current-view) (h/text) (:cursor))]
+        actual-preview3   (-> processed3 (r/current-view) (h/text) (:lines))
+        actual-cursor3    (-> processed3 (r/current-view) (h/text) (:cursor))]
     (is (= actual-preview1 expected-preview1))
     (is (= actual-cursor1 expected-cursor1))
 
@@ -258,11 +258,11 @@
     (is (= actual-cursor3 expected-cursor1))))
 
 (deftest preserves-clipboard-during-evaluation-navigation
-  (let [hud          (-> ["persisted"
+  (let [hud              (-> ["persisted"
                               ---
                               "some ⦇text⦈|"]
                              (derive-hud {:history ["prev-eval-1"
-                                                        "prev-eval-2"]})
+                                                    "prev-eval-2"]})
                              (process [e/copy
                                        e/prev-eval
                                        e/prev-eval
@@ -281,12 +281,12 @@
 ;; VII. Suggesting
 
 (deftest shows-suggestions
-  (let [hud           (-> ["persisted"
+  (let [hud               (-> ["persisted"
                                ---
                                "s|ome things are"]
                               (derive-hud {:response
-                                               (completion-response ["option-1"
-                                                                     "option-2"])}))
+                                           (completion-response ["option-1"
+                                                                 "option-2"])}))
         expected1         (-> ["persisted"
                                ---
                                "option-1 things are"
@@ -323,12 +323,12 @@
     (is (= actual2-cursor expected2-cursor))))
 
 (deftest keeps-suggestion-upon-input
-  (let [hud          (-> ["persisted"
+  (let [hud              (-> ["persisted"
                               ---
                               "1|"]
                              (derive-hud {:response
-                                              (completion-response ["option-1"
-                                                                    "option-2"])})
+                                          (completion-response ["option-1"
+                                                                "option-2"])})
                              (process [e/suggest e/suggest (e/character \a)]))
         expected         (-> ["persisted"
                               ---
@@ -342,17 +342,17 @@
     (is (= actual-cursor expected-cursor))))
 
 (deftest shows-empty-box-when-no-suggestions
-  (let [hud (-> ["persisted"
-                     ---
-                     "1|"]
-                    (derive-hud {:response (completion-response [])})
-                    (process [e/suggest]))
-        expected (-> ["persisted"
-                      ---
-                      "1"
-                      "------|"
-                      "------"]
-                     (derive-hud))
+  (let [hud              (-> ["persisted"
+                              ---
+                              "1|"]
+                             (derive-hud {:response (completion-response [])})
+                             (process [e/suggest]))
+        expected         (-> ["persisted"
+                              ---
+                              "1"
+                              "------|"
+                              "------"]
+                             (derive-hud))
         actual-preview   (-> hud (r/current-view) (h/text) (:lines))
         actual-cursor    (-> hud (r/current-view) (h/text) (:cursor))
         expected-preview (-> expected (r/current-view) (h/text) (:lines))
@@ -364,38 +364,38 @@
 
 (deftest gc-same-line-selection
   (testing "Moving left"
-    (let [result     (-> ["This| is a line"]
-                         (derive-hud)
-                         (process [e/select-left e/select-left e/select-right]))
-          highlights (-> ["Thi⦇s⦈ is a line"]
-                         (derive-hud)
-                         (r/highlights)
-                         (:manual)
-                         (:region))
-          garbage    (-> ["Th⦇is⦈ is a line"]
-                         (derive-hud)
-                         (r/highlights)
-                         (:manual)
-                         (:region))
+    (let [result        (-> ["This| is a line"]
+                            (derive-hud)
+                            (process [e/select-left e/select-left e/select-right]))
+          highlights    (-> ["Thi⦇s⦈ is a line"]
+                            (derive-hud)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["Th⦇is⦈ is a line"]
+                            (derive-hud)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
           expected-high (-> result (r/highlights) (:selection) (:region))
           expected-gc   (-> result (r/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving right"
-    (let [result     (-> ["|This is a line"]
-                         (derive-hud)
-                         (process [e/select-right e/select-right e/select-left]))
-          highlights (-> ["⦇T⦈his is a line"]
-                         (derive-hud)
-                         (r/highlights)
-                         (:manual)
-                         (:region))
-          garbage    (-> ["⦇Th⦈is is a line"]
-                         (derive-hud)
-                         (r/highlights)
-                         (:manual)
-                         (:region))
+    (let [result        (-> ["|This is a line"]
+                            (derive-hud)
+                            (process [e/select-right e/select-right e/select-left]))
+          highlights    (-> ["⦇T⦈his is a line"]
+                            (derive-hud)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
+          garbage       (-> ["⦇Th⦈is is a line"]
+                            (derive-hud)
+                            (r/highlights)
+                            (:manual)
+                            (:region))
           expected-high (-> result (r/highlights) (:selection) (:region))
           expected-gc   (-> result (r/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
@@ -587,7 +587,7 @@
 ;; IX. Parenthesis matching
 
 (deftest matches-parentheses
-  (let [hud         (-> ["persisted"
+  (let [hud             (-> ["persisted"
                              ---
                              "(+ 1 1|)"]
                             (derive-hud)
@@ -608,10 +608,10 @@
     (is (= actual-closed expected-closed))))
 
 (deftest does-not-highlight-unmatched-parentheses
-  (let [hud (-> ["persisted"
-                     ---
-                     "(|+ 1"]
-                    (derive-hud)
-                    (process [e/move-left]))
+  (let [hud         (-> ["persisted"
+                         ---
+                         "(|+ 1"]
+                        (derive-hud)
+                        (process [e/move-left]))
         actual-high (r/highlights hud)]
     (is (= actual-high {}))))

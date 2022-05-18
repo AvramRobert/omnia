@@ -2,7 +2,7 @@
   (:require [schema.core :as s]))
 
 (def ^:const character :character)
-(def ^:const expand-select :expand)
+(def ^:const expand-selection :expand)
 (def ^:const select-all :select-all)
 (def ^:const paste :paste)
 (def ^:const copy :copy)
@@ -42,7 +42,7 @@
 (def actions
   #{character
     select-all
-    expand-select
+    expand-selection
     select-right
     select-left
     select-down

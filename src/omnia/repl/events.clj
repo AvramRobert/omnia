@@ -49,8 +49,8 @@
 (s/def jump-select-right :- e/Event
   (event e/jump-select-right))
 
-(s/def expand :- e/Event
-  (event e/expand-select))
+(s/def expand-selection :- e/Event
+  (event e/expand-selection))
 
 (s/def copy :- e/Event
   (event e/copy))
@@ -97,6 +97,7 @@
 (s/def next-eval :- e/Event
   (event e/next-eval))
 
+;; FIXME: Rename this to reformat
 (s/def indent :- e/Event
   (event e/indent))
 

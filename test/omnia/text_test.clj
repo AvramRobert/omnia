@@ -2373,12 +2373,12 @@
       (is (= pair expected)))))
 
 (deftest expands-to-words
-  (let [word1-start     (-> ["|some line"] (derive-text) (i/expand-select) (i/extract) (:lines))
-        word1-middle    (-> ["so|me line"] (derive-text) (i/expand-select) (i/extract) (:lines))
-        word1-end       (-> ["some| line"] (derive-text) (i/expand-select) (i/extract) (:lines))
-        word2-start     (-> ["some |line"] (derive-text) (i/expand-select) (i/extract) (:lines))
-        word2-middle    (-> ["some li|ne"] (derive-text) (i/expand-select) (i/extract) (:lines))
-        word2-end       (-> ["some line|"] (derive-text) (i/expand-select) (i/extract) (:lines))]
+  (let [word1-start     (-> ["|some line"] (derive-text) (i/expand-selection) (i/extract) (:lines))
+        word1-middle    (-> ["so|me line"] (derive-text) (i/expand-selection) (i/extract) (:lines))
+        word1-end       (-> ["some| line"] (derive-text) (i/expand-selection) (i/extract) (:lines))
+        word2-start     (-> ["some |line"] (derive-text) (i/expand-selection) (i/extract) (:lines))
+        word2-middle    (-> ["some li|ne"] (derive-text) (i/expand-selection) (i/extract) (:lines))
+        word2-end       (-> ["some line|"] (derive-text) (i/expand-selection) (i/extract) (:lines))]
     (is (= word1-start word1-middle word1-end [[\s \o \m \e]]))
     (is (= word2-start word2-middle word2-end [[\l \i \n \e]]))))
 
@@ -2386,12 +2386,12 @@
   (let [text1     (-> ["first |"
                        "second"]
                       (derive-text)
-                      (i/expand-select)
+                      (i/expand-selection)
                       (i/extract)
                       (:lines))
         text2     (-> ["first | second"]
                       (derive-text)
-                      (i/expand-select)
+                      (i/expand-selection)
                       (i/extract)
                       (:lines))
         expected1 (-> ["first "
@@ -2409,27 +2409,27 @@
        (run! (fn [[l r]]
                (let [start         (-> [(str "|" l l "some  word" r r)]
                                        (derive-text)
-                                       (i/expand-select)
+                                       (i/expand-selection)
                                        (i/extract)
                                        (:lines))
                      end           (-> [(str l l "some  word" r r "|")]
                                        (derive-text)
-                                       (i/expand-select)
+                                       (i/expand-selection)
                                        (i/extract)
                                        (:lines))
                      middle        (-> [(str l l "some | word" r r)]
                                        (derive-text)
-                                       (i/expand-select)
+                                       (i/expand-selection)
                                        (i/extract)
                                        (:lines))
                      between-start (-> [(str l "|" l "some  word" r r)]
                                        (derive-text)
-                                       (i/expand-select)
+                                       (i/expand-selection)
                                        (i/extract)
                                        (:lines))
                      between-end   (-> [(str l l "some  word" r "|" r)]
                                        (derive-text)
-                                       (i/expand-select)
+                                       (i/expand-selection)
                                        (i/extract)
                                        (:lines))]
                  (is (= start end [[l l \s \o \m \e \space \space \w \o \r \d r r]]))
@@ -2444,18 +2444,18 @@
             (let [text   (-> [(str ol il "|some word" ir or)]
                              (derive-text))
                   word   (-> text
-                             (i/expand-select)
+                             (i/expand-selection)
                              (i/extract)
                              (i/current-line))
                   expr   (-> text
-                             (i/expand-select)
-                             (i/expand-select)
+                             (i/expand-selection)
+                             (i/expand-selection)
                              (i/extract)
                              (i/current-line))
                   o-expr (-> text
-                             (i/expand-select)
-                             (i/expand-select)
-                             (i/expand-select)
+                             (i/expand-selection)
+                             (i/expand-selection)
+                             (i/expand-selection)
                              (i/extract)
                              (i/current-line))]
               (is (= word [\s \o \m \e]))
@@ -2476,18 +2476,18 @@
                               (str or)]
                              (derive-text))
                   word   (-> text
-                             (i/expand-select)
+                             (i/expand-selection)
                              (i/extract)
                              (:lines))
                   expr   (-> text
-                             (i/expand-select)
-                             (i/expand-select)
+                             (i/expand-selection)
+                             (i/expand-selection)
                              (i/extract)
                              (:lines))
                   o-expr (-> text
-                             (i/expand-select)
-                             (i/expand-select)
-                             (i/expand-select)
+                             (i/expand-selection)
+                             (i/expand-selection)
+                             (i/expand-selection)
                              (i/extract)
                              (:lines))]
               (is (= word [[\s \o \m \e]]))
@@ -2533,7 +2533,7 @@
                (let [actual   (-> entry
                                   (:text)
                                   (derive-text)
-                                  (i/do-expand-select)
+                                  (i/do-expand-selection)
                                   (i/extract)
                                   (:lines))
                      expected (-> entry

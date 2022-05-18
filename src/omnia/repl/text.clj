@@ -709,7 +709,7 @@
       (contains? closed-pairs (previous-char text)) (some-> text (do-move-left) (closed-paren-expansion) (to-pair))
       :else nil)))
 
-(s/defn do-expand-select :- Text
+(s/defn do-expand-selection :- Text
   [text :- Text]
   (let [expansion (if-let [expansion (derive-expansion text)]
                     expansion
@@ -750,7 +750,7 @@
   (if (empty? input)
     text
     (-> text
-        (do-expand-select)
+        (do-expand-selection)
         (do-delete-previous)
         (slice (fn [l r] (concat l input r)))
         (move-x #(+ % (count input))))))
@@ -854,9 +854,9 @@
   [text :- Text]
   (-> text (do-select-all)))
 
-(s/defn expand-select :- Text
+(s/defn expand-selection :- Text
   [text :- Text]
-  (-> text (do-expand-select)))
+  (-> text (do-expand-selection)))
 
 (s/defn jump-select-left :- Text
   [text :- Text]
