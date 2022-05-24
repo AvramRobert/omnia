@@ -423,7 +423,8 @@
 (s/defn create :- Context
   [view-size :- s/Int
    repl-client :- NReplClient]
-  (h/create view-size repl-client))
+  {:status processing
+   :hud    (h/create view-size repl-client)})
 
 (s/defn process :- Context
   [context :- Context

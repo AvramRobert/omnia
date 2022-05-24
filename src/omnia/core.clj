@@ -29,7 +29,7 @@
   (->>
     [""
      "-----"
-     "I don't have the heart to tell you.. but something went wrong internally"
+     "I don't have the heart to tell you.. but something went wrong"
      (format "Take a look at ~/%s for a complete trace of the error" error-path)
      (format "Message - %s" (:cause result))
      "-----"
@@ -78,7 +78,7 @@
          repl         (n/client repl-config)
          _            (t/start! terminal)
          ctx          (r/read-eval-print config terminal repl)
-         _            (hooks! ctx argmap)
+         _            (hooks! (:hud ctx) argmap)
          _            (t/stop! terminal)
          _            (n/stop-server! server)])
       (tsk/recover fail!)
