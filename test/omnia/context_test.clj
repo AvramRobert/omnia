@@ -615,3 +615,23 @@
                         (process [e/move-left]))
         actual-high (r/highlights hud)]
     (is (= actual-high {}))))
+
+;; X. Injecting
+
+(deftest injects-code
+  (let [hud             (-> ["persisted"
+                             ---
+                             "some text|"]
+                            (derive-hud {:value-response (value-response "pong")})
+                            (process [(e/inject "ping")]))
+        expected        (-> ["persisted"
+                             ---
+                             "some text|"
+                             "pong"]
+                            (derive-hud))
+        expected-view   (-> expected (r/current-view) (:lines))
+        actual-view     (-> hud (r/current-view) (:lines))
+        expected-cursor (-> expected (r/current-view) (:cursor))
+        actual-cursor   (-> hud (r/current-view) (:cursor))]
+    (is (= expected-view actual-view))
+    (is (= expected-cursor actual-cursor))))
