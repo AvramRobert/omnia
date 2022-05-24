@@ -1,31 +1,47 @@
 (ns omnia.core
   (:gen-class)
-  (:require [clojure.string :as s]
+  (:require [schema.core :as s]
             [halfling.task :as tsk]
             [omnia.display.terminal :as t]
             [omnia.repl.nrepl :as n]
             [omnia.repl.core :as r]
-            [omnia.config.core :as c])
-  (:import (java.util Calendar)))
+            [omnia.repl.context :as ct]
+            [omnia.repl.hud :as h]
+            [omnia.config.core :as c]
+            [omnia.schema.context :refer [Context]]
+            [omnia.schema.main :refer [ThrowableMap ArgMap]]
+            [clojure.string :refer [join split starts-with?]])
+  (:import (java.util Calendar)
+           (halfling.task Task)))
 
-(defn config-path [dir] (format "%s/omnia.edn" dir))
-(defn history-path [dir] (format "%s/.omnia.history" dir))
 (def ^:const error-path ".omnia.error")
-
 (def ^:const repl-ns 'user)
 (def ^:const repl-host "127.0.0.1")
-(defn rand-port [] (rand-int 65535))
 
-(defn error-msg [{:keys [cause trace]}]
+(s/defn config-path :- s/Str
+  [dir :- s/Str]
+  (format "%s/omnia.edn" dir))
+
+(s/defn history-path :- s/Str
+  [dir :- s/Str]
+  (format "%s/.omnia.history" dir))
+
+(s/defn rand-port :- s/Int
+  []
+  (rand-int 65535))
+
+(s/defn error-msg :- s/Str
+  [{:keys [cause trace]} :- ThrowableMap]
   (format
     "Time: %s\nMessage: %s\n%s"
     (-> (Calendar/getInstance) (.getTime) (str))
     (or cause "Unknown cause")
     (->> trace
          (mapv #(str "   " (.toString %)))
-         (s/join "\n"))))
+         (join "\n"))))
 
-(defn failure-msg [result]
+(s/defn failure-msg :- s/Str
+  [result :- ThrowableMap]
   (->>
     [""
      "-----"
@@ -34,22 +50,28 @@
      (format "Message - %s" (:cause result))
      "-----"
      ""]
-    (s/join "\n")))
+    (join "\n")))
 
-(defn log-error! [result]
+(s/defn log-error! :- Task
+  [result :- ThrowableMap]
   (tsk/task (spit error-path (error-msg result))))
 
-(defn read-args! [args]
+(s/defn read-args! :- ArgMap
+  [args :- [s/Str]]
   (letfn [(read [re]
-            (some-> (some #(when (s/starts-with? % re) %) args)
-                    (s/split (re-pattern re))
+            (some-> (some #(when (starts-with? % re) %) args)
+                    (split (re-pattern re))
                     (second)))]
-    (tsk/task
-      {:dir (or (read "path=") ".")})))
+    {:dir (or (read "path=") ".")}))
 
-(defn hooks! [{:keys [repl]} {:keys [dir]}]
-  (-> (tsk/task (n/write-history (history-path dir) repl))
-      (tsk/recover (fn [_] ()))))
+(s/defn hooks! :- Task
+  [context :- Context
+   argmap :- ArgMap]
+  (let [history-dir (-> argmap (:dir) (history-path))
+        repl        (-> context (ct/hud) (h/nrepl-client))]
+    (-> (n/write-history history-dir repl)
+        (tsk/task)
+        (tsk/recover (fn [_] ())))))
 
 (defn succeed! [_]
   (System/exit 1))
