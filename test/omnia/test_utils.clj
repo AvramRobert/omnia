@@ -208,7 +208,7 @@
                 scroll-offset]} (parse def)]
     (-> input-area
         (derive-text)
-        (h/view field-of-view)
+        (h/create field-of-view)
         (h/with-view-offset view-offset)
         (h/with-scroll-offset scroll-offset))))
 
@@ -253,7 +253,7 @@
                                              (:history props)
                                              (reverse)
                                              (mapv i/from-string)))
-         hud              (r/hud field-of-view nrepl-client)
+         hud              (r/create field-of-view nrepl-client)
          parsed-input     (derive-text input-area)
          parsed-persisted (if (empty? persisted-area)
                             []
@@ -278,7 +278,7 @@
            (r/switch-current-view h (-> h
                                         (r/current-view)
                                         (h/with-view-offset view-offset)))
-           (r/with-previous-view h (h/view-of field-of-view))
+           (r/with-previous-view h (h/empty-view-with-size field-of-view))
            (if (some? highlights)
              (r/with-manual h (r/create-manual-highlight default-config highlights))
              h)))))

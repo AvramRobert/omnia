@@ -5,7 +5,7 @@
             [omnia.repl.text :as i]
             [omnia.repl.format :as f]
             [omnia.schema.event :as e]
-            [omnia.schema.hud :refer [Hud ProcessingStep]]
+            [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
             [omnia.schema.view :refer [View]]
@@ -37,28 +37,8 @@
   [size :- s/Int,
    repl :- NReplClient]
   (let [header (header (:host repl) (:port repl))]
-    (-> (h/view-of size)
+    (-> (h/empty-view-with-size size)
         (h/enrich-with header))))
-
-(s/defn hud :- Hud
-  "A `Hud` is the heads-up display of the REPL."
-  [view-size :- s/Int
-   repl      :- NReplClient]
-  (let [input     i/empty-line
-        previous  (h/view-of view-size)
-        persisted (init-view view-size repl)
-        current   (h/enrich-with persisted [input])]
-    {:nrepl          repl
-     :render         :diff
-     :previous-view  previous
-     :persisted-view persisted
-     :current-view   current
-     :input-area     input
-     :suggestions    h/empty-view
-     :documentation  h/empty-view
-     :signatures     h/empty-view
-     :highlights     {}
-     :garbage        {}}))
 
 (s/defn current-view :- View
   [hud :- Hud]
@@ -461,58 +441,22 @@
   (let [new-input (-> hud (input-area) (f))]
     (-> hud (with-input-area new-input) (refresh-view))))
 
-(s/defn continue :- ProcessingStep
-  [hud :- Hud]
-  {:status :continue
-   :hud    hud})
-
-(s/defn terminate :- ProcessingStep
-  [hud :- Hud]
-  {:status :terminate
-   :hud    hud})
-
-#_(s/defn process :- ProcessingStep
-  [hud    :- Hud
-   config :- Config
-   event  :- e/Event]
-  (letfn [(perform [hud f]
-            (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (input f) (calibrate) (highlight config) (match-parens config) (diff-render) (continue)))]
-    (condp = (:action event)
-      ; e/inject (-> hud (inject event) (diff-render) (continue))
-      ; e/docs (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-signatures) (deselect) (document) (match-parens config) (diff-render) (continue))
-      ; e/signature (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (deselect) (signature) (match-parens config) (diff-render) (continue))
-      ; e/suggest (-> hud (gc config) (reset-scroll) (reset-documentation) (reset-signatures) (suggest) (match-parens config) (diff-render) (continue))
-      ; e/scroll-up (-> hud (gc config) (scroll-up) (deselect) (highlight config) (diff-render) (continue))
-      ; e/scroll-down (-> hud (gc config) (scroll-down) (deselect) (highlight config) (diff-render) (continue))
-      ; e/prev-eval (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (prev-eval) (highlight config) (match-parens config) (diff-render) (continue))
-      ; e/next-eval (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (next-eval) (highlight config) (match-parens config) (diff-render) (continue))
-      ; e/indent (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (reformat) (highlight config) (match-parens config) (diff-render) (continue))
-      ; e/clear (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (deselect) (clear) (highlight config) (match-parens config) (clear-render) (continue))
-      ; e/evaluate (-> hud (gc config) (reset-scroll) (reset-suggestions) (reset-documentation) (reset-signatures) (evaluate) (highlight config) (diff-render) (continue))
-      ; e/exit (-> hud (gc config) (reset-scroll) (deselect) (highlight config) (diff-render) (exit) (terminate))
-      ; e/resize (-> hud (resize event) (calibrate) (re-render) (continue))
-      ; e/expand-selection (-> hud (perform i/expand-selection))
-      ; e/select-all (-> hud (perform i/select-all))
-      ; e/copy (-> hud (perform i/copy))
-      ; e/cut (-> hud (perform i/cut))
-      ; e/paste (-> hud (perform i/paste))
-      ; e/move-up (-> hud (perform i/move-up))
-      ; e/move-down (-> hud (perform i/move-down))
-      ; e/move-left (-> hud (perform i/move-left))
-      ; e/move-right (-> hud (perform i/move-right))
-      ; e/jump-left (-> hud (perform i/jump-left))
-      ; e/jump-right (-> hud (perform i/jump-right))
-      ; e/select-up (-> hud (perform i/select-up))
-      ; e/select-down (-> hud (perform i/select-down))
-      ; e/select-left (-> hud (perform i/select-left))
-      ; e/select-right (-> hud (perform i/select-right))
-      ; e/jump-select-left (-> hud (perform i/jump-select-left))
-      ; e/jump-select-right (-> hud (perform i/jump-select-right))
-      ; e/delete-previous (-> hud (perform i/delete-previous))
-      ; e/delete-current (-> hud (perform i/delete-current))
-      ; e/new-line (-> hud (perform i/new-line))
-      ; e/undo (-> hud (perform i/undo))
-      ; e/redo (-> hud (perform i/redo))
-      ; e/character (-> hud (perform #(i/insert % (:value event))))
-      ; e/ignore (-> hud (continue))
-      #_(continue hud))))
+(s/defn create :- Hud
+  "A `Hud` is the heads-up display of the REPL."
+  [view-size :- s/Int
+   repl      :- NReplClient]
+  (let [input     i/empty-line
+        previous  (h/empty-view-with-size view-size)
+        persisted (init-view view-size repl)
+        current   (h/enrich-with persisted [input])]
+    {:nrepl          repl
+     :render         :diff
+     :previous-view  previous
+     :persisted-view persisted
+     :current-view   current
+     :input-area     input
+     :suggestions    h/empty-view
+     :documentation  h/empty-view
+     :signatures     h/empty-view
+     :highlights     {}
+     :garbage        {}}))

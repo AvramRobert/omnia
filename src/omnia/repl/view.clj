@@ -10,7 +10,7 @@
 (def continuation (t/from-string "..."))
 (def delimiter (t/from-string "------"))
 
-(s/defn view :- View
+(s/defn create :- View
   "A `View` is a structure enclosing some form of text that supports
    projecting that text within a bounded view.
    It uses the following attributes to keep track of the projection.
@@ -33,12 +33,12 @@
    :view-offset   0
    :scroll-offset 0})
 
-(s/defn view-of :- View
+(s/defn empty-view-with-size :- View
   [size :- s/Int]
-  (view t/empty-text size))
+  (create t/empty-text size))
 
 (s/def empty-view :- View
-  (view-of 0))
+  (empty-view-with-size 0))
 
 (s/defn view-offset :- s/Int
   [view :- View]
@@ -230,7 +230,7 @@
   [text :- Text
    size :- s/Int]
   (let [content (->> text (t/start) (t/end-x))]
-    (-> (view-of size) (enrich-with [content]) (corrected))))
+    (-> (empty-view-with-size size) (enrich-with [content]) (corrected))))
 
 (s/defn riffle :- View
   [view :- View]

@@ -17,7 +17,3 @@
    :signatures     h/View
    :highlights     r/HighlightInstructions
    :garbage        r/HighlightInstructions})
-
-(s/def ProcessingStep
-  {:status (s/enum :continue :terminate)
-   :hud    Hud})

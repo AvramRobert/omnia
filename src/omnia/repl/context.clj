@@ -33,7 +33,7 @@
       (hud)
       (h/inject event)
       (h/diff-render)
-      (h/continue)))
+      (continue)))
 
 (s/defn docs :- Context
   [context :- Context
@@ -423,7 +423,7 @@
 (s/defn create :- Context
   [view-size :- s/Int
    repl-client :- NReplClient]
-  (h/hud view-size repl-client))
+  (h/create view-size repl-client))
 
 (s/defn process :- Context
   [context :- Context
