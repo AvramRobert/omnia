@@ -2,7 +2,9 @@
   (:require [schema.core :as s]
             [omnia.schema.text :refer [Line]]))
 
-(def Timeline [Line])
+(def Timeframe [Line])
+
+(def Timeline [Timeframe])
 
 (def History
   {:undo-history Timeline

@@ -1,6 +1,6 @@
 (ns omnia.repl.history
   (:require [schema.core :as s]
-            [omnia.schema.history :refer [History Timeline]]))
+            [omnia.schema.history :refer [History Timeline Timeframe]]))
 
 (s/defn undo-history :- Timeline
   [history :- History]
@@ -36,3 +36,11 @@
     (-> history
         (with-undo-history (cons (first redo) undo))
         (with-redo-history (rest redo)))))
+
+(s/defn add-to-history :- History
+  [history :- History
+   timeframe :- Timeframe]
+  (->> history
+       (undo-history)
+       (cons timeframe)
+       (with-undo-history history)))
