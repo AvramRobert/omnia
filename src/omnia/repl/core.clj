@@ -34,7 +34,7 @@
    terminal :- Terminal
    nrepl    :- NReplClient]
   (let [events  (concat prelude (events-from terminal))
-        context (c/create (t/size terminal) nrepl)]
+        context (c/create-context (t/size terminal) nrepl)]
     (-> (tsk/task (consume context config terminal events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))

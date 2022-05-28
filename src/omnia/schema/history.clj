@@ -2,11 +2,15 @@
   (:require [schema.core :as s]
             [omnia.schema.text :refer [Line]]))
 
-(def Timeframe [Line])
+(def TextInstant [Line])
 
-(def Timeline [Timeframe])
+(def Timeframe [TextInstant])
+
+(def Epoch
+  {:timeframe Timeframe
+   :size      s/Int
+   :limit     s/Int})
 
 (def History
-  {:undo-history Timeline
-   :redo-history Timeline
-   :eval-history Timeline})
+  {:undo-history Epoch
+   :redo-history Epoch})

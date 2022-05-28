@@ -10,7 +10,7 @@
 (def continuation (t/from-string "..."))
 (def delimiter (t/from-string "------"))
 
-(s/defn create :- View
+(s/defn create-view :- View
   "A `View` is a structure enclosing some form of text that supports
    projecting that text within a bounded view.
    It uses the following attributes to keep track of the projection.
@@ -35,7 +35,7 @@
 
 (s/defn empty-view-with-size :- View
   [size :- s/Int]
-  (create t/empty-text size))
+  (create-view t/empty-text size))
 
 (s/def empty-view :- View
   (empty-view-with-size 0))

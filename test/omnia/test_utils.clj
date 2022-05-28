@@ -3,8 +3,9 @@
             [clojure.core.match :as m]
             [omnia.config.core :as config]
             [omnia.repl.text :as i]
-            [omnia.repl.view :as h]
-            [omnia.repl.hud :as r]
+            [omnia.repl.view :as v]
+            [omnia.repl.hud :as h]
+            [omnia.repl.history :as hi]
             [omnia.repl.context :as c]
             [omnia.repl.nrepl :as n]
             [omnia.display.terminal :as t]
@@ -42,7 +43,7 @@
   0)
 
 (s/def default-header :- Text
-  (->> (r/header default-host default-port)
+  (->> (h/header default-host default-port)
        (i/joined)))
 
 (s/defn nrepl-client :- NReplClient
@@ -208,9 +209,9 @@
                 scroll-offset]} (parse def)]
     (-> input-area
         (derive-text)
-        (h/create field-of-view)
-        (h/with-view-offset view-offset)
-        (h/with-scroll-offset scroll-offset))))
+        (v/create-view field-of-view)
+        (v/with-view-offset view-offset)
+        (v/with-scroll-offset scroll-offset))))
 
 (s/defn derive-hud :- Hud
   "Derives a hud from a declarative list of tagged strings.
@@ -253,41 +254,41 @@
                                              (:history props)
                                              (reverse)
                                              (mapv i/from-string)))
-         hud              (r/create field-of-view nrepl-client)
+         hud              (h/create-hud field-of-view nrepl-client)
          parsed-input     (derive-text input-area)
          parsed-persisted (if (empty? persisted-area)
                             []
                             [(derive-text persisted-area)])
          persisted-view   (-> hud
-                              (r/persisted-view)
-                              (h/enrich-with parsed-persisted)
-                              (h/with-view-offset view-offset)
-                              (h/with-scroll-offset scroll-offset))
+                              (h/persisted-view)
+                              (v/enrich-with parsed-persisted)
+                              (v/with-view-offset view-offset)
+                              (v/with-scroll-offset scroll-offset))
          header           (->> hud
-                               (r/persisted-view)
-                               (h/text)
+                               (h/persisted-view)
+                               (v/text)
                                (:lines)
                                (mapv #(apply str %)))
          highlights       (-> (concat header persisted-area input-area)
                               (derive-text)
                               (:selection))]
      (as-> hud h
-           (r/with-persisted-view h persisted-view)
-           (r/with-input-area h parsed-input)
-           (r/refresh-view h)
-           (r/switch-current-view h (-> h
-                                        (r/current-view)
-                                        (h/with-view-offset view-offset)))
-           (r/with-previous-view h (h/empty-view-with-size field-of-view))
+           (h/with-persisted-view h persisted-view)
+           (h/with-input-area h parsed-input)
+           (h/refresh-view h)
+           (h/switch-current-view h (-> h
+                                        (h/current-view)
+                                        (v/with-view-offset view-offset)))
+           (h/with-previous-view h (v/empty-view-with-size field-of-view))
            (if (some? highlights)
-             (r/with-manual h (r/create-manual-highlight default-config highlights))
+             (h/with-manual h (h/create-manual-highlight default-config highlights))
              h)))))
 
 ;; FIXME: make process create a repl context
 ;; make it then get the nrepl response
 (s/defn process :- Hud
   [hud :- Hud, events :- [Event]]
-  (let [context (c/continue hud)]
+  (let [context (c/context-from hud)]
     (->> events
          (reduce (fn [context' event]
                    (c/process context' event default-config)) context)

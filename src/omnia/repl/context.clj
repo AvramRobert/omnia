@@ -1,6 +1,7 @@
 (ns omnia.repl.context
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
+            [omnia.repl.history :as hi]
             [omnia.repl.text :as i]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
@@ -16,14 +17,18 @@
   (:hud context))
 
 (s/defn continue :- Context
-  [hud :- Hud]
-  {:status processing
-   :hud    hud})
+  [hud :- Hud
+   context :- Context]
+  {:status  processing
+   :hud     hud
+   :history (:history context)})
 
 (s/defn terminate :- Context
-  [hud :- Hud]
-  {:status terminated
-   :hud    hud})
+  [hud :- Hud
+   context :- Context]
+  {:status  terminated
+   :hud     hud
+   :history (:history context)})
 
 (s/defn inject :- Context
   [context :- Context
@@ -33,7 +38,7 @@
       (hud)
       (h/inject event)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn docs :- Context
   [context :- Context
@@ -49,7 +54,7 @@
       (h/document)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn signature :- Context
   [context :- Context
@@ -65,7 +70,7 @@
       (h/signature)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn suggest :- Context
   [context :- Context
@@ -79,7 +84,7 @@
       (h/suggest)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn scroll-down :- Context
   [context :- Context
@@ -92,7 +97,7 @@
       (h/deselect)
       (h/highlight config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn scroll-up :- Context
   [context :- Context
@@ -105,7 +110,7 @@
       (h/deselect)
       (h/highlight config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn prev-eval :- Context
   [context :- Context
@@ -122,7 +127,7 @@
       (h/highlight config)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn next-eval :- Context
   [context :- Context
@@ -139,7 +144,7 @@
       (h/highlight config)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 ;; FIXME: Rename this to: reformat
 (s/defn indent :- Context
@@ -158,7 +163,7 @@
       (h/highlight config)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn clear :- Context
   [context :- Context
@@ -176,7 +181,7 @@
       (h/highlight config)
       (h/match-parens config)
       (h/clear-render)
-      (continue)))
+      (continue context)))
 
 (s/defn evaluate :- Context
   [context :- Context
@@ -192,7 +197,7 @@
       (h/evaluate)
       (h/highlight config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn exit :- Context
   [context :- Context
@@ -206,7 +211,7 @@
       (h/highlight config)
       (h/diff-render)
       (h/exit)
-      (terminate)))
+      (terminate context)))
 
 (s/defn resize :- Context
   [context :- Context
@@ -217,13 +222,13 @@
       (h/resize event)
       (h/calibrate)
       (h/re-render)
-      (continue)))
+      (continue context)))
 
 (s/defn ignore :- Context
   [context :- Context
    event   :- Event
    config  :- Config]
-  (-> context (hud) (continue)))
+  (-> context (hud) (continue context)))
 
 (s/defn text-event :- Context
   [context :- Context
@@ -242,7 +247,7 @@
       (h/highlight config)
       (h/match-parens config)
       (h/diff-render)
-      (continue)))
+      (continue context)))
 
 (s/defn character :- Context
   [context :- Context
@@ -420,11 +425,18 @@
    e/character         character
    e/expand-selection  expand-selection})
 
-(s/defn create :- Context
+(s/defn context-from :- Context
+  [hud :- Hud]
+  {:status  processing
+   :history (hi/create-history 50)
+   :hud     hud})
+
+(s/defn create-context :- Context
   [view-size :- s/Int
    repl-client :- NReplClient]
-  {:status processing
-   :hud    (h/create view-size repl-client)})
+  {:status  processing
+   :history (hi/create-history 50)
+   :hud     (h/create-hud view-size repl-client)})
 
 (s/defn process :- Context
   [context :- Context

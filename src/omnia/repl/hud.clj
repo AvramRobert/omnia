@@ -441,7 +441,7 @@
   (let [new-input (-> hud (input-area) (f))]
     (-> hud (with-input-area new-input) (refresh-view))))
 
-(s/defn create :- Hud
+(s/defn create-hud :- Hud
   "A `Hud` is the heads-up display of the REPL."
   [view-size :- s/Int
    repl      :- NReplClient]
