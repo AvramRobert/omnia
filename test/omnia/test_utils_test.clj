@@ -12,7 +12,7 @@
                            ---
                            "input"
                            "area|"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))
@@ -26,7 +26,7 @@
                            -| "area|"
                            -| "input"
                            -+ "area"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))
@@ -40,7 +40,7 @@
                            -| "area|"
                            -| "input"
                            -$ "area"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))
@@ -57,7 +57,7 @@
                             -| "input"
                             -$ "area"
                             -+ "hidden"]
-                           (derive-hud))
+                           (derive-hud-old))
             header     (:lines default-header)
             persisted  (-> hud (r/persisted-view) (h/text) (:lines))
             input      (-> hud (r/input-area) (:lines))
@@ -75,7 +75,7 @@
                          "area"
                          "input|"
                          "area"]
-                        (derive-hud))
+                        (derive-hud-old))
           header    (:lines default-header)
           persisted (-> hud (r/persisted-view) (h/text) (:lines))
           input     (-> hud (r/input-area) (:lines))
@@ -93,7 +93,7 @@
                             -| "area⦈"
                             -| "input|"
                             -| "area"]
-                           (derive-hud))
+                           (derive-hud-old))
             header     (:lines default-header)
             persisted  (-> hud (r/persisted-view) (h/text) (:lines))
             input      (-> hud (r/input-area) (:lines))
@@ -114,7 +114,7 @@
                            -| "area"
                            -| "viewable"
                            -| "input|"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))
@@ -131,7 +131,7 @@
                            -| "area"
                            -| "viewable"
                            -| "input|"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))
@@ -149,7 +149,7 @@
                              -| "area⦈|"
                              -+ "input"
                              -+ "area"]
-                            (derive-hud))
+                            (derive-hud-old))
             header      (:lines default-header)
             persisted   (-> hud (r/persisted-view) (h/text) (:lines))
             input       (-> hud (r/input-area) (:lines))
@@ -171,7 +171,7 @@
                            -| "input"
                            -| "area"
                            -+ "viewable|"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))
@@ -193,7 +193,7 @@
                              -| "viewable|"
                              -|
                              -+ "input"]
-                            (derive-hud))
+                            (derive-hud-old))
               header    (:lines default-header)
               persisted (-> hud (r/persisted-view) (h/text) (:lines))
               input     (-> hud (r/input-area) (:lines))
@@ -214,7 +214,7 @@
                              "viewable|"
                              -+
                              -+ "input"]
-                            (derive-hud))
+                            (derive-hud-old))
               header    (:lines default-header)
               persisted (-> hud (r/persisted-view) (h/text) (:lines))
               input     (-> hud (r/input-area) (:lines))
@@ -235,7 +235,7 @@
                              -|
                              -+
                              -+ "input"]
-                            (derive-hud))
+                            (derive-hud-old))
               header    (:lines default-header)
               persisted (-> hud (r/persisted-view) (h/text) (:lines))
               input     (-> hud (r/input-area) (:lines))
@@ -255,7 +255,7 @@
                              -| "area"
                              -| "viewable|"
                              -+ "input"]
-                            (derive-hud))
+                            (derive-hud-old))
               header    (:lines default-header)
               persisted (-> hud (r/persisted-view) (h/text) (:lines))
               input     (-> hud (r/input-area) (:lines))
@@ -275,7 +275,7 @@
                            -| "area"
                            -| "viewable"
                            -| "input|"]
-                          (derive-hud))
+                          (derive-hud-old))
             header    (:lines default-header)
             persisted (-> hud (r/persisted-view) (h/text) (:lines))
             input     (-> hud (r/input-area) (:lines))

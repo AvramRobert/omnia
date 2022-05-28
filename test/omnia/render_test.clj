@@ -81,8 +81,8 @@
                          ---
                          -| "some"
                          -| "small |text"]
-                        (derive-hud)
-                        (process [e/jump-select-right e/delete-previous]))
+                        (derive-hud-old)
+                        (process-old [e/jump-select-right e/delete-previous]))
         expected    (-> ["some"
                          "⦇small     ⦈"]
                         (derive-text))
@@ -103,8 +103,8 @@
                  ---
                  -| "some"
                  -| "small |text"]
-                (derive-hud)
-                (process [e/move-right e/move-right]))]
+                (derive-hud-old)
+                (process-old [e/move-right e/move-right]))]
     (-> hud
         (execute render-diff!)
         (inspect
@@ -122,8 +122,8 @@
                          -| "exceeding"
                          -| "|text"
                          -+ "limit"]
-                        (derive-hud)
-                        (process [e/select-up e/delete-previous]))
+                        (derive-hud-old)
+                        (process-old [e/select-up e/delete-previous]))
         expected    (-> ["⦇text     "
                          "limit⦈"]
                         (derive-text))
@@ -146,7 +146,7 @@
                  ---
                  -| "some"
                  -| "text"]
-                (derive-hud))]
+                (derive-hud-old))]
     (-> hud
         (execute render-nothing!)
         (inspect
@@ -164,8 +164,8 @@
                          ---
                          -| "some"
                          -| "te|xt"]
-                        (derive-hud)
-                        (process [e/select-right]))
+                        (derive-hud-old)
+                        (process-old [e/select-right]))
         expected    (-> ["some"
                          "te⦇x⦈t"]
                         (derive-text))
@@ -187,8 +187,8 @@
                             ---
                             -| "(|some)"
                             -| "text"]
-                           (derive-hud)
-                           (process [e/move-left]))
+                           (derive-hud-old)
+                           (process-old [e/move-left]))
         expected-left  (-> ["⦇(⦈some)"
                             "text"]
                            (derive-text))
@@ -217,8 +217,8 @@
                          -| "(|some"
                          -| "piece"
                          -+ "unviewable)"]
-                        (derive-hud)
-                        (process [e/move-left]))
+                        (derive-hud-old)
+                        (process-old [e/move-left]))
         expected    (-> ["⦇(⦈some"
                          "piece"]
                         (derive-text))
@@ -242,8 +242,8 @@
   (let [hud         (-> ["persisted"
                          ---
                          -| "|this is a hud"]
-                        (derive-hud)
-                        (process [e/select-right e/select-right e/select-right e/select-left]))
+                        (derive-hud-old)
+                        (process-old [e/select-right e/select-right e/select-right e/select-left]))
         expected    (-> ["th⦇i⦈s is a hud"] (derive-text))
         exp-chars   (selected-chars expected)
         exp-cursors (selected-cursors expected)]
@@ -261,8 +261,8 @@
   (let [hud         (-> ["persisted"
                          ---
                          -| "|This is a hud"]
-                        (derive-hud)
-                        (process [e/move-right e/select-right e/select-right e/move-left]))
+                        (derive-hud-old)
+                        (process-old [e/move-right e/select-right e/select-right e/move-left]))
         expected    (-> ["T⦇hi⦈s is a hud"]
                         (derive-text))
         exp-chars   (selected-chars expected)
@@ -282,8 +282,8 @@
                          ---
                          -| "These |are"
                          -| "multiple lines"]
-                        (derive-hud)
-                        (process [e/select-down e/select-left]))
+                        (derive-hud-old)
+                        (process-old [e/select-down e/select-left]))
         expected    (-> ["These are"
                          "multi⦇p⦈le lines"]
                         (derive-text))
@@ -304,8 +304,8 @@
                          ---
                          -| "These |are"
                          -| "multiple lines"]
-                        (derive-hud)
-                        (process [e/select-down e/move-right]))
+                        (derive-hud-old)
+                        (process-old [e/select-down e/move-right]))
         expected    (-> ["These ⦇are"
                          "multip⦈le lines"]
                         (derive-text))

@@ -240,8 +240,72 @@
        -$ (invisible line, increments the scroll-offset)
        -+ line-5-offset
        -+ (invisible line, increments the view-offset)]"
+  [def :- HudDefinition
+   nrepl :- NReplClient]
+  (let [{:keys [input-area
+                persisted-area
+                field-of-view
+                view-offset
+                scroll-offset]} (parse def)
+        hud              (h/create-hud field-of-view nrepl)
+        parsed-input     (derive-text input-area)
+        parsed-persisted (if (empty? persisted-area)
+                           []
+                           [(derive-text persisted-area)])
+        persisted-view   (-> hud
+                             (h/persisted-view)
+                             (v/enrich-with parsed-persisted)
+                             (v/with-view-offset view-offset)
+                             (v/with-scroll-offset scroll-offset))
+        header           (->> hud
+                              (h/persisted-view)
+                              (v/text)
+                              (:lines)
+                              (mapv #(apply str %)))
+        highlights       (-> (concat header persisted-area input-area)
+                             (derive-text)
+                             (:selection))]
+    (as-> hud h
+          (h/with-persisted-view h persisted-view)
+          (h/with-input-area h parsed-input)
+          (h/refresh-view h)
+          (h/switch-current-view h (-> h
+                                       (h/current-view)
+                                       (v/with-view-offset view-offset)))
+          (h/with-previous-view h (v/empty-view-with-size field-of-view))
+          (if (some? highlights)
+            (h/with-manual h (h/create-manual-highlight default-config highlights))
+            h))))
+
+(s/defn derive-hud-old :- Hud
+  "Derives a hud from a declarative list of tagged strings.
+   Interprets the strings to Text as per `derive-text`.
+   Highlights are however fed to the hud highlights.
+
+   Uses additional tags to derive a hud for those strings.
+   Tags:
+     --- : end of a persisted area and start of an input area
+              * if completely missing, the input area assumes the entire text lines in the def
+     -|  : a line part of the field-of-view
+              * if present, the total of these lines represent the field-of-view
+              * if completely missing, the field-of-view is set to be the total amount of text lines in the def
+     -+  : a line offset by the view
+              * if present, the total of these lines represent the view-offset
+     -$  : a line offset by the scroll
+              * if present, the total of these lines represent the scroll-offset
+   Example:
+      [persisted
+       ---
+       line-0-not-viewable
+       -| line-1-viewable
+       -| line-2-viewable
+       -| (invisible line, increments the field-of-view)
+       -$ line-3-scrolled
+       -$ (invisible line, increments the scroll-offset)
+       -+ line-5-offset
+       -+ (invisible line, increments the view-offset)]"
   ([def :- HudDefinition]
-   (derive-hud def {}))
+   (derive-hud-old def {}))
   ([def :- HudDefinition
     props :- NReplProps]
    (let [{:keys [input-area
@@ -286,10 +350,29 @@
 
 ;; FIXME: make process create a repl context
 ;; make it then get the nrepl response
-(s/defn process :- Hud
+(s/defn process-old :- Hud
   [hud :- Hud, events :- [Event]]
   (let [context (c/context-from hud)]
     (->> events
          (reduce (fn [context' event]
                    (c/process context' event default-config)) context)
          (c/hud))))
+
+(s/defn derive-context :- Context
+  ([def :- HudDefinition]
+   (derive-context def {}))
+  ([def :- HudDefinition
+    props :- NReplProps]
+   (let [nrepl-client (nrepl-client (:response props terminating-response)
+                                    (->> []
+                                         (:history props)
+                                         (reverse)
+                                         (mapv i/from-string)))
+         hud          (derive-hud def nrepl-client)]
+     (c/context-from hud))))
+
+(s/defn process :- Context
+  [context :- Context
+   events  :- [Event]]
+  (reduce (fn [context' event]
+            (c/process context' event default-config)) context events))
