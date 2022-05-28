@@ -1,19 +1,18 @@
 CURRENT TASK:
 
+ * Create a function called `derive-context` and use in context-test
+
 Global issues:
 
- * Separate current hud manipulations to a `hud` namespace
- * Create a separate "Context" data structure, that will replace "ProcessingStep"
- * Create a `context` namespace that basically implements each of the individual events and creates the `Context` data structure and delegates to hud
- * Put everything that is updated throughout the repl lifetime in the "ProcessingStep" as separate fields
- * Always create a new processing step, never assoc into it. That should make it work.
+ * Create a function called `derive-context` and use that in the context-test (will come in handy for testing the
+   history logic)
+ * Move the nrepl creation in test-utils to `derive-context` (if there should be one)
+ * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
  * Add rendering strategy to the context
  * Give the hud a function with which it can enrich the input
    Almost everything that happens externally (like evaluation, history tracking etc) takes the input and replaces
-   it with somethig else. A function that simply enriches the input can be the general way of adding something
+   it with something else. A function that simply enriches the input can be the general way of adding something
    to the hud.
- * SHOULD I ACTUALLY DEFINE A FUNCTION `DERIVE-CONTEXT`, PATCH IT ALL OVER THE PLACE AND EXTRACT THE HUD IN EVERY TEST?
- * Move the nrepl creation in test-utils to `derive-context` (if there should be one)
  * I can define a schema that checks protocols properly. Replace all places that reference
    - omnia.display.terminal/Terminal with omnia.schema.terminal/Terminal
 

@@ -8,8 +8,8 @@
             [omnia.schema.context :refer [Context processing]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.nrepl :refer [NReplClient]]
-            [omnia.schema.config :refer [Config]])
-  (:import (omnia.display.terminal Terminal)))
+            [omnia.schema.config :refer [Config]]
+            [omnia.schema.terminal :refer [Terminal]]))
 
 (def prelude [(e/inject "(require '[omnia.repl.resolution :refer [retrieve retrieve-from]])")])
 

@@ -14,8 +14,8 @@
             [omnia.schema.syntax :refer [Style SyntaxElement texts backgrounds]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.config :refer [Config]])
-  (:import (omnia.display.terminal Terminal)))
+            [omnia.schema.config :refer [Config]]
+            [omnia.schema.terminal :refer [Terminal]]))
 
 (s/def highlighting-priority :- {HighlightInstructionType s/Int}
   {:selection    3
