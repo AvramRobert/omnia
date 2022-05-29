@@ -1,17 +1,13 @@
 CURRENT TASK:
 
+ * Move everything that depends on the nrepl client to the context.
+   -> evaluation history aswell. That way, you can finally remove the nrepl client from the hud
 
 Global issues:
  * Remove the nrepl-client from the Hud
  * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
  * Clean-up test code afterwards
  * Add rendering strategy to the context
- * Give the hud a function with which it can enrich the input
-   Almost everything that happens externally (like evaluation, history tracking etc) takes the input and replaces
-   it with something else. A function that simply enriches the input can be the general way of adding something
-   to the hud.
- * I can define a schema that checks protocols properly. Replace all places that reference
-   - omnia.display.terminal/Terminal with omnia.schema.terminal/Terminal
 
 omnia.repl.text issues:
   - remove the text history from the text itself
@@ -25,9 +21,6 @@ omnia.repl.text issues:
   - debug-string should also display the selection and cursor
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Reverse parameter order?
-
-omnia.repl.context issues:
-  - perhaps there is a way of removing the NReplClient from the Context
 
 omnia.display.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
