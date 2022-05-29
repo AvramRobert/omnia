@@ -88,6 +88,13 @@
   [hud :- Hud]
   (:render hud))
 
+(s/defn with-input-area :- Hud
+  [hud :- Hud, input :- Text]
+  (let [clipboard (or (:clipboard input)
+                      (-> hud (input-area) (:clipboard)))
+        new-text  (assoc input :clipboard clipboard)]
+    (assoc hud :input-area new-text)))
+
 (s/defn with-previous-view :- Hud
   [hud :- Hud, view :- View]
   (assoc hud :previous-view view))
@@ -113,6 +120,11 @@
 (s/defn switch-view :- Hud
   [hud :- Hud, view :- View]
   (-> hud (with-persisted-view view) (refresh-view)))
+
+(s/defn switch-input-area :- Hud
+  [hud :- Hud,
+   text :- Text]
+  (-> hud (with-input-area (t/end text)) (refresh-view)))
 
 (s/defn reset-highlights :- Hud
   [hud :- Hud]
@@ -169,13 +181,6 @@
   {:region region
    :scheme (-> config (:syntax) (:clean-up))
    :styles []})
-
-(s/defn with-input-area :- Hud
-  [hud :- Hud, input :- Text]
-  (let [clipboard (or (:clipboard input)
-                      (-> hud (input-area) (:clipboard)))
-        new-text  (assoc input :clipboard clipboard)]
-    (assoc hud :input-area new-text)))
 
 (s/defn with-client :- Hud
   [hud :- Hud, repl :- NReplClient]
@@ -387,8 +392,5 @@
      :persisted-view persisted
      :current-view   current
      :input-area     input
-     :suggestions    v/empty-view
-     :documentation  v/empty-view
-     :signatures     v/empty-view
      :highlights     {}
      :garbage        {}}))

@@ -1,12 +1,13 @@
 (ns omnia.repl.context
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
-            [omnia.repl.history :as hi]
+            [omnia.repl.store :as st]
             [omnia.repl.docs :as d]
             [omnia.repl.text :as i]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.docs :refer [Docs]]
+            [omnia.schema.store :refer [Store]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context EventHandler processing terminated]]
             [omnia.schema.config :refer [Config]]
@@ -14,7 +15,8 @@
             [omnia.schema.common :refer [=>]]
             [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.repl.nrepl :as n]
-            [omnia.repl.view :as v]))
+            [omnia.repl.view :as v]
+            [omnia.repl.text :as t]))
 
 (s/defn hud :- Hud
   [context :- Context]
@@ -24,21 +26,25 @@
   [context :- Context]
   (:docs context))
 
+(s/defn store :- Store
+  [context :- Context]
+  (:store context))
+
 (s/defn continue :- Context
   [hud :- Hud
    context :- Context]
-  {:status  processing
-   :hud     hud
-   :docs    (:docs context)
-   :history (:history context)})
+  {:status processing
+   :hud    hud
+   :docs   (docs context)
+   :store  (store context)})
 
 (s/defn terminate :- Context
   [hud :- Hud
    context :- Context]
-  {:status  terminated
-   :hud     hud
-   :docs    (:docs context)
-   :history (:history context)})
+  {:status terminated
+   :hud    hud
+   :docs   (docs context)
+   :store  (store context)})
 
 (s/defn inject :- Context
   [context :- Context
@@ -63,16 +69,16 @@
         documentation' (if (nil? documentation)
                          (-> nrepl (n/docs! current-input) (n/result) (v/riffle-window 15))
                          (v/riffle documentation))]
-    {:status  processing
-     :history (:history context)
-     :docs    (d/with-documentation docs documentation')
-     :hud     (-> hud
-                  (h/gc config)
-                  (h/reset-scroll)
-                  (h/deselect)
-                  (h/with-popup documentation')
-                  (h/match-parens config)
-                  (h/diff-render))}))
+    {:status processing
+     :store  (store context)
+     :docs   (d/with-documentation docs documentation')
+     :hud    (-> hud
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/deselect)
+                 (h/with-popup documentation')
+                 (h/match-parens config)
+                 (h/diff-render))}))
 
 (s/defn signature :- Context
   [context :- Context
@@ -86,16 +92,16 @@
         signatures'   (if (nil? signatures)
                         (-> nrepl (n/signature! current-input) (n/result) (v/riffle-window 10))
                         (v/riffle signatures))]
-    {:status  processing
-     :history (:history context)
-     :docs    (d/with-signatures docs signatures')
-     :hud     (-> hud
-                  (h/gc config)
-                  (h/reset-scroll)
-                  (h/deselect)
-                  (h/with-popup signatures')
-                  (h/match-parens config)
-                  (h/diff-render))}))
+    {:status processing
+     :store  (store context)
+     :docs   (d/with-signatures docs signatures')
+     :hud    (-> hud
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/deselect)
+                 (h/with-popup signatures')
+                 (h/match-parens config)
+                 (h/diff-render))}))
 
 (s/defn suggest :- Context
   [context :- Context
@@ -109,15 +115,15 @@
         suggestions'  (if (nil? suggestions)
                         (-> nrepl (n/complete! current-input) (n/result) (v/riffle-window 10))
                         (v/riffle suggestions))]
-    {:status  processing
-     :history (:history context)
-     :docs    (d/with-suggestions docs suggestions')
-     :hud     (-> hud
-                  (h/gc config)
-                  (h/reset-scroll)
-                  (h/with-popup-autocompleted suggestions')
-                  (h/match-parens config)
-                  (h/diff-render))}))
+    {:status processing
+     :store  (store context)
+     :docs   (d/with-suggestions docs suggestions')
+     :hud    (-> hud
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/with-popup-autocompleted suggestions')
+                 (h/match-parens config)
+                 (h/diff-render))}))
 
 (s/defn scroll-down :- Context
   [context :- Context
@@ -152,30 +158,38 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (-> context
-      (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/prev-eval)
-      (h/highlight config)
-      (h/match-parens config)
-      (h/diff-render)
-      (continue context)))
+  (let [store      (-> context (store) (st/travel-to-previous-instant))
+        evaluation (-> store (st/evaluation) (t/create-text))]
+    {:status processing
+     :docs   (docs context)
+     :store  store
+     :hud    (-> context
+                 (hud)
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/switch-input-area evaluation)
+                 (h/highlight config)
+                 (h/match-parens config)
+                 (h/diff-render))}))
 
 (s/defn next-eval :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (-> context
-      (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/next-eval)
-      (h/highlight config)
-      (h/match-parens config)
-      (h/diff-render)
-      (continue context)))
+  (let [store      (-> context (store) (st/travel-to-next-instant))
+        evaluation (-> store (st/evaluation) (t/create-text))]
+    {:status processing
+     :docs   (docs context)
+     :store  store
+     :hud    (-> context
+                 (hud)
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/switch-input-area evaluation)
+                 (h/highlight config)
+                 (h/match-parens config)
+                 (h/diff-render))}))
 
 ;; FIXME: Rename this to: reformat
 (s/defn indent :- Context
@@ -216,14 +230,17 @@
    config :- Config
    nrepl :- NReplClient]
   (let [hud    (hud context)
+        store  (store context)
         result (-> nrepl (n/evaluate! (h/input-area hud)) (n/result))]
-    (-> hud
-        (h/gc config)
-        (h/reset-scroll)
-        (h/with-evaluation result)
-        (h/highlight config)
-        (h/diff-render)
-        (continue context))))
+    {:status processing
+     :store  (st/add-to-eval-history store (:lines result))
+     :docs   (docs context)
+     :hud    (-> hud
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/with-evaluation result)
+                 (h/highlight config)
+                 (h/diff-render))}))
 
 (s/defn exit :- Context
   [context :- Context
@@ -265,18 +282,18 @@
    config :- Config
    nrepl :- NReplClient
    f :- (=> Text Text)]
-  {:status  processing
-   :history (:history context)
-   :docs    d/empty-docs
-   :hud     (-> context
-                (hud)
-                (h/gc config)
-                (h/reset-scroll)
-                (h/input f)
-                (h/calibrate)
-                (h/highlight config)
-                (h/match-parens config)
-                (h/diff-render))})
+  {:status processing
+   :store  (store context)
+   :docs   d/empty-docs
+   :hud    (-> context
+               (hud)
+               (h/gc config)
+               (h/reset-scroll)
+               (h/input f)
+               (h/calibrate)
+               (h/highlight config)
+               (h/match-parens config)
+               (h/diff-render))})
 
 (s/defn character :- Context
   [context :- Context
@@ -478,19 +495,20 @@
    e/expand-selection  expand-selection})
 
 (s/defn context-from :- Context
-  [hud :- Hud]
-  {:status  processing
-   :history (hi/create-history 50)
-   :docs    d/empty-docs
-   :hud     hud})
+  [hud :- Hud
+   store :- Store]
+  {:status processing
+   :store  store
+   :docs   d/empty-docs
+   :hud    hud})
 
 (s/defn create-context :- Context
   [view-size :- s/Int
    repl-client :- NReplClient]
-  {:status  processing
-   :history (hi/create-history 50)
-   :disc    d/empty-docs
-   :hud     (h/create-hud view-size repl-client)})
+  {:status processing
+   :store  (st/create-store 50)
+   :disc   d/empty-docs
+   :hud    (h/create-hud view-size repl-client)})
 
 (s/defn process :- Context
   [context :- Context

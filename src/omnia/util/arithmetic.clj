@@ -1,5 +1,6 @@
 (ns omnia.util.arithmetic)
 
+;; FIXME: Remove
 (defn inc< [value max]
   (let [x (inc value)]
     (if (> x max) value x)))

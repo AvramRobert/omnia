@@ -5,7 +5,7 @@
             [omnia.repl.text :as i]
             [omnia.repl.view :as v]
             [omnia.repl.hud :as h]
-            [omnia.repl.history :as hi]
+            [omnia.repl.store :as hi]
             [omnia.repl.context :as c]
             [omnia.repl.nrepl :as n]
             [omnia.display.terminal :as t]
@@ -14,6 +14,7 @@
             [omnia.config.defaults :refer [default-user-config]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.hud :refer [Hud]]
+            [omnia.schema.store :refer [IndexedHistory]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [Terminal]]
@@ -27,7 +28,8 @@
                                         ArgumentResponse
                                         TerminatingResponse
                                         NReplClient
-                                        NReplResponse]])
+                                        NReplResponse]]
+            [omnia.repl.store :as st])
   (:import (java.util UUID)))
 
 (def TerminalSpec
@@ -183,8 +185,8 @@
 (s/def ViewDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag)])
 (s/def HudDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag ViewDefinition Input-Area-Tag)])
 
-(s/def NReplProps {(s/optional-key :response) NReplResponse
-                   (s/optional-key :history)  [s/Str]})
+(s/def ContextProps {(s/optional-key :response)     NReplResponse
+                     (s/optional-key :eval-history) [[s/Str]]})
 
 (s/def HudProps
   {:input-area     [s/Str]
@@ -304,25 +306,34 @@
             (h/with-manual h (h/create-manual-highlight default-config highlights))
             h))))
 
+(s/defn derive-eval-history :- IndexedHistory
+  [limit :- s/Int
+   evals :- [[s/Str]]]
+  (let [timeframe (->> evals (mapv (comp :lines derive-text)))]
+    {:timeframe timeframe
+     :instant   (if (empty? evals) 0 (dec (count evals)))
+     :limit     limit}))
+
 (s/defn derive-context :- Context
   ([def :- HudDefinition]
    (derive-context def {}))
   ([def :- HudDefinition
-    props :- NReplProps]
-   (let [nrepl-client (nrepl-client (:response props terminating-response)
-                                    (->> []
-                                         (:history props)
-                                         (reverse)
-                                         (mapv i/from-string)))
+    props :- ContextProps]
+   (let [nrepl-client (nrepl-client (:response props terminating-response))
+         store        (st/create-store 5)
+         eval-history (some->> props (:eval-history) (derive-eval-history 5))
+         store        (->> (st/eval-history store)
+                           (or eval-history)
+                           (st/with-eval-history store))
          hud          (derive-hud def nrepl-client)]
-     (c/context-from hud))))
+     (c/context-from hud store))))
 
 (s/defn process :- Context
   ([context :- Context
     events  :- [Event]]
    (process context {} events))
   ([context :- Context
-    props   :- NReplProps
+    props   :- ContextProps
     events  :- [Event]]
    (let [nrepl (nrepl-client (:response props terminating-response)
                              (->> []

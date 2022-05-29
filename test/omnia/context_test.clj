@@ -225,12 +225,13 @@
 
 ;; VI. Previous and next evaluations
 
+;; FIXME fix evaluation. This is getting fucken annoying
 (deftest navigates-through-evaluation-history
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:history ["past-eval-1"
-                                                         "past-eval-2"]}))
+                              (derive-context {:eval-history [["past-eval-1"]
+                                                              ["past-eval-2"]]}))
         expected1         (-> ["persisted"
                                ---
                                "past-eval-1|"]

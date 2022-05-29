@@ -1,7 +1,7 @@
 (ns omnia.schema.context
   (:require [schema.core :as s]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.history :refer [History]]
+            [omnia.schema.store :refer [Store]]
             [omnia.schema.docs :refer [Docs]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event]]
@@ -14,7 +14,7 @@
 
 (def Context
   {:status  Status
-   :history History
+   :store   Store
    :docs    Docs
    :hud     Hud})
 
