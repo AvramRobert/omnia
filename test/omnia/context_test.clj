@@ -48,15 +48,16 @@
 ;; II. Scrolling
 
 (deftest scrolls-up
-  (let [hud              (-> ["some"
+  (let [context          (-> ["some"
                               "persisted"
                               "area"
                               ---
                               -| "existing"
                               -| "input|"
                               -+ "area"]
-                             (derive-hud-old)
-                             (process-old [e/scroll-up e/scroll-up e/scroll-up]))
+                             (derive-context)
+                             (process [e/scroll-up e/scroll-up e/scroll-up])
+                             (c/hud))
         expected         (-> [-| "some"
                               -| "persisted"
                               -$ "area"
@@ -64,12 +65,13 @@
                               -$ "existing"
                               -$ "input|"
                               -+ "area"]
-                             (derive-hud-old))
-        actual-preview   (-> hud (h/current-view) (v/project) (:lines))
+                             (derive-context)
+                             (c/hud))
+        actual-preview   (-> context (h/current-view) (v/project) (:lines))
         expected-preview (-> expected (h/current-view) (v/project) (:lines))
-        expected-cursor  (-> hud (h/current-view) (v/text) (:cursor))
+        expected-cursor  (-> context (h/current-view) (v/text) (:cursor))
         actual-cursor    (-> expected (h/current-view) (v/text) (:cursor))
-        actual-offset    (-> hud (h/current-view) (v/scroll-offset))
+        actual-offset    (-> context (h/current-view) (v/scroll-offset))
         expected-offset  (-> expected (h/current-view) (v/scroll-offset))]
     (is (= actual-offset expected-offset 3))
     (is (= actual-preview expected-preview))
@@ -83,10 +85,9 @@
                               -| "existing"
                               -| "input|"
                               -+ "area"]
-                             (derive-hud-old)
-                             (process-old [e/scroll-up
-                                       e/scroll-up
-                                       e/scroll-up]))
+                             (derive-context)
+                             (process [e/scroll-up e/scroll-up e/scroll-up])
+                             (c/hud))
         expected         (-> ["some"
                               "persisted"
                               -| "area"
@@ -94,7 +95,8 @@
                               -| "existing"
                               -$ "input|"
                               -+ "area"]
-                             (derive-hud-old))
+                             (derive-context)
+                             (c/hud))
         processed        (process-old hud [e/scroll-down e/scroll-down])
         actual-preview   (-> processed (h/current-view) (v/project) (:lines))
         expected-preview (-> expected (h/current-view) (v/project) (:lines))
@@ -107,48 +109,48 @@
     (is (= actual-cursor expected-cursor))))
 
 (deftest stops-scrolling-up-at-bounds
-  (let [hud             (-> ["some"
+  (let [context         (-> ["some"
                              "persisted"
                              "area"
                              ---
                              -| "existing"
                              -| "input|"
                              -+ "area"]
-                            (derive-hud-old))
-        scrolled        (process-old hud (repeat 100 e/scroll-up))
-        init-offset     (-> hud (h/current-view) (v/scroll-offset))
-        scrolled-offset (-> scrolled (h/current-view) (v/scroll-offset))]
+                            (derive-context))
+        scrolled        (process context (repeat 100 e/scroll-up))
+        init-offset     (-> context (c/hud) (h/current-view) (v/scroll-offset))
+        scrolled-offset (-> scrolled (c/hud) (h/current-view) (v/scroll-offset))]
     (is (= init-offset 0))
     (is (= scrolled-offset 12))))
 
 (deftest stops-scrolling-down-at-bounds
-  (let [hud                (-> ["some"
+  (let [context            (-> ["some"
                                 "persisted"
                                 "area"
                                 ---
                                 -| "existing"
                                 -| "input|"
                                 -+ "area"]
-                               (derive-hud-old))
-        scrolled-up        (process-old hud (repeat 100 e/scroll-up))
-        scrolled-down      (process-old hud (repeat 100 e/scroll-down))
-        actual-up-offset   (-> scrolled-up (h/current-view) (v/scroll-offset))
-        actual-down-offset (-> scrolled-down (h/current-view) (v/scroll-offset))]
+                               (derive-context))
+        scrolled-up        (process context (repeat 100 e/scroll-up))
+        scrolled-down      (process context (repeat 100 e/scroll-down))
+        actual-up-offset   (-> scrolled-up (c/hud) (h/current-view) (v/scroll-offset))
+        actual-down-offset (-> scrolled-down (c/hud) (h/current-view) (v/scroll-offset))]
     (is (= actual-up-offset 12))
     (is (= actual-down-offset 0))))
 
 (deftest resets-scrolling
-  (let [hud                 (-> ["some"
+  (let [context             (-> ["some"
                                  "persisted"
                                  "area"
                                  ---
                                  -| "existing"
                                  -| "input|"
                                  -+ "area"]
-                                (derive-hud-old))
-        scrolled            (process-old hud [e/scroll-up e/scroll-up])
-        reset               (h/reset-scroll scrolled)
-        init-scroll-offset  (-> scrolled (h/current-view) (v/scroll-offset))
+                                (derive-context))
+        scrolled            (process context [e/scroll-up e/scroll-up])
+        reset               (-> scrolled (c/hud) (h/reset-scroll))
+        init-scroll-offset  (-> scrolled (c/hud) (h/current-view) (v/scroll-offset))
         reset-scroll-offset (-> reset (h/current-view) (v/scroll-offset))]
     (is (= init-scroll-offset 2))
     (is (= reset-scroll-offset 0))))
@@ -156,21 +158,21 @@
 ;; III. Capturing
 
 (deftest captures-input
-  (let [hud               (-> ["persisted"
+  (let [context           (-> ["persisted"
                                ---
                                "some input|"]
-                              (derive-hud-old))
+                              (derive-context))
         expected          (-> ["persisted"
                                ---
                                "some inputa|"]
-                              (derive-hud-old))
-        processed         (process-old hud [(e/character \a)])
-        actual-cursor     (-> processed (h/current-view) (v/text) (:cursor))
-        actual-preview    (-> processed (h/current-view) (v/text) (:lines))
-        actual-previous   (-> processed (h/previous-view) (v/text) (:lines))
-        expected-cursor   (-> expected (h/current-view) (v/text) (:cursor))
-        expected-preview  (-> expected (h/current-view) (v/text) (:lines))
-        expected-previous (-> hud (h/current-view) (v/text) (:lines))]
+                              (derive-context))
+        processed         (process context [(e/character \a)])
+        actual-cursor     (-> processed (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-preview    (-> processed (c/hud) (h/current-view) (v/text) (:lines))
+        actual-previous   (-> processed (c/hud) (h/previous-view) (v/text) (:lines))
+        expected-cursor   (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview  (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-previous (-> context (c/hud) (h/current-view) (v/text) (:lines))]
     (is (= actual-preview expected-preview))
     (is (= actual-previous expected-previous))
     (is (= actual-cursor expected-cursor))))
@@ -178,19 +180,19 @@
 ;; IV. Clearing
 
 (deftest clears-input
-  (let [hud               (-> ["some"
+  (let [context           (-> ["some"
                                "persisted"
                                ---
                                "input|"]
-                              (derive-hud-old))
-        expected          (-> ["input|"] (derive-hud-old))
-        processed         (process-old hud [e/clear])
-        actual-cursor     (-> processed (h/current-view) (v/text) (:cursor))
-        actual-preview    (-> processed (h/current-view) (v/text) (:lines))
-        actual-previous   (-> processed (h/previous-view) (v/text) (:lines))
-        expected-cursor   (-> expected (h/current-view) (v/text) (:cursor))
-        expected-preview  (-> expected (h/current-view) (v/text) (:lines))
-        expected-previous (-> hud (h/current-view) (v/text) (:lines))]
+                              (derive-context))
+        expected          (-> ["input|"] (derive-context))
+        processed         (process context [e/clear])
+        actual-cursor     (-> processed (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-preview    (-> processed (c/hud) (h/current-view) (v/text) (:lines))
+        actual-previous   (-> processed (c/hud) (h/previous-view) (v/text) (:lines))
+        expected-cursor   (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview  (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-previous (-> context (c/hud) (h/current-view) (v/text) (:lines))]
     (is (= actual-preview expected-preview))
     (is (= actual-previous expected-previous))
     (is (= actual-cursor expected-cursor))))
@@ -198,11 +200,11 @@
 ;; V. Evaluating
 
 (deftest evaluates-input
-  (let [hud               (-> ["persisted"
+  (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-hud-old {:response (value-response "2")}))
-        processed         (process-old hud [e/evaluate])
+                              (derive-context {:response (value-response "2")}))
+        processed         (process context [e/evaluate])
         expected          (-> ["persisted"
                                "(+ 1 1)"
                                ""
@@ -211,13 +213,13 @@
                                "Ω =>"
                                ---
                                "|"]
-                              (derive-hud-old))
-        expected-previous (-> hud (h/current-view) (v/text) (:lines))
-        expected-preview  (-> expected (h/current-view) (v/text) (:lines))
-        expected-cursor   (-> expected (h/current-view) (v/text) (:cursor))
-        actual-preview    (-> processed (h/current-view) (v/text) (:lines))
-        actual-previous   (-> processed (h/previous-view) (v/text) (:lines))
-        actual-cursor     (-> processed (h/current-view) (v/text) (:cursor))]
+                              (derive-context))
+        expected-previous (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        expected-preview  (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor   (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-preview    (-> processed (c/hud) (h/current-view) (v/text) (:lines))
+        actual-previous   (-> processed (c/hud) (h/previous-view) (v/text) (:lines))
+        actual-cursor     (-> processed (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))
     (is (= actual-previous expected-previous))))
@@ -225,34 +227,34 @@
 ;; VI. Previous and next evaluations
 
 (deftest navigates-through-evaluation-history
-  (let [hud               (-> ["persisted"
+  (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-hud-old {:history ["past-eval-1"
-                                                     "past-eval-2"]}))
+                              (derive-context {:history ["past-eval-1"
+                                                         "past-eval-2"]}))
         expected1         (-> ["persisted"
                                ---
                                "past-eval-1|"]
-                              (derive-hud-old))
+                              (derive-context))
         expected2         (-> ["persisted"
                                ---
                                "past-eval-2|"]
-                              (derive-hud-old))
-        processed1        (process-old hud [e/prev-eval])
-        processed2        (process-old hud [e/prev-eval e/prev-eval])
-        processed3        (process-old hud [e/prev-eval e/prev-eval e/next-eval])
-        actual-preview1   (-> processed1 (h/current-view) (v/text) (:lines))
-        actual-cursor1    (-> processed1 (h/current-view) (v/text) (:cursor))
-        expected-preview1 (-> expected1 (h/current-view) (v/text) (:lines))
-        expected-cursor1  (-> expected1 (h/current-view) (v/text) (:cursor))
+                              (derive-context))
+        processed1        (process context [e/prev-eval])
+        processed2        (process context [e/prev-eval e/prev-eval])
+        processed3        (process context [e/prev-eval e/prev-eval e/next-eval])
+        actual-preview1   (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor1    (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview1 (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor1  (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual-preview2   (-> processed2 (h/current-view) (v/text) (:lines))
-        actual-cursor2    (-> processed2 (h/current-view) (v/text) (:cursor))
-        expected-preview2 (-> expected2 (h/current-view) (v/text) (:lines))
-        expected-cursor2  (-> expected2 (h/current-view) (v/text) (:cursor))
+        actual-preview2   (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor2    (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview2 (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor2  (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual-preview3   (-> processed3 (h/current-view) (v/text) (:lines))
-        actual-cursor3    (-> processed3 (h/current-view) (v/text) (:cursor))]
+        actual-preview3   (-> processed3 (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor3    (-> processed3 (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview1 expected-preview1))
     (is (= actual-cursor1 expected-cursor1))
 
@@ -267,11 +269,11 @@
                               ---
                               "some ⦇text⦈|"]
                              (derive-hud-old {:history ["prev-eval-1"
-                                                    "prev-eval-2"]})
+                                                        "prev-eval-2"]})
                              (process-old [e/copy
-                                       e/prev-eval
-                                       e/prev-eval
-                                       e/paste]))
+                                           e/prev-eval
+                                           e/prev-eval
+                                           e/paste]))
         expected         (-> ["persisted"
                               ---
                               "prev-eval-2text|"]
@@ -290,8 +292,8 @@
                                ---
                                "s|ome things are"]
                               (derive-hud-old {:response
-                                           (completion-response ["option-1"
-                                                                 "option-2"])}))
+                                               (completion-response ["option-1"
+                                                                     "option-2"])}))
         expected1         (-> ["persisted"
                                ---
                                "option-1 things are"
@@ -332,8 +334,8 @@
                               ---
                               "1|"]
                              (derive-hud-old {:response
-                                          (completion-response ["option-1"
-                                                                "option-2"])})
+                                              (completion-response ["option-1"
+                                                                    "option-2"])})
                              (process-old [e/suggest e/suggest (e/character \a)]))
         expected         (-> ["persisted"
                               ---
