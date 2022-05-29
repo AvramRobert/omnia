@@ -1,12 +1,7 @@
 CURRENT TASK:
 
- * Create a function called `derive-context` and use in context-test
 
 Global issues:
-
- * Create a function called `derive-context` and use that in the context-test (will come in handy for testing the
-   history logic)
- * Move the nrepl creation in test-utils to `derive-context` (if there should be one)
  * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
  * Remove the nrepl-client from the Hud
  * Clean-up test code afterwards

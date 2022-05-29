@@ -56,8 +56,7 @@
                               -| "input|"
                               -+ "area"]
                              (derive-context)
-                             (process [e/scroll-up e/scroll-up e/scroll-up])
-                             (c/hud))
+                             (process [e/scroll-up e/scroll-up e/scroll-up]))
         expected         (-> [-| "some"
                               -| "persisted"
                               -$ "area"
@@ -65,20 +64,19 @@
                               -$ "existing"
                               -$ "input|"
                               -+ "area"]
-                             (derive-context)
-                             (c/hud))
-        actual-preview   (-> context (h/current-view) (v/project) (:lines))
-        expected-preview (-> expected (h/current-view) (v/project) (:lines))
-        expected-cursor  (-> context (h/current-view) (v/text) (:cursor))
-        actual-cursor    (-> expected (h/current-view) (v/text) (:cursor))
-        actual-offset    (-> context (h/current-view) (v/scroll-offset))
-        expected-offset  (-> expected (h/current-view) (v/scroll-offset))]
+                             (derive-context))
+        actual-preview   (-> context (c/hud) (h/current-view) (v/project) (:lines))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/project) (:lines))
+        expected-cursor  (-> context (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-cursor    (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-offset    (-> context (c/hud) (h/current-view) (v/scroll-offset))
+        expected-offset  (-> expected (c/hud) (h/current-view) (v/scroll-offset))]
     (is (= actual-offset expected-offset 3))
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
 (deftest scrolls-down
-  (let [hud              (-> ["some"
+  (let [context          (-> ["some"
                               "persisted"
                               "area"
                               ---
@@ -86,8 +84,7 @@
                               -| "input|"
                               -+ "area"]
                              (derive-context)
-                             (process [e/scroll-up e/scroll-up e/scroll-up])
-                             (c/hud))
+                             (process [e/scroll-up e/scroll-up e/scroll-up]))
         expected         (-> ["some"
                               "persisted"
                               -| "area"
@@ -95,15 +92,14 @@
                               -| "existing"
                               -$ "input|"
                               -+ "area"]
-                             (derive-context)
-                             (c/hud))
-        processed        (process-old hud [e/scroll-down e/scroll-down])
-        actual-preview   (-> processed (h/current-view) (v/project) (:lines))
-        expected-preview (-> expected (h/current-view) (v/project) (:lines))
-        actual-cursor    (-> processed (h/current-view) (v/text) (:cursor))
-        expected-cursor  (-> expected (h/current-view) (v/text) (:cursor))
-        actual-offset    (-> processed (h/current-view) (v/scroll-offset))
-        expected-offset  (-> expected (h/current-view) (v/scroll-offset))]
+                             (derive-context))
+        processed        (process context [e/scroll-down e/scroll-down])
+        actual-preview   (-> processed (c/hud) (h/current-view) (v/project) (:lines))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/project) (:lines))
+        actual-cursor    (-> processed (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-offset    (-> processed (c/hud) (h/current-view) (v/scroll-offset))
+        expected-offset  (-> expected (c/hud) (h/current-view) (v/scroll-offset))]
     (is (= actual-offset expected-offset 1))
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
@@ -265,33 +261,33 @@
     (is (= actual-cursor3 expected-cursor1))))
 
 (deftest preserves-clipboard-during-evaluation-navigation
-  (let [hud              (-> ["persisted"
+  (let [context          (-> ["persisted"
                               ---
                               "some ⦇text⦈|"]
-                             (derive-hud-old {:history ["prev-eval-1"
+                             (derive-context {:history ["prev-eval-1"
                                                         "prev-eval-2"]})
-                             (process-old [e/copy
-                                           e/prev-eval
-                                           e/prev-eval
-                                           e/paste]))
+                             (process [e/copy
+                                       e/prev-eval
+                                       e/prev-eval
+                                       e/paste]))
         expected         (-> ["persisted"
                               ---
                               "prev-eval-2text|"]
-                             (derive-hud-old))
-        actual-preview   (-> hud (h/current-view) (v/text) (:lines))
-        actual-cursor    (-> hud (h/current-view) (v/text) (:cursor))
-        expected-preview (-> expected (h/current-view) (v/text) (:lines))
-        expected-cursor  (-> expected (h/current-view) (v/text) (:cursor))]
+                             (derive-context))
+        actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
 ;; VII. Suggesting
 
 (deftest shows-suggestions
-  (let [hud               (-> ["persisted"
+  (let [context           (-> ["persisted"
                                ---
                                "s|ome things are"]
-                              (derive-hud-old {:response
+                              (derive-context {:response
                                                (completion-response ["option-1"
                                                                      "option-2"])}))
         expected1         (-> ["persisted"
@@ -301,7 +297,7 @@
                                " option-1|"
                                " option-2"
                                "------"]
-                              (derive-hud-old))
+                              (derive-context))
         expected2         (-> ["persisted"
                                ---
                                "option-2 things are"
@@ -309,61 +305,61 @@
                                " option-1"
                                " option-2|"
                                "------"]
-                              (derive-hud-old))
-        processed1        (process-old hud [e/suggest])
-        processed2        (process-old hud [e/suggest e/suggest])
+                              (derive-context))
+        processed1        (process context [e/suggest])
+        processed2        (process context [e/suggest e/suggest])
 
-        actual1-preview   (-> processed1 (h/current-view) (v/text) (:lines))
-        actual1-cursor    (-> processed1 (h/current-view) (v/text) (:cursor))
+        actual1-preview   (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
+        actual1-cursor    (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-preview   (-> processed2 (h/current-view) (v/text) (:lines))
-        actual2-cursor    (-> processed2 (h/current-view) (v/text) (:cursor))
+        actual2-preview   (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
+        actual2-cursor    (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        expected1-preview (-> expected1 (h/current-view) (v/text) (:lines))
-        expected1-cursor  (-> expected1 (h/current-view) (v/text) (:cursor))
+        expected1-preview (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected1-cursor  (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        expected2-preview (-> expected2 (h/current-view) (v/text) (:lines))
-        expected2-cursor  (-> expected2 (h/current-view) (v/text) (:cursor))]
+        expected2-preview (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
+        expected2-cursor  (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual1-preview expected1-preview))
     (is (= actual2-preview expected2-preview))
     (is (= actual1-cursor expected1-cursor))
     (is (= actual2-cursor expected2-cursor))))
 
 (deftest keeps-suggestion-upon-input
-  (let [hud              (-> ["persisted"
+  (let [context              (-> ["persisted"
                               ---
                               "1|"]
-                             (derive-hud-old {:response
+                             (derive-context {:response
                                               (completion-response ["option-1"
                                                                     "option-2"])})
-                             (process-old [e/suggest e/suggest (e/character \a)]))
+                             (process [e/suggest e/suggest (e/character \a)]))
         expected         (-> ["persisted"
                               ---
                               "option-2a|"]
-                             (derive-hud-old))
-        actual-preview   (-> hud (h/current-view) (v/text) (:lines))
-        actual-cursor    (-> hud (h/current-view) (v/text) (:cursor))
-        expected-preview (-> expected (h/current-view) (v/text) (:lines))
-        expected-cursor  (-> expected (h/current-view) (v/text) (:cursor))]
+                             (derive-context))
+        actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
 (deftest shows-empty-box-when-no-suggestions
-  (let [hud              (-> ["persisted"
+  (let [context          (-> ["persisted"
                               ---
                               "1|"]
-                             (derive-hud-old {:response (completion-response [])})
-                             (process-old [e/suggest]))
+                             (derive-context {:response (completion-response [])})
+                             (process [e/suggest]))
         expected         (-> ["persisted"
                               ---
                               "1"
                               "------|"
                               "------"]
-                             (derive-hud-old))
-        actual-preview   (-> hud (h/current-view) (v/text) (:lines))
-        actual-cursor    (-> hud (h/current-view) (v/text) (:cursor))
-        expected-preview (-> expected (h/current-view) (v/text) (:lines))
-        expected-cursor  (-> expected (h/current-view) (v/text) (:cursor))]
+                             (derive-context))
+        actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))))
 
@@ -372,39 +368,43 @@
 (deftest gc-same-line-selection
   (testing "Moving left"
     (let [result        (-> ["This| is a line"]
-                            (derive-hud-old)
-                            (process-old [e/select-left e/select-left e/select-right]))
+                            (derive-context)
+                            (process [e/select-left e/select-left e/select-right]))
           highlights    (-> ["Thi⦇s⦈ is a line"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["Th⦇is⦈ is a line"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Moving right"
     (let [result        (-> ["|This is a line"]
-                            (derive-hud-old)
-                            (process-old [e/select-right e/select-right e/select-left]))
+                            (derive-context)
+                            (process [e/select-right e/select-right e/select-left]))
           highlights    (-> ["⦇T⦈his is a line"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇Th⦈is is a line"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch"))))
 
@@ -413,24 +413,26 @@
     (let [result        (-> ["This is"
                              "a |large"
                              "piece of text"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/select-up e/select-up]))
+                            (derive-context)
+                            (process [e/select-all e/select-up e/select-up]))
           highlights    (-> ["⦇This is⦈"
                              "a large"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇This is"
                              "a large⦈"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
@@ -438,24 +440,26 @@
     (let [result        (-> ["This is"
                              "a |large"
                              "piece of text"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/select-up e/select-up e/select-left]))
+                            (derive-context)
+                            (process [e/select-all e/select-up e/select-up e/select-left]))
           highlights    (-> ["⦇This i⦈s"
                              "a large"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇This is⦈"
                              "a large"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
@@ -463,24 +467,26 @@
     (let [result        (-> ["This is"
                              "a |large"
                              "piece of text"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/select-up e/select-up e/select-right]))
+                            (derive-context)
+                            (process [e/select-all e/select-up e/select-up e/select-right]))
           highlights    (-> ["⦇This is"
                              "⦈a large"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇This is⦈"
                              "a large"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
@@ -488,24 +494,26 @@
     (let [result        (-> ["This is"
                              "a |large"
                              "piece of text"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/select-up e/select-up e/select-down]))
+                            (derive-context)
+                            (process [e/select-all e/select-up e/select-up e/select-down]))
           highlights    (-> ["⦇This is"
                              "a large⦈"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇This is⦈"
                              "a large"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
@@ -513,24 +521,26 @@
     (let [result        (-> ["This is"
                              "a |large"
                              "piece of text"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/select-up e/select-up e/select-down e/select-left]))
+                            (derive-context)
+                            (process [e/select-all e/select-up e/select-up e/select-down e/select-left]))
           highlights    (-> ["⦇This is"
                              "a larg⦈e"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇This is"
                              "a large⦈"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
@@ -538,24 +548,26 @@
     (let [result        (-> ["This is"
                              "a |large"
                              "piece of text"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/select-up e/select-up e/select-down e/select-right]))
+                            (derive-context)
+                            (process [e/select-all e/select-up e/select-up e/select-down e/select-right]))
           highlights    (-> ["⦇This is"
                              "a large"
                              "⦈piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
           garbage       (-> ["⦇This is"
                              "a large⦈"
                              "piece of text"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high highlights) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch"))))
 
@@ -563,82 +575,84 @@
   (testing "Multiple lines"
     (let [result        (-> ["Some |piece of text"
                              "with lines"]
-                            (derive-hud-old)
-                            (process-old [e/select-all e/move-right]))
+                            (derive-context)
+                            (process [e/select-all e/move-right]))
           garbage       (-> ["⦇Some piece of text"
                              "with lines⦈"]
-                            (derive-hud-old)
+                            (derive-context)
+                            (c/hud)
                             (h/highlights)
                             (:manual)
                             (:region))
-          expected-high (-> result (h/highlights) (:selection) (:region))
-          expected-gc   (-> result (h/garbage) (:selection) (:region))]
+          expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+          expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
       (is (= expected-high nil) "Highlights mismatch")
       (is (= expected-gc garbage) "Garbage mismatch")))
 
   (testing "Same line"
     (testing "Multiple lines"
       (let [result        (-> ["Some |piece of text"]
-                              (derive-hud-old)
-                              (process-old [e/select-right e/select-right e/move-right]))
+                              (derive-context)
+                              (process [e/select-right e/select-right e/move-right]))
             garbage       (-> ["Some ⦇pi⦈ece of text"]
-                              (derive-hud-old)
+                              (derive-context)
+                              (c/hud)
                               (h/highlights)
                               (:manual)
                               (:region))
-            expected-high (-> result (h/highlights) (:selection) (:region))
-            expected-gc   (-> result (h/garbage) (:selection) (:region))]
+            expected-high (-> result (c/hud) (h/highlights) (:selection) (:region))
+            expected-gc   (-> result (c/hud) (h/garbage) (:selection) (:region))]
         (is (= expected-high nil) "Highlights mismatch")
         (is (= expected-gc garbage) "Garbage mismatch")))))
 
 ;; IX. Parenthesis matching
 
 (deftest matches-parentheses
-  (let [hud             (-> ["persisted"
+  (let [context             (-> ["persisted"
                              ---
                              "(+ 1 1|)"]
-                            (derive-hud-old)
-                            (process-old [e/move-right]))
+                            (derive-context)
+                            (process [e/move-right]))
         expected-open   (-> ["persisted"
                              ---
                              "⦇(⦈+ 1 1)|"]
-                            (derive-hud-old))
+                            (derive-context))
         expected-closed (-> ["persisted"
                              ---
                              "(+ 1 1⦇)⦈|"]
-                            (derive-hud-old))
-        actual-open     (-> hud (h/highlights) (:open-paren) (:region))
-        actual-closed   (-> hud (h/highlights) (:closed-paren) (:region))
-        expected-open   (-> expected-open (h/highlights) (:manual) (:region))
-        expected-closed (-> expected-closed (h/highlights) (:manual) (:region))]
+                            (derive-context))
+        actual-open     (-> context (c/hud) (h/highlights) (:open-paren) (:region))
+        actual-closed   (-> context (c/hud) (h/highlights) (:closed-paren) (:region))
+        expected-open   (-> expected-open (c/hud) (h/highlights) (:manual) (:region))
+        expected-closed (-> expected-closed (c/hud) (h/highlights) (:manual) (:region))]
     (is (= actual-open expected-open))
     (is (= actual-closed expected-closed))))
 
 (deftest does-not-highlight-unmatched-parentheses
-  (let [hud         (-> ["persisted"
+  (let [context     (-> ["persisted"
                          ---
                          "(|+ 1"]
-                        (derive-hud-old)
-                        (process-old [e/move-left]))
-        actual-high (h/highlights hud)]
+                        (derive-context)
+                        (process [e/move-left]))
+        actual-high (-> context (c/hud) (h/highlights))]
     (is (= actual-high {}))))
 
 ;; X. Injecting
 
 (deftest injects-code
-  (let [hud             (-> ["persisted"
+  (let [context         (-> ["persisted"
                              ---
                              "some text|"]
-                            (derive-hud-old {:value-response (value-response "pong")})
-                            (process-old [(e/inject "ping")]))
+                            (derive-context {:response (value-response "pong")})
+                            (process [(e/inject "ping")]))
         expected        (-> ["persisted"
                              ---
                              "some text|"
                              "pong"]
-                            (derive-hud-old))
-        expected-view   (-> expected (h/current-view) (:lines))
-        actual-view     (-> hud (h/current-view) (:lines))
-        expected-cursor (-> expected (h/current-view) (:cursor))
-        actual-cursor   (-> hud (h/current-view) (:cursor))]
+                            (derive-context))
+        expected-view   (-> expected (c/hud) (h/current-view) (:lines))
+        actual-view     (-> context (c/hud) (h/current-view) (:lines))
+        expected-cursor (-> expected (c/hud) (h/current-view) (:cursor))
+        actual-cursor   (-> context (c/hud) (h/current-view) (:cursor))]
     (is (= expected-view actual-view))
     (is (= expected-cursor actual-cursor))))
