@@ -12,8 +12,5 @@
    :persisted-view h/View
    :current-view   h/View
    :input-area     t/Text
-   :suggestions    h/View
-   :documentation  h/View
-   :signatures     h/View
    :highlights     r/HighlightInstructions
    :garbage        r/HighlightInstructions})

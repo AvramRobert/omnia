@@ -392,6 +392,184 @@
     (is (= actual-cursor expected-cursor))
     (is (= actual-options expected-options))))
 
+;; VIII. Documentation
+
+(deftest shows-documentation
+  (let [context               (-> ["persisted"
+                                   ---
+                                   "s|ome things are"]
+                                  (derive-context))
+        expected1             (-> ["persisted"
+                                   ---
+                                   "some things are"
+                                   "------"
+                                   " line-1 with text|"
+                                   " line-2 with text"
+                                   "------"]
+                                  (derive-context))
+        expected2             (-> ["persisted"
+                                   ---
+                                   "some things are"
+                                   "------"
+                                   " line-1 with text"
+                                   " line-2 with text|"
+                                   "------"]
+                                  (derive-context))
+
+        expected1-info        (-> ["line-1 with text|"
+                                   "line-2 with text"]
+                                  (derive-text))
+        expected2-info        (-> ["line-1 with text"
+                                   "line-2 with text|"]
+                                  (derive-text))
+
+        processed1            (process context
+                                       {:response (doc-response "line-1 with text\nline-2 with text")}
+                                       [e/docs])
+        processed2            (process context
+                                       {:response (doc-response "line-1 with text\nline-2 with text")}
+                                       [e/docs e/docs])
+        actual1-documentation (-> processed1 (c/docs) (d/documentation) (v/text))
+        actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
+        actual1-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
+        actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        actual2-documentation (-> processed2 (c/docs) (d/documentation) (v/text))
+        actual2-suggestion    (-> processed1 (c/docs) (d/suggestions))
+        actual2-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
+        actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected1-preview     (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected1-cursor      (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected2-preview     (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
+        expected2-cursor      (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= actual1-preview expected1-preview))
+    (is (= actual2-preview expected2-preview))
+    (is (= actual1-cursor expected1-cursor))
+    (is (= actual2-cursor expected2-cursor))
+    (is (= actual1-documentation expected1-info))
+    (is (= actual2-documentation expected2-info))
+    (is (= actual1-suggestion nil))
+    (is (= actual1-signatures nil))
+    (is (= actual2-suggestion nil))
+    (is (= actual2-signatures nil))))
+
+(deftest shows-empty-box-when-no-documentation
+  (let [context          (-> ["persisted"
+                              ---
+                              "1|"]
+                             (derive-context)
+                             (process {:response (doc-response "")} [e/docs]))
+        expected         (-> ["persisted"
+                              ---
+                              "1"
+                              "------|"
+                              "------"]
+                             (derive-context))
+        expected-info    (-> []
+                             (derive-text))
+        actual-info      (-> context (c/docs) (d/documentation) (v/text))
+        actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-info expected-info))))
+
+;; IX. Signatures
+
+(deftest shows-signatures
+  (let [context               (-> ["persisted"
+                                   ---
+                                   "s|ome things are"]
+                                  (derive-context))
+        expected1             (-> ["persisted"
+                                   ---
+                                   "some things are"
+                                   "------"
+                                   " ns/name signature-1|"
+                                   " ns/name signature-2"
+                                   "------"]
+                                  (derive-context))
+        expected2             (-> ["persisted"
+                                   ---
+                                   "some things are"
+                                   "------"
+                                   " ns/name signature-1"
+                                   " ns/name signature-2|"
+                                   "------"]
+                                  (derive-context))
+
+        expected1-options     (-> ["ns/name signature-1|"
+                                   "ns/name signature-2"]
+                                  (derive-text))
+        expected2-options     (-> ["ns/name signature-1"
+                                   "ns/name signature-2|"]
+                                  (derive-text))
+
+        processed1            (process context
+                                       {:response (argument-response "ns" "name" ["signature-1" "signature-2"])}
+                                       [e/signature])
+        processed2            (process context
+                                       {:response (argument-response "ns" "name" ["signature-1" "signature-2"])}
+                                       [e/signature e/signature])
+        actual1-signatures    (-> processed1 (c/docs) (d/signatures) (v/text))
+        actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
+        actual1-documentation (-> processed1 (c/docs) (d/documentation))
+        actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
+        actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        actual2-signatures    (-> processed2 (c/docs) (d/signatures) (v/text))
+        actual2-suggestion    (-> processed1 (c/docs) (d/suggestions))
+        actual2-documentation (-> processed1 (c/docs) (d/documentation))
+        actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
+        actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected1-preview     (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected1-cursor      (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected2-preview     (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
+        expected2-cursor      (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= actual1-preview expected1-preview))
+    (is (= actual2-preview expected2-preview))
+    (is (= actual1-cursor expected1-cursor))
+    (is (= actual2-cursor expected2-cursor))
+    (is (= actual1-signatures expected1-options))
+    (is (= actual2-signatures expected2-options))
+    (is (= actual1-suggestion nil))
+    (is (= actual1-documentation nil))
+    (is (= actual2-suggestion nil))
+    (is (= actual2-documentation nil))))
+
+(deftest shows-empty-string-when-no-signatures
+  (let [context          (-> ["persisted"
+                              ---
+                              "1|"]
+                             (derive-context)
+                             (process {:response (argument-response "ns" "name" [])} [e/signature]))
+        expected         (-> ["persisted"
+                              ---
+                              "1"
+                              "------|"
+                              " ns/name |"
+                              "------"]
+                             (derive-context))
+        expected-options (-> ["ns/name |"]
+                             (derive-text))
+        actual-options   (-> context (c/docs) (d/signatures) (v/text))
+        actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= actual-preview expected-preview))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-options expected-options))))
+
+
 ;; VIII. Highlighting
 
 (deftest gc-same-line-selection

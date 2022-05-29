@@ -56,34 +56,46 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (-> context
-      (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-signatures)
-      (h/deselect)
-      (h/document)
-      (h/match-parens config)
-      (h/diff-render)
-      (continue context)))
+  (let [docs           (docs context)
+        hud            (hud context)
+        current-input  (h/input-area hud)
+        documentation  (d/documentation docs)
+        documentation' (if (nil? documentation)
+                         (-> nrepl (n/docs! current-input) (n/result) (v/riffle-window 15))
+                         (v/riffle documentation))]
+    {:status  processing
+     :history (:history context)
+     :docs    (d/with-documentation docs documentation')
+     :hud     (-> hud
+                  (h/gc config)
+                  (h/reset-scroll)
+                  (h/deselect)
+                  (h/with-popup documentation')
+                  (h/match-parens config)
+                  (h/diff-render))}))
 
 (s/defn signature :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (-> context
-      (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/deselect)
-      (h/signature)
-      (h/match-parens config)
-      (h/diff-render)
-      (continue context)))
+  (let [docs          (docs context)
+        hud           (hud context)
+        current-input (h/input-area hud)
+        signatures    (d/signatures docs)
+        signatures'   (if (nil? signatures)
+                        (-> nrepl (n/signature! current-input) (n/result) (v/riffle-window 10))
+                        (v/riffle signatures))]
+    {:status  processing
+     :history (:history context)
+     :docs    (d/with-signatures docs signatures')
+     :hud     (-> hud
+                  (h/gc config)
+                  (h/reset-scroll)
+                  (h/deselect)
+                  (h/with-popup signatures')
+                  (h/match-parens config)
+                  (h/diff-render))}))
 
 (s/defn suggest :- Context
   [context :- Context
@@ -91,7 +103,8 @@
    config :- Config
    nrepl :- NReplClient]
   (let [docs          (docs context)
-        current-input (-> context (hud) (h/input-area))
+        hud           (hud context)
+        current-input (h/input-area hud)
         suggestions   (d/suggestions docs)
         suggestions'  (if (nil? suggestions)
                         (-> nrepl (n/complete! current-input) (n/result) (v/riffle-window 10))
@@ -99,12 +112,9 @@
     {:status  processing
      :history (:history context)
      :docs    (d/with-suggestions docs suggestions')
-     :hud     (-> context
-                  (hud)
+     :hud     (-> hud
                   (h/gc config)
                   (h/reset-scroll)
-                  (h/reset-documentation)
-                  (h/reset-signatures)
                   (h/with-popup-autocompleted suggestions')
                   (h/match-parens config)
                   (h/diff-render))}))
@@ -146,9 +156,6 @@
       (hud)
       (h/gc config)
       (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/reset-signatures)
       (h/prev-eval)
       (h/highlight config)
       (h/match-parens config)
@@ -164,9 +171,6 @@
       (hud)
       (h/gc config)
       (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/reset-signatures)
       (h/next-eval)
       (h/highlight config)
       (h/match-parens config)
@@ -183,9 +187,6 @@
       (hud)
       (h/gc config)
       (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/reset-signatures)
       (h/deselect)
       (h/reformat)
       (h/highlight config)
@@ -202,9 +203,6 @@
       (hud)
       (h/gc config)
       (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/reset-signatures)
       (h/deselect)
       (h/clear)
       (h/highlight config)
@@ -222,9 +220,6 @@
     (-> hud
         (h/gc config)
         (h/reset-scroll)
-        (h/reset-suggestions)
-        (h/reset-documentation)
-        (h/reset-signatures)
         (h/with-evaluation result)
         (h/highlight config)
         (h/diff-render)
@@ -277,9 +272,6 @@
                 (hud)
                 (h/gc config)
                 (h/reset-scroll)
-                (h/reset-suggestions)
-                (h/reset-documentation)
-                (h/reset-signatures)
                 (h/input f)
                 (h/calibrate)
                 (h/highlight config)

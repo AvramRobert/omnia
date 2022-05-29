@@ -24,10 +24,19 @@
    :signatures    nil
    :documentation nil})
 
-(s/defn suggest :- Docs
+(s/defn with-documentation :- Docs
   [docs :- Docs
-   text :- Text]
-  (with-suggestions docs (v/riffle-window text 10)))
+   view :- View]
+  {:suggestions   nil
+   :signatures    nil
+   :documentation view})
+
+(s/defn with-signatures :- Docs
+  [docs :- Docs
+   view :- View]
+  {:suggestions   nil
+   :signatures    view
+   :documentation nil})
 
 (s/def empty-docs :- Docs
   {:suggestions   nil

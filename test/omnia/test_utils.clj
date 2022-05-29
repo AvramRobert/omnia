@@ -9,6 +9,7 @@
             [omnia.repl.context :as c]
             [omnia.repl.nrepl :as n]
             [omnia.display.terminal :as t]
+            [clojure.string :as string]
             [omnia.util.collection :refer [reduce-idx map-vals]]
             [omnia.config.defaults :refer [default-user-config]]
             [omnia.schema.context :refer [Context]]
@@ -20,7 +21,13 @@
             [omnia.schema.view :refer [View]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.common :refer [Region]]
-            [omnia.schema.nrepl :refer [ValueResponse CompletionResponse TerminatingResponse NReplClient NReplResponse]])
+            [omnia.schema.nrepl :refer [ValueResponse
+                                        CompletionResponse
+                                        DocResponse
+                                        ArgumentResponse
+                                        TerminatingResponse
+                                        NReplClient
+                                        NReplResponse]])
   (:import (java.util UUID)))
 
 (def TerminalSpec
@@ -93,6 +100,26 @@
                         {:candidate c
                          :type      "var"
                          :ns        "candidate-ns"}) completions)})
+
+(s/defn doc-response :- DocResponse
+  [doc :- s/Str]
+  {:id          (str (UUID/randomUUID))
+   :session     (str (UUID/randomUUID))
+   :ns          "test-ns"
+   :status      ["done"]
+   :name        "test-name"
+   :doc         doc})
+
+(s/defn argument-response :- ArgumentResponse
+  [namespace :- s/Str
+   name      :- s/Str
+   args :- [s/Str]]
+  {:id          (str (UUID/randomUUID))
+   :session     (str (UUID/randomUUID))
+   :ns          namespace
+   :status      ["done"]
+   :name        name
+   :arglists-str (string/join "\n" args)})
 
 (s/def terminating-response :- TerminatingResponse
   {:id      (str (UUID/randomUUID))

@@ -181,33 +181,9 @@
   [hud :- Hud, repl :- NReplClient]
   (assoc hud :nrepl repl))
 
-(s/defn with-suggestions :- Hud
-  [hud :- Hud, suggestions :- View]
-  (assoc-new hud :suggestions suggestions))
-
-(s/defn with-documentation :- Hud
-  [hud :- Hud, documentation :- View]
-  (assoc-new hud :documentation documentation))
-
-(s/defn with-signatures :- Hud
-  [hud :- Hud, signatures :- View]
-  (assoc-new hud :signatures signatures))
-
 (s/defn with-render :- Hud
   [hud :- Hud, render :- RenderingStrategy]
   (assoc-new hud :render render))
-
-(s/defn reset-suggestions :- Hud
-  [hud :- Hud]
-  (with-suggestions hud v/empty-view))
-
-(s/defn reset-documentation :- Hud
-  [hud :- Hud]
-  (with-documentation hud v/empty-view))
-
-(s/defn reset-signatures :- Hud
-  [hud :- Hud]
-  (with-signatures hud v/empty-view))
 
 (s/defn re-render :- Hud
   [hud :- Hud]
@@ -342,19 +318,6 @@
   [hud :- Hud]
   (eval-at hud n/travel-forward))
 
-;(s/defn evaluate :- Hud
-;  [hud :- Hud]
-;  (let [current-input (input-area hud)
-;        client'       (-> hud (nrepl-client) (r/evaluate! current-input))
-;        result        (r/result client')
-;        new-view      (-> hud
-;                          (persisted-view)
-;                          (h/enrich-with [current-input result caret]))]
-;    (-> hud
-;        (with-client client')
-;        (with-input-area i/empty-line)
-;        (switch-view new-view))))
-
 (s/defn with-evaluation :- Hud
   [hud :- Hud
    text :- Text]
@@ -382,73 +345,15 @@
         (switch-current-view preview)
         (deselect))))
 
-(s/defn suggestion-window :- View
-  [hud :- Hud]
-  (let [text  (input-area hud)
-        repl  (nrepl-client hud)
-        suggs (suggestions hud)]
-    (if (v/hollow? suggs)
-      (-> repl (n/complete! text) (n/result) (v/riffle-window 10))
-      (v/riffle suggs))))
-
-(s/defn suggest :- Hud
-  [hud :- Hud]
-  (let [suggestions (suggestion-window hud)
-        suggestion  (v/current-line suggestions)
-        text        (-> hud
-                        (input-area)
-                        (t/auto-complete suggestion))
-        preview     (-> hud
-                        (persisted-view)
-                        (v/enrich-with [text])
-                        (v/pop-up suggestions))]
-    (-> hud
-        (with-suggestions suggestions)
-        (with-input-area text)
-        (switch-current-view preview)
-        (deselect))))
-
-(s/defn signature-window :- View
-  [hud :- Hud]
-  (let [text (input-area hud)
-        repl (nrepl-client hud)
-        sigs (signatures hud)]
-    (if (v/hollow? sigs)
-      (-> repl (n/signature! text) (n/result) (v/riffle-window 10))
-      (v/riffle sigs))))
-
-(s/defn signature :- Hud
-  [hud :- Hud]
-  (let [signatures (signature-window hud)
-        text       (input-area hud)
+(s/defn with-popup :- Hud
+  [hud :- Hud
+   window :- View]
+  (let [text       (input-area hud)
         preview    (-> hud
                        (persisted-view)
                        (v/enrich-with [text])
-                       (v/pop-up signatures))]
-    (-> hud
-        (with-signatures signatures)
-        (switch-current-view preview))))
-
-(s/defn documentation-window :- View
-  [hud :- Hud]
-  (let [text (input-area hud)
-        repl (nrepl-client hud)
-        docs (documentation hud)]
-    (if (v/hollow? docs)
-      (-> repl (n/docs! text) (n/result) (v/riffle-window 15))
-      (v/riffle docs))))
-
-(s/defn document :- Hud
-  [hud :- Hud]
-  (let [documentation (documentation-window hud)
-        text          (input-area hud)
-        preview       (-> hud
-                          (persisted-view)
-                          (v/enrich-with [text])
-                          (v/pop-up documentation))]
-    (-> hud
-        (with-documentation documentation)
-        (switch-current-view preview))))
+                       (v/pop-up window))]
+    (switch-current-view hud preview)))
 
 (s/defn reformat :- Hud
   [hud :- Hud]
