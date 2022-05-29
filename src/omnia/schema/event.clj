@@ -25,7 +25,7 @@
 (def ^:const undo :undo)
 (def ^:const redo :redo)
 (def ^:const inject :inject)
-(def ^:const docs :docs)
+(def ^:const docs :docs)                                    ;; FIXME: Rename this to documentation
 (def ^:const signature :signature)
 (def ^:const suggest :suggest)
 (def ^:const scroll-up :scroll-up)

@@ -72,9 +72,11 @@
 (s/defn reset-cursor :- Text
   [text  :- Text
    [x y] :- Point]
-  (let [size   (-> text (:size) (dec))
-        y'     (cond (< y 0)    0
-                     (> y size) size
+  (let [size   (:size text)
+        bound  (dec size)
+        y'     (cond (= size 0) 0
+                     (< y 0)    0
+                     (> y bound) bound
                      :else      y)
         length (-> text (line-at y') (count))
         x'     (cond (< x 0)      0

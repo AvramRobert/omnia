@@ -2,25 +2,34 @@
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
             [omnia.repl.history :as hi]
+            [omnia.repl.docs :as d]
             [omnia.repl.text :as i]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
+            [omnia.schema.docs :refer [Docs]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context EventHandler processing terminated]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event Action]]
             [omnia.schema.common :refer [=>]]
-            [omnia.schema.nrepl :refer [NReplClient]]))
+            [omnia.schema.nrepl :refer [NReplClient]]
+            [omnia.repl.nrepl :as n]
+            [omnia.repl.view :as v]))
 
 (s/defn hud :- Hud
   [context :- Context]
   (:hud context))
+
+(s/defn docs :- Docs
+  [context :- Context]
+  (:docs context))
 
 (s/defn continue :- Context
   [hud :- Hud
    context :- Context]
   {:status  processing
    :hud     hud
+   :docs    (:docs context)
    :history (:history context)})
 
 (s/defn terminate :- Context
@@ -28,22 +37,25 @@
    context :- Context]
   {:status  terminated
    :hud     hud
+   :docs    (:docs context)
    :history (:history context)})
 
 (s/defn inject :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/inject event)
       (h/diff-render)
       (continue context)))
 
-(s/defn docs :- Context
+(s/defn documentation :- Context
   [context :- Context
    event :- Event
-   config :- Config]
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -59,7 +71,8 @@
 (s/defn signature :- Context
   [context :- Context
    event :- Event
-   config :- Config]
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -75,21 +88,32 @@
 (s/defn suggest :- Context
   [context :- Context
    event :- Event
-   config :- Config]
-  (-> context (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/reset-documentation)
-      (h/reset-signatures)
-      (h/suggest)
-      (h/match-parens config)
-      (h/diff-render)
-      (continue context)))
+   config :- Config
+   nrepl :- NReplClient]
+  (let [docs          (docs context)
+        current-input (-> context (hud) (h/input-area))
+        suggestions   (d/suggestions docs)
+        suggestions'  (if (nil? suggestions)
+                        (-> nrepl (n/complete! current-input) (n/result) (v/riffle-window 10))
+                        (v/riffle suggestions))]
+    {:status  processing
+     :history (:history context)
+     :docs    (d/with-suggestions docs suggestions')
+     :hud     (-> context
+                  (hud)
+                  (h/gc config)
+                  (h/reset-scroll)
+                  (h/reset-documentation)
+                  (h/reset-signatures)
+                  (h/with-popup-autocompleted suggestions')
+                  (h/match-parens config)
+                  (h/diff-render))}))
 
 (s/defn scroll-down :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -101,8 +125,9 @@
 
 (s/defn scroll-up :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -114,8 +139,9 @@
 
 (s/defn prev-eval :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -131,8 +157,9 @@
 
 (s/defn next-eval :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -149,8 +176,9 @@
 ;; FIXME: Rename this to: reformat
 (s/defn indent :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -167,8 +195,9 @@
 
 (s/defn clear :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -185,24 +214,27 @@
 
 (s/defn evaluate :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (-> context
-      (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/reset-signatures)
-      (h/evaluate)
-      (h/highlight config)
-      (h/diff-render)
-      (continue context)))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (let [hud    (hud context)
+        result (-> nrepl (n/evaluate! (h/input-area hud)) (n/result))]
+    (-> hud
+        (h/gc config)
+        (h/reset-scroll)
+        (h/reset-suggestions)
+        (h/reset-documentation)
+        (h/reset-signatures)
+        (h/with-evaluation result)
+        (h/highlight config)
+        (h/diff-render)
+        (continue context))))
 
 (s/defn exit :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/gc config)
@@ -215,8 +247,9 @@
 
 (s/defn resize :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context
       (hud)
       (h/resize event)
@@ -226,170 +259,197 @@
 
 (s/defn ignore :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (-> context (hud) (continue context)))
 
 (s/defn text-event :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config
-   f       :- (=> Text Text)]
-  (-> context
-      (hud)
-      (h/gc config)
-      (h/reset-scroll)
-      (h/reset-suggestions)
-      (h/reset-documentation)
-      (h/reset-signatures)
-      (h/input f)
-      (h/calibrate)
-      (h/highlight config)
-      (h/match-parens config)
-      (h/diff-render)
-      (continue context)))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient
+   f :- (=> Text Text)]
+  {:status  processing
+   :history (:history context)
+   :docs    d/empty-docs
+   :hud     (-> context
+                (hud)
+                (h/gc config)
+                (h/reset-scroll)
+                (h/reset-suggestions)
+                (h/reset-documentation)
+                (h/reset-signatures)
+                (h/input f)
+                (h/calibrate)
+                (h/highlight config)
+                (h/match-parens config)
+                (h/diff-render))})
 
 (s/defn character :- Context
   [context :- Context
    event :- Event
-   config :- Config]
-  (text-event context event config #(i/insert % (:value event))))
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl #(i/insert % (:value event))))
 
 (s/defn move-up :- Context
   [context :- Context
    event :- Event
-   config :- Config]
-  (text-event context event config i/move-up))
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/move-up))
 
 (s/defn move-down :- Context
   [context :- Context
    event :- Event
-   config :- Config]
-  (text-event context event config i/move-down))
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/move-down))
 
 (s/defn move-left :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/move-left))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/move-left))
 
 (s/defn move-right :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/move-right))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/move-right))
 
 (s/defn jump-left :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/jump-left))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/jump-left))
 
 (s/defn jump-right :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/jump-right))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/jump-right))
 
 (s/defn select-all :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/select-all))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/select-all))
 
 (s/defn select-up :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/select-up))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/select-up))
 
 (s/defn select-down :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/select-down))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/select-down))
 
 (s/defn select-right :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/select-right))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/select-right))
 
 (s/defn select-left :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/select-left))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/select-left))
 
 (s/defn jump-select-left :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/jump-select-left))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/jump-select-left))
 
 (s/defn jump-select-right :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/jump-select-right))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/jump-select-right))
 
 (s/defn expand-selection :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/expand-selection))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/expand-selection))
 
 (s/defn copy :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/copy))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/copy))
 
 (s/defn cut :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/cut))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/cut))
 
 (s/defn paste :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/paste))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/paste))
 
 (s/defn delete-previous :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/delete-previous))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/delete-previous))
 
 (s/defn delete-current :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/delete-current))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/delete-current))
 
 (s/defn new-line :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/new-line))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/new-line))
 
 (s/defn undo :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/undo))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/undo))
 
 (s/defn redo :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
-  (text-event context event config i/redo))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (text-event context event config nrepl i/redo))
 
 (s/def handlers :- {Action EventHandler}
   {e/inject            inject
-   e/docs              docs
+   e/docs              documentation
    e/signature         signature
    e/suggest           suggest
    e/scroll-up         scroll-up
@@ -429,6 +489,7 @@
   [hud :- Hud]
   {:status  processing
    :history (hi/create-history 50)
+   :docs    d/empty-docs
    :hud     hud})
 
 (s/defn create-context :- Context
@@ -436,12 +497,14 @@
    repl-client :- NReplClient]
   {:status  processing
    :history (hi/create-history 50)
+   :disc    d/empty-docs
    :hud     (h/create-hud view-size repl-client)})
 
 (s/defn process :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config]
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
   (let [action  (:action event)
         handler (get handlers action ignore)]
-    (handler context event config)))
+    (handler context event config nrepl)))

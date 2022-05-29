@@ -129,7 +129,7 @@
                   :y      (count lines)
                   :latest start} s)
           (point {:remove #{\| \⦇}
-                 i :find   \⦈
+                  :find   \⦈
                   :latest end
                   :y      (count lines)} s))
         (cond-> (i/create-text lines cursor)
@@ -291,7 +291,16 @@
      (c/context-from hud))))
 
 (s/defn process :- Context
-  [context :- Context
-   events  :- [Event]]
-  (reduce (fn [context' event]
-            (c/process context' event default-config)) context events))
+  ([context :- Context
+    events  :- [Event]]
+   (process context {} events))
+  ([context :- Context
+    props   :- NReplProps
+    events  :- [Event]]
+   (let [nrepl (nrepl-client (:response props terminating-response)
+                             (->> []
+                                  (:history props)
+                                  (reverse)
+                                  (mapv i/from-string)))]
+     (reduce (fn [context' event]
+               (c/process context' event default-config nrepl)) context events))))

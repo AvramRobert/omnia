@@ -2,6 +2,7 @@
   (:require [schema.core :as s]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.history :refer [History]]
+            [omnia.schema.docs :refer [Docs]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.common :refer [=>]]))
@@ -14,6 +15,7 @@
 (def Context
   {:status  Status
    :history History
+   :docs    Docs
    :hud     Hud})
 
 (def EventHandler

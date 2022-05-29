@@ -2,8 +2,8 @@ CURRENT TASK:
 
 
 Global issues:
- * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
  * Remove the nrepl-client from the Hud
+ * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
  * Clean-up test code afterwards
  * Add rendering strategy to the context
  * Give the hud a function with which it can enrich the input

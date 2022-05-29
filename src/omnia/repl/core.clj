@@ -17,12 +17,13 @@
   [context  :- Context,
    config   :- Config,
    terminal :- Terminal,
+   nrepl    :- NReplClient,
    events   :- [Event]]
-  (let [context' (c/process context (first events) config)
+  (let [context' (c/process context (first events) config nrepl)
         status   (:status context')
         _        (r/render! context' config terminal)]
     (if (= status processing)
-      (recur context' config terminal (rest events))
+      (recur context' config terminal nrepl (rest events))
       context')))
 
 (s/defn events-from :- [Event]
@@ -35,6 +36,6 @@
    nrepl    :- NReplClient]
   (let [events  (concat prelude (events-from terminal))
         context (c/create-context (t/size terminal) nrepl)]
-    (-> (tsk/task (consume context config terminal events))
+    (-> (tsk/task (consume context config terminal nrepl events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))

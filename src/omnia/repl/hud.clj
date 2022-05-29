@@ -1,8 +1,8 @@
 (ns omnia.repl.hud
   (:require [schema.core :as s]
-            [omnia.repl.nrepl :as r]
-            [omnia.repl.view :as h]
-            [omnia.repl.text :as i]
+            [omnia.repl.nrepl :as n]
+            [omnia.repl.view :as v]
+            [omnia.repl.text :as t]
             [omnia.repl.format :as f]
             [omnia.schema.event :as e]
             [omnia.schema.hud :refer [Hud]]
@@ -15,12 +15,12 @@
             [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]))
 
-(def caret (i/from-string "Ω =>"))
-(def goodbye (i/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
-(def greeting (i/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
-(def clj-version (i/from-string (format "-- Clojure v%s --" (clojure-version))))
-(def java-version (i/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
-(defn nrepl-info [host port] (i/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
+(def caret (t/from-string "Ω =>"))
+(def goodbye (t/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
+(def greeting (t/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
+(def clj-version (t/from-string (format "-- Clojure v%s --" (clojure-version))))
+(def java-version (t/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
+(defn nrepl-info [host port] (t/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
 
 (s/defn header :- [Text]
   [host :- s/Str
@@ -30,15 +30,15 @@
      repl-info
      clj-version
      java-version
-     i/empty-line
+     t/empty-line
      caret]))
 
 (s/defn init-view :- View
   [size :- s/Int,
    repl :- NReplClient]
   (let [header (header (:host repl) (:port repl))]
-    (-> (h/empty-view-with-size size)
-        (h/enrich-with header))))
+    (-> (v/empty-view-with-size size)
+        (v/enrich-with header))))
 
 (s/defn current-view :- View
   [hud :- Hud]
@@ -58,7 +58,7 @@
 
 (s/defn view-size :- s/Int
   [hud :- Hud]
-  (-> hud (persisted-view) (h/field-of-view)))
+  (-> hud (persisted-view) (v/field-of-view)))
 
 (s/defn suggestions :- View
   [hud :- Hud]
@@ -108,7 +108,7 @@
 
 (s/defn refresh-view :- Hud
   [hud :- Hud]
-  (switch-current-view hud (-> hud (persisted-view) (h/enrich-with [(input-area hud)]))))
+  (switch-current-view hud (-> hud (persisted-view) (v/enrich-with [(input-area hud)]))))
 
 (s/defn switch-view :- Hud
   [hud :- Hud, view :- View]
@@ -199,15 +199,15 @@
 
 (s/defn reset-suggestions :- Hud
   [hud :- Hud]
-  (with-suggestions hud h/empty-view))
+  (with-suggestions hud v/empty-view))
 
 (s/defn reset-documentation :- Hud
   [hud :- Hud]
-  (with-documentation hud h/empty-view))
+  (with-documentation hud v/empty-view))
 
 (s/defn reset-signatures :- Hud
   [hud :- Hud]
-  (with-signatures hud h/empty-view))
+  (with-signatures hud v/empty-view))
 
 (s/defn re-render :- Hud
   [hud :- Hud]
@@ -224,8 +224,8 @@
 (s/defn highlight :- Hud
   [hud :- Hud
    config :- Config]
-  (let [text (-> hud (current-view) (h/text))]
-    (if (i/selecting? text)
+  (let [text (-> hud (current-view) (v/text))]
+    (if (t/selecting? text)
       (with-selection hud (create-selection-highlight config (:selection text)))
       hud)))
 
@@ -240,7 +240,7 @@
 (s/defn match :- Hud
   [hud :- Hud
    config :- Config]
-  (if-let [pair (-> hud (current-view) (h/text) (i/find-pair))]
+  (if-let [pair (-> hud (current-view) (v/text) (t/find-pair))]
     (let [open   (create-paren-highlight config (:left pair))
           closed (create-paren-highlight config (:right pair))]
       (with-parens hud open closed))
@@ -249,22 +249,22 @@
 (s/defn match-parens :- Hud
   [hud :- Hud
    config :- Config]
-  (let [text (-> hud (current-view) (h/text))]
+  (let [text (-> hud (current-view) (v/text))]
     (cond
-      (i/open-pairs (i/current-char text)) (match hud config)
-      (i/closed-pairs (i/previous-char text)) (match hud config)
+      (t/open-pairs (t/current-char text)) (match hud config)
+      (t/closed-pairs (t/previous-char text)) (match hud config)
       :else hud)))
 
 (s/defn calibrate :- Hud
   [hud :- Hud]
-  (let [nov       (h/correct-between (current-view hud)
+  (let [nov       (v/correct-between (current-view hud)
                                      (previous-view hud))
         persisted (-> hud
                       (persisted-view)
-                      (h/with-view-offset nov))
+                      (v/with-view-offset nov))
         preview   (-> hud
                       (current-view)
-                      (h/with-view-offset nov))]
+                      (v/with-view-offset nov))]
     (-> hud
         (with-persisted-view persisted)
         (with-current-view preview))))
@@ -275,7 +275,7 @@
   (let [persisted (persisted-view hud)
         new-fov   (-> event (:value) (second))]
     (-> hud
-        (with-persisted-view (h/resize persisted new-fov))
+        (with-persisted-view (v/resize persisted new-fov))
         (refresh-view))))
 
 (s/defn clear :- Hud
@@ -288,15 +288,15 @@
   [hud :- Hud]
   (let [preview (-> hud
                     (current-view)
-                    (h/enrich-with [goodbye])
-                    (h/reset-view-offset))]
+                    (v/enrich-with [goodbye])
+                    (v/reset-view-offset))]
     (switch-current-view hud preview)))
 
 (s/defn deselect :- Hud
   [hud :- Hud]
-  (let [preview   (-> hud (current-view) (h/deselect))
-        persisted (-> hud (persisted-view) (h/deselect))
-        input     (-> hud (input-area) (i/deselect))]
+  (let [preview   (-> hud (current-view) (v/deselect))
+        persisted (-> hud (persisted-view) (v/deselect))
+        input     (-> hud (input-area) (t/deselect))]
     (-> hud
         (with-current-view preview)
         (with-persisted-view persisted)
@@ -304,21 +304,21 @@
 
 (s/defn scroll-up :- Hud
   [hud :- Hud]
-  (let [preview (-> hud (current-view) (h/scroll-up))]
+  (let [preview (-> hud (current-view) (v/scroll-up))]
     (switch-current-view hud preview)))
 
 (s/defn scroll-down :- Hud
   [hud :- Hud]
-  (let [preview (-> hud (current-view) (h/scroll-down))]
+  (let [preview (-> hud (current-view) (v/scroll-down))]
     (switch-current-view hud preview)))
 
 (s/defn reset-scroll :- Hud
   [hud :- Hud]
-  (if (-> hud (current-view) (h/scroll-offset) (zero?))
+  (if (-> hud (current-view) (v/scroll-offset) (zero?))
     hud
     (-> hud
-        (with-persisted-view (-> hud (persisted-view) (h/reset-scroll)))
-        (with-current-view (-> hud (current-view) (h/reset-scroll))))))
+        (with-persisted-view (-> hud (persisted-view) (v/reset-scroll)))
+        (with-current-view (-> hud (current-view) (v/reset-scroll))))))
 
 (s/defn eval-at :- Hud
   [hud :- Hud,
@@ -326,9 +326,9 @@
   (let [clipboard   (-> hud (input-area) (:clipboard))
         then-server (-> hud (nrepl-client) (f))
         then-text (-> then-server
-                        (r/then)
-                        (i/end)
-                        (i/reset-clipboard clipboard))]
+                      (n/then)
+                      (t/end)
+                      (t/reset-clipboard clipboard))]
     (-> hud
         (with-client then-server)
         (with-input-area then-text)
@@ -336,45 +336,72 @@
 
 (s/defn prev-eval :- Hud
   [hud :- Hud]
-  (eval-at hud r/travel-back))
+  (eval-at hud n/travel-back))
 
 (s/defn next-eval :- Hud
   [hud :- Hud]
-  (eval-at hud r/travel-forward))
+  (eval-at hud n/travel-forward))
 
-(s/defn evaluate :- Hud
-  [hud :- Hud]
+;(s/defn evaluate :- Hud
+;  [hud :- Hud]
+;  (let [current-input (input-area hud)
+;        client'       (-> hud (nrepl-client) (r/evaluate! current-input))
+;        result        (r/result client')
+;        new-view      (-> hud
+;                          (persisted-view)
+;                          (h/enrich-with [current-input result caret]))]
+;    (-> hud
+;        (with-client client')
+;        (with-input-area i/empty-line)
+;        (switch-view new-view))))
+
+(s/defn with-evaluation :- Hud
+  [hud :- Hud
+   text :- Text]
   (let [current-input (input-area hud)
-        client'       (-> hud (nrepl-client) (r/evaluate! current-input))
-        result        (r/result client')
         new-view      (-> hud
                           (persisted-view)
-                          (h/enrich-with [current-input result caret]))]
+                          (v/enrich-with [current-input text caret]))]
     (-> hud
-        (with-client client')
-        (with-input-area i/empty-line)
+        (with-input-area t/empty-line)
         (switch-view new-view))))
+
+(s/defn with-popup-autocompleted :- Hud
+  [hud :- Hud
+   window :- View]
+  (let [completion (v/current-line window)
+        text       (-> hud
+                       (input-area)
+                       (t/auto-complete completion))
+        preview    (-> hud
+                       (persisted-view)
+                       (v/enrich-with [text])
+                       (v/pop-up window))]
+    (-> hud
+        (with-input-area text)
+        (switch-current-view preview)
+        (deselect))))
 
 (s/defn suggestion-window :- View
   [hud :- Hud]
   (let [text  (input-area hud)
         repl  (nrepl-client hud)
         suggs (suggestions hud)]
-    (if (h/hollow? suggs)
-      (-> repl (r/complete! text) (r/result) (h/riffle-window 10))
-      (h/riffle suggs))))
+    (if (v/hollow? suggs)
+      (-> repl (n/complete! text) (n/result) (v/riffle-window 10))
+      (v/riffle suggs))))
 
 (s/defn suggest :- Hud
   [hud :- Hud]
   (let [suggestions (suggestion-window hud)
-        suggestion  (h/current-line suggestions)
+        suggestion  (v/current-line suggestions)
         text        (-> hud
                         (input-area)
-                        (i/auto-complete suggestion))
+                        (t/auto-complete suggestion))
         preview     (-> hud
                         (persisted-view)
-                        (h/enrich-with [text])
-                        (h/pop-up suggestions))]
+                        (v/enrich-with [text])
+                        (v/pop-up suggestions))]
     (-> hud
         (with-suggestions suggestions)
         (with-input-area text)
@@ -386,18 +413,18 @@
   (let [text (input-area hud)
         repl (nrepl-client hud)
         sigs (signatures hud)]
-    (if (h/hollow? sigs)
-      (-> repl (r/signature! text) (r/result) (h/riffle-window 10))
-      (h/riffle sigs))))
+    (if (v/hollow? sigs)
+      (-> repl (n/signature! text) (n/result) (v/riffle-window 10))
+      (v/riffle sigs))))
 
 (s/defn signature :- Hud
   [hud :- Hud]
   (let [signatures (signature-window hud)
         text       (input-area hud)
         preview    (-> hud
-                      (persisted-view)
-                      (h/enrich-with [text])
-                      (h/pop-up signatures))]
+                       (persisted-view)
+                       (v/enrich-with [text])
+                       (v/pop-up signatures))]
     (-> hud
         (with-signatures signatures)
         (switch-current-view preview))))
@@ -407,9 +434,9 @@
   (let [text (input-area hud)
         repl (nrepl-client hud)
         docs (documentation hud)]
-    (if (h/hollow? docs)
-      (-> repl (r/docs! text) (r/result) (h/riffle-window 15))
-      (h/riffle docs))))
+    (if (v/hollow? docs)
+      (-> repl (n/docs! text) (n/result) (v/riffle-window 15))
+      (v/riffle docs))))
 
 (s/defn document :- Hud
   [hud :- Hud]
@@ -417,8 +444,8 @@
         text          (input-area hud)
         preview       (-> hud
                           (persisted-view)
-                          (h/enrich-with [text])
-                          (h/pop-up documentation))]
+                          (v/enrich-with [text])
+                          (v/pop-up documentation))]
     (-> hud
         (with-documentation documentation)
         (switch-current-view preview))))
@@ -432,7 +459,7 @@
   [hud   :- Hud
    event :- e/Event]
   (let [repl (nrepl-client hud)
-        _    (->> event (:value) (i/from-string) (r/evaluate! repl))]
+        _    (->> event (:value) (t/from-string) (n/evaluate! repl))]
     hud))
 
 (s/defn input :- Hud
@@ -445,18 +472,18 @@
   "A `Hud` is the heads-up display of the REPL."
   [view-size :- s/Int
    repl      :- NReplClient]
-  (let [input     i/empty-line
-        previous  (h/empty-view-with-size view-size)
+  (let [input     t/empty-line
+        previous  (v/empty-view-with-size view-size)
         persisted (init-view view-size repl)
-        current   (h/enrich-with persisted [input])]
+        current   (v/enrich-with persisted [input])]
     {:nrepl          repl
      :render         :diff
      :previous-view  previous
      :persisted-view persisted
      :current-view   current
      :input-area     input
-     :suggestions    h/empty-view
-     :documentation  h/empty-view
-     :signatures     h/empty-view
+     :suggestions    v/empty-view
+     :documentation  v/empty-view
+     :signatures     v/empty-view
      :highlights     {}
      :garbage        {}}))

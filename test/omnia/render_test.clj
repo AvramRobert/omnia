@@ -334,7 +334,7 @@
 
 (deftest upper-x-diff
   (let [a {:from [4 1] :until [4 3]}
-i        b {:from [0 1] :until [4 3]}
+        b {:from [0 1] :until [4 3]}
         r {:from [0 1] :until [4 1]}]
     (check-diff {:now a :then b :expected nil})
     (check-diff {:now b :then a :expected r})))

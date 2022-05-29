@@ -4,7 +4,8 @@
             [omnia.repl.events :as e]
             [omnia.repl.context :as c]
             [clojure.test :refer [is deftest testing]]
-            [omnia.test-utils :refer :all]))
+            [omnia.test-utils :refer :all]
+            [omnia.repl.docs :as d]))
 
 ;; I. Manipulation
 
@@ -25,7 +26,7 @@
                        (h/current-view))]
     (= expected actual)))
 
-(deftest clipboard-is-renewed
+(deftest clipboard-is-renew
   (let [actual   (-> ["existing input"]
                      (derive-context)
                      (process [e/select-all e/copy (e/character \a) e/select-all e/copy])
@@ -199,8 +200,10 @@
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:response (value-response "2")}))
-        processed         (process context [e/evaluate])
+                              (derive-context))
+        processed         (process context
+                                   {:response (value-response "2")}
+                                   [e/evaluate])
         expected          (-> ["persisted"
                                "(+ 1 1)"
                                ""
@@ -284,84 +287,110 @@
 ;; VII. Suggesting
 
 (deftest shows-suggestions
-  (let [context           (-> ["persisted"
-                               ---
-                               "s|ome things are"]
-                              (derive-context {:response
-                                               (completion-response ["option-1"
-                                                                     "option-2"])}))
-        expected1         (-> ["persisted"
-                               ---
-                               "option-1 things are"
-                               "------"
-                               " option-1|"
-                               " option-2"
-                               "------"]
-                              (derive-context))
-        expected2         (-> ["persisted"
-                               ---
-                               "option-2 things are"
-                               "------"
-                               " option-1"
-                               " option-2|"
-                               "------"]
-                              (derive-context))
-        processed1        (process context [e/suggest])
-        processed2        (process context [e/suggest e/suggest])
+  (let [context               (-> ["persisted"
+                                   ---
+                                   "s|ome things are"]
+                                  (derive-context))
+        expected1             (-> ["persisted"
+                                   ---
+                                   "option-1 things are"
+                                   "------"
+                                   " option-1|"
+                                   " option-2"
+                                   "------"]
+                                  (derive-context))
+        expected2             (-> ["persisted"
+                                   ---
+                                   "option-2 things are"
+                                   "------"
+                                   " option-1"
+                                   " option-2|"
+                                   "------"]
+                                  (derive-context))
 
-        actual1-preview   (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
-        actual1-cursor    (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
+        expected1-options     (-> ["option-1|"
+                                   "option-2"]
+                                  (derive-text))
+        expected2-options     (-> ["option-1"
+                                   "option-2|"]
+                                  (derive-text))
 
-        actual2-preview   (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
-        actual2-cursor    (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
+        processed1            (process context
+                                       {:response (completion-response ["option-1" "option-2"])}
+                                       [e/suggest])
+        processed2            (process context
+                                       {:response (completion-response ["option-1" "option-2"])}
+                                       [e/suggest e/suggest])
+        actual1-suggestion    (-> processed1 (c/docs) (d/suggestions) (v/text))
+        actual1-documentation (-> processed1 (c/docs) (d/documentation))
+        actual1-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
+        actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        expected1-preview (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
-        expected1-cursor  (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
+        actual2-suggestion    (-> processed2 (c/docs) (d/suggestions) (v/text))
+        actual2-documentation (-> processed1 (c/docs) (d/documentation))
+        actual2-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
+        actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        expected2-preview (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
-        expected2-cursor  (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))]
+        expected1-preview     (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected1-cursor      (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected2-preview     (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
+        expected2-cursor      (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual1-preview expected1-preview))
     (is (= actual2-preview expected2-preview))
     (is (= actual1-cursor expected1-cursor))
-    (is (= actual2-cursor expected2-cursor))))
+    (is (= actual2-cursor expected2-cursor))
+    (is (= actual1-suggestion expected1-options))
+    (is (= actual2-suggestion expected2-options))
+    (is (= actual1-documentation nil))
+    (is (= actual1-signatures nil))
+    (is (= actual2-documentation nil))
+    (is (= actual2-signatures nil))))
 
 (deftest keeps-suggestion-upon-input
-  (let [context              (-> ["persisted"
+  (let [context          (-> ["persisted"
                               ---
                               "1|"]
-                             (derive-context {:response
-                                              (completion-response ["option-1"
-                                                                    "option-2"])})
-                             (process [e/suggest e/suggest (e/character \a)]))
+                             (derive-context)
+                             (process {:response (completion-response ["option-1" "option-2"])}
+                                      [e/suggest e/suggest (e/character \a)]))
         expected         (-> ["persisted"
                               ---
                               "option-2a|"]
                              (derive-context))
+        actual-options   (-> context (c/docs) (d/suggestions))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
         expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview expected-preview))
-    (is (= actual-cursor expected-cursor))))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-options nil))))
 
 (deftest shows-empty-box-when-no-suggestions
   (let [context          (-> ["persisted"
                               ---
                               "1|"]
-                             (derive-context {:response (completion-response [])})
-                             (process [e/suggest]))
+                             (derive-context)
+                             (process {:response (completion-response [])} [e/suggest]))
         expected         (-> ["persisted"
                               ---
                               "1"
                               "------|"
                               "------"]
                              (derive-context))
+        expected-options (-> []
+                             (derive-text))
+        actual-options   (-> context (c/docs) (d/suggestions) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
         expected-cursor  (-> expected (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview expected-preview))
-    (is (= actual-cursor expected-cursor))))
+    (is (= actual-cursor expected-cursor))
+    (is (= actual-options expected-options))))
 
 ;; VIII. Highlighting
 
@@ -608,7 +637,7 @@
 ;; IX. Parenthesis matching
 
 (deftest matches-parentheses
-  (let [context             (-> ["persisted"
+  (let [context         (-> ["persisted"
                              ---
                              "(+ 1 1|)"]
                             (derive-context)
