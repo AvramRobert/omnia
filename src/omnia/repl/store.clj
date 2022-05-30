@@ -1,7 +1,22 @@
 (ns omnia.repl.store
   (:require [schema.core :as s]
-            [omnia.schema.store :refer [Store History LinearHistory IndexedHistory Timeframe TimeEntry]]
+            [omnia.schema.text :refer [Text]]
+            [omnia.schema.store :refer [Store History UndoRedoHistory EvalHistory Timeframe]]
             [omnia.util.arithmetic :refer [dec< inc<]]))
+
+;; FIXME: Refactor. Make it less monolithic around stores
+
+(s/defn undo-history :- UndoRedoHistory
+  [store :- Store]
+  (:undo-history store))
+
+(s/defn redo-history :- UndoRedoHistory
+  [store :- Store]
+  (:redo-history store))
+
+(s/defn eval-history :- EvalHistory
+  [store :- Store]
+  (:eval-history store))
 
 (s/defn timeframe :- Timeframe
   [history :- History]
@@ -12,77 +27,87 @@
   (:limit history))
 
 (s/defn size :- s/Int
-  [history :- LinearHistory]
+  [history :- UndoRedoHistory]
   (:size history))
 
 (s/defn instant :- s/Int
-  [history :- IndexedHistory]
+  [history :- EvalHistory]
   (:instant history))
 
-(s/defn prepend :- LinearHistory
-  [entry :- TimeEntry
-   linear-history :- LinearHistory]
+(s/defn temp :- (s/maybe Text)
+  [history :- EvalHistory]
+  (:temp history))
+
+(s/defn with-undo-history :- Store
+  [store :- Store
+   linear-history :- UndoRedoHistory]
+  (assoc store :undo-history linear-history))
+
+(s/defn with-redo-history :- Store
+  [store :- Store
+   linear-history :- UndoRedoHistory]
+  (assoc store :redo-history linear-history))
+
+(s/defn with-eval-history :- Store
+  [store :- Store
+   indexed :- EvalHistory]
+  (assoc store :eval-history indexed))
+
+(s/defn reset-eval-history :- Store
+  [store :- Store]
+  (let [history  (eval-history store)
+        frame    (timeframe history)
+        limit    (limit history)
+        temp     (temp history)
+        instant  (instant history)
+        instant' (min limit (count frame))
+        temp'    nil]
+    (if (and (= temp temp')
+             (= instant instant'))
+      store
+      (with-eval-history store {:timeframe frame
+                                :limit     limit
+                                :instant   instant'
+                                :temp      temp'}))))
+
+(s/defn prepend :- UndoRedoHistory
+  [text :- Text
+   linear-history :- UndoRedoHistory]
   (let [limit (limit linear-history)
         size  (size linear-history)
         frame (timeframe linear-history)]
     {:timeframe (if (< size limit)
-                  (cons entry frame)
-                  (cons entry (take (dec limit) frame)))
+                  (cons text frame)
+                  (cons text (take (dec limit) frame)))
      :size      (if (< size limit)
                   (inc size)
                   limit)
      :limit     limit}))
 
-(s/defn tail :- LinearHistory
-  [linear-history :- LinearHistory]
+(s/defn tail :- UndoRedoHistory
+  [linear-history :- UndoRedoHistory]
   (if (= 0 (size linear-history))
     linear-history
     {:timeframe (rest (timeframe linear-history))
      :size      (dec< (size linear-history) 0)
      :limit     (limit linear-history)}))
 
-(s/defn append :- IndexedHistory
-  [entry :- TimeEntry
-   indexed :- IndexedHistory]
-  (let [limit   (limit indexed)
-        instant (instant indexed)
-        frame   (timeframe indexed)
+(s/defn append :- EvalHistory
+  [text :- Text
+   eval-history :- EvalHistory]
+  (let [limit   (limit eval-history)
+        temp    (temp eval-history)
+        instant (instant eval-history)
+        frame   (timeframe eval-history)
         size    (count frame)]
     {:timeframe (if (< size limit)
-                  (conj frame entry)
-                  (conj (vec (drop 1 frame)) entry))
-     :instant   (cond
-                  (= size 0) 0
-                  (< (inc instant) limit) (inc instant)
-                  :else instant)
-     :limit     limit}))
-
-(s/defn undo-history :- LinearHistory
-  [store :- Store]
-  (:undo-history store))
-
-(s/defn redo-history :- LinearHistory
-  [store :- Store]
-  (:redo-history store))
-
-(s/defn eval-history :- IndexedHistory
-  [store :- Store]
-  (:eval-history store))
-
-(s/defn with-undo-history :- Store
-  [store :- Store
-   linear-history :- LinearHistory]
-  (assoc store :undo-history linear-history))
-
-(s/defn with-redo-history :- Store
-  [store :- Store
-   linear-history :- LinearHistory]
-  (assoc store :redo-history linear-history))
-
-(s/defn with-eval-history :- Store
-  [store :- Store
-   indexed :- IndexedHistory]
-  (assoc store :eval-history indexed))
+                  (conj frame text)
+                  (conj (vec (drop 1 frame)) text))
+     :instant   (if (< instant limit)
+                  (inc instant)
+                  instant)
+     :limit     limit
+     :temp      temp}))
 
 (s/defn undo :- Store
   [store :- Store]
@@ -102,63 +127,84 @@
 
 (s/defn add-to-undo-history :- Store
   [store :- Store
-   entry :- TimeEntry]
+   text :- Text]
   (->> store
        (undo-history)
-       (prepend entry)
+       (prepend text)
        (with-undo-history store)))
 
 (s/defn add-to-eval-history :- Store
   [store :- Store
-   entry :- TimeEntry]
+   text :- Text]
   (->> store
        (eval-history)
-       (append entry)
+       (append text)
        (with-eval-history store)))
+
+(s/defn add-temporary :- Store
+  [store :- Store
+   text :- Text]
+  (let [eval-history (eval-history store)
+        instant      (instant eval-history)
+        frame        (timeframe eval-history)
+        limit        (limit eval-history)]
+    (with-eval-history store {:timeframe frame
+                              :instant   instant
+                              :limit     limit
+                              :temp      text})))
 
 (s/defn travel-to-previous-instant :- Store
   [store :- Store]
   (let [eval-history (eval-history store)
         instant      (instant eval-history)
         frame        (timeframe eval-history)
-        limit        (limit eval-history)]
+        limit        (limit eval-history)
+        temp         (temp eval-history)
+        instant'     (dec instant)]
     (with-eval-history store {:timeframe frame
-                                :limit     limit
-                                :instant   (dec< instant 0)})))
+                              :limit     limit
+                              :temp      temp
+                              :instant   (if (> instant' 0) instant' 0)})))
 
 (s/defn travel-to-next-instant :- Store
   [store :- Store]
   (let [eval-history (eval-history store)
         instant      (instant eval-history)
         frame        (timeframe eval-history)
-        limit        (limit eval-history)]
+        limit        (limit eval-history)
+        threshold    (min limit (count frame))
+        temp         (temp eval-history)
+        instant'     (inc instant)]
     (with-eval-history store {:timeframe frame
-                                :limit     limit
-                                :instant   (inc< instant limit)})))
+                              :limit     limit
+                              :temp      temp
+                              :instant   (if (<= instant' threshold) instant' instant)})))
 
-(s/defn evaluation :- TimeEntry
+(s/defn evaluation :- (s/maybe Text)
   [store :- Store]
-  (let [history     (eval-history store)
+  (let [history   (eval-history store)
         instant   (instant history)
-        timeframe (timeframe history)]
-    (nth timeframe instant [])))
+        timeframe (timeframe history)
+        temporary (temp history)]
+    (nth timeframe instant temporary)))
 
-(s/defn create-linear-history :- LinearHistory
+(s/defn create-undo-redo-history :- UndoRedoHistory
   [limit :- s/Int]
   {:timeframe '()
    :size      0
    :limit     limit})
 
-(s/defn create-indexed-history :- IndexedHistory
+(s/defn create-eval-history :- EvalHistory
   [limit :- s/Int]
   {:timeframe []
    :instant   0
+   :temp      nil
    :limit     limit})
 
 (s/defn create-store :- Store
   [limit :- s/Int]
-  (let [linear-history (create-linear-history limit)
-        indexed-history      (create-indexed-history limit)]
-    {:undo-history linear-history
-     :redo-history linear-history
-     :eval-history indexed-history}))
+  (let [undo-redo (create-undo-redo-history limit)
+        eval      (create-eval-history limit)]
+    {:undo-history undo-redo
+     :redo-history undo-redo
+     :eval-history eval}))

@@ -14,7 +14,7 @@
             [omnia.config.defaults :refer [default-user-config]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.store :refer [IndexedHistory]]
+            [omnia.schema.store :refer [Store EvalHistory]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [Terminal]]
@@ -186,7 +186,7 @@
 (s/def HudDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag ViewDefinition Input-Area-Tag)])
 
 (s/def ContextProps {(s/optional-key :response)     NReplResponse
-                     (s/optional-key :eval-history) [[s/Str]]})
+                     (s/optional-key :eval-history) [s/Str]})
 
 (s/def HudProps
   {:input-area     [s/Str]
@@ -306,13 +306,12 @@
             (h/with-manual h (h/create-manual-highlight default-config highlights))
             h))))
 
-(s/defn derive-eval-history :- IndexedHistory
-  [limit :- s/Int
-   evals :- [[s/Str]]]
-  (let [timeframe (->> evals (mapv (comp :lines derive-text)))]
-    {:timeframe timeframe
-     :instant   (if (empty? evals) 0 (dec (count evals)))
-     :limit     limit}))
+(s/defn gather-eval-history :- Store
+  [evaluations :- [s/Str]
+   store       :- Store]
+  (->> evaluations
+       (mapv (fn [eval] (derive-text [eval])))
+       (reduce st/add-to-eval-history store)))
 
 (s/defn derive-context :- Context
   ([def :- HudDefinition]
@@ -320,11 +319,8 @@
   ([def :- HudDefinition
     props :- ContextProps]
    (let [nrepl-client (nrepl-client (:response props terminating-response))
-         store        (st/create-store 5)
-         eval-history (some->> props (:eval-history) (derive-eval-history 5))
-         store        (->> (st/eval-history store)
-                           (or eval-history)
-                           (st/with-eval-history store))
+         store        (->> (st/create-store 5)
+                           (gather-eval-history (:eval-history props [])))
          hud          (derive-hud def nrepl-client)]
      (c/context-from hud store))))
 

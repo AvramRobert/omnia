@@ -30,21 +30,29 @@
   [context :- Context]
   (:store context))
 
+(s/defn reset-docs :- Docs
+  [context :- Context]
+  d/empty-docs)
+
+(s/defn reset-store :- Store
+  [context :- Context]
+  (-> context (store) (st/reset-eval-history)))
+
 (s/defn continue :- Context
   [hud :- Hud
    context :- Context]
   {:status processing
    :hud    hud
-   :docs   (docs context)
-   :store  (store context)})
+   :docs   (reset-docs context)
+   :store  (reset-store context)})
 
 (s/defn terminate :- Context
   [hud :- Hud
    context :- Context]
   {:status terminated
    :hud    hud
-   :docs   (docs context)
-   :store  (store context)})
+   :docs   (reset-docs context)
+   :store  (reset-store context)})
 
 (s/defn inject :- Context
   [context :- Context
@@ -70,7 +78,7 @@
                          (-> nrepl (n/docs! current-input) (n/result) (v/riffle-window 15))
                          (v/riffle documentation))]
     {:status processing
-     :store  (store context)
+     :store  (reset-store context)
      :docs   (d/with-documentation docs documentation')
      :hud    (-> hud
                  (h/gc config)
@@ -93,7 +101,7 @@
                         (-> nrepl (n/signature! current-input) (n/result) (v/riffle-window 10))
                         (v/riffle signatures))]
     {:status processing
-     :store  (store context)
+     :store  (reset-store context)
      :docs   (d/with-signatures docs signatures')
      :hud    (-> hud
                  (h/gc config)
@@ -116,7 +124,7 @@
                         (-> nrepl (n/complete! current-input) (n/result) (v/riffle-window 10))
                         (v/riffle suggestions))]
     {:status processing
-     :store  (store context)
+     :store  (reset-store context)
      :docs   (d/with-suggestions docs suggestions')
      :hud    (-> hud
                  (h/gc config)
@@ -158,13 +166,18 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [store      (-> context (store) (st/travel-to-previous-instant))
-        evaluation (-> store (st/evaluation) (t/create-text))]
+  (let [hud        (hud context)
+        store      (store context)
+        store'     (if (-> store (st/eval-history) (st/temp) (nil?))
+                     (-> store
+                         (st/add-temporary (h/input-area hud))
+                         (st/travel-to-previous-instant))
+                     (st/travel-to-previous-instant store))
+        evaluation (st/evaluation store')]
     {:status processing
-     :docs   (docs context)
-     :store  store
-     :hud    (-> context
-                 (hud)
+     :docs   (reset-docs context)
+     :store  store'
+     :hud    (-> hud
                  (h/gc config)
                  (h/reset-scroll)
                  (h/switch-input-area evaluation)
@@ -177,13 +190,18 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [store      (-> context (store) (st/travel-to-next-instant))
-        evaluation (-> store (st/evaluation) (t/create-text))]
+  (let [hud        (hud context)
+        store      (store context)
+        store'     (if (-> store (st/eval-history) (st/temp) (nil?))
+                     (-> store
+                         (st/add-temporary (h/input-area hud))
+                         (st/travel-to-next-instant))
+                     (st/travel-to-next-instant store))
+        evaluation (st/evaluation store')]
     {:status processing
-     :docs   (docs context)
-     :store  store
-     :hud    (-> context
-                 (hud)
+     :docs   (reset-docs context)
+     :store  store'
+     :hud    (-> hud
                  (h/gc config)
                  (h/reset-scroll)
                  (h/switch-input-area evaluation)
@@ -233,8 +251,8 @@
         store  (store context)
         result (-> nrepl (n/evaluate! (h/input-area hud)) (n/result))]
     {:status processing
-     :store  (st/add-to-eval-history store (:lines result))
-     :docs   (docs context)
+     :store  (st/add-to-eval-history store result)
+     :docs   (reset-docs context)
      :hud    (-> hud
                  (h/gc config)
                  (h/reset-scroll)
@@ -283,8 +301,8 @@
    nrepl :- NReplClient
    f :- (=> Text Text)]
   {:status processing
-   :store  (store context)
-   :docs   d/empty-docs
+   :store  (reset-store context)
+   :docs   (reset-docs context)
    :hud    (-> context
                (hud)
                (h/gc config)

@@ -1,8 +1,11 @@
 CURRENT TASK:
 
- * Move everything that depends on the nrepl client to the context.
-   -> evaluation history aswell. That way, you can finally remove the nrepl client from the hud
-
+ * Move the evaluation history from the repl to the store
+ * Test the new store evaluation history thoroughly
+ * Remove the evaluation history from the context
+ * Remove the evaluation history from the nrepl. Make the nrepl stateless
+ * Clean-up code
+ * Write a `resets-docs` test for the context
 Global issues:
  * Remove the nrepl-client from the Hud
  * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)

@@ -225,24 +225,23 @@
 
 ;; VI. Previous and next evaluations
 
-;; FIXME fix evaluation. This is getting fucken annoying
 (deftest navigates-through-evaluation-history
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:eval-history [["past-eval-1"]
-                                                              ["past-eval-2"]]}))
+                              (derive-context {:eval-history ["past-eval-1" "past-eval-2"]}))
         expected1         (-> ["persisted"
                                ---
-                               "past-eval-1|"]
+                               "past-eval-2|"]
                               (derive-context))
         expected2         (-> ["persisted"
                                ---
-                               "past-eval-2|"]
+                               "past-eval-1|"]
                               (derive-context))
         processed1        (process context [e/prev-eval])
         processed2        (process context [e/prev-eval e/prev-eval])
         processed3        (process context [e/prev-eval e/prev-eval e/next-eval])
+        processed4        (process context [e/prev-eval e/next-eval])
         actual-preview1   (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor1    (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview1 (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
@@ -254,7 +253,12 @@
         expected-cursor2  (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))
 
         actual-preview3   (-> processed3 (c/hud) (h/current-view) (v/text) (:lines))
-        actual-cursor3    (-> processed3 (c/hud) (h/current-view) (v/text) (:cursor))]
+        actual-cursor3    (-> processed3 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        actual-preview4   (-> processed4 (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor4    (-> processed4 (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview4 (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor4  (-> context (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview1 expected-preview1))
     (is (= actual-cursor1 expected-cursor1))
 
@@ -262,21 +266,54 @@
     (is (= actual-cursor2 expected-cursor2))
 
     (is (= actual-preview3 expected-preview1))
-    (is (= actual-cursor3 expected-cursor1))))
+    (is (= actual-cursor3 expected-cursor1))
+
+    (is (= actual-preview4 expected-preview4))
+    (is (= actual-cursor4 expected-cursor4))))
+
+(deftest resets-navigation-through-evaluation-history
+  (let [context           (-> ["persisted"
+                               ---
+                               "(+ 1 1)|"]
+                              (derive-context {:eval-history ["past-eval-1" "past-eval-2"]}))
+        expected1         (-> ["persisted"
+                               ---
+                               "past-eval-1a|"]
+                              (derive-context))
+        expected2         (-> ["persisted"
+                               ---
+                               "past-eval-2|"]
+                              (derive-context))
+        processed1        (process context [e/prev-eval e/prev-eval (e/character \a)])
+        processed2        (process processed1 [e/prev-eval])
+        actual-preview1   (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor1    (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview1 (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor1  (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))
+
+        actual-preview2   (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
+        actual-cursor2    (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
+        expected-preview2 (-> expected2 (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor2  (-> expected2 (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= actual-preview1 expected-preview1))
+    (is (= actual-cursor1 expected-cursor1))
+
+    (is (= actual-preview2 expected-preview2))
+    (is (= actual-cursor2 expected-cursor2))))
 
 (deftest preserves-clipboard-during-evaluation-navigation
   (let [context          (-> ["persisted"
                               ---
                               "some ⦇text⦈|"]
-                             (derive-context {:history ["prev-eval-1"
-                                                        "prev-eval-2"]})
+                             (derive-context {:eval-history ["prev-eval-1"
+                                                             "prev-eval-2"]})
                              (process [e/copy
                                        e/prev-eval
                                        e/prev-eval
                                        e/paste]))
         expected         (-> ["persisted"
                               ---
-                              "prev-eval-2text|"]
+                              "prev-eval-1text|"]
                              (derive-context))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
