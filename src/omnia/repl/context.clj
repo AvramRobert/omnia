@@ -3,7 +3,9 @@
             [omnia.repl.hud :as h]
             [omnia.repl.store :as st]
             [omnia.repl.docs :as d]
-            [omnia.repl.text :as i]
+            [omnia.repl.text :as t]
+            [omnia.repl.view :as v]
+            [omnia.repl.nrepl :as n]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.docs :refer [Docs]]
@@ -13,10 +15,7 @@
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event Action]]
             [omnia.schema.common :refer [=>]]
-            [omnia.schema.nrepl :refer [NReplClient]]
-            [omnia.repl.nrepl :as n]
-            [omnia.repl.view :as v]
-            [omnia.repl.text :as t]))
+            [omnia.schema.nrepl :refer [NReplClient]]))
 
 (s/defn hud :- Hud
   [context :- Context]
@@ -326,161 +325,161 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl #(i/insert % (:value event))))
+  (text-event context event config nrepl #(t/insert % (:value event))))
 
 (s/defn move-up :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/move-up))
+  (text-event context event config nrepl t/move-up))
 
 (s/defn move-down :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/move-down))
+  (text-event context event config nrepl t/move-down))
 
 (s/defn move-left :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/move-left))
+  (text-event context event config nrepl t/move-left))
 
 (s/defn move-right :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/move-right))
+  (text-event context event config nrepl t/move-right))
 
 (s/defn jump-left :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/jump-left))
+  (text-event context event config nrepl t/jump-left))
 
 (s/defn jump-right :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/jump-right))
+  (text-event context event config nrepl t/jump-right))
 
 (s/defn select-all :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/select-all))
+  (text-event context event config nrepl t/select-all))
 
 (s/defn select-up :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/select-up))
+  (text-event context event config nrepl t/select-up))
 
 (s/defn select-down :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/select-down))
+  (text-event context event config nrepl t/select-down))
 
 (s/defn select-right :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/select-right))
+  (text-event context event config nrepl t/select-right))
 
 (s/defn select-left :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/select-left))
+  (text-event context event config nrepl t/select-left))
 
 (s/defn jump-select-left :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/jump-select-left))
+  (text-event context event config nrepl t/jump-select-left))
 
 (s/defn jump-select-right :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/jump-select-right))
+  (text-event context event config nrepl t/jump-select-right))
 
 (s/defn expand-selection :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/expand-selection))
+  (text-event context event config nrepl t/expand-selection))
 
 (s/defn copy :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/copy))
+  (text-event context event config nrepl t/copy))
 
 (s/defn cut :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/cut))
+  (text-event context event config nrepl t/cut))
 
 (s/defn paste :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/paste))
+  (text-event context event config nrepl t/paste))
 
 (s/defn delete-previous :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/delete-previous))
+  (text-event context event config nrepl t/delete-previous))
 
 (s/defn delete-current :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/delete-current))
+  (text-event context event config nrepl t/delete-current))
 
 (s/defn new-line :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/new-line))
+  (text-event context event config nrepl t/new-line))
 
 (s/defn undo :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/undo))
+  (text-event context event config nrepl t/undo))
 
 (s/defn redo :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl i/redo))
+  (text-event context event config nrepl t/redo))
 
 (s/def handlers :- {Action EventHandler}
   {e/inject            inject
