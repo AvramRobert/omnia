@@ -45,23 +45,15 @@
 (s/def default-config :- Config
   (config/convert default-user-config))
 
-(s/def default-host :- s/Str
-  "")
-
-(s/def default-port :- s/Int
-  0)
-
-(s/def default-header :- Text
-  (->> (h/header default-host default-port)
-       (i/joined)))
+(s/def default-header :- Text h/header)
 
 (s/defn nrepl-client :- NReplClient
   ([nrepl-response :- NReplResponse]
    (nrepl-client nrepl-response []))
   ([nrepl-response :- NReplResponse
     history :- [Text]]
-   (n/client {:host    default-host
-              :port    default-port
+   (n/client {:host    "nrepl://test-host"
+              :port    0
               :history history
               :client  (constantly [nrepl-response])})))
 
@@ -185,8 +177,8 @@
 (s/def ViewDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag)])
 (s/def HudDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag ViewDefinition Input-Area-Tag)])
 
-(s/def ContextProps {(s/optional-key :response)     NReplResponse
-                     (s/optional-key :eval-history) [s/Str]})
+(s/def NReplProps {(s/optional-key :response)     NReplResponse})
+(s/def ContextProps {(s/optional-key :eval-history) [s/Str]})
 
 (s/def HudProps
   {:input-area     [s/Str]
@@ -269,14 +261,13 @@
        -$ (invisible line, increments the scroll-offset)
        -+ line-5-offset
        -+ (invisible line, increments the view-offset)]"
-  [def :- HudDefinition
-   nrepl :- NReplClient]
+  [def :- HudDefinition]
   (let [{:keys [input-area
                 persisted-area
                 field-of-view
                 view-offset
                 scroll-offset]} (parse def)
-        hud              (h/create-hud field-of-view nrepl)
+        hud              (h/create-hud field-of-view)
         parsed-input     (derive-text input-area)
         parsed-persisted (if (empty? persisted-area)
                            []
@@ -318,19 +309,18 @@
    (derive-context def {}))
   ([def :- HudDefinition
     props :- ContextProps]
-   (let [nrepl-client (nrepl-client (:response props terminating-response))
-         store        (->> (st/create-store 5)
+   (let [store        (->> (st/create-store 5)
                            (gather-eval-history (:eval-history props [])))
-         hud          (derive-hud def nrepl-client)]
+         hud          (derive-hud def)]
      (c/context-from hud store))))
 
 (s/defn process :- Context
   ([context :- Context
     events  :- [Event]]
-   (process context {} events))
+   (process context events {}))
   ([context :- Context
-    props   :- ContextProps
-    events  :- [Event]]
+    events :- [Event]
+    props :- NReplProps]
    (let [nrepl (nrepl-client (:response props terminating-response)
                              (->> []
                                   (:history props)

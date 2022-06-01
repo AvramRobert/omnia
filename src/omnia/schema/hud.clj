@@ -6,8 +6,7 @@
             [omnia.schema.render :as r]))
 
 (def Hud
-  {:nrepl          n/NReplClient
-   :render         r/RenderingStrategy
+  {:render         r/RenderingStrategy
    :previous-view  h/View
    :persisted-view h/View
    :current-view   h/View

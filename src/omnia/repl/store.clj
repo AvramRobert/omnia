@@ -1,8 +1,10 @@
 (ns omnia.repl.store
   (:require [schema.core :as s]
+            [omnia.repl.text :as t]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.store :refer [Store History UndoRedoHistory EvalHistory Timeframe]]
-            [omnia.util.arithmetic :refer [dec< inc<]]))
+            [omnia.schema.store :refer [Store SerialisedStore History UndoRedoHistory EvalHistory Timeframe]]
+            [omnia.util.arithmetic :refer [dec< inc<]]
+            [omnia.util.misc :refer [slurp-or-else]]))
 
 ;; FIXME: Refactor. Make it less monolithic around stores
 
@@ -208,3 +210,22 @@
     {:undo-history undo-redo
      :redo-history undo-redo
      :eval-history eval}))
+
+(s/defn read-store :- Store
+  [path :- s/Str]
+  (let [store (create-store 50)
+        data  (-> path
+                  (slurp-or-else "")
+                  (:eval-history []))]
+    (->> data
+         (mapv t/from-string)
+         (reduce add-to-eval-history store))))
+
+(s/defn serialise :- SerialisedStore
+  [store :- Store]
+  {:eval-history (->> store (eval-history) (timeframe) (mapv t/as-string))})
+
+(s/defn write-store :- nil
+  [path :- s/Str
+   store :- Store]
+  (->> store (serialise) (spit path)))

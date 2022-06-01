@@ -4,9 +4,9 @@
             [halfling.task :as tsk]
             [omnia.display.terminal :as t]
             [omnia.repl.nrepl :as n]
-            [omnia.repl.core :as r]
+            [omnia.repl.store :as st]
             [omnia.repl.context :as ct]
-            [omnia.repl.hud :as h]
+            [omnia.repl.core :as r]
             [omnia.config.core :as c]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.main :refer [ThrowableMap ArgMap]]
@@ -22,9 +22,9 @@
   [dir :- s/Str]
   (format "%s/omnia.edn" dir))
 
-(s/defn history-path :- s/Str
+(s/defn store-path :- s/Str
   [dir :- s/Str]
-  (format "%s/.omnia.history" dir))
+  (format "%s/.omnia.store" dir))
 
 (s/defn rand-port :- s/Int
   []
@@ -67,9 +67,9 @@
 (s/defn hooks! :- Task
   [context :- Context
    argmap :- ArgMap]
-  (let [history-dir (-> argmap (:dir) (history-path))
-        repl        (-> context (ct/hud) (h/nrepl-client))]
-    (-> (n/write-history history-dir repl)
+  (let [store-dir (-> argmap (:dir) (store-path))
+        store     (ct/store context)]
+    (-> (st/write-store store-dir store)
         (tsk/task)
         (tsk/recover (fn [_] ())))))
 
@@ -88,21 +88,20 @@
 
 (defn -main [& args]
   (-> (tsk/do-tasks
-        [argmap       (read-args! args)
-         config       (-> argmap (:dir) (config-path) (c/read-config!))
-         history      (-> argmap (:dir) (history-path) (n/read-history))
-         terminal     (t/terminal config)
-         repl-config  {:history history
-                       :host    repl-host
-                       :port    (rand-port)
-                       :ns      repl-ns}
-         server       (n/start-server! repl-config)
-         repl         (n/client repl-config)
-         _            (t/start! terminal)
-         ctx          (r/read-eval-print config terminal repl)
-         _            (hooks! (:hud ctx) argmap)
-         _            (t/stop! terminal)
-         _            (n/stop-server! server)])
+        [argmap      (read-args! args)
+         config      (-> argmap (:dir) (config-path) (c/read-config!))
+         store       (-> argmap (:dir) (store-path) (st/read-store))
+         terminal    (t/terminal config)
+         repl-config {:host repl-host
+                      :port (rand-port)
+                      :ns   repl-ns}
+         server      (n/start-server! repl-config)
+         repl        (n/client repl-config)
+         _           (t/start! terminal)
+         ctx         (r/read-eval-print config terminal repl store)
+         _           (hooks! ctx argmap)
+         _           (t/stop! terminal)
+         _           (n/stop-server! server)])
       (tsk/recover fail!)
       (tsk/then succeed!)
       (tsk/run)))

@@ -54,14 +54,6 @@
    :docs   (reset-docs context)
    :store  (reset-store context)})
 
-(s/defn inject :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient]
-  (->> event (:value) (t/from-string) (n/evaluate! nrepl))
-  context)
-
 (s/defn documentation :- Context
   [context :- Context
    event :- Event
@@ -244,16 +236,34 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [hud    (hud context)
-        store  (store context)
-        result (-> nrepl (n/evaluate! (h/input-area hud)) (n/result))]
+  (let [hud        (hud context)
+        store      (store context)
+        input-area (h/input-area hud)
+        result     (-> nrepl (n/evaluate! input-area) (n/result))]
     {:status processing
-     :store  (st/add-to-eval-history store result)
+     :store  (st/add-to-eval-history store input-area)
      :docs   (reset-docs context)
      :hud    (-> hud
                  (h/gc config)
                  (h/reset-scroll)
                  (h/with-evaluation result)
+                 (h/highlight config)
+                 (h/diff-render))}))
+
+(s/defn inject :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (let [hud        (hud context)
+        result     (->> event (:value) (t/from-string) (n/evaluate! nrepl) (n/result))]
+    {:status processing
+     :store  (store context)
+     :docs   (reset-docs context)
+     :hud    (-> hud
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/with-injection result)
                  (h/highlight config)
                  (h/diff-render))}))
 
@@ -510,22 +520,6 @@
    e/character         character
    e/expand-selection  expand-selection})
 
-(s/defn context-from :- Context
-  [hud :- Hud
-   store :- Store]
-  {:status processing
-   :store  store
-   :docs   d/empty-docs
-   :hud    hud})
-
-(s/defn create-context :- Context
-  [view-size :- s/Int
-   repl-client :- NReplClient]
-  {:status processing
-   :store  (st/create-store 50)
-   :disc   d/empty-docs
-   :hud    (h/create-hud view-size repl-client)})
-
 (s/defn process :- Context
   [context :- Context
    event :- Event
@@ -534,3 +528,11 @@
   (let [action  (:action event)
         handler (get handlers action ignore)]
     (handler context event config nrepl)))
+
+(s/defn context-from :- Context
+  [hud :- Hud
+   store :- Store]
+  {:status processing
+   :store  store
+   :docs   d/empty-docs
+   :hud    hud})

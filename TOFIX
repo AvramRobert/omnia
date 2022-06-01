@@ -1,18 +1,11 @@
 CURRENT TASK:
 
- * Move the evaluation history from the repl to the store
+ * Make nrepl stateless (remove the memoised result from the hashmap)
  * Test the new store evaluation history thoroughly
- * Move `inject` implementation from `hud` to `context`
- * Adapt `text-event` function. Apply the change on the `input-area` in the context and then use
-   `switch-input-area` to reset it in the hud. Remove `input` from hud
- * Remove the evaluation history from the context
- * Remove the evaluation history from the nrepl. Make the nrepl stateless
  * Clean-up code
  * Write a `resets-docs` test for the context
 
-
 Global issues:
- * Remove the nrepl-client from the Hud
  * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
  * Clean-up test code afterwards
  * Add rendering strategy to the context

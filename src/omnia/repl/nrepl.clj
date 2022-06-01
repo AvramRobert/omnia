@@ -18,22 +18,6 @@
        (map resolve)
        (apply nrepl-server/default-handler)))
 
-(s/defn read-history :- Text
-  [path :- s/Str]
-  (->> [""]
-       (slurp-or-else path)
-       (mapv i/from-string)))
-
-(s/defn write-history
-  [repl :- NReplClient
-   path :- s/Str]
-  (->> repl
-       (:history)
-       (mapv i/as-string)
-       (take-last 20)
-       (vec)
-       (spit path)))
-
 (s/defn send! :- [NReplResponse]
   [repl :- NReplClient
    req :- NReplRequest]
@@ -71,32 +55,6 @@
    result :- Text]
   (assoc repl :result result))
 
-(s/defn remember :- NReplClient
-  [repl :- NReplClient
-   text :- Text]
-  (if (or (i/equivalent? text i/empty-text)
-          (i/equivalent? text i/empty-line))
-    repl
-    (update repl :history #(conj % text))))
-
-(s/defn reset-timeline :- NReplClient
-  [repl :- NReplClient]
-  (let [current (-> repl (:history) (count))]
-    (assoc repl :timeline current)))
-
-(s/defn travel-back :- NReplClient
-  [repl :- NReplClient]
-  (update repl :timeline #(dec< % 0)))
-
-(s/defn travel-forward :- NReplClient
-  [repl :- NReplClient]
-  (let [max (-> repl (:history) (count))]
-    (update repl :timeline #(inc< % max))))
-
-(s/defn then :- Text
-  [repl :- NReplClient]
-  (nth (:history repl) (:timeline repl) i/empty-text))
-
 (s/defn result :- Text
   [repl :- NReplClient]
   (:result repl))
@@ -111,7 +69,7 @@
                     (:completions)
                     (mapv (comp i/from-string :candidate))
                     (i/joined))]
-    (-> repl (with-result result) (reset-timeline))))
+    (with-result repl result)))
 
 (s/defn accrete-response :- s/Str
   "Accretes repl responses to a string.
@@ -134,10 +92,7 @@
                     (i/from-string)
                     (i/end)
                     (i/new-line))]
-    (-> repl
-        (remember text)
-        (with-result result)
-        (reset-timeline))))
+    (with-result repl result)))
 
 (s/defn info! :- (s/maybe NReplResponse)
   [repl   :- NReplClient
@@ -151,7 +106,7 @@
    text :- Text]
   (let [result (or (some-> repl (info! text) (:doc) (i/from-string))
                    i/empty-text)]
-    (-> repl (with-result result) (reset-timeline))))
+    (with-result repl result)))
 
 (s/defn make-candidates :- (s/maybe [Text])
   [response :- NReplResponse]
@@ -165,7 +120,7 @@
    text :- Text]
   (let [result (or (some-> repl (info! text) (make-candidates) (i/joined))
                    i/empty-text)]
-    (-> repl (with-result result) (reset-timeline))))
+    (with-result repl result)))
 
 (s/defn start-server!
   [config :- REPLConfig]
@@ -191,12 +146,9 @@
   (let [ns      (:ns config (ns-name *ns*))
         port    (:port config)
         host    (:host config)
-        history (:history config [])
         client  (:client config)]
     {:ns       ns
      :host     host
      :port     port
      :client   (or client (connect config))
-     :history  history
-     :timeline (count history)
      :result   i/empty-text}))

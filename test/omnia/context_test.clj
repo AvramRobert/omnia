@@ -5,7 +5,8 @@
             [omnia.repl.context :as c]
             [clojure.test :refer [is deftest testing]]
             [omnia.test-utils :refer :all]
-            [omnia.repl.docs :as d]))
+            [omnia.repl.docs :as d]
+            [omnia.repl.store :as st]))
 
 ;; I. Manipulation
 
@@ -106,35 +107,39 @@
     (is (= actual-cursor expected-cursor))))
 
 (deftest stops-scrolling-up-at-bounds
-  (let [context         (-> ["some"
-                             "persisted"
-                             "area"
-                             ---
-                             -| "existing"
-                             -| "input|"
-                             -+ "area"]
-                            (derive-context))
-        scrolled        (process context (repeat 100 e/scroll-up))
-        init-offset     (-> context (c/hud) (h/current-view) (v/scroll-offset))
-        scrolled-offset (-> scrolled (c/hud) (h/current-view) (v/scroll-offset))]
-    (is (= init-offset 0))
-    (is (= scrolled-offset 12))))
+  (let [context                (-> ["some"
+                                    "persisted"
+                                    "area"
+                                    ---
+                                    -| "existing"
+                                    -| "input|"
+                                    -+ "area"]
+                                   (derive-context))
+        scrolled               (process context (repeat 100 e/scroll-up))
+        init-offset            (-> context (c/hud) (h/current-view) (v/scroll-offset))
+        scrolled-offset        (-> scrolled (c/hud) (h/current-view) (v/scroll-offset))
+        expected-init-offset   0
+        expected-scroll-offset (+ 3 (count h/header))]
+    (is (= init-offset expected-init-offset))
+    (is (= scrolled-offset expected-scroll-offset))))
 
 (deftest stops-scrolling-down-at-bounds
-  (let [context            (-> ["some"
-                                "persisted"
-                                "area"
-                                ---
-                                -| "existing"
-                                -| "input|"
-                                -+ "area"]
-                               (derive-context))
-        scrolled-up        (process context (repeat 100 e/scroll-up))
-        scrolled-down      (process context (repeat 100 e/scroll-down))
-        actual-up-offset   (-> scrolled-up (c/hud) (h/current-view) (v/scroll-offset))
-        actual-down-offset (-> scrolled-down (c/hud) (h/current-view) (v/scroll-offset))]
-    (is (= actual-up-offset 12))
-    (is (= actual-down-offset 0))))
+  (let [context              (-> ["some"
+                                  "persisted"
+                                  "area"
+                                  ---
+                                  -| "existing"
+                                  -| "input|"
+                                  -+ "area"]
+                                 (derive-context))
+        scrolled-up          (process context (repeat 100 e/scroll-up))
+        scrolled-down        (process context (repeat 100 e/scroll-down))
+        actual-up-offset     (-> scrolled-up (c/hud) (h/current-view) (v/scroll-offset))
+        actual-down-offset   (-> scrolled-down (c/hud) (h/current-view) (v/scroll-offset))
+        expected-up-offset   (+ 3 (count h/header))
+        expected-down-offset 0]
+    (is (= actual-up-offset expected-up-offset))
+    (is (= actual-down-offset expected-down-offset))))
 
 (deftest resets-scrolling
   (let [context             (-> ["some"
@@ -197,31 +202,35 @@
 ;; V. Evaluating
 
 (deftest evaluates-input
-  (let [context           (-> ["persisted"
-                               ---
-                               "(+ 1 1)|"]
-                              (derive-context))
-        processed         (process context
-                                   {:response (value-response "2")}
-                                   [e/evaluate])
-        expected          (-> ["persisted"
-                               "(+ 1 1)"
-                               ""
-                               "2"
-                               ""
-                               "Ω =>"
-                               ---
-                               "|"]
-                              (derive-context))
-        expected-previous (-> context (c/hud) (h/current-view) (v/text) (:lines))
-        expected-preview  (-> expected (c/hud) (h/current-view) (v/text) (:lines))
-        expected-cursor   (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
-        actual-preview    (-> processed (c/hud) (h/current-view) (v/text) (:lines))
-        actual-previous   (-> processed (c/hud) (h/previous-view) (v/text) (:lines))
-        actual-cursor     (-> processed (c/hud) (h/current-view) (v/text) (:cursor))]
+  (let [context               (-> ["persisted"
+                                   ---
+                                   "(+ 1 1)|"]
+                                  (derive-context))
+        processed             (process context
+                                       [e/evaluate]
+                                       {:response (value-response "2")})
+        expected              (-> ["persisted"
+                                   "(+ 1 1)"
+                                   ""
+                                   "2"
+                                   ""
+                                   "Ω =>"
+                                   ---
+                                   "|"]
+                                  (derive-context))
+        expected-eval-history (-> ["(+ 1 1)|"]
+                                  (derive-text))
+        expected-previous     (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        expected-preview      (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor       (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-preview        (-> processed (c/hud) (h/current-view) (v/text) (:lines))
+        actual-previous       (-> processed (c/hud) (h/previous-view) (v/text) (:lines))
+        actual-cursor         (-> processed (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-eval-history   (-> processed (c/store) (st/eval-history) (st/timeframe))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))
-    (is (= actual-previous expected-previous))))
+    (is (= actual-previous expected-previous))
+    (is (= actual-eval-history [expected-eval-history]))))
 
 ;; VI. Previous and next evaluations
 
@@ -305,8 +314,7 @@
   (let [context          (-> ["persisted"
                               ---
                               "some ⦇text⦈|"]
-                             (derive-context {:eval-history ["prev-eval-1|"
-                                                             "prev-eval-2|"]})
+                             (derive-context {:eval-history ["prev-eval-1|" "prev-eval-2|"]})
                              (process [e/copy
                                        e/prev-eval
                                        e/prev-eval
@@ -354,11 +362,11 @@
                                   (derive-text))
 
         processed1            (process context
-                                       {:response (completion-response ["option-1" "option-2"])}
-                                       [e/suggest])
+                                       [e/suggest]
+                                       {:response (completion-response ["option-1" "option-2"])})
         processed2            (process context
-                                       {:response (completion-response ["option-1" "option-2"])}
-                                       [e/suggest e/suggest])
+                                       [e/suggest e/suggest]
+                                       {:response (completion-response ["option-1" "option-2"])})
         actual1-suggestion    (-> processed1 (c/docs) (d/suggestions) (v/text))
         actual1-documentation (-> processed1 (c/docs) (d/documentation))
         actual1-signatures    (-> processed1 (c/docs) (d/signatures))
@@ -392,8 +400,9 @@
                               ---
                               "1|"]
                              (derive-context)
-                             (process {:response (completion-response ["option-1" "option-2"])}
-                                      [e/suggest e/suggest (e/character \a)]))
+                             (process
+                               [e/suggest e/suggest (e/character \a)]
+                               {:response (completion-response ["option-1" "option-2"])}))
         expected         (-> ["persisted"
                               ---
                               "option-2a|"]
@@ -412,7 +421,9 @@
                               ---
                               "1|"]
                              (derive-context)
-                             (process {:response (completion-response [])} [e/suggest]))
+                             (process
+                               [e/suggest]
+                               {:response (completion-response [])}))
         expected         (-> ["persisted"
                               ---
                               "1"
@@ -462,11 +473,11 @@
                                   (derive-text))
 
         processed1            (process context
-                                       {:response (doc-response "line-1 with text\nline-2 with text")}
-                                       [e/docs])
+                                       [e/docs]
+                                       {:response (doc-response "line-1 with text\nline-2 with text")})
         processed2            (process context
-                                       {:response (doc-response "line-1 with text\nline-2 with text")}
-                                       [e/docs e/docs])
+                                       [e/docs e/docs]
+                                       {:response (doc-response "line-1 with text\nline-2 with text")})
         actual1-documentation (-> processed1 (c/docs) (d/documentation) (v/text))
         actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
         actual1-signatures    (-> processed1 (c/docs) (d/signatures))
@@ -500,7 +511,9 @@
                               ---
                               "1|"]
                              (derive-context)
-                             (process {:response (doc-response "")} [e/docs]))
+                             (process
+                               [e/docs]
+                               {:response (doc-response "")}))
         expected         (-> ["persisted"
                               ---
                               "1"
@@ -550,11 +563,11 @@
                                   (derive-text))
 
         processed1            (process context
-                                       {:response (argument-response "ns" "name" ["signature-1" "signature-2"])}
-                                       [e/signature])
+                                       [e/signature]
+                                       {:response (argument-response "ns" "name" ["signature-1" "signature-2"])})
         processed2            (process context
-                                       {:response (argument-response "ns" "name" ["signature-1" "signature-2"])}
-                                       [e/signature e/signature])
+                                       [e/signature e/signature]
+                                       {:response (argument-response "ns" "name" ["signature-1" "signature-2"])})
         actual1-signatures    (-> processed1 (c/docs) (d/signatures) (v/text))
         actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
         actual1-documentation (-> processed1 (c/docs) (d/documentation))
@@ -588,7 +601,9 @@
                               ---
                               "1|"]
                              (derive-context)
-                             (process {:response (argument-response "ns" "name" [])} [e/signature]))
+                             (process
+                               [e/signature]
+                               {:response (argument-response "ns" "name" [])}))
         expected         (-> ["persisted"
                               ---
                               "1"
@@ -888,16 +903,21 @@
   (let [context         (-> ["persisted"
                              ---
                              "some text|"]
-                            (derive-context {:response (value-response "pong")})
-                            (process [(e/inject "ping")]))
+                            (derive-context)
+                            (process
+                              [(e/inject "ping")]
+                              {:response (value-response "pong")}))
         expected        (-> ["persisted"
                              ---
-                             "some text|"
-                             "pong"]
+                             ""
+                             "pong"
+                             ""
+                             "Ω =>"
+                             "some text|"]
                             (derive-context))
-        expected-view   (-> expected (c/hud) (h/current-view) (:lines))
-        actual-view     (-> context (c/hud) (h/current-view) (:lines))
-        expected-cursor (-> expected (c/hud) (h/current-view) (:cursor))
-        actual-cursor   (-> context (c/hud) (h/current-view) (:cursor))]
+        expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        actual-view     (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-cursor   (-> context (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= expected-view actual-view))
     (is (= expected-cursor actual-cursor))))

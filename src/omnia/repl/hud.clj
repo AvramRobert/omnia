@@ -1,6 +1,5 @@
 (ns omnia.repl.hud
   (:require [schema.core :as s]
-            [omnia.repl.nrepl :as n]
             [omnia.repl.view :as v]
             [omnia.repl.text :as t]
             [omnia.repl.format :as f]
@@ -10,35 +9,22 @@
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
             [omnia.schema.view :refer [View]]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.common :refer [=> Region]]
             [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]))
 
-(def caret (t/from-string "Ω =>"))
-(def goodbye (t/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
-(def greeting (t/from-string (format "Welcome to Omnia! (Ω) v%s" (omnia-version))))
-(def clj-version (t/from-string (format "-- Clojure v%s --" (clojure-version))))
-(def java-version (t/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
-(defn nrepl-info [host port] (t/from-string (str "-- nREPL server started on nrepl://" host ":" port " --")))
-
-(s/defn header :- [Text]
-  [host :- s/Str
-   port :- s/Int]
-  (let [repl-info (nrepl-info host port)]
-    [greeting
-     repl-info
-     clj-version
-     java-version
-     t/empty-line
-     caret]))
-
-(s/defn init-view :- View
-  [size :- s/Int,
-   repl :- NReplClient]
-  (let [header (header (:host repl) (:port repl))]
-    (-> (v/empty-view-with-size size)
-        (v/enrich-with header))))
+(s/def caret :- Text (t/from-string "Ω =>"))
+(s/def goodbye :- Text (t/from-string "Bye..for now\nFor even the very wise cannot see all ends"))
+(s/def greeting :- Text (t/from-string (format "Welcome to Omnia (Ω) v%s" (omnia-version))))
+(s/def clj-version :- Text (t/from-string (format "-- Clojure v%s --" (clojure-version))))
+(s/def java-version :- Text (t/from-string (format "-- Java v%s --" (System/getProperty "java.version"))))
+(s/def header :- Text
+  (t/join
+    greeting
+    clj-version
+    java-version
+    t/empty-line
+    caret))
 
 (s/defn current-view :- View
   [hud :- Hud]
@@ -59,10 +45,6 @@
 (s/defn view-size :- s/Int
   [hud :- Hud]
   (-> hud (persisted-view) (v/field-of-view)))
-
-(s/defn nrepl-client :- NReplClient
-  [hud :- Hud]
-  (:nrepl hud))
 
 (s/defn highlights :- HighlightInstructions
   [hud :- Hud]
@@ -245,9 +227,11 @@
 
 (s/defn clear :- Hud
   [hud :- Hud]
-  (let [size  (view-size hud)
-        nrepl (nrepl-client hud)]
-    (switch-view hud (init-view size nrepl))))
+  (let [view'  (-> hud
+                   (view-size)
+                   (v/empty-view-with-size)
+                   (v/enrich-with [header]))]
+    (switch-view hud view')))
 
 (s/defn exit :- Hud
   [hud :- Hud]
@@ -284,6 +268,14 @@
     (-> hud
         (with-persisted-view (-> hud (persisted-view) (v/reset-scroll)))
         (with-current-view (-> hud (current-view) (v/reset-scroll))))))
+
+(s/defn with-injection :- Hud
+  [hud :- Hud
+   text :- Text]
+  (let [new-hud (-> hud
+                    (persisted-view)
+                    (v/enrich-with [text caret]))]
+    (switch-view hud new-hud)))
 
 (s/defn with-evaluation :- Hud
   [hud :- Hud
@@ -329,14 +321,12 @@
 
 (s/defn create-hud :- Hud
   "A `Hud` is the heads-up display of the REPL."
-  [view-size :- s/Int
-   repl      :- NReplClient]
+  [view-size  :- s/Int]
   (let [input     t/empty-line
         previous  (v/empty-view-with-size view-size)
-        persisted (init-view view-size repl)
+        persisted (v/enrich-with previous [header])
         current   (v/enrich-with persisted [input])]
-    {:nrepl          repl
-     :render         :diff
+    {:render         :diff
      :previous-view  previous
      :persisted-view persisted
      :current-view   current

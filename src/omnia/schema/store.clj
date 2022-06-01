@@ -21,3 +21,6 @@
   {:undo-history UndoRedoHistory
    :redo-history UndoRedoHistory
    :eval-history EvalHistory})
+
+(def SerialisedStore
+  {:eval-history [s/Str]})

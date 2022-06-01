@@ -6,12 +6,14 @@
             [omnia.display.render :as r]
             [omnia.repl.events :as e]
             [omnia.schema.context :refer [Context processing]]
+            [omnia.schema.store :refer [Store]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.terminal :refer [Terminal]]))
+            [omnia.schema.terminal :refer [Terminal]]
+            [omnia.repl.hud :as h]))
 
-(def prelude [(e/inject "(require '[omnia.repl.resolution :refer [retrieve retrieve-from]])")])
+(def prelude [(e/inject "(require '[omnia.repl.resolution :refer [retrieve retrieve-from]])") e/clear])
 
 (s/defn consume :- Context
   [context  :- Context,
@@ -33,9 +35,11 @@
 (s/defn read-eval-print
   [config   :- Config
    terminal :- Terminal
-   nrepl    :- NReplClient]
+   nrepl    :- NReplClient
+   store    :- Store]
   (let [events  (concat prelude (events-from terminal))
-        context (c/create-context (t/size terminal) nrepl)]
+        hud     (h/create-hud (t/size terminal))
+        context (c/context-from hud store)]
     (-> (tsk/task (consume context config terminal nrepl events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))
