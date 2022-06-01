@@ -303,7 +303,7 @@
                                        (v/with-view-offset view-offset)))
           (h/with-previous-view h (v/empty-view-with-size field-of-view))
           (if (some? highlights)
-            (h/with-manual h (h/create-manual-highlight default-config highlights))
+            (h/with-manual-highlight h (h/create-manual-highlight default-config highlights))
             h))))
 
 (s/defn gather-eval-history :- Store

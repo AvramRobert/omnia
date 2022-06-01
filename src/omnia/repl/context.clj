@@ -59,11 +59,8 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (-> context
-      (hud)
-      (h/inject event)
-      (h/diff-render)
-      (continue context)))
+  (->> event (:value) (t/from-string) (n/evaluate! nrepl))
+  context)
 
 (s/defn documentation :- Context
   [context :- Context
@@ -300,18 +297,19 @@
    config :- Config
    nrepl :- NReplClient
    f :- (=> Text Text)]
-  {:status processing
-   :store  (reset-store context)
-   :docs   (reset-docs context)
-   :hud    (-> context
-               (hud)
-               (h/gc config)
-               (h/reset-scroll)
-               (h/input f)
-               (h/calibrate)
-               (h/highlight config)
-               (h/match-parens config)
-               (h/diff-render))})
+  (let [hud         (hud context)
+        input-area' (-> hud (h/input-area) (f))]
+    {:status processing
+     :store  (reset-store context)
+     :docs   (reset-docs context)
+     :hud    (-> hud
+                 (h/gc config)
+                 (h/reset-scroll)
+                 (h/switch-input-area input-area')
+                 (h/calibrate)
+                 (h/highlight config)
+                 (h/match-parens config)
+                 (h/diff-render))}))
 
 (s/defn character :- Context
   [context :- Context

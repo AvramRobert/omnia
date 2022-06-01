@@ -60,18 +60,6 @@
   [hud :- Hud]
   (-> hud (persisted-view) (v/field-of-view)))
 
-(s/defn suggestions :- View
-  [hud :- Hud]
-  (:suggestions hud))
-
-(s/defn signatures :- View
-  [hud :- Hud]
-  (:signatures hud))
-
-(s/defn documentation :- View
-  [hud :- Hud]
-  (:documentation hud))
-
 (s/defn nrepl-client :- NReplClient
   [hud :- Hud]
   (:nrepl hud))
@@ -144,17 +132,17 @@
    highlight :- HighlightInstructionData]
   (assoc-in hud [:highlights h-type] highlight))
 
-(s/defn with-selection :- Hud
+(s/defn with-selection-highlight :- Hud
   [hud :- Hud, highlight :- HighlightInstructionData]
   (with-highlight hud :selection highlight))
 
-(s/defn with-parens :- Hud
+(s/defn with-parens-highlight :- Hud
   [hud :- Hud, open :- HighlightInstructionData, closed :- HighlightInstructionData]
   (-> hud
       (with-highlight :open-paren open)
       (with-highlight :closed-paren closed)))
 
-(s/defn with-manual :- Hud
+(s/defn with-manual-highlight :- Hud
   [hud :- Hud, highlights :- HighlightInstructionData]
   (with-highlight hud :manual highlights))
 
@@ -182,10 +170,6 @@
    :scheme (-> config (:syntax) (:clean-up))
    :styles []})
 
-(s/defn with-client :- Hud
-  [hud :- Hud, repl :- NReplClient]
-  (assoc hud :nrepl repl))
-
 (s/defn with-render :- Hud
   [hud :- Hud, render :- RenderingStrategy]
   (assoc-new hud :render render))
@@ -207,7 +191,7 @@
    config :- Config]
   (let [text (-> hud (current-view) (v/text))]
     (if (t/selecting? text)
-      (with-selection hud (create-selection-highlight config (:selection text)))
+      (with-selection-highlight hud (create-selection-highlight config (:selection text)))
       hud)))
 
 (s/defn gc :- Hud
@@ -224,7 +208,7 @@
   (if-let [pair (-> hud (current-view) (v/text) (t/find-pair))]
     (let [open   (create-paren-highlight config (:left pair))
           closed (create-paren-highlight config (:right pair))]
-      (with-parens hud open closed))
+      (with-parens-highlight hud open closed))
     hud))
 
 (s/defn match-parens :- Hud
@@ -301,28 +285,6 @@
         (with-persisted-view (-> hud (persisted-view) (v/reset-scroll)))
         (with-current-view (-> hud (current-view) (v/reset-scroll))))))
 
-(s/defn eval-at :- Hud
-  [hud :- Hud,
-   f   :- (=> NReplClient NReplClient)]
-  (let [clipboard   (-> hud (input-area) (:clipboard))
-        then-server (-> hud (nrepl-client) (f))
-        then-text (-> then-server
-                      (n/then)
-                      (t/end)
-                      (t/reset-clipboard clipboard))]
-    (-> hud
-        (with-client then-server)
-        (with-input-area then-text)
-        (refresh-view))))
-
-(s/defn prev-eval :- Hud
-  [hud :- Hud]
-  (eval-at hud n/travel-back))
-
-(s/defn next-eval :- Hud
-  [hud :- Hud]
-  (eval-at hud n/travel-forward))
-
 (s/defn with-evaluation :- Hud
   [hud :- Hud
    text :- Text]
@@ -364,19 +326,6 @@
   [hud :- Hud]
   (let [formatted (-> hud (input-area) (f/format-text))]
     (-> hud (with-input-area formatted) (refresh-view))))
-
-(s/defn inject :- Hud
-  [hud   :- Hud
-   event :- e/Event]
-  (let [repl (nrepl-client hud)
-        _    (->> event (:value) (t/from-string) (n/evaluate! repl))]
-    hud))
-
-(s/defn input :- Hud
-  [hud  :- Hud
-   f    :- (=> Text Text)]
-  (let [new-input (-> hud (input-area) (f))]
-    (-> hud (with-input-area new-input) (refresh-view))))
 
 (s/defn create-hud :- Hud
   "A `Hud` is the heads-up display of the REPL."
