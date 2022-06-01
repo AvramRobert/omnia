@@ -229,14 +229,14 @@
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:eval-history ["past-eval-1" "past-eval-2"]}))
+                              (derive-context {:eval-history ["past-ev|al-1" "past|-eval-2"]}))
         expected1         (-> ["persisted"
                                ---
-                               "past-eval-2|"]
+                               "past|-eval-2"]
                               (derive-context))
         expected2         (-> ["persisted"
                                ---
-                               "past-eval-1|"]
+                               "past-ev|al-1"]
                               (derive-context))
         processed1        (process context [e/prev-eval])
         processed2        (process context [e/prev-eval e/prev-eval])
@@ -275,14 +275,14 @@
   (let [context           (-> ["persisted"
                                ---
                                "(+ 1 1)|"]
-                              (derive-context {:eval-history ["past-eval-1" "past-eval-2"]}))
+                              (derive-context {:eval-history ["past-eval-1|" "past-|eval-2"]}))
         expected1         (-> ["persisted"
                                ---
                                "past-eval-1a|"]
                               (derive-context))
         expected2         (-> ["persisted"
                                ---
-                               "past-eval-2|"]
+                               "past-|eval-2"]
                               (derive-context))
         processed1        (process context [e/prev-eval e/prev-eval (e/character \a)])
         processed2        (process processed1 [e/prev-eval])
@@ -305,8 +305,8 @@
   (let [context          (-> ["persisted"
                               ---
                               "some ⦇text⦈|"]
-                             (derive-context {:eval-history ["prev-eval-1"
-                                                             "prev-eval-2"]})
+                             (derive-context {:eval-history ["prev-eval-1|"
+                                                             "prev-eval-2|"]})
                              (process [e/copy
                                        e/prev-eval
                                        e/prev-eval

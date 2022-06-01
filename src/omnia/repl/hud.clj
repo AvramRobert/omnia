@@ -124,7 +124,7 @@
 (s/defn switch-input-area :- Hud
   [hud :- Hud,
    text :- Text]
-  (-> hud (with-input-area (t/end text)) (refresh-view)))
+  (-> hud (with-input-area text) (refresh-view)))
 
 (s/defn reset-highlights :- Hud
   [hud :- Hud]
