@@ -777,11 +777,6 @@
         lines   (->> text (:lines) (mapv #(vec (concat padding %))))]
     (reset-lines text lines)))
 
-(s/defn equivalent? :- s/Bool
-  [this :- Text
-   that :- Text]
-  (= (:lines this) (:lines that)))
-
 ;; ------------ API -------------
 
 (s/defn delete-previous :- Text

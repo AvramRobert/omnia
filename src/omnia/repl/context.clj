@@ -63,7 +63,7 @@
         current-input  (h/input-area hud)
         documentation  (d/documentation docs)
         documentation' (if (nil? documentation)
-                         (-> nrepl (n/docs! current-input) (n/result) (v/riffle-window 15))
+                         (-> nrepl (n/docs! current-input) (v/riffle-window 15))
                          (v/riffle documentation))]
     {:status processing
      :store  (reset-store context)
@@ -86,7 +86,7 @@
         current-input (h/input-area hud)
         signatures    (d/signatures docs)
         signatures'   (if (nil? signatures)
-                        (-> nrepl (n/signature! current-input) (n/result) (v/riffle-window 10))
+                        (-> nrepl (n/signature! current-input) (v/riffle-window 10))
                         (v/riffle signatures))]
     {:status processing
      :store  (reset-store context)
@@ -109,7 +109,7 @@
         current-input (h/input-area hud)
         suggestions   (d/suggestions docs)
         suggestions'  (if (nil? suggestions)
-                        (-> nrepl (n/complete! current-input) (n/result) (v/riffle-window 10))
+                        (-> nrepl (n/complete! current-input) (v/riffle-window 10))
                         (v/riffle suggestions))]
     {:status processing
      :store  (reset-store context)
@@ -238,7 +238,7 @@
   (let [hud        (hud context)
         store      (store context)
         input-area (h/input-area hud)
-        result     (-> nrepl (n/evaluate! input-area) (n/result))]
+        result     (n/evaluate! nrepl input-area)]
     {:status processing
      :store  (st/add-to-eval-history store input-area)
      :docs   (reset-docs context)
@@ -255,7 +255,7 @@
    config :- Config
    nrepl :- NReplClient]
   (let [hud        (hud context)
-        result     (->> event (:value) (t/from-string) (n/evaluate! nrepl) (n/result))]
+        result     (->> event (:value) (t/from-string) (n/evaluate! nrepl))]
     {:status processing
      :store  (store context)
      :docs   (reset-docs context)

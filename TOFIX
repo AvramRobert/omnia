@@ -1,6 +1,5 @@
 CURRENT TASK:
 
- * Make nrepl stateless (remove the memoised result from the hashmap)
  * Test the new store evaluation history thoroughly
  * Clean-up code
  * Write a `resets-docs` test for the context

@@ -50,26 +50,16 @@
                (i/as-string)
                (trim-newline))})
 
-(s/defn with-result :- NReplClient
-  [repl   :- NReplClient
-   result :- Text]
-  (assoc repl :result result))
-
-(s/defn result :- Text
-  [repl :- NReplClient]
-  (:result repl))
-
-(s/defn complete! :- NReplClient
+(s/defn complete! :- Text
   [repl :- NReplClient
    text :- Text]
-  (let [result (->> (:ns repl)
-                    (make-complete-request text)
-                    (send! repl)
-                    (first)
-                    (:completions)
-                    (mapv (comp i/from-string :candidate))
-                    (i/joined))]
-    (with-result repl result)))
+  (->> (:ns repl)
+       (make-complete-request text)
+       (send! repl)
+       (first)
+       (:completions)
+       (mapv (comp i/from-string :candidate))
+       (i/joined)))
 
 (s/defn accrete-response :- s/Str
   "Accretes repl responses to a string.
@@ -83,30 +73,28 @@
     (val? response) (->> response (:value) (f/format-str) (format "%s\n%s" output))
     :else output))
 
-(s/defn evaluate! :- NReplClient
-  [repl   :- NReplClient
+(s/defn evaluate! :- Text
+  [repl :- NReplClient
    text :- Text]
-  (let [result (->> (make-eval-request text)
-                    (send! repl)
-                    (reduce accrete-response "")
-                    (i/from-string)
-                    (i/end)
-                    (i/new-line))]
-    (with-result repl result)))
+  (->> (make-eval-request text)
+       (send! repl)
+       (reduce accrete-response "")
+       (i/from-string)
+       (i/end)
+       (i/new-line)))
 
 (s/defn info! :- (s/maybe NReplResponse)
-  [repl   :- NReplClient
+  [repl :- NReplClient
    text :- Text]
-  (let [result      (->> (:ns repl) (make-info-request text) (send! repl) (first))
+  (let [result (->> (:ns repl) (make-info-request text) (send! repl) (first))
         [_ no-info] (:status result)]
     (when (nil? no-info) result)))
 
-(s/defn docs! :- NReplClient
-  [repl   :- NReplClient
+(s/defn docs! :- Text
+  [repl :- NReplClient
    text :- Text]
-  (let [result (or (some-> repl (info! text) (:doc) (i/from-string))
-                   i/empty-text)]
-    (with-result repl result)))
+  (or (some-> repl (info! text) (:doc) (i/from-string))
+      i/empty-text))
 
 (s/defn make-candidates :- (s/maybe [Text])
   [response :- NReplResponse]
@@ -115,12 +103,11 @@
         candidate #(i/from-string (str ns "/" name " " %))]
     (some->> response (:arglists-str) (split-lines) (mapv candidate))))
 
-(s/defn signature! :- NReplClient
+(s/defn signature! :- Text
   [repl :- NReplClient
    text :- Text]
-  (let [result (or (some-> repl (info! text) (make-candidates) (i/joined))
-                   i/empty-text)]
-    (with-result repl result)))
+  (or (some-> repl (info! text) (make-candidates) (i/joined))
+      i/empty-text))
 
 (s/defn start-server!
   [config :- REPLConfig]
@@ -143,12 +130,11 @@
 
 (s/defn client :- NReplClient
   [config :- REPLConfig]
-  (let [ns      (:ns config (ns-name *ns*))
-        port    (:port config)
-        host    (:host config)
-        client  (:client config)]
-    {:ns       ns
-     :host     host
-     :port     port
-     :client   (or client (connect config))
-     :result   i/empty-text}))
+  (let [ns     (:ns config (ns-name *ns*))
+        port   (:port config)
+        host   (:host config)
+        client (:client config)]
+    {:ns     ns
+     :host   host
+     :port   port
+     :client (or client (connect config))}))

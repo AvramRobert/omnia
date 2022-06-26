@@ -1,6 +1,5 @@
 (ns omnia.schema.nrepl
   (:require [schema.core :as s]
-            [omnia.schema.text :as t]
             [omnia.schema.common :as c]))
 
 (defn out? [response]
@@ -117,8 +116,7 @@
   {:ns       s/Symbol
    :host     s/Str
    :port     s/Int
-   :client   InternalClient
-   :result   t/Text})
+   :client   InternalClient})
 
 (def REPLConfig
   {:host                     s/Str

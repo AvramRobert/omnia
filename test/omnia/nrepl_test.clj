@@ -22,54 +22,37 @@
           (r/stop-server! server)))))
 
 (defn filled-completion [client]
-  (let [expected (i/from-string "println\nprintln-str")]
-    (->> "println"
-         (i/from-string)
-         (r/complete! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected (->> ["println"
+                       "println-str"]
+                      (derive-text))
+        result (->> ["println"] (derive-text) (r/complete! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn empty-completion [client]
-  (let [expected i/empty-text]
-    (->> "nonesense-this"
-         (i/from-string)
-         (r/complete! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected i/empty-text
+        result   (->> ["nonesense-this"] (derive-text) (r/complete! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn completion [client]
   (filled-completion client)
   (empty-completion client))
 
 (defn filled-signature [client]
-  (let [expected (i/from-string "clojure.core/println [& more]")]
-    (->> "println"
-         (i/from-string)
-         (r/signature! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected (-> ["clojure.core/println [& more]"]
+                     (derive-text))
+        result   (->> ["println"] (derive-text) (r/signature! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn missing-signature [client]
   (let [expected i/empty-text
-        client'  (->> "(def a 1)" (i/from-string) (r/evaluate! client))]
-    (->> "a"
-         (i/from-string)
-         (r/signature! client')
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+        _        (->> ["(def a 1)"] (derive-text) (r/evaluate! client))
+        result   (->> ["a"] (derive-text) (r/signature! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn empty-signature [client]
-  (let [expected i/empty-text]
-    (->> "nonesense-this"
-         (i/from-string)
-         (r/signature! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected i/empty-text
+        result   (->> ["a"] (derive-text) (r/signature! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn signature [client]
   (filled-signature client)
@@ -77,32 +60,21 @@
   (empty-signature client))
 
 (defn filled-documentation [client]
-  (let [expected (i/from-string "Same as print followed by (newline)")]
-    (->> "println"
-         (i/from-string)
-         (r/docs! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected (->> ["Same as print followed by (newline)"]
+                      (derive-text))
+        result   (->> ["println"] (derive-text) (r/docs! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn missing-docs [client]
   (let [expected i/empty-text
-        client'  (->> "(defn bla [x] x)" (i/from-string) (r/evaluate! client))]
-    (->> "bla"
-         (i/from-string)
-         (r/docs! client')
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+        _        (->> ["(defn bla [x] x)"] (derive-text) (r/evaluate! client))
+        result   (->> ["bla"] (derive-text) (r/docs! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn empty-documentation [client]
-  (let [expected i/empty-text]
-    (->> "nonesense-this"
-         (i/from-string)
-         (r/docs! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected i/empty-text
+        result (->> ["nonesense-this"] (derive-text) (r/docs! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn documentation [client]
   (filled-documentation client)
@@ -112,37 +84,36 @@
 (defn value-evaluation [client]
   (let [result (->> ["(+ 1 1)"]
                     (derive-text)
-                    (r/evaluate! client)
-                    (r/result))
-        expected (derive-text ["" "2" ""])]
+                    (r/evaluate! client))
+        expected (-> ["" "2" ""]
+                     (derive-text))]
     (is (= (:lines expected) (:lines result)))))
 
 (defn out-evaluation [client]
   (let [result   (->> ["(println (+ 1 1))"]
                       (derive-text)
-                      (r/evaluate! client)
-                      (r/result))
-        expected (derive-text ["2" "" "nil" ""])]
+                      (r/evaluate! client))
+        expected (-> ["2" "" "nil" ""]
+                     (derive-text))]
     (is (= (:lines result) (:lines expected)))))
 
 (defn exception-evaluation [client]
-  (let [evaluation (->> '(throw (IllegalArgumentException. "bla"))
-                        (str)
-                        (i/from-string)
+  (let [exception  (str '(throw (IllegalArgumentException. "bla")))
+        evaluation (->> [exception]
+                        (derive-text)
                         (r/evaluate! client)
-                        (r/result)
                         (i/as-string))]
     (is (includes? evaluation "bla"))
     (is (includes? evaluation "IllegalArgumentException"))))
 
 (defn empty-evaluation [client]
-  (let [expected (i/from-string "\n\n")]
-    (->> ""
-         (i/from-string)
-         (r/evaluate! client)
-         (r/result)
-         (i/equivalent? expected)
-         (is))))
+  (let [expected (-> [""
+                      ""]
+                     (derive-text))
+        result (->> [""]
+                    (derive-text)
+                    (r/evaluate! client))]
+    (is (= (:lines result) (:lines expected)))))
 
 (defn evaluation [client]
   (value-evaluation client)
