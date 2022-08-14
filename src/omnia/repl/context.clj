@@ -510,7 +510,7 @@
    e/jump-select-right jump-select-right
    e/delete-previous   delete-previous
    e/delete-current    delete-current
-   e/new-line          newline
+   e/new-line          new-line
    e/copy              copy
    e/cut               cut
    e/paste             paste

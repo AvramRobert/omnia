@@ -921,3 +921,20 @@
         actual-cursor   (-> context (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= expected-view actual-view))
     (is (= expected-cursor actual-cursor))))
+
+;; XI. Event processing
+
+(deftest processes-every-event
+  (let [context (-> ["text|"]
+                    (derive-context))]
+    (testing "New Line"
+      (let [actual          (process context [e/new-line])
+            expected        (-> ["text"
+                                 "|"]
+                                (derive-context))
+            expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+            actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
+            expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+            actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))]
+        (is (= expected-view actual-view))
+        (is (= expected-cursor actual-cursor))))))
