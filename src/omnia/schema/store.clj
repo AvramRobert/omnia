@@ -12,7 +12,7 @@
 (def EvalHistory
   {:timeframe Timeframe
    :temp      (s/maybe Text)
-   :instant   s/Int
+   :position  s/Int
    :limit     s/Int})
 
 (def History (s/either EvalHistory UndoRedoHistory))

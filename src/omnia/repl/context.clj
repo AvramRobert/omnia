@@ -159,8 +159,8 @@
         store'     (if (-> store (st/eval-history) (st/temp) (nil?))
                      (-> store
                          (st/add-temporary (h/input-area hud))
-                         (st/travel-to-previous-instant))
-                     (st/travel-to-previous-instant store))
+                         (st/travel-to-previous-position))
+                     (st/travel-to-previous-position store))
         evaluation (st/evaluation store')]
     {:status processing
      :docs   (reset-docs context)
@@ -183,8 +183,8 @@
         store'     (if (-> store (st/eval-history) (st/temp) (nil?))
                      (-> store
                          (st/add-temporary (h/input-area hud))
-                         (st/travel-to-next-instant))
-                     (st/travel-to-next-instant store))
+                         (st/travel-to-next-position))
+                     (st/travel-to-next-position store))
         evaluation (st/evaluation store')]
     {:status processing
      :docs   (reset-docs context)

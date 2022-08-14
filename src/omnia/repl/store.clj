@@ -32,9 +32,9 @@
   [history :- UndoRedoHistory]
   (:size history))
 
-(s/defn instant :- s/Int
+(s/defn position :- s/Int
   [history :- EvalHistory]
-  (:instant history))
+  (:position history))
 
 (s/defn temp :- (s/maybe Text)
   [history :- EvalHistory]
@@ -57,19 +57,19 @@
 
 (s/defn reset-eval-history :- Store
   [store :- Store]
-  (let [history  (eval-history store)
-        frame    (timeframe history)
-        limit    (limit history)
-        temp     (temp history)
-        instant  (instant history)
-        instant' (min limit (count frame))
-        temp'    nil]
+  (let [history   (eval-history store)
+        frame     (timeframe history)
+        limit     (limit history)
+        temp      (temp history)
+        position  (position history)
+        position' (min limit (count frame))
+        temp'     nil]
     (if (and (= temp temp')
-             (= instant instant'))
+             (= position position'))
       store
       (with-eval-history store {:timeframe frame
                                 :limit     limit
-                                :instant   instant'
+                                :position  position'
                                 :temp      temp'}))))
 
 (s/defn prepend :- UndoRedoHistory
@@ -97,17 +97,17 @@
 (s/defn append :- EvalHistory
   [text :- Text
    eval-history :- EvalHistory]
-  (let [limit   (limit eval-history)
-        temp    (temp eval-history)
-        instant (instant eval-history)
-        frame   (timeframe eval-history)
-        size    (count frame)]
+  (let [limit    (limit eval-history)
+        temp     (temp eval-history)
+        position (position eval-history)
+        frame    (timeframe eval-history)
+        size     (count frame)]
     {:timeframe (if (< size limit)
                   (conj frame text)
                   (conj (vec (drop 1 frame)) text))
-     :instant   (if (< instant limit)
-                  (inc instant)
-                  instant)
+     :position  (if (< position limit)
+                  (inc position)
+                  position)
      :limit     limit
      :temp      temp}))
 
@@ -147,48 +147,48 @@
   [store :- Store
    text :- Text]
   (let [eval-history (eval-history store)
-        instant      (instant eval-history)
+        position     (position eval-history)
         frame        (timeframe eval-history)
         limit        (limit eval-history)]
     (with-eval-history store {:timeframe frame
-                              :instant   instant
+                              :position  position
                               :limit     limit
                               :temp      text})))
 
-(s/defn travel-to-previous-instant :- Store
+(s/defn travel-to-previous-position :- Store
   [store :- Store]
   (let [eval-history (eval-history store)
-        instant      (instant eval-history)
+        position     (position eval-history)
         frame        (timeframe eval-history)
         limit        (limit eval-history)
         temp         (temp eval-history)
-        instant'     (dec instant)]
+        position'    (dec position)]
     (with-eval-history store {:timeframe frame
                               :limit     limit
                               :temp      temp
-                              :instant   (if (> instant' 0) instant' 0)})))
+                              :position  (if (> position' 0) position' 0)})))
 
-(s/defn travel-to-next-instant :- Store
+(s/defn travel-to-next-position :- Store
   [store :- Store]
   (let [eval-history (eval-history store)
-        instant      (instant eval-history)
+        position     (position eval-history)
         frame        (timeframe eval-history)
         limit        (limit eval-history)
         threshold    (min limit (count frame))
         temp         (temp eval-history)
-        instant'     (inc instant)]
+        position'    (inc position)]
     (with-eval-history store {:timeframe frame
                               :limit     limit
                               :temp      temp
-                              :instant   (if (<= instant' threshold) instant' instant)})))
+                              :position  (if (<= position' threshold) position' position)})))
 
 (s/defn evaluation :- (s/maybe Text)
   [store :- Store]
   (let [history   (eval-history store)
-        instant   (instant history)
+        position  (position history)
         timeframe (timeframe history)
         temporary (temp history)]
-    (nth timeframe instant temporary)))
+    (nth timeframe position temporary)))
 
 (s/defn create-undo-redo-history :- UndoRedoHistory
   [limit :- s/Int]
@@ -199,7 +199,7 @@
 (s/defn create-eval-history :- EvalHistory
   [limit :- s/Int]
   {:timeframe []
-   :instant   0
+   :position  0
    :temp      nil
    :limit     limit})
 
