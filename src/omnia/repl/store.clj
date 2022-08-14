@@ -8,6 +8,19 @@
 
 ;; FIXME: Refactor. Make it less monolithic around stores
 
+(s/defn create-undo-redo-history :- UndoRedoHistory
+  [limit :- s/Int]
+  {:timeframe '()
+   :size      0
+   :limit     limit})
+
+(s/defn create-eval-history :- EvalHistory
+  [limit :- s/Int]
+  {:timeframe []
+   :position  0
+   :temp      nil
+   :limit     limit})
+
 (s/defn undo-history :- UndoRedoHistory
   [store :- Store]
   (:undo-history store))
@@ -111,21 +124,17 @@
      :limit     limit
      :temp      temp}))
 
+(s/defn next-undo-value :- (s/maybe Text)
+  [store :- Store]
+  (some-> store (undo-history) (timeframe) (first)))
+
 (s/defn undo :- Store
   [store :- Store]
-  (let [undo (undo-history store)
-        redo (redo-history store)]
-    (-> store
-        (with-undo-history (tail undo))
-        (with-redo-history (prepend (first undo) redo)))))
+  (->> store (undo-history) (tail) (with-undo-history store)))
 
 (s/defn redo :- Store
   [store :- Store]
-  (let [undo (undo-history store)
-        redo (redo-history store)]
-    (-> store
-        (with-undo-history (prepend (first redo) undo))
-        (with-redo-history (tail redo)))))
+  (->> store (redo-history) (tail) (with-redo-history store)))
 
 (s/defn add-to-undo-history :- Store
   [store :- Store
@@ -134,6 +143,14 @@
        (undo-history)
        (prepend text)
        (with-undo-history store)))
+
+(s/defn add-to-redo-history :- Store
+  [store :- Store
+   text :- Text]
+  (->> store
+       (redo-history)
+       (prepend text)
+       (with-redo-history store)))
 
 (s/defn add-to-eval-history :- Store
   [store :- Store
@@ -189,19 +206,6 @@
         timeframe (timeframe history)
         temporary (temp history)]
     (nth timeframe position temporary)))
-
-(s/defn create-undo-redo-history :- UndoRedoHistory
-  [limit :- s/Int]
-  {:timeframe '()
-   :size      0
-   :limit     limit})
-
-(s/defn create-eval-history :- EvalHistory
-  [limit :- s/Int]
-  {:timeframe []
-   :position  0
-   :temp      nil
-   :limit     limit})
 
 (s/defn create-store :- Store
   [limit :- s/Int]

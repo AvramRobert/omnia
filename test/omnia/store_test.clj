@@ -116,3 +116,5 @@
                     (st/reset-eval-history))
         actual2 (-> store (st/reset-eval-history))]
     (is (= actual1 actual2 store))))
+
+;; FIXME: Add undo-redo history tests

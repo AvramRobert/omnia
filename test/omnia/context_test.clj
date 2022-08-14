@@ -925,16 +925,54 @@
 ;; XI. Event processing
 
 (deftest processes-every-event
-  (let [context (-> ["text|"]
-                    (derive-context))]
-    (testing "New Line"
-      (let [actual          (process context [e/new-line])
-            expected        (-> ["text"
-                                 "|"]
-                                (derive-context))
-            expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
-            actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
-            expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
-            actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))]
-        (is (= expected-view actual-view))
-        (is (= expected-cursor actual-cursor))))))
+  (testing "New Line"
+    (let [actual          (-> ["text|"]
+                              (derive-context)
+                              (process [e/new-line]))
+          expected        (-> ["text"
+                               "|"]
+                              (derive-context))
+          expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+          actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
+          expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+          actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))]
+      (is (= expected-view actual-view))
+      (is (= expected-cursor actual-cursor))))
+
+  (testing "Delete Previous"
+    (let [actual          (-> ["text|"]
+                              (derive-context)
+                              (process [e/delete-previous]))
+          expected        (-> ["tex|"]
+                              (derive-context))
+          expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+          actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
+          expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+          actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
+          expected-undo   [(-> ["text|"] (derive-text))]
+          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          expected-redo   []
+          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+      (is (= expected-view actual-view))
+      (is (= expected-cursor actual-cursor))
+      (is (= expected-undo actual-undo))
+      (is (= expected-redo actual-redo))))
+
+  (testing "Undo-Redo"
+    (let [actual          (-> ["text|"]
+                              (derive-context)
+                              (process [e/delete-previous e/delete-previous e/undo]))
+          expected        (-> ["tex|"]
+                              (derive-context))
+          expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+          actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
+          expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+          actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
+          expected-undo   [(-> ["text|"] (derive-text))]
+          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          expected-redo   [(-> ["te|"] (derive-text))]
+          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+      (is (= expected-view actual-view))
+      (is (= expected-cursor actual-cursor))
+      (is (= expected-undo actual-undo))
+      (is (= expected-redo actual-redo)))))

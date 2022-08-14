@@ -783,6 +783,10 @@
   [text :- Text]
   (-> text (add-to-history) (do-delete-previous) (deselect)))
 
+(s/defn delete-previous' :- Text
+  [text :- Text]
+  (-> text (do-delete-previous) (deselect)))
+
 (s/defn delete-current :- Text
   [text :- Text]
   (-> text (add-to-history) (do-delete-current) (deselect)))
