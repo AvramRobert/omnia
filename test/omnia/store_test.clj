@@ -127,10 +127,13 @@
                                   (h/add-to-undo-history text2))
         actual-undo-value     (-> store (h/next-undo-value))
         actual-undo-timeframe (-> store (h/undo-history) (h/timeframe))
-        actual-redo-timeframe (-> store (h/redo-history) (h/timeframe))]
+        actual-redo-timeframe (-> store (h/redo-history) (h/timeframe))
+        actual-size           (-> store (h/undo-history) (h/size))
+        expected-size         2]
     (is (= actual-undo-value text2))
     (is (= actual-undo-timeframe [text2 text1]))
-    (is (= actual-redo-timeframe []))))
+    (is (= actual-redo-timeframe []))
+    (is (= actual-size expected-size))))
 
 (deftest adds-redo-history-element
   (let [text1                 (-> ["text1"]
@@ -142,10 +145,13 @@
                                   (h/add-to-redo-history text2))
         actual-redo-value     (-> store (h/next-redo-value))
         actual-redo-timeframe (-> store (h/redo-history) (h/timeframe))
-        actual-undo-timeframe (-> store (h/undo-history) (h/timeframe))]
+        actual-undo-timeframe (-> store (h/undo-history) (h/timeframe))
+        actual-size           (-> store (h/redo-history) (h/size))
+        expected-size         2]
     (is (= actual-redo-value text2))
     (is (= actual-redo-timeframe [text2 text1]))
-    (is (= actual-undo-timeframe []))))
+    (is (= actual-undo-timeframe []))
+    (is (= actual-size expected-size))))
 
 (deftest undos
   (let [text1              (-> ["text1"]
@@ -159,9 +165,12 @@
         actual-value       (-> store (h/next-undo-value))
         expected-value     text1
         actual-timeframe   (-> store (h/undo-history) (h/timeframe))
-        expected-timeframe [text1]]
+        expected-timeframe [text1]
+        actual-size        (-> store (h/undo-history) (h/size))
+        expected-size      1]
     (is (= actual-value expected-value))
-    (is (= actual-timeframe expected-timeframe))))
+    (is (= actual-timeframe expected-timeframe))
+    (is (= actual-size expected-size))))
 
 (deftest redos
   (let [text1              (-> ["text1"]
@@ -175,9 +184,12 @@
         actual-value       (-> store (h/next-redo-value))
         expected-value     text1
         actual-timeframe   (-> store (h/redo-history) (h/timeframe))
-        expected-timeframe [text1]]
+        expected-timeframe [text1]
+        actual-size        (-> store (h/redo-history) (h/size))
+        expected-size      1]
     (is (= actual-value expected-value))
-    (is (= actual-timeframe expected-timeframe))))
+    (is (= actual-timeframe expected-timeframe))
+    (is (= actual-size expected-size))))
 
 (deftest limits-undo-history
   (let [text1              (-> ["text1"]

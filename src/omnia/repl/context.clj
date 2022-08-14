@@ -314,32 +314,30 @@
         (h/match-parens config)
         (h/diff-render))))
 
+(s/defn undoable-text-event :- Context
+  [context :- Context
+   event   :- Event
+   config  :- Config
+   nrepl   :- NReplClient
+   f       :- (=> Text Text)]
+  (let [hud        (hud context)
+        input-area (-> hud (h/input-area) (t/reset))]
+    {:status processing
+     :store  (-> context (reset-store) (st/add-to-undo-history input-area))
+     :docs   (reset-docs context)
+     :hud    (change-input-area hud config f)}))
+
 (s/defn text-event :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient
    f :- (=> Text Text)]
-  (let [hud         (hud context)
-        input-area' (-> hud (h/input-area) (f))]
+  (let [hud (hud context)]
     {:status processing
      :store  (reset-store context)
      :docs   (reset-docs context)
-     :hud    (-> hud
-                 (h/gc config)
-                 (h/reset-scroll)
-                 (h/switch-input-area input-area')
-                 (h/calibrate)
-                 (h/highlight config)
-                 (h/match-parens config)
-                 (h/diff-render))}))
-
-(s/defn character :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient]
-  (text-event context event config nrepl #(t/insert % (:value event))))
+     :hud    (change-input-area hud config f)}))
 
 (s/defn move-up :- Context
   [context :- Context
@@ -451,27 +449,56 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl t/cut))
+  (undoable-text-event context event config nrepl t/cut))
 
 (s/defn paste :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (text-event context event config nrepl t/paste))
+  (undoable-text-event context event config nrepl t/paste))
 
 (s/defn delete-previous :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [hud        (hud context)
-        store      (store context)
-        input-area (h/input-area hud)]
-    {:status processing
-     :store  (-> store (st/add-to-undo-history input-area))
-     :docs   (reset-docs context)
-     :hud    (change-input-area hud config t/delete-previous')}))
+  (undoable-text-event context event config nrepl t/delete-previous))
+
+(s/defn delete-current :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (undoable-text-event context event config nrepl t/delete-current))
+
+(s/defn character :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (undoable-text-event context event config nrepl #(t/insert % (:value event))))
+
+(s/defn new-line :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (undoable-text-event context event config nrepl t/new-line))
+
+;(s/defn cut :- Context
+;  [context :- Context
+;   event :- Event
+;   config :- Config
+;   nrepl :- NReplClient]
+;  (text-event context event config nrepl t/cut))
+
+;(s/defn paste :- Context
+;  [context :- Context
+;   event :- Event
+;   config :- Config
+;   nrepl :- NReplClient]
+;  (text-event context event config nrepl t/paste))
 
 ;(s/defn delete-previous :- Context
 ;  [context :- Context
@@ -480,14 +507,21 @@
 ;   nrepl :- NReplClient]
 ;  (text-event context event config nrepl t/delete-previous))
 
-(s/defn delete-current :- Context
+#_(s/defn delete-current :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
   (text-event context event config nrepl t/delete-current))
 
-(s/defn new-line :- Context
+;(s/defn character :- Context
+;  [context :- Context
+;   event :- Event
+;   config :- Config
+;   nrepl :- NReplClient]
+;  (text-event context event config nrepl #(t/insert % (:value event))))
+
+#_(s/defn new-line :- Context
   [context :- Context
    event :- Event
    config :- Config
@@ -501,12 +535,34 @@
    nrepl :- NReplClient]
   (let [hud         (hud context)
         store       (store context)
-        input-area  (h/input-area hud)
+        input-area  (-> hud (h/input-area) (t/reset))
         input-area' (st/next-undo-value store)]
     {:status processing
      :docs   (reset-docs context)
-     :store  (-> store (st/add-to-redo-history input-area) (st/undo))
-     :hud    (change-input-area hud config (constantly input-area'))}))
+     :store  (if (some? input-area')
+               (-> store (st/reset-eval-history) (st/add-to-redo-history input-area) (st/undo))
+               (st/reset-eval-history store))
+     :hud    (if (some? input-area')
+               (change-input-area hud config (constantly input-area'))
+               hud)}))
+
+(s/defn redo :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient]
+  (let [hud         (hud context)
+        store       (store context)
+        input-area  (-> hud (h/input-area) (t/reset))
+        input-area' (st/next-redo-value store)]
+    {:status processing
+     :docs   (reset-docs context)
+     :store  (if (some? input-area')
+               (-> store (st/reset-eval-history) (st/add-to-undo-history input-area) (st/redo))
+               (st/reset-eval-history store))
+     :hud    (if (some? input-area')
+               (change-input-area hud config (constantly input-area'))
+               hud)}))
 
 ;(s/defn undo :- Context
 ;  [context :- Context
@@ -515,12 +571,12 @@
 ;   nrepl :- NReplClient]
 ;  (text-event context event config nrepl t/undo))
 
-(s/defn redo :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient]
-  (text-event context event config nrepl t/redo))
+;(s/defn redo :- Context
+;  [context :- Context
+;   event :- Event
+;   config :- Config
+;   nrepl :- NReplClient]
+;  (text-event context event config nrepl t/redo))
 
 (s/def handlers :- {Action EventHandler}
   {e/inject            inject

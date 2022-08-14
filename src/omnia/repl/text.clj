@@ -428,6 +428,12 @@
       (reset-history '() '())
       (reset-clipboard nil)))
 
+(s/defn reset :- Text
+  [text :- Text]
+  (-> text
+      (reset-selection nil)
+      (reset-clipboard nil)))
+
 (s/defn add-to-history :- Text
   [text :- Text]
   (let [history (:history text)]
@@ -779,21 +785,37 @@
 
 ;; ------------ API -------------
 
-(s/defn delete-previous :- Text
+#_(s/defn delete-previous :- Text
   [text :- Text]
   (-> text (add-to-history) (do-delete-previous) (deselect)))
 
-(s/defn delete-previous' :- Text
+(s/defn delete-previous :- Text
   [text :- Text]
   (-> text (do-delete-previous) (deselect)))
 
-(s/defn delete-current :- Text
+#_(s/defn delete-current :- Text
   [text :- Text]
   (-> text (add-to-history) (do-delete-current) (deselect)))
 
-(s/defn insert :- Text
+(s/defn delete-current :- Text
+  [text :- Text]
+  (-> text (do-delete-current) (deselect)))
+
+#_(s/defn insert :- Text
   [text :- Text char :- Character]
   (-> text (add-to-history) (do-insert char) (deselect)))
+
+(s/defn insert :- Text
+  [text :- Text char :- Character]
+  (-> text (do-insert char) (deselect)))
+
+#_(s/defn new-line :- Text
+  [text :- Text]
+  (-> text (add-to-history) (do-new-line) (deselect)))
+
+(s/defn new-line :- Text
+  [text :- Text]
+  (-> text (do-new-line) (deselect)))
 
 (s/defn move-left :- Text
   [text :- Text]
@@ -819,21 +841,25 @@
   [text :- Text]
   (-> text (do-jump-right) (deselect)))
 
-(s/defn new-line :- Text
-  [text :- Text]
-  (-> text (add-to-history) (do-new-line) (deselect)))
-
 (s/defn copy :- Text
   [text :- Text]
   (-> text (do-copy) (deselect)))
 
+;(s/defn cut :- Text
+;  [text :- Text]
+;  (-> text (add-to-history) (do-cut) (deselect)))
+
 (s/defn cut :- Text
   [text :- Text]
-  (-> text (add-to-history) (do-cut) (deselect)))
+  (-> text (do-cut) (deselect)))
+
+;(s/defn paste :- Text
+;  [text :- Text]
+;  (-> text (add-to-history) (do-paste) (deselect)))
 
 (s/defn paste :- Text
   [text :- Text]
-  (-> text (add-to-history) (do-paste) (deselect)))
+  (-> text (do-paste) (deselect)))
 
 (s/defn select-right :- Text
   [text :- Text]

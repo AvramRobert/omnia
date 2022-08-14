@@ -1,13 +1,14 @@
 CURRENT TASK:
 
- * Test the new store evaluation history thoroughly
- * Clean-up code
- * Write a `resets-docs` test for the context
+  * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
+  * Write a `resets-docs` test for the context
 
 Global issues:
- * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
- * Clean-up test code afterwards
  * Add rendering strategy to the context
+
+omnia.repl.store issues:
+  - Code is slightly all over the place given the different types of histories. Try to clean-up code
+  - Perhaps it truly might be a good idea to separate the evaluation history from the undo redo history...
 
 omnia.repl.text issues:
   - remove the text history from the text itself

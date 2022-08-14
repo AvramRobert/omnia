@@ -2886,85 +2886,85 @@
 
 ;; XVII. Undoing / Redoing
 
-(deftest undos-and-redos
-  (let [text     (-> ["hello w|orld"]
-                     (derive-text)
-                     (i/add-to-history))
-        delete   (-> text (i/delete-previous))
-        original (-> text (:lines))
-        deleted  (-> delete (:lines))
-        undone   (-> delete (i/undo) (:lines))
-        redone   (-> delete (i/undo) (i/redo) (:lines))]
-    (is (= undone original))
-    (is (= redone deleted))))
+;(deftest undos-and-redos
+;  (let [text     (-> ["hello w|orld"]
+;                     (derive-text)
+;                     (i/add-to-history))
+;        delete   (-> text (i/delete-previous))
+;        original (-> text (:lines))
+;        deleted  (-> delete (:lines))
+;        undone   (-> delete (i/undo) (:lines))
+;        redone   (-> delete (i/undo) (i/redo) (:lines))]
+;    (is (= undone original))
+;    (is (= redone deleted))))
 
-(deftest undos-history-is-limited
-  (let [history (->> ["history"] (derive-text) (repeat 50))
-        text    (-> ["hello world|"]
-                    (derive-text)
-                    (i/reset-history history history)
-                    (i/new-line)
-                    (i/insert \a)
-                    (:history))
-        size    (-> text (count))
-        action  (-> text (first) (:lines))]
-    (is (= size 50))
-    (is (= action [[\h \e \l \l \o \space \w \o \r \l \d] []]))))
+;(deftest undos-history-is-limited
+;  (let [history (->> ["history"] (derive-text) (repeat 50))
+;        text    (-> ["hello world|"]
+;                    (derive-text)
+;                    (i/reset-history history history)
+;                    (i/new-line)
+;                    (i/insert \a)
+;                    (:history))
+;        size    (-> text (count))
+;        action  (-> text (first) (:lines))]
+;    (is (= size 50))
+;    (is (= action [[\h \e \l \l \o \space \w \o \r \l \d] []]))))
 
-(deftest undos-and-redos-are-balanced
-  (let [text             (-> ["hello |world"]
-                              (derive-text)
-                              (i/insert \a)
-                              (i/insert \b))
-        initial-history  (:history text)
-        initial-rhistory (:rhistory text)
-        undo1-history    (-> text (i/undo) (:history))
-        undo1-rhistory   (-> text (i/undo) (:rhistory))
-        undo2-history    (-> text (i/undo) (i/undo) (:history))
-        undo2-rhistory   (-> text (i/undo) (i/undo) (:rhistory))]
-    (is (= (count initial-history) 2))
-    (is (= (count initial-rhistory) 0))
-    (is (= (count undo1-history) 1))
-    (is (= (count undo1-rhistory) 1))
-    (is (= (count initial-history) 2))
-    (is (= (count undo2-history) 0))
-    (is (= (count undo2-rhistory) 2))))
+;(deftest undos-and-redos-are-balanced
+;  (let [text             (-> ["hello |world"]
+;                              (derive-text)
+;                              (i/insert \a)
+;                              (i/insert \b))
+;        initial-history  (:history text)
+;        initial-rhistory (:rhistory text)
+;        undo1-history    (-> text (i/undo) (:history))
+;        undo1-rhistory   (-> text (i/undo) (:rhistory))
+;        undo2-history    (-> text (i/undo) (i/undo) (:history))
+;        undo2-rhistory   (-> text (i/undo) (i/undo) (:rhistory))]
+;    (is (= (count initial-history) 2))
+;    (is (= (count initial-rhistory) 0))
+;    (is (= (count undo1-history) 1))
+;    (is (= (count undo1-rhistory) 1))
+;    (is (= (count initial-history) 2))
+;    (is (= (count undo2-history) 0))
+;    (is (= (count undo2-rhistory) 2))))
 
-(deftest undos-and-redos-dont-affect-clipboard
-  (let [text     (-> ["hel|lo world"]
-                      (derive-text)
-                      (i/jump-select-right)
-                      (i/insert \a))
-        original (:clipboard text)
-        undone   (-> text (i/undo) (:clipboard))
-        redone   (-> text (i/undo) (i/redo) (:clipboard))]
-    (is (= original undone redone))))
+;(deftest undos-and-redos-dont-affect-clipboard
+;  (let [text     (-> ["hel|lo world"]
+;                      (derive-text)
+;                      (i/jump-select-right)
+;                      (i/insert \a))
+;        original (:clipboard text)
+;        undone   (-> text (i/undo) (:clipboard))
+;        redone   (-> text (i/undo) (i/redo) (:clipboard))]
+;    (is (= original undone redone))))
 
-(deftest undos-and-redos-are-preserved-between-each-other
-  (let [text (-> ["hello w|orld"]
-                 (derive-text)
-                 (i/delete-previous)
-                 (i/delete-previous)
-                 (i/delete-previous)
-                 (i/undo)
-                 (i/undo)
-                 (i/redo)
-                 (i/redo)
-                 (:lines))]
-    (is (= text [[\h \e \l \l \o \r \l \d]]))))
+;(deftest undos-and-redos-are-preserved-between-each-other
+;  (let [text (-> ["hello w|orld"]
+;                 (derive-text)
+;                 (i/delete-previous)
+;                 (i/delete-previous)
+;                 (i/delete-previous)
+;                 (i/undo)
+;                 (i/undo)
+;                 (i/redo)
+;                 (i/redo)
+;                 (:lines))]
+;    (is (= text [[\h \e \l \l \o \r \l \d]]))))
 
-(deftest history-doesnt-keep-the-clipboard
-  (let [text      (-> ["hello |world"]
-                      (derive-text)
-                      (i/select-right)
-                      (i/cut)
-                      (i/insert \a))
-        h-clip    (-> text (:history) (:clipboard))
-        rh-clip   (-> text (:history) (:clipboard))
-        clipboard (-> text (:clipboard) (:lines))]
-    (is (empty? h-clip))
-    (is (empty? rh-clip))
-    (is (= [[\w]] clipboard))))
+;(deftest history-doesnt-keep-the-clipboard
+;  (let [text      (-> ["hello |world"]
+;                      (derive-text)
+;                      (i/select-right)
+;                      (i/cut)
+;                      (i/insert \a))
+;        h-clip    (-> text (:history) (:clipboard))
+;        rh-clip   (-> text (:history) (:clipboard))
+;        clipboard (-> text (:clipboard) (:lines))]
+;    (is (empty? h-clip))
+;    (is (empty? rh-clip))
+;    (is (= [[\w]] clipboard))))
 
 ;; XVIII. Auto-completing
 
