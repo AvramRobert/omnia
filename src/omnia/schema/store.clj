@@ -4,7 +4,7 @@
 
 (def Timeframe [Text])
 
-(def UndoRedoHistory
+(def LinearHistory
   {:timeframe Timeframe
    :size      s/Int
    :limit     s/Int})
@@ -15,11 +15,11 @@
    :position  s/Int
    :limit     s/Int})
 
-(def History (s/either EvalHistory UndoRedoHistory))
+(def History (s/either EvalHistory LinearHistory))
 
 (def Store
-  {:undo-history UndoRedoHistory
-   :redo-history UndoRedoHistory
+  {:undo-history LinearHistory
+   :redo-history LinearHistory
    :eval-history EvalHistory})
 
 (def SerialisedStore

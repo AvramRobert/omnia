@@ -2,13 +2,13 @@
   (:require [schema.core :as s]
             [omnia.repl.text :as t]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.store :refer [Store SerialisedStore History UndoRedoHistory EvalHistory Timeframe]]
+            [omnia.schema.store :refer [Store SerialisedStore History LinearHistory EvalHistory Timeframe]]
             [omnia.util.arithmetic :refer [dec< inc<]]
             [omnia.util.misc :refer [slurp-or-else]]))
 
 ;; FIXME: Refactor. Make it less monolithic around stores
 
-(s/defn create-undo-redo-history :- UndoRedoHistory
+(s/defn create-linear-history :- LinearHistory
   [limit :- s/Int]
   {:timeframe '()
    :size      0
@@ -21,11 +21,11 @@
    :temp      nil
    :limit     limit})
 
-(s/defn undo-history :- UndoRedoHistory
+(s/defn undo-history :- LinearHistory
   [store :- Store]
   (:undo-history store))
 
-(s/defn redo-history :- UndoRedoHistory
+(s/defn redo-history :- LinearHistory
   [store :- Store]
   (:redo-history store))
 
@@ -42,7 +42,7 @@
   (:limit history))
 
 (s/defn size :- s/Int
-  [history :- UndoRedoHistory]
+  [history :- LinearHistory]
   (:size history))
 
 (s/defn position :- s/Int
@@ -53,14 +53,57 @@
   [history :- EvalHistory]
   (:temp history))
 
+(s/defn next-historical-value :- (s/maybe Text)
+  [linear-history :- LinearHistory]
+  (some-> linear-history (timeframe) (first)))
+
+(s/defn prepend :- LinearHistory
+  [text :- Text
+   linear-history :- LinearHistory]
+  (let [limit (limit linear-history)
+        size  (size linear-history)
+        frame (timeframe linear-history)]
+    {:timeframe (if (< size limit)
+                  (cons text frame)
+                  (cons text (take (dec limit) frame)))
+     :size      (if (< size limit)
+                  (inc size)
+                  limit)
+     :limit     limit}))
+
+(s/defn tail :- LinearHistory
+  [linear-history :- LinearHistory]
+  (if (= 0 (size linear-history))
+    linear-history
+    {:timeframe (rest (timeframe linear-history))
+     :size      (dec< (size linear-history) 0)
+     :limit     (limit linear-history)}))
+
+(s/defn append :- EvalHistory
+  [text :- Text
+   eval-history :- EvalHistory]
+  (let [limit    (limit eval-history)
+        temp     (temp eval-history)
+        position (position eval-history)
+        frame    (timeframe eval-history)
+        size     (count frame)]
+    {:timeframe (if (< size limit)
+                  (conj frame text)
+                  (conj (vec (drop 1 frame)) text))
+     :position  (if (< position limit)
+                  (inc position)
+                  position)
+     :limit     limit
+     :temp      temp}))
+
 (s/defn with-undo-history :- Store
   [store :- Store
-   linear-history :- UndoRedoHistory]
+   linear-history :- LinearHistory]
   (assoc store :undo-history linear-history))
 
 (s/defn with-redo-history :- Store
   [store :- Store
-   linear-history :- UndoRedoHistory]
+   linear-history :- LinearHistory]
   (assoc store :redo-history linear-history))
 
 (s/defn with-eval-history :- Store
@@ -85,48 +128,13 @@
                                 :position  position'
                                 :temp      temp'}))))
 
-(s/defn prepend :- UndoRedoHistory
-  [text :- Text
-   linear-history :- UndoRedoHistory]
-  (let [limit (limit linear-history)
-        size  (size linear-history)
-        frame (timeframe linear-history)]
-    {:timeframe (if (< size limit)
-                  (cons text frame)
-                  (cons text (take (dec limit) frame)))
-     :size      (if (< size limit)
-                  (inc size)
-                  limit)
-     :limit     limit}))
-
-(s/defn tail :- UndoRedoHistory
-  [linear-history :- UndoRedoHistory]
-  (if (= 0 (size linear-history))
-    linear-history
-    {:timeframe (rest (timeframe linear-history))
-     :size      (dec< (size linear-history) 0)
-     :limit     (limit linear-history)}))
-
-(s/defn append :- EvalHistory
-  [text :- Text
-   eval-history :- EvalHistory]
-  (let [limit    (limit eval-history)
-        temp     (temp eval-history)
-        position (position eval-history)
-        frame    (timeframe eval-history)
-        size     (count frame)]
-    {:timeframe (if (< size limit)
-                  (conj frame text)
-                  (conj (vec (drop 1 frame)) text))
-     :position  (if (< position limit)
-                  (inc position)
-                  position)
-     :limit     limit
-     :temp      temp}))
-
 (s/defn next-undo-value :- (s/maybe Text)
   [store :- Store]
-  (some-> store (undo-history) (timeframe) (first)))
+  (-> store (undo-history) (next-historical-value)))
+
+(s/defn next-redo-value :- (s/maybe Text)
+  [store :- Store]
+  (-> store (redo-history) (next-historical-value)))
 
 (s/defn undo :- Store
   [store :- Store]
@@ -209,10 +217,10 @@
 
 (s/defn create-store :- Store
   [limit :- s/Int]
-  (let [undo-redo (create-undo-redo-history limit)
-        eval      (create-eval-history limit)]
-    {:undo-history undo-redo
-     :redo-history undo-redo
+  (let [linear (create-linear-history limit)
+        eval   (create-eval-history limit)]
+    {:undo-history linear
+     :redo-history linear
      :eval-history eval}))
 
 (s/defn read-store :- Store

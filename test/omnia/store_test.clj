@@ -4,7 +4,7 @@
             [omnia.repl.store :as h]
             [omnia.repl.store :as st]))
 
-(deftest eval-history-adds-evaluations-to-store
+(deftest adds-elements-to-eval-history
   (let [history         (h/create-store 2)
         eval            (-> ["some"
                              "eval"]
@@ -19,7 +19,7 @@
     (is (= actual-limit 2))
     (is (= actual-temp nil))))
 
-(deftest eval-history-limits-evaluation-history-size
+(deftest limits-eval-history-elements
   (let [history         (h/create-store 2)
         eval1           (-> ["one"]
                             (derive-text))
@@ -39,7 +39,7 @@
     (is (= actual-position 2))
     (is (= actual-limit 2))))
 
-(deftest eval-history-stops-early-when-less-frames-than-limit
+(deftest stops-early-when-less-elements-in-eval-history-than-limit
   (let [history         (h/create-store 4)
         eval1           (-> ["one"]
                             (derive-text))
@@ -63,7 +63,7 @@
     (is (= actual-position 3))
     (is (= actual-limit 4))))
 
-(deftest eval-history-allows-traveling
+(deftest allows-traversing-the-eval-history
   (let [eval1               (-> ["one"]
                                 (derive-text))
         eval2               (-> ["two"]
@@ -90,7 +90,7 @@
     (is (= actual-near-past actual-cycle eval2))
     (is (= actual-preset nil))))
 
-(deftest eval-history-returns-temporary-outside-known-bounds
+(deftest returns-temporary-value-outside-eval-history-known-bounds
   (let [temp            (-> ["temp"]
                             (derive-text))
         eval            (-> ["one"]
@@ -117,4 +117,100 @@
         actual2 (-> store (st/reset-eval-history))]
     (is (= actual1 actual2 store))))
 
-;; FIXME: Add undo-redo history tests
+(deftest adds-undo-history-element
+  (let [text1                 (-> ["text1"]
+                                  (derive-text))
+        text2                 (-> ["text2"]
+                                  (derive-text))
+        store                 (-> (h/create-store 3)
+                                  (h/add-to-undo-history text1)
+                                  (h/add-to-undo-history text2))
+        actual-undo-value     (-> store (h/next-undo-value))
+        actual-undo-timeframe (-> store (h/undo-history) (h/timeframe))
+        actual-redo-timeframe (-> store (h/redo-history) (h/timeframe))]
+    (is (= actual-undo-value text2))
+    (is (= actual-undo-timeframe [text2 text1]))
+    (is (= actual-redo-timeframe []))))
+
+(deftest adds-redo-history-element
+  (let [text1                 (-> ["text1"]
+                                  (derive-text))
+        text2                 (-> ["text2"]
+                                  (derive-text))
+        store                 (-> (h/create-store 3)
+                                  (h/add-to-redo-history text1)
+                                  (h/add-to-redo-history text2))
+        actual-redo-value     (-> store (h/next-redo-value))
+        actual-redo-timeframe (-> store (h/redo-history) (h/timeframe))
+        actual-undo-timeframe (-> store (h/undo-history) (h/timeframe))]
+    (is (= actual-redo-value text2))
+    (is (= actual-redo-timeframe [text2 text1]))
+    (is (= actual-undo-timeframe []))))
+
+(deftest undos
+  (let [text1              (-> ["text1"]
+                               (derive-text))
+        text2              (-> ["text2"]
+                               (derive-text))
+        store              (-> (h/create-store 3)
+                               (h/add-to-undo-history text1)
+                               (h/add-to-undo-history text2)
+                               (h/undo))
+        actual-value       (-> store (h/next-undo-value))
+        expected-value     text1
+        actual-timeframe   (-> store (h/undo-history) (h/timeframe))
+        expected-timeframe [text1]]
+    (is (= actual-value expected-value))
+    (is (= actual-timeframe expected-timeframe))))
+
+(deftest redos
+  (let [text1              (-> ["text1"]
+                               (derive-text))
+        text2              (-> ["text2"]
+                               (derive-text))
+        store              (-> (h/create-store 3)
+                               (h/add-to-redo-history text1)
+                               (h/add-to-redo-history text2)
+                               (h/redo))
+        actual-value       (-> store (h/next-redo-value))
+        expected-value     text1
+        actual-timeframe   (-> store (h/redo-history) (h/timeframe))
+        expected-timeframe [text1]]
+    (is (= actual-value expected-value))
+    (is (= actual-timeframe expected-timeframe))))
+
+(deftest limits-undo-history
+  (let [text1              (-> ["text1"]
+                               (derive-text))
+        text2              (-> ["text2"]
+                               (derive-text))
+        text3              (-> ["text3"]
+                               (derive-text))
+        store              (-> (h/create-store 2)
+                               (h/add-to-undo-history text1)
+                               (h/add-to-undo-history text2)
+                               (h/add-to-undo-history text3))
+        actual-value       (-> store (h/next-undo-value))
+        expected-value     text3
+        actual-timeframe   (-> store (h/undo-history) (h/timeframe))
+        expected-timeframe [text3 text2]]
+    (is (= actual-value expected-value))
+    (is (= actual-timeframe expected-timeframe))))
+
+(deftest limits-redo-history
+  (let [text1              (-> ["text1"]
+                               (derive-text))
+        text2              (-> ["text2"]
+                               (derive-text))
+        text3              (-> ["text3"]
+                               (derive-text))
+        store              (-> (h/create-store 2)
+                               (h/add-to-redo-history text1)
+                               (h/add-to-redo-history text2)
+                               (h/add-to-redo-history text3))
+        actual-value       (-> store (h/next-redo-value))
+        expected-value     text3
+        actual-timeframe   (-> store (h/redo-history) (h/timeframe))
+        expected-timeframe [text3 text2]]
+    (is (= actual-value expected-value))
+    (is (= actual-timeframe expected-timeframe))))
