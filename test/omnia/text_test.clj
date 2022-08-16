@@ -2573,6 +2573,28 @@
                  (:clipboard))]
     (is (= text nil))))
 
+(deftest resets-clipboard-when-copying
+  (let [initial               (-> ["hello |world"]
+                                  (derive-text)
+                                  (i/jump-select-right)
+                                  (i/copy))
+        copied                (-> initial
+                                  (i/insert \a)
+                                  (i/jump-select-left)
+                                  (i/copy))
+        expected-initial      (-> ["world"] (derive-text) (:lines))
+        actual-initial        (-> initial (:clipboard) (:lines))
+        expected-initial-clip nil
+        actual-initial-clip   (-> initial (:clipboard) (:clipboard))
+        expected-copied       (-> ["worlda"] (derive-text) (:lines))
+        actual-copied         (-> copied (:clipboard) (:lines))
+        expected-copied-clip  nil
+        actual-copied-clip    (-> copied (:clipboard) (:clipboard))]
+    (is (= expected-initial actual-initial))
+    (is (= expected-initial-clip actual-initial-clip))
+    (is (= expected-copied actual-copied))
+    (is (= expected-copied-clip actual-copied-clip))))
+
 ;;; XIII. Cutting
 
 (deftest cuts-within-line
@@ -2610,17 +2632,39 @@
     (is (= cut [[\h \e \l \l \o \space \w \o \r \l \d]]))))
 
 (deftest cuts-dont-retain-clipboard
-  (let [text      (-> ["hello |world"]
-                      (derive-text)
-                      (i/jump-select-right)
-                      (i/cut)
-                      (:clipboard))
-        history   (:history text)
-        rhistory  (:rhistory text)
-        cut       (:lines text)]
-    (is (empty? history))
-    (is (empty? rhistory))
-    (is (= cut [[\w \o \r \l \d]]))))
+  (let [result             (-> ["hello |world"]
+                               (derive-text)
+                               (i/jump-select-right)
+                               (i/cut)
+                               (:clipboard))
+        expected-lines     [[\w \o \r \l \d]]
+        actual-lines       (:lines result)
+        actual-clipboard   (:clipboard result)
+        expected-clipboard nil]
+    (is (= actual-lines expected-lines))
+    (is (= actual-clipboard expected-clipboard))))
+
+(deftest resets-clipboard-when-cutting
+  (let [initial               (-> ["hello |world"]
+                                  (derive-text)
+                                  (i/jump-select-right)
+                                  (i/cut))
+        cut                   (-> initial
+                                  (i/insert \a)
+                                  (i/jump-select-left)
+                                  (i/cut))
+        expected-initial      (-> ["world"] (derive-text) (:lines))
+        actual-initial        (-> initial (:clipboard) (:lines))
+        expected-initial-clip nil
+        actual-initial-clip   (-> initial (:clipboard) (:clipboard))
+        expected-cut          (-> ["a"] (derive-text) (:lines))
+        actual-cut            (-> cut (:clipboard) (:lines))
+        expected-cut-clip     nil
+        actual-cut-clip       (-> cut (:clipboard) (:clipboard))]
+    (is (= expected-initial actual-initial))
+    (is (= expected-initial-clip actual-initial-clip))
+    (is (= expected-cut actual-cut))
+    (is (= expected-cut-clip actual-cut-clip))))
 
 ;;; XIV. Pasting
 
@@ -2882,91 +2926,21 @@
                        (i/extract))
           expected (-> ["hello" "world"]
                        (derive-text))]
-      (is (:lines text) (:lines expected)))))
+      (is (:lines text) (:lines expected))))
 
-;; XVII. Undoing / Redoing
+  (testing "Extracts removing metadata"
+    (let [text               (-> ["⦇hello"
+                                  "world⦈|"]
+                                 (derive-text)
+                                 (i/extract))
+          expected-clipboard nil
+          actual-clipboard   (:clipboard text)
+          expected-selection nil
+          actual-selection   (:selection text)]
+      (is (= expected-clipboard actual-clipboard))
+      (is (= expected-selection actual-selection)))))
 
-;(deftest undos-and-redos
-;  (let [text     (-> ["hello w|orld"]
-;                     (derive-text)
-;                     (i/add-to-history))
-;        delete   (-> text (i/delete-previous))
-;        original (-> text (:lines))
-;        deleted  (-> delete (:lines))
-;        undone   (-> delete (i/undo) (:lines))
-;        redone   (-> delete (i/undo) (i/redo) (:lines))]
-;    (is (= undone original))
-;    (is (= redone deleted))))
-
-;(deftest undos-history-is-limited
-;  (let [history (->> ["history"] (derive-text) (repeat 50))
-;        text    (-> ["hello world|"]
-;                    (derive-text)
-;                    (i/reset-history history history)
-;                    (i/new-line)
-;                    (i/insert \a)
-;                    (:history))
-;        size    (-> text (count))
-;        action  (-> text (first) (:lines))]
-;    (is (= size 50))
-;    (is (= action [[\h \e \l \l \o \space \w \o \r \l \d] []]))))
-
-;(deftest undos-and-redos-are-balanced
-;  (let [text             (-> ["hello |world"]
-;                              (derive-text)
-;                              (i/insert \a)
-;                              (i/insert \b))
-;        initial-history  (:history text)
-;        initial-rhistory (:rhistory text)
-;        undo1-history    (-> text (i/undo) (:history))
-;        undo1-rhistory   (-> text (i/undo) (:rhistory))
-;        undo2-history    (-> text (i/undo) (i/undo) (:history))
-;        undo2-rhistory   (-> text (i/undo) (i/undo) (:rhistory))]
-;    (is (= (count initial-history) 2))
-;    (is (= (count initial-rhistory) 0))
-;    (is (= (count undo1-history) 1))
-;    (is (= (count undo1-rhistory) 1))
-;    (is (= (count initial-history) 2))
-;    (is (= (count undo2-history) 0))
-;    (is (= (count undo2-rhistory) 2))))
-
-;(deftest undos-and-redos-dont-affect-clipboard
-;  (let [text     (-> ["hel|lo world"]
-;                      (derive-text)
-;                      (i/jump-select-right)
-;                      (i/insert \a))
-;        original (:clipboard text)
-;        undone   (-> text (i/undo) (:clipboard))
-;        redone   (-> text (i/undo) (i/redo) (:clipboard))]
-;    (is (= original undone redone))))
-
-;(deftest undos-and-redos-are-preserved-between-each-other
-;  (let [text (-> ["hello w|orld"]
-;                 (derive-text)
-;                 (i/delete-previous)
-;                 (i/delete-previous)
-;                 (i/delete-previous)
-;                 (i/undo)
-;                 (i/undo)
-;                 (i/redo)
-;                 (i/redo)
-;                 (:lines))]
-;    (is (= text [[\h \e \l \l \o \r \l \d]]))))
-
-;(deftest history-doesnt-keep-the-clipboard
-;  (let [text      (-> ["hello |world"]
-;                      (derive-text)
-;                      (i/select-right)
-;                      (i/cut)
-;                      (i/insert \a))
-;        h-clip    (-> text (:history) (:clipboard))
-;        rh-clip   (-> text (:history) (:clipboard))
-;        clipboard (-> text (:clipboard) (:lines))]
-;    (is (empty? h-clip))
-;    (is (empty? rh-clip))
-;    (is (= [[\w]] clipboard))))
-
-;; XVIII. Auto-completing
+;; XVII. Auto-completing
 
 (deftest can-autocomplete-text
   (let [text1     (-> ["some"

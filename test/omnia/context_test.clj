@@ -1,5 +1,6 @@
 (ns omnia.context-test
-  (:require [omnia.repl.view :as v]
+  (:require [omnia.repl.text :as t]
+            [omnia.repl.view :as v]
             [omnia.repl.hud :as h]
             [omnia.repl.events :as e]
             [omnia.repl.context :as c]
@@ -27,7 +28,7 @@
                        (h/current-view))]
     (= expected actual)))
 
-(deftest clipboard-is-renew
+(deftest clipboard-is-renewed
   (let [actual   (-> ["existing input"]
                      (derive-context)
                      (process [e/select-all e/copy (e/character \a) e/select-all e/copy])
@@ -119,7 +120,7 @@
         init-offset            (-> context (c/hud) (h/current-view) (v/scroll-offset))
         scrolled-offset        (-> scrolled (c/hud) (h/current-view) (v/scroll-offset))
         expected-init-offset   0
-        expected-scroll-offset (+ 3 (count h/header))]
+        expected-scroll-offset (+ (t/size h/header) 3)]
     (is (= init-offset expected-init-offset))
     (is (= scrolled-offset expected-scroll-offset))))
 
@@ -136,7 +137,7 @@
         scrolled-down        (process context (repeat 100 e/scroll-down))
         actual-up-offset     (-> scrolled-up (c/hud) (h/current-view) (v/scroll-offset))
         actual-down-offset   (-> scrolled-down (c/hud) (h/current-view) (v/scroll-offset))
-        expected-up-offset   (+ 3 (count h/header))
+        expected-up-offset   (+ (t/size h/header) 3)
         expected-down-offset 0]
     (is (= actual-up-offset expected-up-offset))
     (is (= actual-down-offset expected-down-offset))))

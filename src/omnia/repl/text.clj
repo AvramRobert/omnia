@@ -13,9 +13,7 @@
    :size      0
    :expansion :word
    :selection nil
-   :clipboard nil
-   :history   '()
-   :rhistory  '()})
+   :clipboard nil})
 
 (def open-pairs {\( \) \[ \] \{ \}})
 (def closed-pairs (map-invert open-pairs))
@@ -34,12 +32,14 @@
       :size      (count lines)
       :expansion :word
       :clipboard nil
-      :selection nil
-      :history   '()
-      :rhistory  '()})))
+      :selection nil})))
 
 (s/def empty-line :- Text
   (create-text [[]]))
+
+(s/defn size :- s/Int
+  [text :- Text]
+  (-> text (:lines) (count)))
 
 (s/defn from-string :- Text
   "Examples:
@@ -99,11 +99,9 @@
    content :- (s/maybe Text)]
   (assoc text :clipboard content))
 
-(s/defn reset-history :- Text
-  [text :- Text
-   undo-history :- [Text]
-   redo-history :- [Text]]
-  (assoc text :history undo-history :rhistory redo-history))
+(s/defn clear-clipboard :- Text
+  [text :- Text]
+  (reset-clipboard text nil))
 
 (s/defn y :- s/Int
   [text :- Text]
@@ -422,25 +420,11 @@
       (move-y inc)
       (start-x)))
 
-(s/defn clean-history :- Text
-  [text :- Text]
-  (-> text
-      (reset-history '() '())
-      (reset-clipboard nil)))
-
 (s/defn reset :- Text
   [text :- Text]
   (-> text
       (reset-selection nil)
       (reset-clipboard nil)))
-
-(s/defn add-to-history :- Text
-  [text :- Text]
-  (let [history (:history text)]
-    (->> history
-         (cons (clean-history text))
-         (take 50)
-         (assoc text :history))))
 
 (s/defn simple-delete :- Text
   [text :- Text]
@@ -565,6 +549,7 @@
       (-> text
           (reset-lines (->> lines (take (inc ye)) (drop ys)))
           (reset-selection nil)
+          (reset-clipboard nil)
           (end)
           (switch (fn [line] (take xe line)))
           (start)
@@ -578,7 +563,7 @@
 (s/defn do-copy :- Text
   [text :- Text]
   (if (selecting? text)
-    (->> text (extract) (clean-history) (reset-clipboard text))
+    (reset-clipboard text (extract text))
     text))
 
 (s/defn do-cut :- Text
@@ -727,31 +712,6 @@
         (reset-selection expansion)
         (reset-expansion :expr))))
 
-(s/defn do-undo :- Text
-  [text :- Text]
-  (let [history   (:history text)
-        rhistory  (:rhistory text)
-        clipboard (:clipboard text)]
-    (if (empty? history)
-      text
-      (-> history
-          (first)
-          (assoc :clipboard clipboard)
-          (assoc :history (rest history))
-          (assoc :rhistory (-> text (clean-history) (cons rhistory)))))))
-
-(s/defn do-redo [text :- Text]
-  (let [history   (:history text)
-        rhistory  (:rhistory text)
-        clipboard (:clipboard text)]
-    (if (empty? rhistory)
-      text
-      (-> rhistory
-          (first)
-          (assoc :clipboard clipboard)
-          (assoc :rhistory (rest rhistory))
-          (assoc :history (-> text (clean-history) (cons history)))))))
-
 (s/defn do-auto-complete :- Text
   [text :- Text,
    input :- [Character]]
@@ -785,33 +745,17 @@
 
 ;; ------------ API -------------
 
-#_(s/defn delete-previous :- Text
-  [text :- Text]
-  (-> text (add-to-history) (do-delete-previous) (deselect)))
-
 (s/defn delete-previous :- Text
   [text :- Text]
   (-> text (do-delete-previous) (deselect)))
-
-#_(s/defn delete-current :- Text
-  [text :- Text]
-  (-> text (add-to-history) (do-delete-current) (deselect)))
 
 (s/defn delete-current :- Text
   [text :- Text]
   (-> text (do-delete-current) (deselect)))
 
-#_(s/defn insert :- Text
-  [text :- Text char :- Character]
-  (-> text (add-to-history) (do-insert char) (deselect)))
-
 (s/defn insert :- Text
   [text :- Text char :- Character]
   (-> text (do-insert char) (deselect)))
-
-#_(s/defn new-line :- Text
-  [text :- Text]
-  (-> text (add-to-history) (do-new-line) (deselect)))
 
 (s/defn new-line :- Text
   [text :- Text]
@@ -845,17 +789,9 @@
   [text :- Text]
   (-> text (do-copy) (deselect)))
 
-;(s/defn cut :- Text
-;  [text :- Text]
-;  (-> text (add-to-history) (do-cut) (deselect)))
-
 (s/defn cut :- Text
   [text :- Text]
   (-> text (do-cut) (deselect)))
-
-;(s/defn paste :- Text
-;  [text :- Text]
-;  (-> text (add-to-history) (do-paste) (deselect)))
 
 (s/defn paste :- Text
   [text :- Text]
@@ -892,14 +828,6 @@
 (s/defn jump-select-right :- Text
   [text :- Text]
   (-> text (do-jump-select-right)))
-
-(s/defn undo :- Text
-  [text :- Text]
-  (-> text (do-undo)))
-
-(s/defn redo :- Text
-  [text :- Text]
-  (-> text (do-redo)))
 
 (s/defn auto-complete :- Text
   [text :- Text

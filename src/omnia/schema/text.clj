@@ -12,7 +12,5 @@
    :cursor    u/Point
    :size      s/Int
    :expansion Expansion
-   :history   [(s/recursive #'Text)]
-   :rhistory  [(s/recursive #'Text)]
    :selection (s/maybe u/Region)
    :clipboard (s/maybe (s/recursive #'Text))})

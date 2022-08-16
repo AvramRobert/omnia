@@ -89,7 +89,7 @@
   [view :- View]
   (-> view (text) (t/current-line)))
 
-(s/defn engulfed-size :- s/Int
+(s/defn total-offset :- s/Int
   [view :- View]
   (let [fov   (field-of-view view)
         s-off (scroll-offset view)
@@ -244,10 +244,10 @@
 
 (s/defn scroll-up :- View
   [view :- View]
-  (let [offset     (scroll-offset view)
-        chunk-size (engulfed-size view)
-        text-size  (-> view (text) (:size))
-        result     (if (>= chunk-size text-size) text-size (inc offset))]
+  (let [offset       (scroll-offset view)
+        total-offset (total-offset view)
+        text-size    (-> view (text) (t/size))
+        result       (if (>= total-offset text-size) offset (inc offset))]
     (assoc-new view :scroll-offset result)))
 
 (s/defn scroll-down :- View
