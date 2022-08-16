@@ -6,6 +6,7 @@
             [omnia.repl.text :as t]
             [omnia.repl.view :as v]
             [omnia.repl.nrepl :as n]
+            [omnia.repl.text-history :as th]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.docs :refer [Docs]]
@@ -15,7 +16,8 @@
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event Action]]
             [omnia.schema.common :refer [=>]]
-            [omnia.schema.nrepl :refer [NReplClient]]))
+            [omnia.schema.nrepl :refer [NReplClient]]
+            [omnia.schema.text-history :refer [TextHistory]]))
 
 (s/defn hud :- Hud
   [context :- Context]
@@ -24,6 +26,14 @@
 (s/defn docs :- Docs
   [context :- Context]
   (:docs context))
+
+(s/defn undo-history :- TextHistory
+  [context :- Context]
+  (:undo-history context))
+
+(s/defn redo-history :- TextHistory
+  [context :- Context]
+  (:redo-history context))
 
 (s/defn store :- Store
   [context :- Context]
@@ -40,18 +50,22 @@
 (s/defn continue :- Context
   [hud :- Hud
    context :- Context]
-  {:status processing
-   :hud    hud
-   :docs   (reset-docs context)
-   :store  (reset-store context)})
+  {:status       processing
+   :hud          hud
+   :undo-history (undo-history context)
+   :redo-history (redo-history context)
+   :docs         (reset-docs context)
+   :store        (reset-store context)})
 
 (s/defn terminate :- Context
   [hud :- Hud
    context :- Context]
-  {:status terminated
-   :hud    hud
-   :docs   (reset-docs context)
-   :store  (reset-store context)})
+  {:status       terminated
+   :hud          hud
+   :undo-history (undo-history context)
+   :redo-history (redo-history context)
+   :docs         (reset-docs context)
+   :store        (reset-store context)})
 
 (s/defn documentation :- Context
   [context :- Context
@@ -65,16 +79,18 @@
         documentation' (if (nil? documentation)
                          (-> nrepl (n/docs! current-input) (v/riffle-window 15))
                          (v/riffle documentation))]
-    {:status processing
-     :store  (reset-store context)
-     :docs   (d/with-documentation docs documentation')
-     :hud    (-> hud
-                 (h/gc config)
-                 (h/reset-scroll)
-                 (h/deselect)
-                 (h/with-popup documentation')
-                 (h/match-parens config)
-                 (h/diff-render))}))
+    {:status       processing
+     :store        (reset-store context)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :docs         (d/with-documentation docs documentation')
+     :hud          (-> hud
+                       (h/gc config)
+                       (h/reset-scroll)
+                       (h/deselect)
+                       (h/with-popup documentation')
+                       (h/match-parens config)
+                       (h/diff-render))}))
 
 (s/defn signature :- Context
   [context :- Context
@@ -88,16 +104,18 @@
         signatures'   (if (nil? signatures)
                         (-> nrepl (n/signature! current-input) (v/riffle-window 10))
                         (v/riffle signatures))]
-    {:status processing
-     :store  (reset-store context)
-     :docs   (d/with-signatures docs signatures')
-     :hud    (-> hud
-                 (h/gc config)
-                 (h/reset-scroll)
-                 (h/deselect)
-                 (h/with-popup signatures')
-                 (h/match-parens config)
-                 (h/diff-render))}))
+    {:status       processing
+     :store        (reset-store context)
+     :docs         (d/with-signatures docs signatures')
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :hud          (-> hud
+                       (h/gc config)
+                       (h/reset-scroll)
+                       (h/deselect)
+                       (h/with-popup signatures')
+                       (h/match-parens config)
+                       (h/diff-render))}))
 
 (s/defn suggest :- Context
   [context :- Context
@@ -111,15 +129,17 @@
         suggestions'  (if (nil? suggestions)
                         (-> nrepl (n/complete! current-input) (v/riffle-window 10))
                         (v/riffle suggestions))]
-    {:status processing
-     :store  (reset-store context)
-     :docs   (d/with-suggestions docs suggestions')
-     :hud    (-> hud
-                 (h/gc config)
-                 (h/reset-scroll)
-                 (h/with-popup-autocompleted suggestions')
-                 (h/match-parens config)
-                 (h/diff-render))}))
+    {:status       processing
+     :store        (reset-store context)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :docs         (d/with-suggestions docs suggestions')
+     :hud          (-> hud
+                       (h/gc config)
+                       (h/reset-scroll)
+                       (h/with-popup-autocompleted suggestions')
+                       (h/match-parens config)
+                       (h/diff-render))}))
 
 (s/defn scroll-down :- Context
   [context :- Context
@@ -162,16 +182,18 @@
                          (st/travel-to-previous-position))
                      (st/travel-to-previous-position store))
         evaluation (st/evaluation store')]
-    {:status processing
-     :docs   (reset-docs context)
-     :store  store'
-     :hud    (-> hud
-                 (h/gc config)
-                 (h/reset-scroll)
-                 (h/switch-input-area evaluation)
-                 (h/highlight config)
-                 (h/match-parens config)
-                 (h/diff-render))}))
+    {:status       processing
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :docs         (reset-docs context)
+     :store        store'
+     :hud          (-> hud
+                       (h/gc config)
+                       (h/reset-scroll)
+                       (h/switch-input-area evaluation)
+                       (h/highlight config)
+                       (h/match-parens config)
+                       (h/diff-render))}))
 
 (s/defn next-eval :- Context
   [context :- Context
@@ -186,16 +208,18 @@
                          (st/travel-to-next-position))
                      (st/travel-to-next-position store))
         evaluation (st/evaluation store')]
-    {:status processing
-     :docs   (reset-docs context)
-     :store  store'
-     :hud    (-> hud
-                 (h/gc config)
-                 (h/reset-scroll)
-                 (h/switch-input-area evaluation)
-                 (h/highlight config)
-                 (h/match-parens config)
-                 (h/diff-render))}))
+    {:status       processing
+     :docs         (reset-docs context)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :store        store'
+     :hud          (-> hud
+                       (h/gc config)
+                       (h/reset-scroll)
+                       (h/switch-input-area evaluation)
+                       (h/highlight config)
+                       (h/match-parens config)
+                       (h/diff-render))}))
 
 ;; FIXME: Rename this to: reformat
 (s/defn indent :- Context
@@ -241,6 +265,8 @@
         result     (n/evaluate! nrepl input-area)]
     {:status processing
      :store  (st/add-to-eval-history store input-area)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
      :docs   (reset-docs context)
      :hud    (-> hud
                  (h/gc config)
@@ -258,6 +284,8 @@
         result     (->> event (:value) (t/from-string) (n/evaluate! nrepl))]
     {:status processing
      :store  (store context)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
      :docs   (reset-docs context)
      :hud    (-> hud
                  (h/gc config)
@@ -316,16 +344,20 @@
 
 (s/defn undoable-text-event :- Context
   [context :- Context
-   event   :- Event
-   config  :- Config
-   nrepl   :- NReplClient
-   f       :- (=> Text Text)]
-  (let [hud        (hud context)
-        input-area (-> hud (h/input-area) (t/reset))]
-    {:status processing
-     :store  (-> context (reset-store) (st/add-to-undo-history input-area))
-     :docs   (reset-docs context)
-     :hud    (change-input-area hud config f)}))
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient
+   f :- (=> Text Text)]
+  (let [hud          (hud context)
+        store        (store context)
+        undo-history (undo-history context)
+        input-area   (-> hud (h/input-area) (t/reset))]
+    {:status       processing
+     :store        (st/reset-eval-history store)
+     :docs         (reset-docs context)
+     :redo-history (redo-history context)
+     :undo-history (th/insert input-area undo-history)
+     :hud          (change-input-area hud config f)}))
 
 (s/defn text-event :- Context
   [context :- Context
@@ -334,10 +366,12 @@
    nrepl :- NReplClient
    f :- (=> Text Text)]
   (let [hud (hud context)]
-    {:status processing
-     :store  (reset-store context)
-     :docs   (reset-docs context)
-     :hud    (change-input-area hud config f)}))
+    {:status       processing
+     :store        (reset-store context)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :docs         (reset-docs context)
+     :hud          (change-input-area hud config f)}))
 
 (s/defn move-up :- Context
   [context :- Context
@@ -486,97 +520,53 @@
    nrepl :- NReplClient]
   (undoable-text-event context event config nrepl t/new-line))
 
-;(s/defn cut :- Context
-;  [context :- Context
-;   event :- Event
-;   config :- Config
-;   nrepl :- NReplClient]
-;  (text-event context event config nrepl t/cut))
-
-;(s/defn paste :- Context
-;  [context :- Context
-;   event :- Event
-;   config :- Config
-;   nrepl :- NReplClient]
-;  (text-event context event config nrepl t/paste))
-
-;(s/defn delete-previous :- Context
-;  [context :- Context
-;   event :- Event
-;   config :- Config
-;   nrepl :- NReplClient]
-;  (text-event context event config nrepl t/delete-previous))
-
-#_(s/defn delete-current :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient]
-  (text-event context event config nrepl t/delete-current))
-
-;(s/defn character :- Context
-;  [context :- Context
-;   event :- Event
-;   config :- Config
-;   nrepl :- NReplClient]
-;  (text-event context event config nrepl #(t/insert % (:value event))))
-
-#_(s/defn new-line :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient]
-  (text-event context event config nrepl t/new-line))
-
 (s/defn undo :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [hud         (hud context)
-        store       (store context)
-        input-area  (-> hud (h/input-area) (t/reset))
-        input-area' (st/next-undo-value store)]
-    {:status processing
-     :docs   (reset-docs context)
-     :store  (if (some? input-area')
-               (-> store (st/reset-eval-history) (st/add-to-redo-history input-area) (st/undo))
-               (st/reset-eval-history store))
-     :hud    (if (some? input-area')
-               (change-input-area hud config (constantly input-area'))
-               hud)}))
+  (let [hud          (hud context)
+        store        (store context)
+        input-area   (-> hud (h/input-area) (t/reset))
+        undo-history (undo-history context)
+        redo-history (redo-history context)
+        old-record   (th/next-record undo-history)]
+    {:status       processing
+     :docs         (reset-docs context)
+     :store        (st/reset-eval-history store)
+     :redo-history (if (some? old-record)
+                     (th/insert input-area redo-history)
+                     redo-history)
+     :undo-history (if (some? old-record)
+                     (th/revert undo-history)
+                     undo-history)
+     :hud          (if (some? old-record)
+                     (change-input-area hud config (constantly old-record))
+                     hud)}))
 
 (s/defn redo :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [hud         (hud context)
-        store       (store context)
-        input-area  (-> hud (h/input-area) (t/reset))
-        input-area' (st/next-redo-value store)]
-    {:status processing
-     :docs   (reset-docs context)
-     :store  (if (some? input-area')
-               (-> store (st/reset-eval-history) (st/add-to-undo-history input-area) (st/redo))
-               (st/reset-eval-history store))
-     :hud    (if (some? input-area')
-               (change-input-area hud config (constantly input-area'))
-               hud)}))
-
-;(s/defn undo :- Context
-;  [context :- Context
-;   event :- Event
-;   config :- Config
-;   nrepl :- NReplClient]
-;  (text-event context event config nrepl t/undo))
-
-;(s/defn redo :- Context
-;  [context :- Context
-;   event :- Event
-;   config :- Config
-;   nrepl :- NReplClient]
-;  (text-event context event config nrepl t/redo))
+  (let [hud          (hud context)
+        store        (store context)
+        undo-history (undo-history context)
+        redo-history (redo-history context)
+        input-area   (-> hud (h/input-area) (t/reset))
+        old-record   (th/next-record redo-history)]
+    {:status       processing
+     :docs         (reset-docs context)
+     :store        (st/reset-eval-history store)
+     :undo-history (if (some? old-record)
+                     (th/insert input-area undo-history)
+                     undo-history)
+     :redo-history (if (some? old-record)
+                     (th/revert redo-history)
+                     redo-history)
+     :hud          (if (some? old-record)
+                     (change-input-area hud config (constantly old-record))
+                     hud)}))
 
 (s/def handlers :- {Action EventHandler}
   {e/inject            inject
@@ -626,9 +616,13 @@
     (handler context event config nrepl)))
 
 (s/defn context-from :- Context
-  [hud :- Hud
-   store :- Store]
-  {:status processing
-   :store  store
-   :docs   d/empty-docs
-   :hud    hud})
+  [hud          :- Hud
+   store        :- Store
+   history-size :- s/Num]
+  (let [text-history (th/create-text-history history-size)]
+    {:status       processing
+     :store        store
+     :undo-history text-history
+     :redo-history text-history
+     :docs         d/empty-docs
+     :hud          hud}))

@@ -36,10 +36,11 @@
   [config   :- Config
    terminal :- Terminal
    nrepl    :- NReplClient
-   store    :- Store]
+   store    :- Store
+   history-size :- s/Int]
   (let [events  (concat prelude (events-from terminal))
         hud     (h/create-hud (t/size terminal))
-        context (c/context-from hud store)]
+        context (c/context-from hud store history-size)]
     (-> (tsk/task (consume context config terminal nrepl events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))

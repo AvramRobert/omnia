@@ -5,6 +5,7 @@
             [omnia.schema.docs :refer [Docs]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event]]
+            [omnia.schema.text-history :refer [TextHistory]]
             [omnia.schema.common :refer [=>]]))
 
 (def ^:const processing :processing)
@@ -13,10 +14,12 @@
 (def Status (s/enum processing terminated))
 
 (def Context
-  {:status  Status
-   :store   Store
-   :docs    Docs
-   :hud     Hud})
+  {:status       Status
+   :undo-history TextHistory
+   :redo-history TextHistory
+   :store        Store
+   :docs         Docs
+   :hud          Hud})
 
 (def EventHandler
   (=> Context Event Config))

@@ -7,8 +7,8 @@
 (s/defn create-text-history :- TextHistory
   [limit :- s/Int]
   {:records '()
-   :size      0
-   :limit     limit})
+   :size    0
+   :limit   limit})
 
 (s/defn records :- Records
   [history :- TextHistory]

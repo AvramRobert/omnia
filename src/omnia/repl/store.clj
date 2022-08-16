@@ -224,8 +224,9 @@
      :eval-history eval}))
 
 (s/defn read-store :- Store
-  [path :- s/Str]
-  (let [store (create-store 50)
+  [path :- s/Str
+   limit :- s/Int]
+  (let [store (create-store limit)
         data  (-> path
                   (slurp-or-else "")
                   (:eval-history []))]

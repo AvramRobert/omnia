@@ -7,7 +7,8 @@
             [clojure.test :refer [is deftest testing]]
             [omnia.test-utils :refer :all]
             [omnia.repl.docs :as d]
-            [omnia.repl.store :as st]))
+            [omnia.repl.store :as st]
+            [omnia.repl.text-history :as th]))
 
 ;; I. Manipulation
 
@@ -937,9 +938,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   []
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -956,9 +957,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["tex|t"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   []
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -975,9 +976,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   []
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -995,9 +996,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   []
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -1014,9 +1015,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   []
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -1033,9 +1034,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["|t"] (derive-text)) (-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   []
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -1052,9 +1053,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   [(-> ["te|"] (derive-text))]
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -1070,8 +1071,8 @@
           actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-undo     (-> actual (c/undo-history) (th/records))
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= [] actual-undo))
@@ -1088,9 +1089,9 @@
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-redo   [(-> ["te|"] (derive-text))]
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
@@ -1106,8 +1107,8 @@
           actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))]
+          actual-undo     (-> actual (c/undo-history) (th/records))
+          actual-redo     (-> actual (c/redo-history) (th/records))]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
       (is (= [] actual-undo))
@@ -1123,9 +1124,9 @@
           actual-view     (-> actual (c/hud) (h/current-view) (v/text) (:lines))
           expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
           actual-cursor   (-> actual (c/hud) (h/current-view) (v/text) (:cursor))
-          actual-undo     (-> actual (c/store) (st/undo-history) (st/timeframe))
+          actual-undo     (-> actual (c/undo-history) (th/records))
           expected-undo   [(-> ["text|"] (derive-text))]
-          actual-redo     (-> actual (c/store) (st/redo-history) (st/timeframe))
+          actual-redo     (-> actual (c/redo-history) (th/records))
           expected-redo   []]
       (is (= expected-view actual-view))
       (is (= expected-cursor actual-cursor))
