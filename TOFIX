@@ -1,6 +1,5 @@
 CURRENT TASK:
 
-  * Move the history logic from text to the context and write tests for it (migrate existing tests from text aswell)
   * Write a `resets-docs` test for the context
 
 Global issues:

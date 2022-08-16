@@ -102,7 +102,7 @@
   bottom-y = height - view-offset - 1
   Subtract 1 because we count from 0"
   (let [v-off  (view-offset view)
-        height (-> view (text) (:size))]
+        height (-> view (text) (t/size))]
     (-- height v-off 1)))
 
 (s/defn top-y :- s/Int
@@ -111,7 +111,7 @@
   top-y = (height - fov - ov)"
   (let [fov    (field-of-view view)
         v-off  (view-offset view)
-        height (-> view (text) (:size))]
+        height (-> view (text) (t/size))]
     (-- height fov v-off)))
 
 (s/defn project-y :- s/Int
@@ -119,7 +119,7 @@
   "given view-y, screen-y = view-y - top-y
    given screen-y, view-y = screen-y + top-y"
   (let [fov (field-of-view view)
-        h   (-> view (text) (:size))
+        h   (-> view (text) (t/size))
         ys  (top-y view)]
     (if (> h fov) (-- y ys) y)))
 
@@ -138,7 +138,7 @@
         v-off          (view-offset view)
         s-off          (scroll-offset view)
         viewable-chunk (+ fov v-off s-off)
-        y-start        (-- (:size text) viewable-chunk)
+        y-start        (-- (t/size text) viewable-chunk)
         y-end          (++ y-start fov)]
     (bounded-subvec (:lines text) y-start y-end)))
 
@@ -150,7 +150,7 @@
   [view :- View
    selection :- Region]
   (let [fov             (field-of-view view)
-        h               (-> view (text) (:size))
+        h               (-> view (text) (t/size))
         [xs ys]         (:from selection)
         [xe ye]         (:until selection)
         top             (top-y view)
@@ -190,10 +190,10 @@
    previous-view :- View]
   (let [fov         (field-of-view view)
         v-off       (view-offset view)
-        h           (-> view (text) (:size))
+        h           (-> view (text) (t/size))
         [_ y]       (-> view (text) (:cursor))
         pfov        (field-of-view previous-view)
-        ph          (-> previous-view (text) (:size))
+        ph          (-> previous-view (text) (t/size))
         upper-y     (top-y view)                             ;; the top viewable y
         lower-y     (bottom-y view)                          ;; the lower viewable y
         over-upper? (< y upper-y)
@@ -236,7 +236,7 @@
   [view :- View]
   (let [text   (text view)
         [_ y]  (:cursor text)
-        height (:size text)
+        height (t/size text)
         y'     (mod* (inc y) height)]
     (-> view
         (reset-text (t/reset-y text y'))
@@ -277,7 +277,7 @@
   [view :- View, embedded :- View]
   (let [text      (text view)
         paginated (paginate embedded)
-        ph        (:size text)
+        ph        (t/size text)
         top       (-> text (t/peer (fn [l [x & _]] (conj l x))))
         bottom    (-> text (t/peer (fn [_ [_ & r]] (drop (+ ph 2) r))))]
     (assoc view :text (-> (t/join top delimiter paginated)

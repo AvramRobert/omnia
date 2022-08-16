@@ -10,7 +10,6 @@
   {:lines     [Line]
    ;; position in text. The cursor is placed at the index where a character can be input
    :cursor    u/Point
-   :size      s/Int
    :expansion Expansion
    :selection (s/maybe u/Region)
    :clipboard (s/maybe (s/recursive #'Text))})

@@ -10,7 +10,6 @@
 (def empty-text
   {:lines     []
    :cursor    [0 0]
-   :size      0
    :expansion :word
    :selection nil
    :clipboard nil})
@@ -29,7 +28,6 @@
    (let [lines (vec lines)]
      {:lines     lines
       :cursor    cursor
-      :size      (count lines)
       :expansion :word
       :clipboard nil
       :selection nil})))
@@ -67,12 +65,12 @@
   [text :- Text
    lines :- [Line]]
   (let [lines (vec lines)]
-    (assoc text :lines lines :size (count lines))))
+    (assoc text :lines lines)))
 
 (s/defn reset-cursor :- Text
   [text  :- Text
    [x y] :- Point]
-  (let [size   (:size text)
+  (let [size   (size text)
         bound  (dec size)
         y'     (cond (= size 0) 0
                      (< y 0)    0
@@ -98,10 +96,6 @@
   [text :- Text
    content :- (s/maybe Text)]
   (assoc text :clipboard content))
-
-(s/defn clear-clipboard :- Text
-  [text :- Text]
-  (reset-clipboard text nil))
 
 (s/defn y :- s/Int
   [text :- Text]
@@ -220,7 +214,7 @@
 (s/defn end-y :- Text
   [text :- Text]
   (let [[x y] (:cursor text)
-        size  (:size text)
+        size  (size text)
         max   (dec size)]
     (reset-cursor text [x max])))
 
@@ -238,7 +232,7 @@
 
 (s/defn end :- Text
   [text :- Text]
-  (let [y (-> text (:size) (dec))
+  (let [y (-> text (size) (dec))
         x (-> text (line-at y) (count))]
     (reset-cursor text [x y])))
 
@@ -256,7 +250,7 @@
 (s/defn do-move-right :- Text
   [text :- Text]
   (let [[x y]  (:cursor text)
-        size   (:size text)
+        size   (size text)
         y'     (inc y)
         length (-> text (line-at y) (count))]
     (cond
@@ -399,7 +393,7 @@
 (s/defn join :- Text
   [text :- Text, & texts :- [Text]]
   (reduce (fn [this that]
-            (let [ths       (:size this)
+            (let [ths       (size this)
                   move      (fn [[x y]] [x (+ y ths)])
                   cursor    (:cursor that)
                   selection (:selection that)]
@@ -474,7 +468,7 @@
 (s/defn at-end? :- s/Bool
   [text :- Text]
   (let [[x y] (:cursor text)
-        max-y (-> text (:size) (dec))
+        max-y (-> text (size) (dec))
         max-x (-> text (line-at y) (count))]
     (and (= x max-x) (= y max-y))))
 
