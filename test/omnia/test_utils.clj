@@ -48,14 +48,10 @@
 (s/def default-header :- Text h/header)
 
 (s/defn nrepl-client :- NReplClient
-  ([nrepl-response :- NReplResponse]
-   (nrepl-client nrepl-response []))
-  ([nrepl-response :- NReplResponse
-    history :- [Text]]
-   (n/client {:host    "nrepl://test-host"
-              :port    0
-              :history history
-              :client  (constantly [nrepl-response])})))
+  [nrepl-response :- NReplResponse]
+  (n/client {:host   "nrepl://test-host"
+             :port   0
+             :client (constantly [nrepl-response])}))
 
 (s/defn terminal :- Terminal
   [fns :- TerminalSpec]
@@ -321,10 +317,6 @@
   ([context :- Context
     events :- [Event]
     props :- NReplProps]
-   (let [nrepl (nrepl-client (:response props terminating-response)
-                             (->> []
-                                  (:history props)
-                                  (reverse)
-                                  (mapv i/from-string)))]
+   (let [nrepl (nrepl-client (:response props terminating-response))]
      (reduce (fn [context' event]
                (c/process context' event default-config nrepl)) context events))))
