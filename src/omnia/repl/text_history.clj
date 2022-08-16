@@ -2,7 +2,7 @@
   (:require [schema.core :as s]
             [omnia.util.arithmetic :as ua]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.text-history :refer [Records TextHistory]]))
+            [omnia.schema.text-history :refer [TextHistory]]))
 
 (s/defn create-text-history :- TextHistory
   [limit :- s/Int]
@@ -10,7 +10,7 @@
    :size    0
    :limit   limit})
 
-(s/defn records :- Records
+(s/defn records :- [Text]
   [history :- TextHistory]
   (:records history))
 
