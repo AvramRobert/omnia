@@ -7,8 +7,8 @@
             [clojure.test :refer [is deftest testing]]
             [omnia.test-utils :refer :all]
             [omnia.repl.docs :as d]
-            [omnia.repl.store :as st]
-            [omnia.repl.text-history :as th]))
+            [omnia.repl.text-history :as th]
+            [omnia.repl.eval-history :as eh]))
 
 ;; I. Manipulation
 
@@ -228,7 +228,7 @@
         actual-preview        (-> processed (c/hud) (h/current-view) (v/text) (:lines))
         actual-previous       (-> processed (c/hud) (h/previous-view) (v/text) (:lines))
         actual-cursor         (-> processed (c/hud) (h/current-view) (v/text) (:cursor))
-        actual-eval-history   (-> processed (c/store) (st/eval-history) (st/timeframe))]
+        actual-eval-history   (-> processed (c/eval-history) (eh/evaluations))]
     (is (= actual-preview expected-preview))
     (is (= actual-cursor expected-cursor))
     (is (= actual-previous expected-previous))
@@ -268,8 +268,8 @@
 
         actual-preview4   (-> processed4 (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor4    (-> processed4 (c/hud) (h/current-view) (v/text) (:cursor))
-        expected-preview4 (-> context (c/hud) (h/current-view) (v/text) (:lines))
-        expected-cursor4  (-> context (c/hud) (h/current-view) (v/text) (:cursor))]
+        expected-preview4 (-> expected1 (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor4  (-> expected1 (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= actual-preview1 expected-preview1))
     (is (= actual-cursor1 expected-cursor1))
 

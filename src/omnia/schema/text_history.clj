@@ -5,5 +5,4 @@
 (def TextHistory
   {:records  [Text]
    :size     s/Int
-   :limit    s/Int
-   :position s/Int})
+   :limit    s/Int})

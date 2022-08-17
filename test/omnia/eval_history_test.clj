@@ -11,12 +11,10 @@
         result          (eh/insert eval history)
         actual-frame    (eh/evaluations result)
         actual-position (eh/position result)
-        actual-limit    (eh/limit result)
-        actual-temp     (eh/temp result)]
+        actual-limit    (eh/limit result)]
     (is (= actual-frame [eval]))
     (is (= actual-position 1))
-    (is (= actual-limit 2))
-    (is (= actual-temp nil))))
+    (is (= actual-limit 2))))
 
 (deftest limits-evaluations
   (let [history         (eh/create-eval-history 2)
@@ -87,27 +85,17 @@
     (is (= actual-near-past actual-cycle eval2))
     (is (= actual-preset nil))))
 
-(deftest returns-temporary-value-outside-known-bounds
-  (let [temp            (-> ["temp"]
-                            (derive-text))
-        eval            (-> ["one"]
-                            (derive-text))
-        empty-history   (->> (eh/create-eval-history 2)
-                             (eh/keep-temp temp))
-        store           (eh/insert eval empty-history)
-        actual1-present (eh/current-eval empty-history)
-        actual2-present (eh/current-eval store)]
-    (is (= actual1-present actual2-present temp))))
+(deftest returns-nil-when-no-evaluations
+  (let [empty-history (eh/create-eval-history 2)
+        actual-value  (eh/current-eval empty-history)]
+    (is (= actual-value nil))))
 
 (deftest resets-evaluations
-  (let [temp    (-> ["temp"]
-                    (derive-text))
-        eval    (-> ["one"]
+  (let [eval    (-> ["one"]
                     (derive-text))
         history (->> (eh/create-eval-history 2)
                      (eh/insert eval))
         actual1 (->> history
-                     (eh/keep-temp temp)
                      (eh/travel-back)
                      (eh/reset))
         actual2 (eh/reset history)]

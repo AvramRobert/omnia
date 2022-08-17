@@ -1,23 +1,11 @@
 CURRENT TASK:
-
+  * Add history size to config
   * Write a `resets-docs` test for the context
 
 Global issues:
  * Add rendering strategy to the context
 
-omnia.repl.store issues:
-  - Code is slightly all over the place given the different types of histories. Try to clean-up code
-  - Perhaps it truly might be a good idea to separate the evaluation history from the undo redo history...
-
 omnia.repl.text issues:
-  - remove the text history from the text itself
-        -> define a separate component that is carried recursively with the repl processing as a separate parameter.
-        -> That way, the text won't become large and the transformations will be quick.
-        -> Perhaps we can put the repl's evaluation history inside this construct aswell
-
-  - the clipboard doesn't need to be a focken text, does it??!
-  - the history doesn't need to have a focken clipboard either, does it??
-    Come to think of it, the history needn't be a text either -_-
   - debug-string should also display the selection and cursor
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
   - Reverse parameter order?

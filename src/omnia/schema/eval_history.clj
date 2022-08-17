@@ -5,5 +5,4 @@
 (def EvalHistory
   {:evaluations [Text]
    :position    s/Int
-   :limit       s/Int
-   :temp        (s/maybe Text)})
+   :limit       s/Int})

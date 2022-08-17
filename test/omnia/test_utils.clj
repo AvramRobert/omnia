@@ -5,16 +5,16 @@
             [omnia.repl.text :as i]
             [omnia.repl.view :as v]
             [omnia.repl.hud :as h]
-            [omnia.repl.store :as hi]
             [omnia.repl.context :as c]
             [omnia.repl.nrepl :as n]
+            [omnia.repl.eval-history :as eh]
             [omnia.display.terminal :as t]
             [clojure.string :as string]
             [omnia.util.collection :refer [reduce-idx map-vals]]
             [omnia.config.defaults :refer [default-user-config]]
             [omnia.schema.context :refer [Context]]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.store :refer [Store EvalHistory]]
+            [omnia.schema.eval-history :refer [EvalHistory]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.render :refer [HighlightInstructionData]]
             [omnia.schema.terminal :refer [Terminal]]
@@ -28,8 +28,7 @@
                                         ArgumentResponse
                                         TerminatingResponse
                                         NReplClient
-                                        NReplResponse]]
-            [omnia.repl.store :as st])
+                                        NReplResponse]])
   (:import (java.util UUID)))
 
 (def TerminalSpec
@@ -93,22 +92,22 @@
 
 (s/defn doc-response :- DocResponse
   [doc :- s/Str]
-  {:id          (str (UUID/randomUUID))
-   :session     (str (UUID/randomUUID))
-   :ns          "test-ns"
-   :status      ["done"]
-   :name        "test-name"
-   :doc         doc})
+  {:id      (str (UUID/randomUUID))
+   :session (str (UUID/randomUUID))
+   :ns      "test-ns"
+   :status  ["done"]
+   :name    "test-name"
+   :doc     doc})
 
 (s/defn argument-response :- ArgumentResponse
   [namespace :- s/Str
-   name      :- s/Str
+   name :- s/Str
    args :- [s/Str]]
-  {:id          (str (UUID/randomUUID))
-   :session     (str (UUID/randomUUID))
-   :ns          namespace
-   :status      ["done"]
-   :name        name
+  {:id           (str (UUID/randomUUID))
+   :session      (str (UUID/randomUUID))
+   :ns           namespace
+   :status       ["done"]
+   :name         name
    :arglists-str (string/join "\n" args)})
 
 (s/def terminating-response :- TerminatingResponse
@@ -173,7 +172,7 @@
 (s/def ViewDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag)])
 (s/def HudDefinition [(s/cond-pre Content Viewable-Tag Offset-Tag Scroll-Tag ViewDefinition Input-Area-Tag)])
 
-(s/def NReplProps {(s/optional-key :response)     NReplResponse})
+(s/def NReplProps {(s/optional-key :response) NReplResponse})
 (s/def ContextProps {(s/optional-key :eval-history) [s/Str]})
 
 (s/def HudProps
@@ -205,15 +204,15 @@
                       :view-offset    voff
                       :scroll-offset  soff}
              [:input :---] (recur input view offset [] cs fov voff soff parsing)
-             [:input :-|]  (recur persisted view offset input cs (inc fov) voff soff :view)
-             [:view :-|]   (recur persisted view offset input cs (inc fov) voff soff :view)
-             [:view :-+]   (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [:input :-+]  (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:input :-|] (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view :-|] (recur persisted view offset input cs (inc fov) voff soff :view)
+             [:view :-+] (recur persisted view offset input cs fov (inc voff) soff :offset)
+             [:input :-+] (recur persisted view offset input cs fov (inc voff) soff :offset)
              [:offset :-+] (recur persisted view offset input cs fov (inc voff) soff :offset)
-             [_ :-$]       (recur persisted view offset input cs fov voff (inc soff) parsing)
-             [:view _]     (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
-             [:offset _]   (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
-             :else         (recur persisted view offset (conj input c) cs fov voff soff :input))))
+             [_ :-$] (recur persisted view offset input cs fov voff (inc soff) parsing)
+             [:view _] (recur persisted (conj view c) offset (conj input c) cs fov voff soff :input)
+             [:offset _] (recur persisted view (conj offset c) (conj input c) cs fov voff soff :input)
+             :else (recur persisted view offset (conj input c) cs fov voff soff :input))))
 
 (s/defn derive-view :- View
   "Derives a view based on a list of tagged strings.
@@ -293,12 +292,13 @@
             (h/with-manual-highlight h (h/create-manual-highlight default-config highlights))
             h))))
 
-(s/defn gather-eval-history :- Store
+(s/defn create-eval-history :- EvalHistory
   [evaluations :- [s/Str]
-   store       :- Store]
-  (->> evaluations
-       (mapv (fn [eval] (derive-text [eval])))
-       (reduce st/add-to-eval-history store)))
+   limit :- s/Num]
+  (let [history (eh/create-eval-history limit)]
+    (->> evaluations
+         (mapv (fn [eval] (derive-text [eval])))
+         (reduce (fn [history' text] (eh/insert text history')) history))))
 
 (s/defn derive-context :- Context
   ([def :- HudDefinition]
@@ -306,14 +306,13 @@
   ([def :- HudDefinition
     props :- ContextProps]
    (let [history-size 5
-         store        (->> (st/create-store history-size)
-                           (gather-eval-history (:eval-history props [])))
+         eval-history (-> props (:eval-history []) (create-eval-history history-size))
          hud          (derive-hud def)]
-     (c/context-from hud store history-size))))
+     (c/context-from hud eval-history history-size))))
 
 (s/defn process :- Context
   ([context :- Context
-    events  :- [Event]]
+    events :- [Event]]
    (process context events {}))
   ([context :- Context
     events :- [Event]

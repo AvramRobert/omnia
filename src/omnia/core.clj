@@ -4,7 +4,7 @@
             [halfling.task :as tsk]
             [omnia.display.terminal :as t]
             [omnia.repl.nrepl :as n]
-            [omnia.repl.store :as st]
+            [omnia.repl.eval-history :as eh]
             [omnia.repl.context :as ct]
             [omnia.repl.core :as r]
             [omnia.config.core :as c]
@@ -22,9 +22,9 @@
   [dir :- s/Str]
   (format "%s/omnia.edn" dir))
 
-(s/defn store-path :- s/Str
+(s/defn eval-history-path :- s/Str
   [dir :- s/Str]
-  (format "%s/.omnia.store" dir))
+  (format "%s/.omnia.history" dir))
 
 (s/defn rand-port :- s/Int
   []
@@ -67,9 +67,9 @@
 (s/defn hooks! :- Task
   [context :- Context
    argmap :- ArgMap]
-  (let [store-dir (-> argmap (:dir) (store-path))
-        store     (ct/store context)]
-    (-> (st/write-store store-dir store)
+  (let [dir     (-> argmap (:dir) (eval-history-path))
+        history (ct/eval-history context)]
+    (-> (eh/write-eval-history dir history)
         (tsk/task)
         (tsk/recover (fn [_] ())))))
 
@@ -91,7 +91,7 @@
         [argmap       (read-args! args)
          history-size 50
          config       (-> argmap (:dir) (config-path) (c/read-config!))
-         store        (-> argmap (:dir) (store-path) (st/read-store history-size))
+         eval-history (-> argmap (:dir) (eval-history-path) (eh/read-eval-history history-size))
          terminal     (t/terminal config)
          repl-config  {:host repl-host
                        :port (rand-port)
@@ -99,7 +99,7 @@
          server       (n/start-server! repl-config)
          repl         (n/client repl-config)
          _            (t/start! terminal)
-         ctx          (r/read-eval-print config terminal repl store history-size)
+         ctx          (r/read-eval-print config terminal repl eval-history history-size)
          _            (hooks! ctx argmap)
          _            (t/stop! terminal)
          _            (n/stop-server! server)])
