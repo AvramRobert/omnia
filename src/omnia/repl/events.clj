@@ -97,9 +97,8 @@
 (s/def next-eval :- e/Event
   (event e/next-eval))
 
-;; FIXME: Rename this to reformat
-(s/def indent :- e/Event
-  (event e/indent))
+(s/def reformat :- e/Event
+  (event e/reformat))
 
 (s/def clear :- e/Event
   (event e/clear))

@@ -34,7 +34,7 @@
    e/scroll-down       {:key :page-down}
    e/prev-eval         {:key :up :alt true}
    e/next-eval         {:key :down :alt true}
-   e/indent            {:key \l :ctrl true :alt true}
+   e/reformat          {:key \l :ctrl true :alt true}
    e/clear             {:key \r :ctrl true}
    e/evaluate          {:key \e :alt true}
    e/exit              {:key \d :ctrl true}})

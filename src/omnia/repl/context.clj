@@ -217,8 +217,7 @@
                          (h/diff-render))
                      hud)}))
 
-;; FIXME: Rename this to: reformat
-(s/defn indent :- Context
+(s/defn reformat :- Context
   [context :- Context
    event :- Event
    config :- Config
@@ -570,7 +569,7 @@
    e/scroll-down       scroll-down
    e/prev-eval         prev-eval
    e/next-eval         next-eval
-   e/indent            indent
+   e/reformat          reformat
    e/clear             clear
    e/evaluate          evaluate
    e/exit              exit

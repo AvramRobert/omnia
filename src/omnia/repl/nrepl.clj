@@ -6,7 +6,7 @@
             [nrepl.core :as nrepl-core]
             [cider.nrepl :as cider-nrepl]
             [clojure.string :refer [split-lines trim-newline]]
-            [omnia.util.arithmetic :refer [dec< inc<]]
+            [omnia.util.arithmetic :refer [dec<]]
             [omnia.util.misc :refer [slurp-or-else]]
             [omnia.schema.nrepl :refer :all]
             [omnia.schema.text :refer [Text]]))

@@ -1,7 +1,7 @@
 {:keymap   {:jump-select-right {:key :right, :shift true, :ctrl true},
             :down              {:key :down},
             :select-right      {:key :right, :shift true},
-            :indent            {:key \l, :ctrl true, :alt true},
+            :reformat          {:key \l, :ctrl true, :alt true},
             :copy              {:key \c, :alt true},
             :evaluate          {:key \e, :alt true},
             :exit              {:key \d, :ctrl true},

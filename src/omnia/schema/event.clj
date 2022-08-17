@@ -25,14 +25,14 @@
 (def ^:const undo :undo)
 (def ^:const redo :redo)
 (def ^:const inject :inject)
-(def ^:const docs :docs)                                    ;; FIXME: Rename this to documentation
+(def ^:const docs :docs)
 (def ^:const signature :signature)
 (def ^:const suggest :suggest)
 (def ^:const scroll-up :scroll-up)
 (def ^:const scroll-down :scroll-down)
 (def ^:const prev-eval :prev-eval)
 (def ^:const next-eval :next-eval)
-(def ^:const indent :indent)
+(def ^:const reformat :reformat)
 (def ^:const clear :clear)
 (def ^:const evaluate :evaluate)
 (def ^:const exit :exit)
@@ -71,7 +71,7 @@
     scroll-down
     prev-eval
     next-eval
-    indent
+    reformat
     clear
     evaluate
     exit

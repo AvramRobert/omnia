@@ -41,7 +41,7 @@
    e/scroll-down       UserKeyBinding
    e/prev-eval         UserKeyBinding
    e/next-eval         UserKeyBinding
-   e/indent            UserKeyBinding
+   e/reformat          UserKeyBinding
    e/clear             UserKeyBinding
    e/evaluate          UserKeyBinding
    e/exit              UserKeyBinding})
