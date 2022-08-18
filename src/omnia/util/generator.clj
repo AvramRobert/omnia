@@ -10,6 +10,9 @@
       (fn [expr [bn# bb#]]
         `(gen/bind ~bb# (fn [~bn#] ~expr))) `(gen/fmap (fn [~n#] ~@body) ~b#) bound)))
 
+(defn gen-or-else [generator else]
+  (gen/one-of [generator (gen/return else)]))
+
 (def gen-rgb
   (gen/vector (gen/choose 0 255) 3))
 
@@ -26,9 +29,9 @@
 
 (def gen-user-key-binding
   (do-gen [key   gen-input-key
-           ctrl  (gen/one-of [(gen/return nil) gen/boolean])
-           alt   (gen/one-of [(gen/return nil) gen/boolean])
-           shift (gen/one-of [(gen/return nil) gen/boolean])]
+           ctrl  (gen-or-else gen/boolean nil)
+           alt   (gen-or-else gen/boolean nil)
+           shift (gen-or-else gen/boolean nil)]
     (cond-> {:key key}
             ctrl  (assoc :ctrl ctrl)
             alt   (assoc :alt alt)
@@ -40,8 +43,9 @@
        (apply gen/hash-map)))
 
 (def gen-user-terminal
-  (do-gen [font-path (gen/one-of [(gen/return {})
-                                  (gen/map (gen/return s/font-path) gen/string-alphanumeric)])
-           font-size (gen/one-of [(gen/return {})
-                                  (gen/map (gen/return s/font-size) gen/nat)])]
+  (do-gen [font-path (gen-or-else (gen/map (gen/return s/font-path) gen/string-alphanumeric) {})
+           font-size (gen-or-else (gen/map (gen/return s/font-size) gen/nat) {})]
     (merge font-path font-size)))
+
+(def gen-user-persistence
+  (gen-or-else (gen/map (gen/return :history-size) gen/nat) {}))

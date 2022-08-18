@@ -65,10 +65,14 @@
    (s/optional-key st/font-size) st/FontSize
    (s/optional-key st/palette)   st/Palette})
 
+(def UserPersistence
+  {:history-size s/Int})
+
 (def UserConfig
-  {:keymap                    UserKeyMap
-   :syntax                    UserHighlighting
-   (s/optional-key :terminal) UserTerminal})
+  {:keymap                       UserKeyMap
+   :syntax                       UserHighlighting
+   (s/optional-key :terminal)    UserTerminal
+   (s/optional-key :persistence) UserPersistence})
 
 (def KeyBinding
   {:key   k/Key
@@ -92,7 +96,11 @@
    st/font-size                st/FontSize
    (s/optional-key st/palette) st/Palette})
 
+(def Persistence
+  {:history-size s/Int})
+
 (def Config
-  {:keymap   KeyMap
-   :syntax   Syntax
-   :terminal Terminal})
+  {:keymap      KeyMap
+   :syntax      Syntax
+   :terminal    Terminal
+   :persistence Persistence})

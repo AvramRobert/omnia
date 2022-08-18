@@ -78,6 +78,10 @@
   [provided-terminal :- c/UserTerminal]
   (merge-from-both provided-terminal d/default-user-terminal))
 
+(s/defn fix-persistence :- c/Persistence
+  [provided-persistence :- c/UserPersistence]
+  (merge-from-both provided-persistence d/default-user-persistence))
+
 (defn validate! [config]
   (s/validate c/UserKeyMap (:keymap config))
   (s/validate c/UserHighlighting (:syntax config))
@@ -85,9 +89,10 @@
 
 (s/defn convert :- c/Config
   [config :- c/UserConfig]
-  {:keymap   (-> config (:keymap) (fix-keymap))
-   :syntax   (-> config (:syntax) (fix-highlighting) (create-syntax))
-   :terminal (-> config (:terminal) (fix-terminal))})
+  {:keymap      (-> config (:keymap) (fix-keymap))
+   :syntax      (-> config (:syntax) (fix-highlighting) (create-syntax))
+   :terminal    (-> config (:terminal) (fix-terminal))
+   :persistence (-> config (:persistence) (fix-persistence))})
 
 (s/defn read-user-config! :- c/UserConfig
   [path :- String]
