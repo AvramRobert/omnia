@@ -48,4 +48,7 @@
     (merge font-path font-size)))
 
 (def gen-user-persistence
-  (gen-or-else (gen/map (gen/return :history-size) gen/nat) {}))
+  (do-gen [error-path   (gen-or-else (gen/map (gen/return :error-file-path) gen/string-alphanumeric) {})
+           history-path (gen-or-else (gen/map (gen/return :history-file-path) gen/string-alphanumeric) {})
+           history-size (gen-or-else (gen/map (gen/return :history-size) gen/nat) {})]
+    (merge error-path history-path history-size)))

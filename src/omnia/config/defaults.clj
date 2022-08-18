@@ -70,10 +70,15 @@
    t/default [46 52 54]})
 
 (s/def default-user-persistence :- c/UserPersistence
-  {:history-size 50})
+  {:error-file-path   ".omnia.error"
+   :history-file-path ".omnia.history"
+   :history-size      50})
 
 (s/def default-user-config :- c/UserConfig
   {:keymap      default-user-keymap
    :syntax      default-user-highlighting
    :terminal    default-user-terminal
    :persistence default-user-persistence})
+
+(s/def default-user-config-path :- s/Str
+  "omnia.edn")

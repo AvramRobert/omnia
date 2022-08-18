@@ -66,7 +66,9 @@
    (s/optional-key st/palette)   st/Palette})
 
 (def UserPersistence
-  {:history-size s/Int})
+  {(s/optional-key :error-file-path)   s/Str
+   (s/optional-key :history-file-path) s/Str
+   (s/optional-key :history-size)      s/Int})
 
 (def UserConfig
   {:keymap                       UserKeyMap
@@ -97,7 +99,9 @@
    (s/optional-key st/palette) st/Palette})
 
 (def Persistence
-  {:history-size s/Int})
+  {:error-file-path   s/Str
+   :history-file-path s/Str
+   :history-size      s/Int})
 
 (def Config
   {:keymap      KeyMap
