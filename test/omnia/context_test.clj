@@ -6,9 +6,10 @@
             [omnia.repl.context :as c]
             [clojure.test :refer [is deftest testing]]
             [omnia.test-utils :refer :all]
-            [omnia.repl.information :as d]
             [omnia.repl.text-history :as th]
-            [omnia.repl.eval-history :as eh]))
+            [omnia.repl.eval-history :as eh]
+            [omnia.repl.info :as i]
+            [omnia.schema.info :refer [suggestion documentation signature none]]))
 
 ;; I. Manipulation
 
@@ -369,15 +370,13 @@
         processed2            (process context
                                        [e/suggest e/suggest]
                                        {:response (completion-response ["option-1" "option-2"])})
-        actual1-suggestion    (-> processed1 (c/information) (d/suggestions) (v/text))
-        actual1-documentation (-> processed1 (c/information) (d/documentation))
-        actual1-signatures    (-> processed1 (c/information) (d/signatures))
+        actual1-suggestion    (-> processed1 (c/information) (i/info-value) (v/text))
+        actual1-type          (-> processed1 (c/information) (i/info-type))
         actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-suggestion    (-> processed2 (c/information) (d/suggestions) (v/text))
-        actual2-documentation (-> processed1 (c/information) (d/documentation))
-        actual2-signatures    (-> processed1 (c/information) (d/signatures))
+        actual2-suggestion    (-> processed2 (c/information) (i/info-value) (v/text))
+        actual2-type          (-> processed2 (c/information) (i/info-type))
         actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
         actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
@@ -392,10 +391,7 @@
     (is (= actual2-cursor expected2-cursor))
     (is (= actual1-suggestion expected1-options))
     (is (= actual2-suggestion expected2-options))
-    (is (= actual1-documentation nil))
-    (is (= actual1-signatures nil))
-    (is (= actual2-documentation nil))
-    (is (= actual2-signatures nil))))
+    (is (= actual1-type actual2-type suggestion))))
 
 (deftest keeps-suggestion-upon-input
   (let [context          (-> ["persisted"
@@ -409,7 +405,7 @@
                               ---
                               "option-2a|"]
                              (derive-context))
-        actual-options   (-> context (c/information) (d/suggestions))
+        actual-options   (-> context (c/information) (i/info-value))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -434,7 +430,7 @@
                              (derive-context))
         expected-options (-> []
                              (derive-text))
-        actual-options   (-> context (c/information) (d/suggestions) (v/text))
+        actual-options   (-> context (c/information) (i/info-value) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -480,15 +476,13 @@
         processed2            (process context
                                        [e/documentation e/documentation]
                                        {:response (doc-response "line-1 with text\nline-2 with text")})
-        actual1-documentation (-> processed1 (c/information) (d/documentation) (v/text))
-        actual1-suggestion    (-> processed1 (c/information) (d/suggestions))
-        actual1-signatures    (-> processed1 (c/information) (d/signatures))
+        actual1-documentation (-> processed1 (c/information) (i/info-value) (v/text))
+        actual1-type          (-> processed1 (c/information) (i/info-type))
         actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-documentation (-> processed2 (c/information) (d/documentation) (v/text))
-        actual2-suggestion    (-> processed1 (c/information) (d/suggestions))
-        actual2-signatures    (-> processed1 (c/information) (d/signatures))
+        actual2-documentation (-> processed2 (c/information) (i/info-value) (v/text))
+        actual2-type          (-> processed2 (c/information) (i/info-type))
         actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
         actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
@@ -503,10 +497,7 @@
     (is (= actual2-cursor expected2-cursor))
     (is (= actual1-documentation expected1-info))
     (is (= actual2-documentation expected2-info))
-    (is (= actual1-suggestion nil))
-    (is (= actual1-signatures nil))
-    (is (= actual2-suggestion nil))
-    (is (= actual2-signatures nil))))
+    (is (= actual1-type actual2-type documentation))))
 
 (deftest shows-empty-box-when-no-documentation
   (let [context          (-> ["persisted"
@@ -524,7 +515,7 @@
                              (derive-context))
         expected-info    (-> []
                              (derive-text))
-        actual-info      (-> context (c/information) (d/documentation) (v/text))
+        actual-info      (-> context (c/information) (i/info-value) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -570,15 +561,13 @@
         processed2            (process context
                                        [e/signature e/signature]
                                        {:response (argument-response "ns" "name" ["signature-1" "signature-2"])})
-        actual1-signatures    (-> processed1 (c/information) (d/signatures) (v/text))
-        actual1-suggestion    (-> processed1 (c/information) (d/suggestions))
-        actual1-documentation (-> processed1 (c/information) (d/documentation))
+        actual1-signatures    (-> processed1 (c/information) (i/info-value) (v/text))
+        actual1-type          (-> processed1 (c/information) (i/info-type))
         actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-signatures    (-> processed2 (c/information) (d/signatures) (v/text))
-        actual2-suggestion    (-> processed1 (c/information) (d/suggestions))
-        actual2-documentation (-> processed1 (c/information) (d/documentation))
+        actual2-signatures    (-> processed2 (c/information) (i/info-value) (v/text))
+        actual2-type          (-> processed2 (c/information) (i/info-type))
         actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
         actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
@@ -593,10 +582,7 @@
     (is (= actual2-cursor expected2-cursor))
     (is (= actual1-signatures expected1-options))
     (is (= actual2-signatures expected2-options))
-    (is (= actual1-suggestion nil))
-    (is (= actual1-documentation nil))
-    (is (= actual2-suggestion nil))
-    (is (= actual2-documentation nil))))
+    (is (= actual1-type actual2-type signature))))
 
 (deftest shows-empty-string-when-no-signatures
   (let [context          (-> ["persisted"
@@ -615,7 +601,7 @@
                              (derive-context))
         expected-options (-> ["ns/name |"]
                              (derive-text))
-        actual-options   (-> context (c/information) (d/signatures) (v/text))
+        actual-options   (-> context (c/information) (i/info-value) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -1153,3 +1139,60 @@
         actual-cursor   (-> context (c/hud) (h/current-view) (v/text) (:cursor))]
     (is (= expected-view actual-view))
     (is (= expected-cursor actual-cursor))))
+
+;; XIII Information
+
+(deftest replaces-information
+  (let [context                       (-> ["hello|"]
+                                          (derive-context))
+
+        expected-suggestion           (-> ["suggestion-1"
+                                           "------"
+                                           " suggestion-1|"
+                                           "------"]
+                                          (derive-context))
+        expected-documentation        (-> ["suggestion-1"
+                                           "------"
+                                           " documentation|"
+                                           "------"]
+                                          (derive-context))
+        expected-signature            (-> ["suggestion-1"
+                                           "------"
+                                           " ns/name signature|"
+                                           "------"]
+                                          (derive-context))
+        actual-suggestion             (-> context
+                                          (process [e/suggest]
+                                                   {:response (completion-response ["suggestion-1"])}))
+        actual-documentation          (-> actual-suggestion
+                                          (process [e/documentation]
+                                                   {:response (doc-response "documentation")}))
+        actual-signature              (-> actual-documentation
+                                          (process [e/signature]
+                                                   {:response (argument-response "ns" "name" ["signature"])}))
+
+        actual-suggestion-view        (-> actual-suggestion (c/hud) (h/current-view) (v/text) (:lines))
+        actual-suggestion-cursor      (-> actual-suggestion (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected-suggestion-view      (-> expected-suggestion (c/hud) (h/current-view) (v/text) (:lines))
+        expected-suggestion-cursor    (-> expected-suggestion (c/hud) (h/current-view) (v/text) (:cursor))
+
+        actual-documentation-view     (-> actual-documentation (c/hud) (h/current-view) (v/text) (:lines))
+        actual-documentation-cursor   (-> actual-documentation (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected-documentation-view   (-> expected-documentation (c/hud) (h/current-view) (v/text) (:lines))
+        expected-documentation-cursor (-> expected-documentation (c/hud) (h/current-view) (v/text) (:cursor))
+
+        actual-signature-view         (-> actual-signature (c/hud) (h/current-view) (v/text) (:lines))
+        actual-signature-cursor       (-> actual-signature (c/hud) (h/current-view) (v/text) (:cursor))
+
+        expected-signature-view       (-> expected-signature (c/hud) (h/current-view) (v/text) (:lines))
+        expected-signature-cursor     (-> expected-signature (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= actual-suggestion-view expected-suggestion-view))
+    (is (= actual-suggestion-cursor expected-suggestion-cursor))
+
+    (is (= actual-documentation-view expected-documentation-view))
+    (is (= actual-documentation-cursor expected-documentation-cursor))
+
+    (is (= actual-signature-view expected-signature-view))
+    (is (= actual-signature-cursor expected-signature-cursor))))

@@ -1,7 +1,7 @@
 (ns omnia.repl.context
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
-            [omnia.repl.information :as d]
+            [omnia.repl.info :as i]
             [omnia.repl.text :as t]
             [omnia.repl.view :as v]
             [omnia.repl.nrepl :as n]
@@ -9,7 +9,7 @@
             [omnia.repl.eval-history :as eh]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.information :refer [Information]]
+            [omnia.schema.info :refer [Info]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context EventHandler processing terminated]]
             [omnia.schema.config :refer [Config]]
@@ -23,7 +23,7 @@
   [context :- Context]
   (:hud context))
 
-(s/defn information :- Information
+(s/defn information :- Info
   [context :- Context]
   (:information context))
 
@@ -39,9 +39,9 @@
   [context :- Context]
   (:eval-history context))
 
-(s/defn reset-information :- Information
+(s/defn reset-information :- Info
   [context :- Context]
-  d/empty-information)
+  i/empty-info)
 
 (s/defn reset-eval-history :- EvalHistory
   [context :- Context]
@@ -72,23 +72,22 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [information    (information context)
-        hud            (hud context)
-        current-input  (h/input-area hud)
-        documentation  (d/documentation information)
-        documentation' (if (nil? documentation)
-                         (-> nrepl (n/docs! current-input) (v/riffle-window 15))
-                         (v/riffle documentation))]
+  (let [information   (information context)
+        hud           (hud context)
+        current-input (h/input-area hud)
+        documentation (if (i/documentation? information)
+                        (-> information (i/info-value) (v/riffle))
+                        (-> nrepl (n/docs! current-input) (v/riffle-window 15)))]
     {:status       processing
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
-     :information  (d/with-documentation information documentation')
+     :information  (i/create-documentation-info documentation)
      :hud          (-> hud
                        (h/gc config)
                        (h/reset-scroll)
                        (h/deselect)
-                       (h/with-popup documentation')
+                       (h/with-popup documentation)
                        (h/match-parens config)
                        (h/diff-render))}))
 
@@ -100,24 +99,23 @@
   (let [information   (information context)
         hud           (hud context)
         current-input (h/input-area hud)
-        signatures    (d/signatures information)
-        signatures'   (if (nil? signatures)
-                        (-> nrepl (n/signature! current-input) (v/riffle-window 10))
-                        (v/riffle signatures))]
+        signature     (if (i/signature? information)
+                        (-> information (i/info-value) (v/riffle))
+                        (-> nrepl (n/signature! current-input) (v/riffle-window 10)))]
     {:status       processing
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
-     :information  (d/with-signatures information signatures')
+     :information  (i/create-signature-info signature)
      :hud          (-> hud
                        (h/gc config)
                        (h/reset-scroll)
                        (h/deselect)
-                       (h/with-popup signatures')
+                       (h/with-popup signature)
                        (h/match-parens config)
                        (h/diff-render))}))
 
-(s/defn suggest :- Context
+(s/defn suggestion :- Context
   [context :- Context
    event :- Event
    config :- Config
@@ -125,19 +123,18 @@
   (let [information   (information context)
         hud           (hud context)
         current-input (h/input-area hud)
-        suggestions   (d/suggestions information)
-        suggestions'  (if (nil? suggestions)
-                        (-> nrepl (n/complete! current-input) (v/riffle-window 10))
-                        (v/riffle suggestions))]
+        suggestion    (if (i/suggestion? information)
+                        (-> information (i/info-value) (v/riffle))
+                        (-> nrepl (n/complete! current-input) (v/riffle-window 10)))]
     {:status       processing
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
-     :information  (d/with-suggestions information suggestions')
+     :information  (i/create-suggestion-info suggestion)
      :hud          (-> hud
                        (h/gc config)
                        (h/reset-scroll)
-                       (h/with-popup-autocompleted suggestions')
+                       (h/with-popup-autocompleted suggestion)
                        (h/match-parens config)
                        (h/diff-render))}))
 
@@ -564,7 +561,7 @@
   {e/inject            inject
    e/documentation     documentation
    e/signature         signature
-   e/suggest           suggest
+   e/suggest           suggestion
    e/scroll-up         scroll-up
    e/scroll-down       scroll-down
    e/prev-eval         prev-eval
@@ -616,5 +613,5 @@
      :eval-history eval-history
      :undo-history text-history
      :redo-history text-history
-     :information  d/empty-information
+     :information  i/empty-info
      :hud          hud}))
