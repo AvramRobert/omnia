@@ -1,12 +1,8 @@
 CURRENT TASK:
 
-Global issues:
-
-omnia.repl.text issues:
-  - debug-string should also display the selection and cursor
-
-omnia.display.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
+
+Global issues:
 
 Finishing touches:
   - Rewrite README, replace logo, keep it a bit simple
