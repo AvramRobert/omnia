@@ -8,8 +8,8 @@
             [omnia.test-utils :refer :all]
             [omnia.repl.text-history :as th]
             [omnia.repl.eval-history :as eh]
-            [omnia.repl.info :as i]
-            [omnia.schema.info :refer [suggestion documentation signature none]]))
+            [omnia.repl.information :as i]
+            [omnia.schema.information :refer [suggestion documentation signature none]]))
 
 ;; I. Manipulation
 

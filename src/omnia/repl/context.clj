@@ -1,7 +1,7 @@
 (ns omnia.repl.context
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
-            [omnia.repl.info :as i]
+            [omnia.repl.information :as i]
             [omnia.repl.text :as t]
             [omnia.repl.view :as v]
             [omnia.repl.nrepl :as n]
@@ -9,7 +9,7 @@
             [omnia.repl.eval-history :as eh]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.info :refer [Info]]
+            [omnia.schema.information :refer [Information]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context EventHandler processing terminated]]
             [omnia.schema.config :refer [Config]]
@@ -23,7 +23,7 @@
   [context :- Context]
   (:hud context))
 
-(s/defn information :- Info
+(s/defn information :- Information
   [context :- Context]
   (:information context))
 
@@ -39,9 +39,9 @@
   [context :- Context]
   (:eval-history context))
 
-(s/defn reset-information :- Info
+(s/defn reset-information :- Information
   [context :- Context]
-  i/empty-info)
+  i/empty-information)
 
 (s/defn reset-eval-history :- EvalHistory
   [context :- Context]
@@ -613,5 +613,5 @@
      :eval-history eval-history
      :undo-history text-history
      :redo-history text-history
-     :information  i/empty-info
+     :information  i/empty-information
      :hud          hud}))

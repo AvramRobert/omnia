@@ -2,7 +2,17 @@
   (:require [schema.core :as s]
             [omnia.schema.view :refer [View]]))
 
+(def ^:const none :none)
+(def ^:const suggestion :suggestion)
+(def ^:const signature :signature)
+(def ^:const documentation :documentation)
+
+(def InformationType
+  (s/enum none
+          suggestion
+          signature
+          documentation))
+
 (def Information
-  {:suggestions   (s/maybe View)
-   :signatures    (s/maybe View)
-   :documentation (s/maybe View)})
+  {:type                   InformationType
+   (s/optional-key :value) View})

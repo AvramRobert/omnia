@@ -1,7 +1,8 @@
 CURRENT TASK:
 
-Global issues:
  * Add rendering strategy to the context
+
+Global issues:
 
 omnia.repl.text issues:
   - debug-string should also display the selection and cursor
