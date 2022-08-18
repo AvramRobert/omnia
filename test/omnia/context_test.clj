@@ -475,10 +475,10 @@
                                   (derive-text))
 
         processed1            (process context
-                                       [e/docs]
+                                       [e/documentation]
                                        {:response (doc-response "line-1 with text\nline-2 with text")})
         processed2            (process context
-                                       [e/docs e/docs]
+                                       [e/documentation e/documentation]
                                        {:response (doc-response "line-1 with text\nline-2 with text")})
         actual1-documentation (-> processed1 (c/docs) (d/documentation) (v/text))
         actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
@@ -514,7 +514,7 @@
                               "1|"]
                              (derive-context)
                              (process
-                               [e/docs]
+                               [e/documentation]
                                {:response (doc-response "")}))
         expected         (-> ["persisted"
                               ---

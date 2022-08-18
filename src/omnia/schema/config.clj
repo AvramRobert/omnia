@@ -12,7 +12,7 @@
    (s/optional-key :shift) s/Bool})
 
 (def UserKeyMap
-  {e/docs              UserKeyBinding
+  {e/documentation     UserKeyBinding
    e/signature         UserKeyBinding
    e/expand-selection  UserKeyBinding
    e/undo              UserKeyBinding

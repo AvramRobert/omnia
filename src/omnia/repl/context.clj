@@ -562,7 +562,7 @@
 
 (s/def handlers :- {Action EventHandler}
   {e/inject            inject
-   e/docs              documentation
+   e/documentation     documentation
    e/signature         signature
    e/suggest           suggest
    e/scroll-up         scroll-up

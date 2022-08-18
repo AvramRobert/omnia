@@ -76,8 +76,8 @@
 (s/def redo :- e/Event
   (event e/redo))
 
-(s/def docs :- e/Event
-  (event e/docs))
+(s/def documentation :- e/Event
+  (event e/documentation))
 
 (s/def signature :- e/Event
   (event e/signature))

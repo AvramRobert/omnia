@@ -25,7 +25,7 @@
 (def ^:const undo :undo)
 (def ^:const redo :redo)
 (def ^:const inject :inject)
-(def ^:const docs :docs)
+(def ^:const documentation :documentation)
 (def ^:const signature :signature)
 (def ^:const suggest :suggest)
 (def ^:const scroll-up :scroll-up)
@@ -64,7 +64,7 @@
     jump-select-left
     jump-select-right
     inject
-    docs
+    documentation
     signature
     suggest
     scroll-up

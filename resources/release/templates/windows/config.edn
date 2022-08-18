@@ -8,7 +8,7 @@
                :redo              {:key \y, :alt true},
                :jump-left         {:key :left, :ctrl true},
                :signature         {:key \p, :alt true},
-               :docs              {:key \i, :alt true},
+               :documentation     {:key \i, :alt true},
                :paste             {:key \v, :alt true},
                :delete            {:key :delete},
                :up                {:key :up},

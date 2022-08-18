@@ -1,9 +1,7 @@
 (ns omnia.repl.docs
   (:require [schema.core :as s]
-            [omnia.repl.view :as v]
             [omnia.schema.docs :refer [Docs]]
-            [omnia.schema.view :refer [View]]
-            [omnia.schema.text :refer [Text]]))
+            [omnia.schema.view :refer [View]]))
 
 (s/defn suggestions :- (s/maybe View)
   [docs :- Docs]

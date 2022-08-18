@@ -12,8 +12,5 @@ omnia.repl.text issues:
 omnia.display.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`
 
-omnia.schema.event issues:
-  - `docs` should be renamed to `documentation`
-
 Finishing touches:
   - Rewrite README, replace logo, keep it a bit simple
