@@ -1,9 +1,10 @@
 (ns omnia.repl.eval-history
   (:require [schema.core :as s]
             [omnia.util.misc :as um]
+            [omnia.repl.text :as t]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.eval-history :refer [EvalHistory]]
-            [omnia.repl.text :as t]))
+            [omnia.schema.config :refer [Config]]))
 
 (s/defn create-eval-history :- EvalHistory
   [limit :- s/Int]
@@ -88,15 +89,17 @@
   (->> history (evaluations) (mapv t/as-string)))
 
 (s/defn read-eval-history :- EvalHistory
-  [path :- s/Str
-   limit :- s/Int]
-  (let [history (create-eval-history limit)
-        data    (um/slurp-or-else path [])]
+  [config :- Config]
+  (let [history-size (-> config (:persistence) (:history-size))
+        history-path (-> config (:persistence) (:history-file-path))
+        history      (create-eval-history history-size)
+        data         (um/slurp-or-else history-path [])]
     (->> data
          (mapv t/from-string)
          (reduce (fn [history' text] (insert text history')) history))))
 
 (s/defn write-eval-history :- nil
-  [path :- s/Str
-   history :- EvalHistory]
-  (->> history (serialise) (spit path)))
+  [history :- EvalHistory
+   config :- Config]
+  (let [history-path (-> config (:persistence) (:history-file-path))]
+    (->> history (serialise) (spit history-path))))

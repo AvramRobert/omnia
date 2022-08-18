@@ -66,8 +66,7 @@
    (s/optional-key st/palette)   st/Palette})
 
 (def UserPersistence
-  {(s/optional-key :error-file-path)   s/Str
-   (s/optional-key :history-file-path) s/Str
+  {(s/optional-key :history-file-path) s/Str
    (s/optional-key :history-size)      s/Int})
 
 (def UserConfig
@@ -99,8 +98,7 @@
    (s/optional-key st/palette) st/Palette})
 
 (def Persistence
-  {:error-file-path   s/Str
-   :history-file-path s/Str
+  {:history-file-path s/Str
    :history-size      s/Int})
 
 (def Config

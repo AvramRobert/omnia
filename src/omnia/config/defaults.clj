@@ -70,8 +70,7 @@
    t/default [46 52 54]})
 
 (s/def default-user-persistence :- c/UserPersistence
-  {:error-file-path   ".omnia.error"
-   :history-file-path ".omnia.history"
+  {:history-file-path ".omnia.history"
    :history-size      50})
 
 (s/def default-user-config :- c/UserConfig
@@ -82,3 +81,12 @@
 
 (s/def default-user-config-path :- s/Str
   "omnia.edn")
+
+(s/def default-user-error-path :- s/Str
+  ".omnia.error")
+
+(s/def default-repl-host :- s/Str
+  "127.0.0.1")
+
+(s/def default-repl-namespace :- s/Symbol
+  'user)

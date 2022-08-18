@@ -206,7 +206,7 @@
         (doto (.addResizeListener listener))
         (TerminalScreen.))))
 
-(s/defn terminal :- Terminal
+(s/defn create-terminal :- Terminal
   [config :- c/Config]
   (let [resizing-sink           (atom false)
         screen ^TerminalScreen  (create-screen config resizing-sink)
