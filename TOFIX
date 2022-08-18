@@ -1,13 +1,9 @@
 CURRENT TASK:
 
- * Add rendering strategy to the context
-
 Global issues:
 
 omnia.repl.text issues:
   - debug-string should also display the selection and cursor
-  - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
-  - Reverse parameter order?
 
 omnia.display.terminal issues:
   - Fix lanterna deprecation of `TextCharacter`

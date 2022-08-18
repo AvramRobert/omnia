@@ -47,6 +47,50 @@
   [context :- Context]
   (-> context (eval-history) (eh/reset)))
 
+(s/defn change-input-area :- Hud
+  [hud :- Hud
+   config :- Config
+   f :- (=> Text Text)]
+  (let [input-area' (-> hud (h/input-area) (f))]
+    (-> hud
+        (h/gc config)
+        (h/reset-scroll)
+        (h/switch-input-area input-area')
+        (h/calibrate)
+        (h/highlight config)
+        (h/match-parens config)
+        (h/diff-render))))
+
+(s/defn undoable-text-event :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient
+   f :- (=> Text Text)]
+  (let [hud          (hud context)
+        undo-history (undo-history context)
+        input-area   (-> hud (h/input-area) (t/reset))]
+    {:status       processing
+     :information  (reset-information context)
+     :redo-history (redo-history context)
+     :undo-history (th/insert input-area undo-history)
+     :eval-history (reset-eval-history context)
+     :hud          (change-input-area hud config f)}))
+
+(s/defn text-event :- Context
+  [context :- Context
+   event :- Event
+   config :- Config
+   nrepl :- NReplClient
+   f :- (=> Text Text)]
+  (let [hud (hud context)]
+    {:status       processing
+     :information  (reset-information context)
+     :undo-history (undo-history context)
+     :redo-history (redo-history context)
+     :eval-history (reset-eval-history context)
+     :hud          (change-input-area hud config f)}))
+
 (s/defn continue :- Context
   [hud :- Hud
    context :- Context]
@@ -320,20 +364,6 @@
    nrepl :- NReplClient]
   (-> context (hud) (continue context)))
 
-(s/defn change-input-area :- Hud
-  [hud :- Hud
-   config :- Config
-   f :- (=> Text Text)]
-  (let [input-area' (-> hud (h/input-area) (f))]
-    (-> hud
-        (h/gc config)
-        (h/reset-scroll)
-        (h/switch-input-area input-area')
-        (h/calibrate)
-        (h/highlight config)
-        (h/match-parens config)
-        (h/diff-render))))
-
 (s/defn undo :- Context
   [context :- Context
    event :- Event
@@ -379,36 +409,6 @@
      :hud          (if (some? old-record)
                      (change-input-area hud config (constantly old-record))
                      hud)}))
-
-(s/defn undoable-text-event :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient
-   f :- (=> Text Text)]
-  (let [hud          (hud context)
-        undo-history (undo-history context)
-        input-area   (-> hud (h/input-area) (t/reset))]
-    {:status       processing
-     :information  (reset-information context)
-     :redo-history (redo-history context)
-     :undo-history (th/insert input-area undo-history)
-     :eval-history (reset-eval-history context)
-     :hud          (change-input-area hud config f)}))
-
-(s/defn text-event :- Context
-  [context :- Context
-   event :- Event
-   config :- Config
-   nrepl :- NReplClient
-   f :- (=> Text Text)]
-  (let [hud (hud context)]
-    {:status       processing
-     :information  (reset-information context)
-     :undo-history (undo-history context)
-     :redo-history (redo-history context)
-     :eval-history (reset-eval-history context)
-     :hud          (change-input-area hud config f)}))
 
 (s/defn move-up :- Context
   [context :- Context
