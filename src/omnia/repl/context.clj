@@ -1,7 +1,7 @@
 (ns omnia.repl.context
   (:require [schema.core :as s]
             [omnia.repl.hud :as h]
-            [omnia.repl.docs :as d]
+            [omnia.repl.information :as d]
             [omnia.repl.text :as t]
             [omnia.repl.view :as v]
             [omnia.repl.nrepl :as n]
@@ -9,7 +9,7 @@
             [omnia.repl.eval-history :as eh]
             [omnia.schema.event :as e]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.docs :refer [Docs]]
+            [omnia.schema.information :refer [Information]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.context :refer [Context EventHandler processing terminated]]
             [omnia.schema.config :refer [Config]]
@@ -23,9 +23,9 @@
   [context :- Context]
   (:hud context))
 
-(s/defn docs :- Docs
+(s/defn information :- Information
   [context :- Context]
-  (:docs context))
+  (:information context))
 
 (s/defn undo-history :- TextHistory
   [context :- Context]
@@ -39,9 +39,9 @@
   [context :- Context]
   (:eval-history context))
 
-(s/defn reset-docs :- Docs
+(s/defn reset-information :- Information
   [context :- Context]
-  d/empty-docs)
+  d/empty-information)
 
 (s/defn reset-eval-history :- EvalHistory
   [context :- Context]
@@ -55,7 +55,7 @@
    :undo-history (undo-history context)
    :redo-history (redo-history context)
    :eval-history (reset-eval-history context)
-   :docs         (reset-docs context)})
+   :information  (reset-information context)})
 
 (s/defn terminate :- Context
   [hud :- Hud
@@ -65,17 +65,17 @@
    :undo-history (undo-history context)
    :redo-history (redo-history context)
    :eval-history (reset-eval-history context)
-   :docs         (reset-docs context)})
+   :information  (reset-information context)})
 
 (s/defn documentation :- Context
   [context :- Context
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [docs           (docs context)
+  (let [information    (information context)
         hud            (hud context)
         current-input  (h/input-area hud)
-        documentation  (d/documentation docs)
+        documentation  (d/documentation information)
         documentation' (if (nil? documentation)
                          (-> nrepl (n/docs! current-input) (v/riffle-window 15))
                          (v/riffle documentation))]
@@ -83,7 +83,7 @@
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
-     :docs         (d/with-documentation docs documentation')
+     :information  (d/with-documentation information documentation')
      :hud          (-> hud
                        (h/gc config)
                        (h/reset-scroll)
@@ -97,10 +97,10 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [docs          (docs context)
+  (let [information   (information context)
         hud           (hud context)
         current-input (h/input-area hud)
-        signatures    (d/signatures docs)
+        signatures    (d/signatures information)
         signatures'   (if (nil? signatures)
                         (-> nrepl (n/signature! current-input) (v/riffle-window 10))
                         (v/riffle signatures))]
@@ -108,7 +108,7 @@
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
-     :docs         (d/with-signatures docs signatures')
+     :information  (d/with-signatures information signatures')
      :hud          (-> hud
                        (h/gc config)
                        (h/reset-scroll)
@@ -122,10 +122,10 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [docs          (docs context)
+  (let [information   (information context)
         hud           (hud context)
         current-input (h/input-area hud)
-        suggestions   (d/suggestions docs)
+        suggestions   (d/suggestions information)
         suggestions'  (if (nil? suggestions)
                         (-> nrepl (n/complete! current-input) (v/riffle-window 10))
                         (v/riffle suggestions))]
@@ -133,7 +133,7 @@
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
-     :docs         (d/with-suggestions docs suggestions')
+     :information  (d/with-suggestions information suggestions')
      :hud          (-> hud
                        (h/gc config)
                        (h/reset-scroll)
@@ -179,7 +179,7 @@
         eval-history' (eh/travel-back eval-history)
         evaluation    (eh/current-eval eval-history')]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history eval-history'
@@ -203,7 +203,7 @@
         eval-history' (eh/travel-forward eval-history)
         evaluation    (eh/current-eval eval-history')]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history eval-history'
@@ -259,7 +259,7 @@
         input-area   (h/input-area hud)
         result       (n/evaluate! nrepl input-area)]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (eh/insert input-area eval-history)
@@ -275,10 +275,10 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient]
-  (let [hud        (hud context)
-        result     (->> event (:value) (t/from-string) (n/evaluate! nrepl))]
+  (let [hud    (hud context)
+        result (->> event (:value) (t/from-string) (n/evaluate! nrepl))]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
@@ -348,7 +348,7 @@
         redo-history (redo-history context)
         old-record   (th/next-record undo-history)]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :eval-history (reset-eval-history context)
      :redo-history (if (some? old-record)
                      (th/insert input-area redo-history)
@@ -371,7 +371,7 @@
         input-area   (-> hud (h/input-area) (t/reset))
         old-record   (th/next-record redo-history)]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :eval-history (reset-eval-history context)
      :undo-history (if (some? old-record)
                      (th/insert input-area undo-history)
@@ -393,7 +393,7 @@
         undo-history (undo-history context)
         input-area   (-> hud (h/input-area) (t/reset))]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :redo-history (redo-history context)
      :undo-history (th/insert input-area undo-history)
      :eval-history (reset-eval-history context)
@@ -407,7 +407,7 @@
    f :- (=> Text Text)]
   (let [hud (hud context)]
     {:status       processing
-     :docs         (reset-docs context)
+     :information  (reset-information context)
      :undo-history (undo-history context)
      :redo-history (redo-history context)
      :eval-history (reset-eval-history context)
@@ -608,7 +608,7 @@
     (handler context event config nrepl)))
 
 (s/defn context-from :- Context
-  [hud          :- Hud
+  [hud :- Hud
    eval-history :- EvalHistory]
   (let [history-size (eh/limit eval-history)
         text-history (th/create-text-history history-size)]
@@ -616,5 +616,5 @@
      :eval-history eval-history
      :undo-history text-history
      :redo-history text-history
-     :docs         d/empty-docs
+     :information  d/empty-information
      :hud          hud}))

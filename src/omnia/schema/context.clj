@@ -1,7 +1,7 @@
 (ns omnia.schema.context
   (:require [schema.core :as s]
             [omnia.schema.hud :refer [Hud]]
-            [omnia.schema.docs :refer [Docs]]
+            [omnia.schema.information :refer [Information]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.text-history :refer [TextHistory]]
@@ -18,7 +18,7 @@
    :undo-history TextHistory
    :redo-history TextHistory
    :eval-history EvalHistory
-   :docs         Docs
+   :information  Information
    :hud          Hud})
 
 (def EventHandler

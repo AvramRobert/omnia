@@ -1,42 +1,42 @@
-(ns omnia.repl.docs
+(ns omnia.repl.information
   (:require [schema.core :as s]
-            [omnia.schema.docs :refer [Docs]]
+            [omnia.schema.information :refer [Information]]
             [omnia.schema.view :refer [View]]))
 
 (s/defn suggestions :- (s/maybe View)
-  [docs :- Docs]
-  (:suggestions docs))
+  [information :- Information]
+  (:suggestions information))
 
 (s/defn documentation :- (s/maybe View)
-  [docs :- Docs]
-  (:documentation docs))
+  [information :- Information]
+  (:documentation information))
 
 (s/defn signatures :- (s/maybe View)
-  [docs :- Docs]
-  (:signatures docs))
+  [information :- Information]
+  (:signatures information))
 
-(s/defn with-suggestions :- Docs
-  [docs :- Docs
+(s/defn with-suggestions :- Information
+  [information :- Information
    view :- View]
   {:suggestions   view
    :signatures    nil
    :documentation nil})
 
-(s/defn with-documentation :- Docs
-  [docs :- Docs
+(s/defn with-documentation :- Information
+  [information :- Information
    view :- View]
   {:suggestions   nil
    :signatures    nil
    :documentation view})
 
-(s/defn with-signatures :- Docs
-  [docs :- Docs
+(s/defn with-signatures :- Information
+  [information :- Information
    view :- View]
   {:suggestions   nil
    :signatures    view
    :documentation nil})
 
-(s/def empty-docs :- Docs
+(s/def empty-information :- Information
   {:suggestions   nil
    :documentation nil
    :signatures    nil})

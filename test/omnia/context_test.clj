@@ -6,7 +6,7 @@
             [omnia.repl.context :as c]
             [clojure.test :refer [is deftest testing]]
             [omnia.test-utils :refer :all]
-            [omnia.repl.docs :as d]
+            [omnia.repl.information :as d]
             [omnia.repl.text-history :as th]
             [omnia.repl.eval-history :as eh]))
 
@@ -369,15 +369,15 @@
         processed2            (process context
                                        [e/suggest e/suggest]
                                        {:response (completion-response ["option-1" "option-2"])})
-        actual1-suggestion    (-> processed1 (c/docs) (d/suggestions) (v/text))
-        actual1-documentation (-> processed1 (c/docs) (d/documentation))
-        actual1-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual1-suggestion    (-> processed1 (c/information) (d/suggestions) (v/text))
+        actual1-documentation (-> processed1 (c/information) (d/documentation))
+        actual1-signatures    (-> processed1 (c/information) (d/signatures))
         actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-suggestion    (-> processed2 (c/docs) (d/suggestions) (v/text))
-        actual2-documentation (-> processed1 (c/docs) (d/documentation))
-        actual2-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual2-suggestion    (-> processed2 (c/information) (d/suggestions) (v/text))
+        actual2-documentation (-> processed1 (c/information) (d/documentation))
+        actual2-signatures    (-> processed1 (c/information) (d/signatures))
         actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
         actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
@@ -409,7 +409,7 @@
                               ---
                               "option-2a|"]
                              (derive-context))
-        actual-options   (-> context (c/docs) (d/suggestions))
+        actual-options   (-> context (c/information) (d/suggestions))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -434,7 +434,7 @@
                              (derive-context))
         expected-options (-> []
                              (derive-text))
-        actual-options   (-> context (c/docs) (d/suggestions) (v/text))
+        actual-options   (-> context (c/information) (d/suggestions) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -480,15 +480,15 @@
         processed2            (process context
                                        [e/documentation e/documentation]
                                        {:response (doc-response "line-1 with text\nline-2 with text")})
-        actual1-documentation (-> processed1 (c/docs) (d/documentation) (v/text))
-        actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
-        actual1-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual1-documentation (-> processed1 (c/information) (d/documentation) (v/text))
+        actual1-suggestion    (-> processed1 (c/information) (d/suggestions))
+        actual1-signatures    (-> processed1 (c/information) (d/signatures))
         actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-documentation (-> processed2 (c/docs) (d/documentation) (v/text))
-        actual2-suggestion    (-> processed1 (c/docs) (d/suggestions))
-        actual2-signatures    (-> processed1 (c/docs) (d/signatures))
+        actual2-documentation (-> processed2 (c/information) (d/documentation) (v/text))
+        actual2-suggestion    (-> processed1 (c/information) (d/suggestions))
+        actual2-signatures    (-> processed1 (c/information) (d/signatures))
         actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
         actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
@@ -524,7 +524,7 @@
                              (derive-context))
         expected-info    (-> []
                              (derive-text))
-        actual-info      (-> context (c/docs) (d/documentation) (v/text))
+        actual-info      (-> context (c/information) (d/documentation) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))
@@ -570,15 +570,15 @@
         processed2            (process context
                                        [e/signature e/signature]
                                        {:response (argument-response "ns" "name" ["signature-1" "signature-2"])})
-        actual1-signatures    (-> processed1 (c/docs) (d/signatures) (v/text))
-        actual1-suggestion    (-> processed1 (c/docs) (d/suggestions))
-        actual1-documentation (-> processed1 (c/docs) (d/documentation))
+        actual1-signatures    (-> processed1 (c/information) (d/signatures) (v/text))
+        actual1-suggestion    (-> processed1 (c/information) (d/suggestions))
+        actual1-documentation (-> processed1 (c/information) (d/documentation))
         actual1-preview       (-> processed1 (c/hud) (h/current-view) (v/text) (:lines))
         actual1-cursor        (-> processed1 (c/hud) (h/current-view) (v/text) (:cursor))
 
-        actual2-signatures    (-> processed2 (c/docs) (d/signatures) (v/text))
-        actual2-suggestion    (-> processed1 (c/docs) (d/suggestions))
-        actual2-documentation (-> processed1 (c/docs) (d/documentation))
+        actual2-signatures    (-> processed2 (c/information) (d/signatures) (v/text))
+        actual2-suggestion    (-> processed1 (c/information) (d/suggestions))
+        actual2-documentation (-> processed1 (c/information) (d/documentation))
         actual2-preview       (-> processed2 (c/hud) (h/current-view) (v/text) (:lines))
         actual2-cursor        (-> processed2 (c/hud) (h/current-view) (v/text) (:cursor))
 
@@ -615,7 +615,7 @@
                              (derive-context))
         expected-options (-> ["ns/name |"]
                              (derive-text))
-        actual-options   (-> context (c/docs) (d/signatures) (v/text))
+        actual-options   (-> context (c/information) (d/signatures) (v/text))
         actual-preview   (-> context (c/hud) (h/current-view) (v/text) (:lines))
         actual-cursor    (-> context (c/hud) (h/current-view) (v/text) (:cursor))
         expected-preview (-> expected (c/hud) (h/current-view) (v/text) (:lines))

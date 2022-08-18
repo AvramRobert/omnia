@@ -4,6 +4,10 @@ CURRENT TASK:
 Global issues:
  * Add rendering strategy to the context
 
+omnia.repl.docs issues:
+  - The docs can only occur one at a time. Why not just keep one entry that switches types,
+  instead of a map that has three of them?
+
 omnia.repl.text issues:
   - debug-string should also display the selection and cursor
   - Change the primitive hierarchy in the text.core implementation (enrich and probably peer are top primitives) (peer [previous current next])
