@@ -1132,3 +1132,24 @@
       (is (= expected-cursor actual-cursor))
       (is (= expected-undo actual-undo))
       (is (= expected-redo actual-redo)))))
+
+;; XII. Reformatting
+
+(deftest reformats
+  (let [context         (-> ["(let [a 1"
+                             "b 2"
+                             "c 3]"
+                             "(+ a b c))|"]
+                            (derive-context)
+                            (process [e/reformat]))
+        expected        (-> ["(let [a 1"
+                             "      b 2"
+                             "      c 3]"
+                             " (+ a b c))|"]
+                            (derive-context))
+        expected-view   (-> expected (c/hud) (h/current-view) (v/text) (:lines))
+        actual-view     (-> context (c/hud) (h/current-view) (v/text) (:lines))
+        expected-cursor (-> expected (c/hud) (h/current-view) (v/text) (:cursor))
+        actual-cursor   (-> context (c/hud) (h/current-view) (v/text) (:cursor))]
+    (is (= expected-view actual-view))
+    (is (= expected-cursor actual-cursor))))

@@ -36,11 +36,10 @@
   [config :- Config
    terminal :- Terminal
    nrepl :- NReplClient
-   eval-history :- EvalHistory
-   history-size :- s/Int]
+   eval-history :- EvalHistory]
   (let [events  (concat prelude (events-from terminal))
         hud     (h/create-hud (t/size terminal))
-        context (c/context-from hud eval-history history-size)]
+        context (c/context-from hud eval-history)]
     (-> (tsk/task (consume context config terminal nrepl events))
         (tsk/then #(do (Thread/sleep 1200) %))
         (tsk/run))))

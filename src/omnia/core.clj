@@ -69,8 +69,7 @@
 
 (defn -main [& args]
   (-> (tsk/do-tasks
-        [history-size 50
-         config       (c/read-config! d/default-user-config-path)
+        [config       (c/read-config! d/default-user-config-path)
          eval-history (eh/read-eval-history config)
          terminal     (t/create-terminal config)
          repl-config  {:host d/default-repl-host
@@ -79,7 +78,7 @@
          server       (n/start-server! repl-config)
          repl         (n/client repl-config)
          _            (t/start! terminal)
-         context      (r/read-eval-print config terminal repl eval-history history-size)
+         context      (r/read-eval-print config terminal repl eval-history)
          _            (hooks! context config)
          _            (t/stop! terminal)
          _            (n/stop-server! server)])

@@ -305,10 +305,9 @@
    (derive-context def {}))
   ([def :- HudDefinition
     props :- ContextProps]
-   (let [history-size 5
-         eval-history (-> props (:eval-history []) (create-eval-history history-size))
+   (let [eval-history (-> props (:eval-history []) (create-eval-history 5))
          hud          (derive-hud def)]
-     (c/context-from hud eval-history history-size))))
+     (c/context-from hud eval-history))))
 
 (s/defn process :- Context
   ([context :- Context

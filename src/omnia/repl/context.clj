@@ -609,9 +609,9 @@
 
 (s/defn context-from :- Context
   [hud          :- Hud
-   eval-history :- EvalHistory
-   history-size :- s/Num]
-  (let [text-history (th/create-text-history history-size)]
+   eval-history :- EvalHistory]
+  (let [history-size (eh/limit eval-history)
+        text-history (th/create-text-history history-size)]
     {:status       processing
      :eval-history eval-history
      :undo-history text-history
