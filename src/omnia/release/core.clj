@@ -1,9 +1,10 @@
 (ns omnia.release.core
-  (:require [clojure.java.shell :as shell]
-            [schema.core :as s]
+  (:require [schema.core :as s]
+            [clojure.java.shell :as shell]
+            [clojure.string :as string]
+            [clojure.pprint :as pp]
             [halfling.task :as t]
             [omnia.schema.release :as r]
-            [clojure.string :as string]
             [omnia.config.core :refer [read-user-config!]]
             [omnia.util.misc :refer [omnia-version]]))
 
@@ -86,7 +87,7 @@
      _ (println "--------------")
      _ (run! release-for releases)
      _ (rm-dir "target")
-     :recover #(do (.printStackTrace %) (System/exit -1))]))
+     :recover pp/pprint]))
 
 (defn release! []
   (t/run release-task))
