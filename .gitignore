@@ -19,7 +19,7 @@ pom.xml.asc
 
 # Special files
 default_font.otf
-*omnia.edn
+*config.edn
 *omnia.error
 *omnia.history
 debug
