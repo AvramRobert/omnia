@@ -41,7 +41,7 @@ Pull requests are also very welcome!
 
 ## Rationale
 
-Omnia is designed to be a powerful Clojure sandbox. It is not intended for interactive development.
+Omnia is designed to be a Clojure sandbox. It is not intended for interactive development.
 
 ## License
 
