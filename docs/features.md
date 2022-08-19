@@ -48,7 +48,6 @@
 ![selection-expansion](images/expansion.gif)
 
 ## Copy/Cut/Paste
-* Only supported from within the REPL. Clipboard not _yet_ supported
 
 ![copy-cut-paste](images/copy-cut-paste.gif)
 
