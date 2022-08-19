@@ -26,10 +26,10 @@ Can be found [here](docs/features.md).
 
 Bug reports can be submitted as issues here on github.
 
-The REPL produces an error file when it crashes. 
+The REPL produces an error file called `.omnia.error` when it crashes. 
 That file can be found in the same directory as the executable.
 
-Should you decide to report the crash, then please attach that file together with a short description
+Should you decide to report the crash, then please attach that file to the issue and give a short description
 of the actions performed before the crash.
 
 ## Feature requests
