@@ -63,7 +63,7 @@
    t/white   [171 174 168]
    t/red     [170 0 0]
    t/green   [0 170 0]
-   t/blue    [33 66 131]
+   t/blue    [85 148 187]
    t/cyan    [0 170 170]
    t/magenta [170 0 170]
    t/yellow  [180 148 6]
