@@ -51,7 +51,8 @@
    t/words      t/yellow
    t/functions  t/yellow
    t/texts      t/white
-   t/commas     t/white})
+   t/commas     t/white
+   t/selections t/blue})
 
 (s/def default-user-terminal :- c/UserTerminal
   {t/font-path "./default_font.otf"

@@ -58,7 +58,8 @@
    st/words      st/Colour
    st/functions  st/Colour
    st/texts      st/Colour
-   st/commas     st/Colour})
+   st/commas     st/Colour
+   st/selections st/Colour})
 
 (def UserTerminal
   {(s/optional-key st/font-path) st/FontPath
