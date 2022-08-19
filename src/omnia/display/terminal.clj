@@ -128,6 +128,7 @@
     (let [styles    ^EnumSet (if (> (.count styles) 0)
                                (EnumSet/copyOf ^Collection (mapv style-map styles))
                                empty-sgr)
+          ;; keep the deprecated TextCharacter constructor. Using the static methods allocates a new array, which is too much for one single character
           text-char ^TextCharacter (TextCharacter.
                                      ^Character char
                                      ^TextColor (colour-map foreground)
