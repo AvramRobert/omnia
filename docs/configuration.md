@@ -1,11 +1,8 @@
 ## Configuration 
 
-The default keymap and syntax highlighting colour scheme can be found here:
-* [Keymap](https://github.com/AvramRobert/omnia/blob/master/docs/keymap.md)
-* [Syntax highlighting](https://github.com/AvramRobert/omnia/blob/master/docs/syntax.md)
+The REPL comes with a configuration file called `config.edn`. It's contents can be changed.
 
-Omnia has a configuration file called `omnia.edn`, wherein one can configure its key bindings, 
-and syntax highlighting.
+A cheat-sheet of it's contents can be found [here](cheat-sheet.md).
 
 ### Key bindings
 Each operation omnia supports is bound to a unique key or combination of keys. 

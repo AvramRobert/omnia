@@ -1,9 +1,9 @@
-## Keymap
+## Key Bindings
 
 **Note**: Due to either operating system key priorities and/or the terminal backend _omnia_ uses,
 some key bindings might not work directly out of the box.
 
-The key bindings can be changed. For more information, take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md)
+The key bindings can be changed. For more information, take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md).
 
 | Operation    | Default key binding        | Description | Config parameter|
 |--------------|----------------|-------------|-----------------|
@@ -33,3 +33,58 @@ The key bindings can be changed. For more information, take a look at [configura
 |Undo | ALT + Z | Undoes the last action | :undo |
 |Redo | ALT + Y | Redoes the last undo | :redo |
 |Exit | CTRL + D | Exits the REPL | :exit |
+
+## Colours
+
+### Preset
+
+|Colour | Config | Value (rbg) |
+|------|--------|-----|
+| Yellow | :yellow | `rgb(180,148,6)` |
+| Blue | :blue | `rgb(85,148,187)` |
+| Green | :green | `rbg(0,170,0)` |
+| Cyan | :cyan | `rgb(0,170,170)` |
+| Magenta | :magenta | `rgb(170,0,170)` |
+| Red | :red | `rgb(170,0,0)`|
+| Black | :black | `rgb(0,0,0)`|
+| White | :white | `rgb(171,174,168)` |
+
+### Custom
+
+RGB-Triple represented with a vector: `[180, 148, 187]`
+
+## Syntax highlighting
+
+|Construct | Config | Default colour |
+|----------|--------|------------------|
+|Lists |  :lists | :white |
+|Vectors | :vectors | :white |
+|Maps | :maps | :white |
+|Numbers | :numbers | :blue |
+|Characters | :characters |:green |
+|Strings | :green | :strings |
+|Keywords | :keywords | :cyan |
+|Comments | :comments | :magenta |
+|Special words| :words | :yellow |
+|Function calls |  :functions | :yellow |
+|Text | :texts | :white |
+|Commas| :commas | :white |
+|Selections | :selections | :blue |
+
+## Fonts
+
+### Preset
+| Font name | Default size|
+|------|------|
+| [Hasklig](https://github.com/i-tu/Hasklig) | 15 |
+
+### Custom
+
+Reference `otf` file in the `:font-path` field.
+
+## History
+
+| Field | Description | Default value |
+|-------|-------------|---------------|
+| :history-file-path | Where the evaluation history is persisted | `.omnia.history` |
+| :history-size | How many previous evaluations are kept | 50 |
