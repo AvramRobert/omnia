@@ -8,8 +8,8 @@
   {e/documentation       {:key \i :ctrl true}
    e/signature           {:key \p :ctrl true}
    e/expand-selection    {:key \w :ctrl true}
-   e/undo                {:key \z :ctrl true}
-   e/redo                {:key \y :ctrl true}
+   e/undo                {:key \z :alt true}
+   e/redo                {:key \y :alt true}
    e/paste               {:key \v :ctrl true}
    e/copy                {:key \c :ctrl true}
    e/cut                 {:key \x :ctrl true}

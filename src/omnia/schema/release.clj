@@ -7,7 +7,6 @@
 
 (def ReleaseConfig
   {:file-type     Executable
-   :template      s/Str
-   :configuration s/Str})
+   :template      s/Str})
 
 (def Releases {OS ReleaseConfig})

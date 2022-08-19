@@ -5,20 +5,19 @@
             [clojure.pprint :as pp]
             [halfling.task :as t]
             [omnia.schema.release :as r]
-            [omnia.util.misc :refer [omnia-version]]))
+            [omnia.config.defaults :as d]
+            [omnia.util.misc :refer [omnia-version]])
+  (:import (java.io FileWriter)))
 
 (s/def releases :- r/Releases
   {:linux   {:file-type     :sh
-             :template      "resources/release/templates/linux/executable.sh"
-             :configuration "resources/release/templates/linux/config.edn"}
+             :template      "resources/release/templates/linux/executable.sh"}
 
    :windows {:file-type     :bat
-             :template      "resources/release/templates/windows/executable.bat"
-             :configuration "resources/release/templates/windows/config.edn"}
+             :template      "resources/release/templates/windows/executable.bat"}
 
    :macOS   {:file-type     :sh
-             :template      "resources/release/templates/mac/executable.sh"
-             :configuration "resources/release/templates/mac/config.edn"}})
+             :template      "resources/release/templates/mac/executable.sh"}})
 
 (defn- sh [& args]
   (let [{:keys [out exit err]} (apply shell/sh args)]
@@ -47,6 +46,8 @@
 (defn lein [command]
   (sh "lein" command))
 
+(defn spit-formatted [file-name data]
+  (pp/pprint data (FileWriter. ^String file-name)))
 
 (defn release-for [[os release]]
   (let [system      (name os)
@@ -59,16 +60,14 @@
         target-exec (str file-name "." target-ext)
         target-font "default_font.otf"
         target-dir  (format "%s-%s-%s" file-name version system)
-
         jar-file    (format "target/uberjar/%s-%s-standalone.jar" file-name version)
         executable  (-> release (:template) (make-executable! file-name version))
-        config-file (:configuration release)
         font-file   "resources/release/Hasklig-Regular.otf"
         _           (mkdir (str "./" target-dir))
         _           (println "Creating release files..")
         _           (cp jar-file (str target-dir "/" target-jar))
         _           (cp font-file (str target-dir "/" target-font))
-        _           (cp (str target-dir "/" target-conf) config-file)
+        _           (spit-formatted (str target-dir "/" target-conf) d/default-user-config)
         _           (spit (str target-dir "/" target-exec) executable)
         _           (println "Creating archive..")
         _           (zip-dir (str target-dir ".zip") target-dir)
