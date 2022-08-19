@@ -4,12 +4,12 @@
             [clojure.string :as string]
             [clojure.pprint :as pp]
             [halfling.task :as t]
-            [omnia.schema.release :as r]
             [omnia.config.defaults :as d]
-            [omnia.util.misc :refer [omnia-version]])
+            [omnia.util.misc :as m]
+            [omnia.schema.release :refer [Releases OS ReleaseConfig]])
   (:import (java.io FileWriter)))
 
-(s/def releases :- r/Releases
+(s/def releases :- Releases
   {:linux   {:file-type     :sh
              :template      "resources/release/templates/linux/executable.sh"}
 
@@ -19,49 +19,62 @@
    :macOS   {:file-type     :sh
              :template      "resources/release/templates/mac/executable.sh"}})
 
-(defn- sh [& args]
+(s/defn sh :- nil
+  [& args :- [s/Any]]
   (let [{:keys [out exit err]} (apply shell/sh args)]
     (if (neg? exit)
       (throw (Exception. ^String err))
       (println out))))
 
-(defn- make-executable! [path file-name version]
+(s/defn make-executable! :- s/Str
+  [path :- s/Str
+   file-name :- s/Str
+   version :- s/Str]
   (-> path
       (slurp)
       (string/replace "%%FILENAME%%" file-name)
       (string/replace "%%VERSION%%" version)))
 
-(defn mkdir [directory]
+(s/defn mkdir :- nil
+  [directory :- s/Str]
   (sh "mkdir" directory))
 
-(defn cp [that there]
+(s/defn cp :- nil
+  [that :- s/Str there :- s/Str]
   (sh "cp" that there))
 
-(defn zip-dir [to from]
+(s/defn zip-dir :- nil
+  [to :- s/Str from :- s/Str]
   (sh "zip" "-r" to from))
 
-(defn rm-dir [directory]
+(s/defn rm-dir :- nil
+  [directory :- s/Str]
   (sh "rm" "-rf" directory))
 
-(defn lein [command]
+(s/defn lein :- nil
+  [command :- s/Str]
   (sh "lein" command))
 
-(defn spit-formatted [file-name data]
+(s/defn spit-formatted :- nil
+  [file-name :- s/Str
+   data :- s/Any]
   (pp/pprint data (FileWriter. ^String file-name)))
 
-(defn release-for [[os release]]
+(s/defn release-for :- nil
+  [os :- OS
+   release-config :- ReleaseConfig]
   (let [system      (name os)
-        version     (omnia-version)
+        version     (m/omnia-version)
         file-name   "omnia"
         _           (println "Releasing for: " system)
-        target-ext  (-> release (:file-type) (name))
+        target-ext  (-> release-config (:file-type) (name))
         target-jar  (str file-name ".jar")
         target-conf (str file-name ".edn")
         target-exec (str file-name "." target-ext)
         target-font "default_font.otf"
         target-dir  (format "%s-%s-%s" file-name version system)
         jar-file    (format "target/uberjar/%s-%s-standalone.jar" file-name version)
-        executable  (-> release (:template) (make-executable! file-name version))
+        executable  (-> release-config (:template) (make-executable! file-name version))
         font-file   "resources/release/Hasklig-Regular.otf"
         _           (mkdir (str "./" target-dir))
         _           (println "Creating release files..")
@@ -83,7 +96,7 @@
      _ (println "Creating jar")
      _ (lein "uberjar")
      _ (println "--------------")
-     _ (run! release-for releases)
+     _ (run! (fn [[os config]] (release-for os config)) releases)
      _ (rm-dir "target")
      :recover pp/pprint]))
 

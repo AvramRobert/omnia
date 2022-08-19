@@ -80,7 +80,7 @@
    :persistence default-user-persistence})
 
 (s/def default-user-config-path :- s/Str
-  "omnia.edn")
+  "config.edn")
 
 (s/def default-user-error-path :- s/Str
   ".omnia.error")
