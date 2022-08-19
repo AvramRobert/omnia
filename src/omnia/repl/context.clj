@@ -560,7 +560,7 @@
   {e/inject              inject
    e/documentation       documentation
    e/signature           signature
-   e/suggest             suggestion
+   e/suggestion          suggestion
    e/scroll-up           scroll-up
    e/scroll-down         scroll-down
    e/previous-evaluation previous-evaluation

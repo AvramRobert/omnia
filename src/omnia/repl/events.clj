@@ -83,7 +83,7 @@
   (event e/signature))
 
 (s/def suggest :- e/Event
-  (event e/suggest))
+  (event e/suggestion))
 
 (s/def scroll-up :- e/Event
   (event e/scroll-up))

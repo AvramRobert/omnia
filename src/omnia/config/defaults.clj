@@ -5,8 +5,9 @@
             [omnia.schema.syntax :as t]))
 
 (s/def default-user-keymap :- c/UserKeyMap
-  {e/documentation       {:key \i :ctrl true}
+  {e/documentation       {:key \q :ctrl true}
    e/signature           {:key \p :ctrl true}
+   e/suggestion          {:key :tab}
    e/expand-selection    {:key \w :ctrl true}
    e/undo                {:key \z :alt true}
    e/redo                {:key \y :alt true}
@@ -29,7 +30,6 @@
    e/delete-previous     {:key :backspace}
    e/delete-current      {:key :delete}
    e/new-line            {:key :enter}
-   e/suggest             {:key :tab}
    e/scroll-up           {:key :page-up}
    e/scroll-down         {:key :page-down}
    e/previous-evaluation {:key :up :ctrl true}

@@ -2,7 +2,7 @@
   (:require [schema.core :as s]))
 
 (def ^:const character :character)
-(def ^:const expand-selection :expand)
+(def ^:const expand-selection :expand-selection)
 (def ^:const select-all :select-all)
 (def ^:const paste :paste)
 (def ^:const copy :copy)
@@ -27,7 +27,7 @@
 (def ^:const inject :inject)
 (def ^:const documentation :documentation)
 (def ^:const signature :signature)
-(def ^:const suggest :suggest)
+(def ^:const suggestion :suggestion)
 (def ^:const scroll-up :scroll-up)
 (def ^:const scroll-down :scroll-down)
 (def ^:const previous-evaluation :previous-evaluation)
@@ -66,7 +66,7 @@
     inject
     documentation
     signature
-    suggest
+    suggestion
     scroll-up
     scroll-down
     previous-evaluation
