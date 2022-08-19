@@ -1,4 +1,4 @@
-(ns omnia.display.render
+(ns omnia.display.core
   (:require [schema.core :as s]
             [omnia.display.terminal :as t]
             [omnia.repl.text :as i]
@@ -6,7 +6,7 @@
             [omnia.repl.hud :as h]
             [omnia.repl.context :as c]
             [omnia.repl.syntax-highlighting :as st]
-            [omnia.util.collection :refer [merge-common-with reduce-idx]]
+            [omnia.util.collection :as uc]
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
             [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.text :refer [Line]]
@@ -68,7 +68,7 @@
         previous-ov (-> hud (h/previous-view) (v/view-offset))]
     (if (= preview-ov previous-ov)
       ;; a nil from additive-diff means the highlights that don't have a diff
-      (prioritise (merge-common-with additive-diff current former))
+      (prioritise (uc/merge-common-with additive-diff current former))
       (prioritise current))))
 
 (s/defn put-char!
@@ -99,7 +99,7 @@
                  (dotimes [offset padding]
                    (put-char! terminal \space (+ x offset) y texts scheme styles)))
         print! (fn [x emission chars]
-                 (reduce-idx
+                 (uc/reduce-idx
                    (fn [x' _ character]
                      (when (and (>= x' xs) (< x' xe))
                        (put-char! terminal character x' y emission scheme styles))) x nil chars)

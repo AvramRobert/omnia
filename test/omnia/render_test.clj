@@ -7,7 +7,7 @@
             [omnia.schema.syntax :as sy]
             [omnia.config.defaults :as d]
             [omnia.test-utils :refer :all]
-            [omnia.display.render :refer :all]
+            [omnia.display.core :refer :all]
             [clojure.test :refer [deftest is]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.schema.text :refer [Text]]
