@@ -1,8 +1,10 @@
 (ns omnia.util.misc
-  (:require [clojure.java.io :as io]
+  (:require [schema.core :as s]
+            [clojure.java.io :as io]
             [clojure.edn :as edn]))
 
-(defn rand-port []
+(s/defn rand-port :- s/Int
+  []
   (rand-int 65535))
 
 (defn slurp-or-else [path else]
