@@ -1,12 +1,11 @@
-## Configuration 
+# Configuration 
 
 The REPL comes with a configuration file called `config.edn`. It's contents can be changed.
 
-A cheat-sheet of it's contents can be found [here](cheat-sheet.md).
+A cheat-sheet can be found [here](cheat-sheet.md).
 
-### Key bindings
-Each operation omnia supports is bound to a unique key or combination of keys. 
-Every keybind is defined as a map similar to the following: <br />
+## Key bindings
+Key bindings are defined as a map: <br />
 
 ```clojure
 { :key   <key> 
@@ -15,102 +14,58 @@ Every keybind is defined as a map similar to the following: <br />
   :shift <boolean> }
 ```
 
-`:key` denotes the key to be pressed, whilst `ctrl`, `alt` and `shift` denote if 
-`:key` should be pressed together with either `ctrl`, `alt` or `shift`. <br /> 
+### `:key`
 
-For simple character keys, the value of `:key` field should just be a normal Clojure character. <br />
-
-Example - I want something to happen when I press "c": <br />
-
+Expected key to be pressed. Can be either:
+1. A simple clojure character:
 ```clojure
 {:key \c}
 ```
 
-For more esoteric keys like `enter`, `space`, `tab` etc, the keyword version of the name of that specific 
-key is required. <br />
-
-Example - I want something to happen when I press `enter`: <br />
-
+2. Special key:
 ```clojure
 {:key :enter}
 ```
 
-`ctrl`, `alt` and `shift` are supported as `boolean` flags and used in conjunction with the `:key` field. <br />
+### `:ctrl`, `:alt`, `:shift`
+Boolean values specifying if one of those also needs to be pressed.
+Any combination of these is allowed.
 
-Example - I want something to happen when I press `ctrl`, `alt` and `e`: <br /> 
+A list of every supported and/or unsupported key/binding can be found [here](cheat-sheet.md#key-bindings).
+
+**Note: Due to either operating system key priorities and/or the terminal backend,
+some key bindings might not work directly out of the box.**
+
+## Syntax highlighting
+
+Syntax highlights is represented as a map in the form of `{ <construct> <color> }`.
+
+The colours can either be the preset, named colours or custom RGB colours.
+
+A list of all supported constructs and colours can be found [here](cheat-sheet.md#syntax-highlighting).
 
 ```clojure
-{:key  \e 
- :alt  true
- :ctrl true}
+{ :lists   :white,
+  :strings [22, 45, 91]
+  ...}
 ```
-
-### Supported keys
-**NOTE**: Please keep in mind that all the character keys, `ENTER`, `SPACE`, `BACKSPACE`, `DELETE`
-and the arrow keys are used for actual input. I would advise not reserving them for other operations. <br />
-Combinations of key + ctrl/alt/shift are however open. 
  
- * All character keys
- * `:left, :right, :up, :down` (the arrows)
- * `:enter`
- * `:space`
- * `:backspace`
- * `:tab`
- * `:page-up, :page-down`
- * `:escape`
- * `:home`
- * `:end`
- * `:insert`
- * `:delete`
- * `:f1` through `:f19`
+**Note: Multi-line string highlighting is not supported.**
 
-### Unsupported key combinations
-Let's face it, operating systems are different and thus treat terminal emulators differently.
-As such, there are various key combinations, that do not currently work:
+## Fonts
 
- * CTRL + ENTER
- * CTRL + UP
- * CTRL + DOWN
- * CTRL + BACKSPACE
+Both the font itself and its size can be altered.
 
-In addition to this, the `command` key on MacOS is not supported.
+The default font used is [Hasklig](https://github.com/i-tu/Hasklig). 
+To change it, specify the path to a different `otf` file.
+The same goes for its size.
 
-Should you discover additional issues, please feel free to report them so I can add them to the list.
-Solutions for this issue are currently being investigated.
+Details about the config fields can be found [here](cheat-sheet.md#fonts)
 
-### Syntax highlighting
+## History
 
-Syntax highlights are represented as a map, where the `key` 
-denotes the highlighted _type_ of token and the `value` its colour.
+Evaluations of a REPL session are persisted to a file.
 
-Omnia can highlight the following things and defines the following keys for them:
+Which file it is and how many evaluations are to be persisted can be changed.
 
-- Function calls: `:function`
-- Numbers: `:number`
-- Strings: `:string`
-- Keywords: `:keyword`
-- Characters: `:character`
-- Comments: `:comment`
-- Lists: `:list`
-- Vectors: `:vector`
-- Maps: `:map`
-- Special words: `:word`
-- Simple text: `:text`
-- Selections: `:selection`
-
-To change the colour of any of these, just associate them with the desired colour 
-in the map.
-
-Omnia supports the following colours: 
-
- * `:black`
- * `:white`
- * `:red`
- * `:blue`
- * `:yellow`
- * `:cyan`
- * `:magenta`
- * `:green`
- * `:default` (transparent)
- 
-**NOTE** Multi-line string highlighting is not supported.
+Details about the config fields can be found [here](cheat-sheet.md#history)

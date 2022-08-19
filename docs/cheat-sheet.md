@@ -1,3 +1,7 @@
+# Cheat Sheet
+
+The config is found in the file `config.edn`. Everything inside can be changed.
+
 ## Key Bindings
 
 **Note**: Due to either operating system key priorities and/or the terminal backend _omnia_ uses,
@@ -5,34 +9,84 @@ some key bindings might not work directly out of the box.
 
 The key bindings can be changed. For more information, take a look at [configuration](https://github.com/AvramRobert/omnia/blob/master/docs/configuration.md).
 
-| Operation    | Default key binding        | Description | Config parameter|
+### Supported keys
+
+|Key | Config |
+|----|--------|
+| All character keys | \\\<some-char\>|
+| Up arrow | :up |
+| Down arrow | :down |
+| Left arrow | :left | 
+| Right arrow | :right |
+| Enter / Return | :enter |
+| Space | :space |
+| Backspace | :backspace |
+| Tab | :tab |
+| Page Up | :page-up |
+| Page Down | :page-down |
+| Escape | :escape |
+| Home | :home |
+| End | :end |
+| Insert | :insert |
+| Delete | :delete |
+| F1 through F9 | :f1 ... :f9 |
+
+### Unsupported keys
+
+| Operating System | Key |
+|------------------|-----|
+| MacOS | Command |
+
+### Unsupported key combinations (incomplete)
+
+**Note:** The _command_ key on MacOS 
+
+| Combinations |
+|--------------|
+| :ctrl + i    |
+| :ctrl + z    |
+| :ctrl + y    |
+| :ctrl + :backspace |
+| ... |
+
+### Config parameters
+
+| Operation | Config | Default key binding | Description |
 |--------------|----------------|-------------|-----------------|
-|Input char| any character key | Inserts character | - |
-|Move up/down/left/right | Arrows UP/DOWN/LEFT/RIGHT | Moves the cursor | :up, :down, :left, :right |
-|New line | ENTER | Creates a new line | :new-line |
-|Delete previous | BACKSPACE | Deletes the previous character | :delete-previous |
-|Delete current | DELETE | Deletes the current character | :delete-current |
-|Evaluate| CTRL + ENTER | Evaluates the input | :evaluate |
-|Clear | CTRL + R | Clears screen | :clear |
-|Reformat| CTRL + ALT + L | Reformats input | :reformat |
-|Suggestion | TAB | Lists matching suggestions for input. Suggestions can be scrolled through by repeatedly pressing the key | :suggestion |
-|Signature | CTRL + P | Lists all signatures of the function | :signature |
-|Documentation | CTRL + Q | Displays a scrollable view of the function's documentation | :documentation |
-|Jump | CTRL + LEFT/RIGHT | Jumps over words and spaces | :jump-left, :jump-right |
-|Select | SHIFT + LEFT/RIGHT/UP/DOWN | Selects input in the direction specified by the arrow | :select-up, :select-down, :select-left, :select-right |
-|Expand selection| CTRL + W | Selects by gradually expanding from words to expressions | :expand-selection |
-|Jump select | CTRL + SHIFT + LEFT/RIGHT | Selects the words and spaces it jumps over | :jump-select-left, jump-select-right |
-|Copy | CTRL + C | Copies the current selection | :copy |
-|Cut  | CTRL + X | Cuts the current selection | :cut |
-|Paste | CTRL + P | Pastes the cut/copied selection | :paste |
-|Select all | CTRL + A | Selects the whole input | :select-all |
-|Scroll up  | PAGE-UP | Scrolls up the view | :scroll-up |
-|Scroll down | PAGE-DOWN | Scrolls down the view | :scroll-down |
-|Previous evaluation | CTRL + UP | Goes to the previous evaluation in the history | :previous-evaluation |
-|Next evaluation | CTRL + DOWN | Goes to the following evaluation in the history | :next-evaluation |
-|Undo | ALT + Z | Undoes the last action | :undo |
-|Redo | ALT + Y | Redoes the last undo | :redo |
-|Exit | CTRL + D | Exits the REPL | :exit |
+|Input char| :character | \\\<input char\> | Inserts character |
+|Move up | :move-up | :up | Moves cursor up |
+|Move down | :move-down | :down | Moves cursor down |
+|Move left | :move-left | :left | Moves cursor left |
+|Move right | :move-right | :right | Moves cursor right |
+|New line | :new-line | :enter | Creates a new line |
+|Delete previous | :delete-previous | :backspace | Deletes the previous character |
+|Delete current | :delete-current | :delete | Deletes the current character |
+|Evaluate| :evaluate | :ctrl + :enter  | Evaluates the input |
+|Clear | :clear | :ctrl + r | Clears screen
+|Reformat| :reformat | :ctrl + :alt + l | Reformats input |
+|Suggestion | :suggestion | :tab | Lists matching suggestions for input. Suggestions can be scrolled through by repeatedly pressing the key
+|Signature | :signature | :ctrl + p | Lists all signatures of the function |
+|Documentation | :documentation | :ctrl + q | Displays a scrollable view of the function's documentation |
+|Jump left | :jump-left | :ctrl + :left | Jumps left over words and spaces |
+|Jump right | :jump-right | :ctrl + :right | Jumps right over words and spaces |
+|Select left | :select-left | :shift + :left | Selects input to the left |
+|Select right | :select-right | :shift + :right | Selects input to the right |
+|Select up | :select-up | :shift + :up | Selects input upwards |
+|Select down | :select-down | :shift + :down | Selects input downwards |
+|Jump select left | :jump-select-left | :ctrl + :shift + :left | Selects by jumping over words/spaces to the left |
+|Jump select right | :jump-select-right | :ctrl + :shift + :right | Selects by jumping over words/spaces to the right |
+|Expand selection| :expand-selection | :ctrl + w | Selects by gradually expanding from words to expressions |
+|Select all | :select-all | :ctrl + a | Selects the whole input  |
+|Copy | :copy | :ctrl + c | Copies the current selection |
+|Cut  | :cut | :ctrl + x | Cuts the current selection |
+|Paste | :paste | :ctrl + p | Pastes the cut/copied selection |
+|Scroll up  | :scroll-up | :page-up | Scrolls up the view |
+|Scroll down | :scroll-down | :page-down | Scrolls down the view |
+|Previous evaluation | :previous-evaluation | :ctrl + :up | Goes to the previous evaluation in the history |
+|Next evaluation | :next-evaluation | :ctrl + :down | Goes to the following evaluation in the history |
+|Undo | :undo | :alt + z | Undoes the last action |
+|Redo | :redo | :alt + y | Redoes the last undo |
+|Exit | :exit | :ctrl + d | Exits the REPL |
 
 ## Colours
 
@@ -73,18 +127,24 @@ RGB-Triple represented with a vector: `[180, 148, 187]`
 
 ## Fonts
 
-### Preset
-| Font name | Default size|
-|------|------|
-| [Hasklig](https://github.com/i-tu/Hasklig) | 15 |
+The font used is [Hasklig](https://github.com/i-tu/Hasklig).
 
-### Custom
+### Config parameters
 
-Reference `otf` file in the `:font-path` field.
+| Config | Description | Default value |
+|-----------|-------------|---------------|
+|:font-path | Path to font file (otf) | `./default-font.otf` |
+|:font-size | Size of the font | 15 |
+
+### Custom font
+
+Reference the path to a different `otf` file in the `:font-path` field.
 
 ## History
 
-| Field | Description | Default value |
+Where to persist evaluations and how many of them.
+
+| Config | Description | Default value |
 |-------|-------------|---------------|
 | :history-file-path | Where the evaluation history is persisted | `.omnia.history` |
 | :history-size | How many previous evaluations are kept | 50 |
