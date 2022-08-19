@@ -1,7 +1,6 @@
 (ns omnia.schema.syntax-highlighting
   (:require [schema.core :as s]
-            [omnia.schema.syntax :refer [SyntaxElement]]
-            [omnia.schema.common :refer [=>]]))
+            [omnia.schema.syntax :refer [SyntaxElement]]))
 
 (def ^:const -open-list :open-list)
 (def ^:const -closed-list :close-list)
@@ -64,5 +63,5 @@
   #{\- \+})
 
 (def Node (apply s/enum nodes))
-(def EmissionFn (=> (s/maybe Node) [Character] SyntaxElement))
+(def EmissionFn (s/=> (s/maybe Node) [Character] SyntaxElement))
 (def CharStream (s/cond-pre s/Str [Character]))

@@ -14,7 +14,6 @@
             [omnia.schema.context :refer [Context EventHandler processing terminated]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event Action]]
-            [omnia.schema.common :refer [=>]]
             [omnia.schema.nrepl :refer [NReplClient]]
             [omnia.schema.text-history :refer [TextHistory]]
             [omnia.schema.eval-history :refer [EvalHistory]]))
@@ -50,7 +49,7 @@
 (s/defn change-input-area :- Hud
   [hud :- Hud
    config :- Config
-   f :- (=> Text Text)]
+   f :- (s/=> Text Text)]
   (let [input-area' (-> hud (h/input-area) (f))]
     (-> hud
         (h/gc config)
@@ -66,7 +65,7 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient
-   f :- (=> Text Text)]
+   f :- (s/=> Text Text)]
   (let [hud          (hud context)
         undo-history (undo-history context)
         input-area   (-> hud (h/input-area) (t/reset))]
@@ -82,7 +81,7 @@
    event :- Event
    config :- Config
    nrepl :- NReplClient
-   f :- (=> Text Text)]
+   f :- (s/=> Text Text)]
   (let [hud (hud context)]
     {:status       processing
      :information  (reset-information context)

@@ -5,8 +5,7 @@
             [omnia.schema.config :refer [Config]]
             [omnia.schema.event :refer [Event]]
             [omnia.schema.text-history :refer [TextHistory]]
-            [omnia.schema.eval-history :refer [EvalHistory]]
-            [omnia.schema.common :refer [=>]]))
+            [omnia.schema.eval-history :refer [EvalHistory]]))
 
 (def ^:const processing :processing)
 (def ^:const terminated :terminated)
@@ -22,4 +21,4 @@
    :hud          Hud})
 
 (def EventHandler
-  (=> Context Event Config))
+  (s/=> Context Event Config))

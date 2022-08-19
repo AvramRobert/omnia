@@ -110,7 +110,7 @@
       eval? EvalRequest
       :else InfoRequest)))
 
-(def InternalClient (c/=> NReplRequest [NReplResponse]))
+(def InternalClient (s/=> NReplRequest [NReplResponse]))
 
 (def NReplClient
   {:ns       s/Symbol

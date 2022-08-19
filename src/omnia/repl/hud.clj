@@ -9,7 +9,7 @@
             [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
             [omnia.schema.view :refer [View]]
             [omnia.schema.text :refer [Text]]
-            [omnia.schema.common :refer [=> Region]]
+            [omnia.schema.common :refer [Region]]
             [omnia.util.collection :refer [map-vals assoc-new]]
             [omnia.util.misc :refer [omnia-version]]))
 

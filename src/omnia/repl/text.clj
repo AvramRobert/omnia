@@ -4,7 +4,7 @@
             [clojure.string :as string]
             [clojure.set :refer [union map-invert]]
             [omnia.schema.text :refer [Text Line Expansion]]
-            [omnia.schema.common :refer [=> Point Region Pair]]
+            [omnia.schema.common :refer [Point Region Pair]]
             [omnia.util.collection :refer [do-until dissoc-nth]]))
 
 (def empty-text
@@ -131,7 +131,7 @@
    `f` is expected to return valid `lines` of text.
    These then replace the initial lines on the text."
   [text :- Text
-   f    :- (=> [Line] [Line] [Line])]
+   f    :- (s/=> [Line] [Line] [Line])]
   (let [[_ y] (:cursor text)
         [l r] (split-at y (:lines text))
         lines (concat (f (vec l) (vec r)))]
@@ -146,7 +146,7 @@
    `f` is expected to return valid `lines` of text.
    These then replace the one line on which `f` was applied and get merged with the rest."
   [text :- Text
-   f :- (=> Line Line [Line])]
+   f :- (s/=> Line Line [Line])]
   (let [[x y] (:cursor text)]
     (peer text (fn [l [line & r]]
                  (let [lines (->> line (split-at x) (mapv vec) (apply f))]
@@ -159,7 +159,7 @@
     - return a new line (replaces the old one)
     - return `nil` which deletes the current one"
   [text :- Text
-   f :- (=> Line (s/maybe Line))]
+   f :- (s/=> Line (s/maybe Line))]
   (let [[_ y] (:cursor text)
         lines (:lines text)]
     (if-let [line' (f (current-line text))]
@@ -175,7 +175,7 @@
    `f` is expected to return one valid line of text.
    This then replaces the line on which `f` was applied."
   [text :- Text
-   f :- (=> Line Line Line)]
+   f :- (s/=> Line Line Line)]
   (let [[x y] (:cursor text)
         lines (:lines text)
         line  (line-at text y)
@@ -185,13 +185,13 @@
 
 (s/defn move-x :- Text
   [text :- Text
-   f :- (=> s/Int s/Int)]
+   f :- (s/=> s/Int s/Int)]
   (let [[x y] (:cursor text)]
     (reset-cursor text [(f x) y])))
 
 (s/defn move-y :- Text
   [text :- Text
-   f :- (=> s/Int s/Int)]
+   f :- (s/=> s/Int s/Int)]
   (let [[x y] (:cursor text)]
     (reset-cursor text [x (f y)])))
 
@@ -284,8 +284,8 @@
 
 (s/defn jump :- Text
   [text :- Text
-   move :- (=> Text Text)
-   look :- (=> Text (s/maybe Character))]
+   move :- (s/=> Text Text)
+   look :- (s/=> Text (s/maybe Character))]
   (letfn [(blank? [s] (some-> s (look) (space?)))
           (literal? [s] (not (blank? s)))
           (paired-token? [s] (paired-tokens (look s)))
@@ -323,7 +323,7 @@
 
 (s/defn select-with :- Text
   [text :- Text
-   f    :- (=> Text Text)]
+   f    :- (s/=> Text Text)]
   "Algorithm for figuring out new region.
    Given
       Cc = current cursor (:cursor text)

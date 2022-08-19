@@ -19,10 +19,5 @@
 (def StringUUID
   (s/pred #(try (UUID/fromString %) true (catch Exception _ false))))
 
-(defn =>
-  ([in out]
-   (s/->FnSchema out in))
-  ([in1 in2 out]
-   (s/->FnSchema out [in1 in2]))
-  ([in1 in2 in3 out]
-   (s/->FnSchema out [in1 in2 in3])))
+(def NonNegativeInt
+  (s/pred #(and (int? %) (>= 0 %))))

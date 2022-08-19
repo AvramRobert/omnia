@@ -1,6 +1,5 @@
 (ns omnia.repl.syntax-highlighting
   (:require [schema.core :as s]
-            [omnia.schema.common :refer [=>]]
             [omnia.schema.syntax :as t]
             [omnia.schema.syntax-highlighting :refer :all]))
 
@@ -267,7 +266,7 @@
 ;; 1. We apply the function one last time to "flush" any accumulation that wasn't processed.
 ;; 2. Because the initial node is a `-break`, the highlighter always emits an initial empty :text
 (s/defn fold' :- s/Any
-  [f      :- (=> s/Any Node t/SyntaxElement [Character])
+  [f      :- (s/=> s/Any Node t/SyntaxElement [Character])
    init   :- s/Any
    stream :- CharStream]
   (loop [result         init
@@ -306,7 +305,7 @@
             (recur (f result node (emit pushed-node accumulate) accumulate) [char] node' (cons node stack) chars)))))))
 
 (s/defn fold :- s/Any
-  [f      :- (=> s/Any t/SyntaxElement [Character])
+  [f      :- (s/=> s/Any t/SyntaxElement [Character])
    init   :- s/Any
    stream :- CharStream]
   (fold' (fn [result _ emission acc] (f result emission acc)) init stream))

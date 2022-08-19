@@ -14,7 +14,7 @@
             [omnia.schema.context :refer [Context]]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.common :refer [Point =>]]
+            [omnia.schema.common :refer [Point]]
             [omnia.display.terminal :as t])
   (:import (clojure.lang Atom)))
 
@@ -27,7 +27,7 @@
 
 (s/defn execute :- RenderedElements
   [context :- Context,
-   f   :- (=> t/Terminal Config Hud nil)]
+   f   :- (s/=> t/Terminal Config Hud nil)]
   (let [chars    (atom [])
         cursors  (atom [])
         bgs      (atom [])

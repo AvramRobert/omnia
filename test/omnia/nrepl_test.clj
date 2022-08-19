@@ -5,11 +5,10 @@
             [omnia.repl.text :as i]
             [clojure.test :refer [deftest is]]
             [clojure.string :refer [includes?]]
-            [omnia.schema.nrepl :refer [NReplClient]]
-            [omnia.schema.common :refer [=>]]))
+            [omnia.schema.nrepl :refer [NReplClient]]))
 
 (s/defn with-server :- s/Any
-  [f :- (=> NReplClient s/Any)]
+  [f :- (s/=> NReplClient s/Any)]
   (let [config {:host    "127.0.0.1"
                 :port    11111}
         server (r/start-server! config)
