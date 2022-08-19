@@ -12,7 +12,7 @@ It has almost all the power of a fully fledged editor, without being an editor.
 * Download the latest archived release: <br />
   [Releases](https://github.com/AvramRobert/omnia/releases)
 
-* Extract the `.tar` file
+* Extract the `zip` file
 
 * Make the `omnia` file inside executable
 
@@ -20,13 +20,13 @@ It has almost all the power of a fully fledged editor, without being an editor.
 
 ## Features
 
-Description and example GIFs can be found [here](docs/features.md).
+Can be found [here](docs/features.md).
 
 ## Bugs
 
 Bug reports can be submitted as issues here on github.
 
-**Note**: The REPL produces an error file when it crashes.The REPL has a built-in failure-handling system and spits
+The REPL produces an error file when it crashes. 
 That file can be found in the same directory as the executable.
 
 Should you decide to report the crash, then please attach that file together with a short description
