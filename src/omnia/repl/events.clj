@@ -92,10 +92,10 @@
   (event e/scroll-down))
 
 (s/def prev-eval :- e/Event
-  (event e/prev-eval))
+  (event e/previous-evaluation))
 
 (s/def next-eval :- e/Event
-  (event e/next-eval))
+  (event e/next-evaluation))
 
 (s/def reformat :- e/Event
   (event e/reformat))

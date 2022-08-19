@@ -210,7 +210,7 @@
       (h/diff-render)
       (continue context)))
 
-(s/defn prev-eval :- Context
+(s/defn previous-evaluation :- Context
   [context :- Context
    event :- Event
    config :- Config
@@ -234,7 +234,7 @@
                          (h/diff-render))
                      hud)}))
 
-(s/defn next-eval :- Context
+(s/defn next-evaluation :- Context
   [context :- Context
    event :- Event
    config :- Config
@@ -558,42 +558,42 @@
   (undoable-text-event context event config nrepl t/new-line))
 
 (s/def handlers :- {Action EventHandler}
-  {e/inject            inject
-   e/documentation     documentation
-   e/signature         signature
-   e/suggest           suggestion
-   e/scroll-up         scroll-up
-   e/scroll-down       scroll-down
-   e/prev-eval         prev-eval
-   e/next-eval         next-eval
-   e/reformat          reformat
-   e/clear             clear
-   e/evaluate          evaluate
-   e/exit              exit
-   e/resize            resize
-   e/move-up           move-up
-   e/move-down         move-down
-   e/move-left         move-left
-   e/move-right        move-right
-   e/jump-left         jump-left
-   e/jump-right        jump-right
-   e/select-all        select-all
-   e/select-up         select-up
-   e/select-down       select-down
-   e/select-left       select-left
-   e/select-right      select-right
-   e/jump-select-left  jump-select-left
-   e/jump-select-right jump-select-right
-   e/delete-previous   delete-previous
-   e/delete-current    delete-current
-   e/new-line          new-line
-   e/copy              copy
-   e/cut               cut
-   e/paste             paste
-   e/undo              undo
-   e/redo              redo
-   e/character         character
-   e/expand-selection  expand-selection})
+  {e/inject              inject
+   e/documentation       documentation
+   e/signature           signature
+   e/suggest             suggestion
+   e/scroll-up           scroll-up
+   e/scroll-down         scroll-down
+   e/previous-evaluation previous-evaluation
+   e/next-evaluation     next-evaluation
+   e/reformat            reformat
+   e/clear               clear
+   e/evaluate            evaluate
+   e/exit                exit
+   e/resize              resize
+   e/move-up             move-up
+   e/move-down           move-down
+   e/move-left           move-left
+   e/move-right          move-right
+   e/jump-left           jump-left
+   e/jump-right          jump-right
+   e/select-all          select-all
+   e/select-up           select-up
+   e/select-down         select-down
+   e/select-left         select-left
+   e/select-right        select-right
+   e/jump-select-left    jump-select-left
+   e/jump-select-right   jump-select-right
+   e/delete-previous     delete-previous
+   e/delete-current      delete-current
+   e/new-line            new-line
+   e/copy                copy
+   e/cut                 cut
+   e/paste               paste
+   e/undo                undo
+   e/redo                redo
+   e/character           character
+   e/expand-selection    expand-selection})
 
 (s/defn process :- Context
   [context :- Context

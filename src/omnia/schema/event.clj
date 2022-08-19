@@ -30,8 +30,8 @@
 (def ^:const suggest :suggest)
 (def ^:const scroll-up :scroll-up)
 (def ^:const scroll-down :scroll-down)
-(def ^:const prev-eval :prev-eval)
-(def ^:const next-eval :next-eval)
+(def ^:const previous-evaluation :previous-evaluation)
+(def ^:const next-evaluation :next-evaluation)
 (def ^:const reformat :reformat)
 (def ^:const clear :clear)
 (def ^:const evaluate :evaluate)
@@ -69,8 +69,8 @@
     suggest
     scroll-up
     scroll-down
-    prev-eval
-    next-eval
+    previous-evaluation
+    next-evaluation
     reformat
     clear
     evaluate

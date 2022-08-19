@@ -5,39 +5,39 @@
             [omnia.schema.syntax :as t]))
 
 (s/def default-user-keymap :- c/UserKeyMap
-  {e/documentation     {:key \i :alt true}
-   e/signature         {:key \p :alt true}
-   e/expand-selection  {:key \w :ctrl true}
-   e/undo              {:key \z :alt true}
-   e/redo              {:key \y :alt true}
-   e/paste             {:key \v :alt true}
-   e/copy              {:key \c :alt true}
-   e/cut               {:key \x :alt true}
-   e/select-all        {:key \a :ctrl true}
-   e/move-up           {:key :up}
-   e/move-down         {:key :down}
-   e/move-left         {:key :left}
-   e/move-right        {:key :right}
-   e/jump-left         {:key :left :ctrl true}
-   e/jump-right        {:key :right :ctrl true}
-   e/select-up         {:key :up :shift true}
-   e/select-down       {:key :down :shift true}
-   e/select-left       {:key :left :shift true}
-   e/select-right      {:key :right :shift true}
-   e/jump-select-left  {:key :left :shift true :ctrl true}
-   e/jump-select-right {:key :right :shift true :ctrl true}
-   e/delete-previous   {:key :backspace}
-   e/delete-current    {:key :delete}
-   e/new-line          {:key :enter}
-   e/suggest           {:key :tab}
-   e/scroll-up         {:key :page-up}
-   e/scroll-down       {:key :page-down}
-   e/prev-eval         {:key :up :alt true}
-   e/next-eval         {:key :down :alt true}
-   e/reformat          {:key \l :ctrl true :alt true}
-   e/clear             {:key \r :ctrl true}
-   e/evaluate          {:key \e :alt true}
-   e/exit              {:key \d :ctrl true}})
+  {e/documentation       {:key \i :ctrl true}
+   e/signature           {:key \p :ctrl true}
+   e/expand-selection    {:key \w :ctrl true}
+   e/undo                {:key \z :ctrl true}
+   e/redo                {:key \y :ctrl true}
+   e/paste               {:key \v :ctrl true}
+   e/copy                {:key \c :ctrl true}
+   e/cut                 {:key \x :ctrl true}
+   e/select-all          {:key \a :ctrl true}
+   e/move-up             {:key :up}
+   e/move-down           {:key :down}
+   e/move-left           {:key :left}
+   e/move-right          {:key :right}
+   e/jump-left           {:key :left :ctrl true}
+   e/jump-right          {:key :right :ctrl true}
+   e/select-up           {:key :up :shift true}
+   e/select-down         {:key :down :shift true}
+   e/select-left         {:key :left :shift true}
+   e/select-right        {:key :right :shift true}
+   e/jump-select-left    {:key :left :shift true :ctrl true}
+   e/jump-select-right   {:key :right :shift true :ctrl true}
+   e/delete-previous     {:key :backspace}
+   e/delete-current      {:key :delete}
+   e/new-line            {:key :enter}
+   e/suggest             {:key :tab}
+   e/scroll-up           {:key :page-up}
+   e/scroll-down         {:key :page-down}
+   e/previous-evaluation {:key :up :ctrl true}
+   e/next-evaluation     {:key :down :ctrl true}
+   e/reformat            {:key \l :ctrl true :alt true}
+   e/clear               {:key \r :ctrl true}
+   e/evaluate            {:key :enter :ctrl true}
+   e/exit                {:key \d :ctrl true}})
 
 (s/def default-user-highlighting :- c/UserHighlighting
   {t/lists      t/white

@@ -5,7 +5,6 @@
             [clojure.pprint :as pp]
             [halfling.task :as t]
             [omnia.schema.release :as r]
-            [omnia.config.core :refer [read-user-config!]]
             [omnia.util.misc :refer [omnia-version]]))
 
 (s/def releases :- r/Releases
@@ -63,13 +62,13 @@
 
         jar-file    (format "target/uberjar/%s-%s-standalone.jar" file-name version)
         executable  (-> release (:template) (make-executable! file-name version))
-        config      (-> release (:configuration) (read-user-config!))
+        config-file (:configuration release)
         font-file   "resources/release/Hasklig-Regular.otf"
         _           (mkdir (str "./" target-dir))
         _           (println "Creating release files..")
         _           (cp jar-file (str target-dir "/" target-jar))
         _           (cp font-file (str target-dir "/" target-font))
-        _           (spit (str target-dir "/" target-conf) config)
+        _           (cp (str target-dir "/" target-conf) config-file)
         _           (spit (str target-dir "/" target-exec) executable)
         _           (println "Creating archive..")
         _           (zip-dir (str target-dir ".zip") target-dir)
