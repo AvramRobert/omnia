@@ -21,6 +21,11 @@
             [omnia.schema.terminal :refer [Terminal]]))
 
 (s/defn additive-diff :- (s/maybe HighlightInstructionData)
+  "Diffs the regions of two highlight instructions against each other.
+   The diff is applied to the `current` instruction relative to the `former`.
+   It's additive, meaning it only considers the uncommon surplus or the additions.
+
+   Subtractions and/or no changes are signaled with a return of `nil`."
   [current :- HighlightInstructionData, former :- HighlightInstructionData]
   (let [{[xs ys] :from
          [xe ye] :until} (:region current)
@@ -52,13 +57,6 @@
           (and exact-end? grown-top?)) (assoc current :region {:from [xs  ys] :until [xs' ys']})
       :else current)))
 
-;; selections are prioritised in order to avoid artifacts from other highlights that may occur at the same time
-(s/defn prioritise :- [HighlightInstructionData]
-  [instructions :- HighlightInstructions]
-  (if-let [selection-instruction (get instructions selection-highlight)]
-    [selection-instruction]
-    (vals instructions)))
-
 (s/defn cull :- [HighlightInstructionData]
   "Diffs the `current` highlight against the `former` highlight.
   Returns only the diffed region from the `current` that doesn't overlap
@@ -76,10 +74,9 @@
                                (some? current-selection))]
     (cond
       (and selected-region? (some? former-selection))
-      ;; a nil from additive-diff means the highlights that don't have a diff
       (if-let [result (additive-diff current-selection former-selection)]
         [result]
-        [])
+        uc/empty-vector)
 
       selected-region?
       [current-selection]

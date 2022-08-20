@@ -1,15 +1,6 @@
 (ns omnia.util.collection)
 
-(defn merge-common-with [f m1 m2]
-  "Merges two maps. Keeps just the common elements.
-   Removes any element that is `nil` either by itself
-   or as a result of applying `f`."
-  (reduce
-    (fn [nm [k a]]
-      (if-let [b (get m2 k)]
-        (or (some->> b (f a) (assoc nm k))
-            nm)
-        (assoc nm k a))) {} m1))
+(def empty-vector [])
 
 (defn reduce-idx
   ([f seed coll]
@@ -21,9 +12,6 @@
 
 (defn dissoc-nth [vector idx]
   (vec (concat (take idx vector) (drop (inc idx) vector))))
-
-(defn run-indexed! [f coll]
-  (reduce-idx (fn [idx _ a] (f idx a)) nil coll))
 
 (defn merge-from-both [map1 map2]
   (merge-with (fn [a b] (or a b)) map1 map2))

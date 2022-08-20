@@ -1,8 +1,6 @@
 (ns omnia.text-test
   (:require [omnia.repl.text :as i]
             [clojure.test :refer [deftest is testing]]
-            [omnia.util.debug :refer [time-return]]
-            [omnia.util.collection :refer [run-indexed!]]
             [omnia.test-utils :refer :all]))
 
 ;; 0. Reading
