@@ -10,23 +10,23 @@
   (:import (java.io FileWriter)))
 
 (s/def releases :- Releases
-  {:linux   {:file-type   :sh
-             :file-name   d/default-name
-             :jar-file    d/default-jar-file-name
-             :config-file d/default-config-file-name
-             :template    "resources/release/templates/linux/executable.sh"}
+  {:linux   {:file-type      :sh
+             :main-file-name d/default-name
+             :jar-file       d/default-jar-file-name
+             :config-file    d/default-config-file-name
+             :template       "resources/release/templates/linux/executable.sh"}
 
-   :windows {:file-type   :bat
-             :file-name   d/default-name
-             :jar-file    d/default-jar-file-name
-             :config-file d/default-config-file-name
-             :template    "resources/release/templates/windows/executable.bat"}
+   :windows {:file-type      :bat
+             :main-file-name d/default-name
+             :jar-file       d/default-jar-file-name
+             :config-file    d/default-config-file-name
+             :template       "resources/release/templates/windows/executable.bat"}
 
-   :macOS   {:file-type   :sh
-             :file-name   d/default-name
-             :jar-file    d/default-jar-file-name
-             :config-file d/default-config-file-name
-             :template    "resources/release/templates/mac/executable.sh"}})
+   :macOS   {:file-type      :sh
+             :main-file-name d/default-name
+             :jar-file       d/default-jar-file-name
+             :config-file    d/default-config-file-name
+             :template       "resources/release/templates/mac/executable.sh"}})
 
 (s/defn sh :- nil
   [& args :- [s/Any]]
@@ -74,7 +74,7 @@
    release-config :- ReleaseConfig]
   (let [system      (name os)
         version     (m/omnia-version)
-        file-name   (:file-name release-config)
+        file-name   (:main-file-name release-config)
         _           (println "Releasing for: " system)
         target-ext  (-> release-config (:file-type) (name))
         target-jar  (:jar-file release-config)
