@@ -1,12 +1,12 @@
 ## Persistent REPL history
 
-* Documentation found at [here](configuration.md#history)
+* Documentation found [here](configuration.md#history)
 
 ## Configurable Key Bindings
-* Documentation found at [here](configuration.md#key-bindings)
+* Documentation found [here](configuration.md#key-bindings)
 
 ## Configurable syntax highlighting
-* Documentation found at [here](configuration.md#syntax-highlighting)
+* Documentation found [here](configuration.md#syntax-highlighting)
 
 ![syntax-highlighting](images/syntax-highlighting.gif)
 
