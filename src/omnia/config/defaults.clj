@@ -80,7 +80,13 @@
    :terminal    default-user-terminal
    :persistence default-user-persistence})
 
-(s/def default-user-config-path :- s/Str
+(s/def default-name :- s/Str
+  "omnia")
+
+(s/def default-jar-file-name :- s/Str
+  "app.jar")
+
+(s/def default-config-file-name :- s/Str
   "config.edn")
 
 (s/def default-user-error-path :- s/Str

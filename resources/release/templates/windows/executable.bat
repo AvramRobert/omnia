@@ -2,4 +2,4 @@
 
 echo "Starting Omnia %%VERSION%%.."
 
-start javaw -jar %%FILENAME%%.jar
+start javaw -jar %%JARFILE%%

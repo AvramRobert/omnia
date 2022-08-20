@@ -69,7 +69,7 @@
 
 (defn -main [& args]
   (-> (tsk/do-tasks
-        [config       (c/read-config! d/default-user-config-path)
+        [config       (c/read-config! d/default-config-file-name)
          eval-history (eh/read-eval-history config)
          terminal     (t/create-terminal config)
          repl-config  {:host d/default-repl-host

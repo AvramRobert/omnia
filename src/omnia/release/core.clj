@@ -10,14 +10,23 @@
   (:import (java.io FileWriter)))
 
 (s/def releases :- Releases
-  {:linux   {:file-type     :sh
-             :template      "resources/release/templates/linux/executable.sh"}
+  {:linux   {:file-type   :sh
+             :file-name   d/default-name
+             :jar-file    d/default-jar-file-name
+             :config-file d/default-config-file-name
+             :template    "resources/release/templates/linux/executable.sh"}
 
-   :windows {:file-type     :bat
-             :template      "resources/release/templates/windows/executable.bat"}
+   :windows {:file-type   :bat
+             :file-name   d/default-name
+             :jar-file    d/default-jar-file-name
+             :config-file d/default-config-file-name
+             :template    "resources/release/templates/windows/executable.bat"}
 
-   :macOS   {:file-type     :sh
-             :template      "resources/release/templates/mac/executable.sh"}})
+   :macOS   {:file-type   :sh
+             :file-name   d/default-name
+             :jar-file    d/default-jar-file-name
+             :config-file d/default-config-file-name
+             :template    "resources/release/templates/mac/executable.sh"}})
 
 (s/defn sh :- nil
   [& args :- [s/Any]]
@@ -28,11 +37,11 @@
 
 (s/defn make-executable! :- s/Str
   [path :- s/Str
-   file-name :- s/Str
+   jar-file :- s/Str
    version :- s/Str]
   (-> path
       (slurp)
-      (string/replace "%%FILENAME%%" file-name)
+      (string/replace "%%JARFILE%%" jar-file)
       (string/replace "%%VERSION%%" version)))
 
 (s/defn mkdir :- nil
@@ -65,16 +74,16 @@
    release-config :- ReleaseConfig]
   (let [system      (name os)
         version     (m/omnia-version)
-        file-name   "omnia"
+        file-name   (:file-name release-config)
         _           (println "Releasing for: " system)
         target-ext  (-> release-config (:file-type) (name))
-        target-jar  (str file-name ".jar")
-        target-conf (str file-name ".edn")
+        target-jar  (:jar-file release-config)
+        target-conf (:config-file release-config)
         target-exec (str file-name "." target-ext)
         target-font "default_font.otf"
         target-dir  (format "%s-%s-%s" file-name version system)
-        jar-file    (format "target/uberjar/%s-%s-standalone.jar" file-name version)
-        executable  (-> release-config (:template) (make-executable! file-name version))
+        jar-file    (format "target/uberjar/%s-%s-standalone.jar" d/default-name version)
+        executable  (-> release-config (:template) (make-executable! target-jar version))
         font-file   "resources/release/Hasklig-Regular.otf"
         _           (mkdir (str "./" target-dir))
         _           (println "Creating release files..")

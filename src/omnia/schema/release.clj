@@ -7,6 +7,9 @@
 
 (def ReleaseConfig
   {:file-type     Executable
+   :file-name     s/Str
+   :config-file   s/Str
+   :jar-file      s/Str
    :template      s/Str})
 
 (def Releases {OS ReleaseConfig})

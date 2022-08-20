@@ -11,7 +11,7 @@ done
 
 DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 
-JAR="$DIR/%%FILENAME%%.jar"
+JAR="$DIR/%%JARFILE%%"
 
 echo "Starting Omnia %%VERSION%%.."
 
