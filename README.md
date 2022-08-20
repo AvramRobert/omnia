@@ -1,8 +1,8 @@
-<p style="text-align: center">
+<p align=center>
 <img src="docs/images/omnia-logo.png" width="300" alt="omnia_logo">
 </p>
 
-<p style="text-align: center">
+<p align=center>
 Clojure REPL for prototyping, experimenting and trying things out. <br />
 It has almost all the power of a fully fledged editor, without being an editor.
 </p>
