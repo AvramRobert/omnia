@@ -6,7 +6,14 @@
             [omnia.schema.event :as e]
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
-            [omnia.schema.render :refer [HighlightInstructions HighlightInstructionData HighlightInstructionType RenderingStrategy]]
+            [omnia.schema.render :refer [selection-highlight
+                                         open-paren-highlight
+                                         closed-paren-highlight
+                                         manual-highlight
+                                         HighlightInstructions
+                                         HighlightInstructionData
+                                         HighlightInstructionType
+                                         RenderingStrategy]]
             [omnia.schema.view :refer [View]]
             [omnia.schema.text :refer [Text]]
             [omnia.schema.common :refer [Region]]
@@ -116,17 +123,17 @@
 
 (s/defn with-selection-highlight :- Hud
   [hud :- Hud, highlight :- HighlightInstructionData]
-  (with-highlight hud :selection highlight))
+  (with-highlight hud selection-highlight highlight))
 
 (s/defn with-parens-highlight :- Hud
   [hud :- Hud, open :- HighlightInstructionData, closed :- HighlightInstructionData]
   (-> hud
-      (with-highlight :open-paren open)
-      (with-highlight :closed-paren closed)))
+      (with-highlight open-paren-highlight open)
+      (with-highlight closed-paren-highlight closed)))
 
 (s/defn with-manual-highlight :- Hud
   [hud :- Hud, highlights :- HighlightInstructionData]
-  (with-highlight hud :manual highlights))
+  (with-highlight hud manual-highlight highlights))
 
 (s/defn create-manual-highlight :- HighlightInstructionData
   [config :- Config, region :- Region]

@@ -3,7 +3,8 @@
             [omnia.test-utils :refer :all]
             [omnia.repl.context :as c]
             [omnia.repl.hud :as h]
-            [omnia.repl.view :as v]))
+            [omnia.repl.view :as v]
+            [omnia.schema.render :refer [manual-highlight]]))
 
 (deftest reads-context-from-definition
   (testing "can detect"
@@ -99,7 +100,7 @@
             persisted  (-> context (c/hud) (h/persisted-view) (v/text) (:lines))
             input      (-> context (c/hud) (h/input-area) (:lines))
             viewable   (-> context (c/hud) (h/current-view) (v/project) (:lines))
-            highlights (-> context (c/hud) (h/highlights) (:manual) (:region))
+            highlights (-> context (c/hud) (h/highlights) (get manual-highlight) (:region))
             ys         (-> header (count) (+ 2))
             ye         (inc ys)]
         (is (= persisted (concat header [[\p \e \r \s \i \s \t \e \d] [\a \r \e \a]])))
@@ -155,7 +156,7 @@
             persisted   (-> context (c/hud) (h/persisted-view) (v/text) (:lines))
             input       (-> context (c/hud) (h/input-area) (:lines))
             viewable    (-> context (c/hud) (h/current-view) (v/project) (:lines))
-            lights      (-> context (c/hud) (h/highlights) (:manual) (:region))
+            lights      (-> context (c/hud) (h/highlights) (get manual-highlight) (:region))
             proj-lights (-> context (c/hud) (h/current-view) (v/project-selection lights))
             ys          (-> header (count) (+ 2))
             ye          (inc ys)]

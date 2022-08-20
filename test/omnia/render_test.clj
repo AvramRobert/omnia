@@ -7,7 +7,7 @@
             [omnia.schema.syntax :as sy]
             [omnia.config.defaults :as d]
             [omnia.test-utils :refer :all]
-            [omnia.display.core :refer :all]
+            [omnia.display.render :refer :all]
             [clojure.test :refer [deftest is]]
             [omnia.util.collection :refer [map-vals]]
             [omnia.schema.text :refer [Text]]
@@ -386,3 +386,51 @@
         b {:from [4 5] :until [4 6]}]
     (check-diff {:now a :then b :expected a})
     (check-diff {:now b :then a :expected b})))
+
+;; VI. Highlights
+
+(deftest renders-highlight-diffs
+  (let [context     (-> ["persisted"
+                         ---
+                         -| "some|"
+                         -| "small text"]
+                        (derive-context)
+                        (process [e/select-down e/select-right]))
+        expected    (-> ["some"
+                         "smal⦇l⦈"]
+                        (derive-text))
+        exp-chars   (selected-chars expected)
+        exp-cursors (selected-cursors expected)]
+    (-> context
+        (execute (fn [terminal _ hud]
+                   (render-highlights! terminal hud)))
+        (inspect
+          (fn [{:keys [chars cursors fgs bgs stls]}]
+            (is (not (empty? bgs)))
+            (is (not (empty? fgs)))
+            (is (empty? stls))
+            (is (= exp-cursors cursors))
+            (is (= exp-chars chars)))))))
+
+(deftest prioritises-selections
+  (let [context     (-> ["persisted"
+                         ---
+                         -| "[These"
+                         -| "multiple]| lines"]
+                        (derive-context)
+                        (process [e/select-up e/jump-select-left e/select-left]))
+        expected    (-> ["⦇|[⦈These"
+                         "multiple] lines"]
+                        (derive-text))
+        exp-chars   (selected-chars expected)
+        exp-cursors (selected-cursors expected)]
+    (-> context
+        (execute (fn [terminal _ hud]
+                   (render-highlights! terminal hud)))
+        (inspect
+          (fn [{:keys [chars cursors bgs fgs stls]}]
+            (is (= exp-chars chars))
+            (is (= exp-cursors cursors))
+            (is (empty? stls))
+            (is (not (empty? bgs)))
+            (is (not (empty? fgs))))))))

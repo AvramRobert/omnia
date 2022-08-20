@@ -1,4 +1,4 @@
-(ns omnia.display.core
+(ns omnia.display.render
   (:require [schema.core :as s]
             [omnia.display.terminal :as t]
             [omnia.repl.text :as i]
@@ -7,7 +7,10 @@
             [omnia.repl.context :as c]
             [omnia.repl.syntax-highlighting :as st]
             [omnia.util.collection :as uc]
-            [omnia.schema.render :refer [HighlightInstructions HighlightInstructionType HighlightInstructionData]]
+            [omnia.schema.render :refer [selection-highlight
+                                         HighlightInstructions
+                                         HighlightInstructionType
+                                         HighlightInstructionData]]
             [omnia.schema.config :refer [Highlighting]]
             [omnia.schema.text :refer [Line]]
             [omnia.schema.view :refer [View]]
@@ -16,12 +19,6 @@
             [omnia.schema.hud :refer [Hud]]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.terminal :refer [Terminal]]))
-
-(s/def highlighting-priority :- {HighlightInstructionType s/Int}
-  {:selection    3
-   :closed-paren 2
-   :open-paren   1
-   :manual       0})
 
 (s/defn additive-diff :- (s/maybe HighlightInstructionData)
   [current :- HighlightInstructionData, former :- HighlightInstructionData]
@@ -55,21 +52,40 @@
           (and exact-end? grown-top?)) (assoc current :region {:from [xs  ys] :until [xs' ys']})
       :else current)))
 
+;; selections are prioritised in order to avoid artifacts from other highlights that may occur at the same time
 (s/defn prioritise :- [HighlightInstructionData]
   [instructions :- HighlightInstructions]
-  (->> instructions (sort-by (comp highlighting-priority key)) (map #(nth % 1))))
+  (if-let [selection-instruction (get instructions selection-highlight)]
+    [selection-instruction]
+    (vals instructions)))
 
 (s/defn cull :- [HighlightInstructionData]
   "Diffs the `current` highlight against the `former` highlight.
   Returns only the diffed region from the `current` that doesn't overlap
-  with anything in the `former`."
+  with anything in the `former`.
+
+  Note: selections are prioritised in order to avoid artifacts from other highlights
+  that might occur at the same time.
+  Prioritisation in list doesn't work due to diff-rendering"
   [hud :- Hud, current :- HighlightInstructions, former :- HighlightInstructions]
-  (let [preview-ov  (-> hud (h/current-view) (v/view-offset))
-        previous-ov (-> hud (h/previous-view) (v/view-offset))]
-    (if (= preview-ov previous-ov)
+  (let [preview-ov        (-> hud (h/current-view) (v/view-offset))
+        previous-ov       (-> hud (h/previous-view) (v/view-offset))
+        current-selection (get current selection-highlight)
+        former-selection  (get former selection-highlight)
+        selected-region?  (and (= preview-ov previous-ov)
+                               (some? current-selection))]
+    (cond
+      (and selected-region? (some? former-selection))
       ;; a nil from additive-diff means the highlights that don't have a diff
-      (prioritise (uc/merge-common-with additive-diff current former))
-      (prioritise current))))
+      (if-let [result (additive-diff current-selection former-selection)]
+        [result]
+        [])
+
+      selected-region?
+      [current-selection]
+
+      :else
+      (vals current))))
 
 (s/defn put-char!
   [terminal  :- Terminal

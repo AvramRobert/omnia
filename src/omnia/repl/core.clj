@@ -3,7 +3,7 @@
             [halfling.task :as tsk]
             [omnia.repl.context :as c]
             [omnia.display.terminal :as t]
-            [omnia.display.core :as r]
+            [omnia.display.render :as r]
             [omnia.repl.events :as e]
             [omnia.schema.context :refer [Context processing]]
             [omnia.schema.event :refer [Event]]

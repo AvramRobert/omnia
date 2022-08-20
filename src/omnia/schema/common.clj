@@ -20,4 +20,4 @@
   (s/pred #(try (UUID/fromString %) true (catch Exception _ false))))
 
 (def NonNegativeInt
-  (s/pred #(and (int? %) (>= 0 %))))
+  (s/pred #(and (int? %) (>= % 0))))
