@@ -4,7 +4,7 @@ The config is found in the file `config.edn`. Everything inside can be changed.
 
 ## Key Bindings
 
-**Note: Due to either operating system key priorities and/or the terminal backend _omnia_ uses,
+**Note: Due to either operating system key priorities and/or the terminal backend,
 some key bindings might not work directly out of the box.**
 
 Key bindings are found under `keymap`.\
