@@ -5,6 +5,12 @@ The REPL comes with a configuration file called `config.edn`. It's contents can 
 A cheat-sheet can be found [here](cheat-sheet.md).
 
 ## Key bindings
+A list of every supported and/or unsupported key/binding can be found [here](cheat-sheet.md#key-bindings).
+
+**Note: Due to either operating system key priorities and/or the terminal backend,
+some key bindings might not work directly out of the box.**
+
+
 Key bindings are defined as a map of the form:
 
 ```clojure
@@ -12,6 +18,11 @@ Key bindings are defined as a map of the form:
   :ctrl  <boolean> 
   :alt   <boolean> 
   :shift <boolean> }
+```
+
+Example:
+```clojure
+{:key \a :ctrl true}
 ```
 
 ### `:key`
@@ -28,21 +39,10 @@ Expected key to be pressed. Can be either:
 ```
 
 ### `:ctrl`, `:alt`, `:shift`
-All of them receive boolean values. \
-They specify if of them should also be pressed.\
+Boolean values that specify if of them should also be pressed.\
 Any combination of these is allowed.
 
 **Fields set to `false` can be omitted from the map**.
-
-A list of every supported and/or unsupported key/binding can be found [here](cheat-sheet.md#key-bindings).
-
-**Note: Due to either operating system key priorities and/or the terminal backend,
-some key bindings might not work directly out of the box.**
-
-Example:
-```clojure
-{:key \a :ctrl true}
-```
 
 ## Syntax highlighting
 
@@ -70,9 +70,9 @@ Example:
 
 ## Fonts
 
-The default font used is [Hasklig](https://github.com/i-tu/Hasklig). \
+The default font used is [Hasklig](https://github.com/i-tu/Hasklig).
 
-Both the font itself and its size can be changed.
+Both the font itself and its size can be changed.\
 To change them, specify the path to a different `otf` file and/or a different number.
 
 Details about the config fields can be found [here](cheat-sheet.md#fonts).
@@ -84,4 +84,4 @@ The size of history, as well as the file it's stored into, can be changed.
 
 To change them, simply specify a path to another file and/or a different number.
 
-Details about the config fields can be found [here](cheat-sheet.md#history)
+Details about the config fields can be found [here](cheat-sheet.md#history).

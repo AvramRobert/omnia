@@ -48,8 +48,6 @@ Take the form of:
 
 ### Unsupported key combinations (incomplete)
 
-**Note:** The _command_ key on MacOS 
-
 | Combinations |
 |--------------|
 | :ctrl + i    |
