@@ -1,3 +1,7 @@
+## Persistent REPL history
+
+* Documentation found at [here](configuration.md#history)
+
 ## Configurable Key Bindings
 * Documentation found at [here](configuration.md#key-bindings)
 
@@ -9,15 +13,15 @@
 ## Structural editing
 * Barf and Slurp not supported
 
-![sexprs](images/structural.gif)
+![structural-editing](images/structural-editing.gif)
 
 ## Multi-line input
 
-![multi-line](images/multi-line.gif)
+![multi-line-editing](images/multi-line-editing.gif)
 
 ## Multi-view input
 
-![multi-view](images/multi-view.gif)
+![multi-view](images/multi-view-editing.gif)
 
 
 ## Automatic parens matching
@@ -26,7 +30,7 @@
 
 ## On-demand code formatting
 
-![formatting](images/formatting.gif)
+![formatting](images/reformatting.gif)
 
 ## Input suggestions with autocompletion
 
@@ -45,7 +49,7 @@
 
 ## Selection expansion
 
-![selection-expansion](images/expansion.gif)
+![expanding-selection](images/expanding-selection.gif)
 
 ## Copy/Cut/Paste
 
@@ -71,8 +75,4 @@
                 '[joda-time/joda-time "2.9.9"])
  ```
 
-![dependency-resolution](images/retrieval.gif)
-
-## Persistent REPL history
-
-![repl-history](images/history.gif)
+![dependency-resolution](images/dependency-resolution.gif)
