@@ -1,5 +1,17 @@
 # Change Log
 All notable changes to this project will be documented in this file.
+
+## [1.0.0]
+### Changed
+- Major refactor taking maintainability, clarity and performance into account
+- Dependency updates
+- Major performance improvements
+- Runs in a window, not in the shell
+- Extended support for a larger majority of key bindings
+- Custom RGB colours support
+- Custom font support
+- Custom release for every operating system
+
 ## [0.2.1]
 ### Changed
 - Fixed agent pool leak coming from CIDER nrepl
