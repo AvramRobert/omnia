@@ -1,30 +1,43 @@
 (ns omnia.config-test
-  (:require [clojure.test :refer :all]
+  (:require [halfling.task :as t]
+            [omnia.config.defaults :as d]
+            [omnia.config.core :as c]
+            [schema.core :as s]
+            [omnia.util.generator :as g]
+            [clojure.test :refer [is]]
             [clojure.test.check.generators :as gen]
             [clojure.test.check.properties :refer [for-all]]
             [clojure.test.check.clojure-test :refer [defspec]]
-            [omnia.test-utils :refer [one can-be]]
-            [omnia.highlight :as h]
-            [omnia.config :as c]
-            [halfling.task :as t]))
+            [omnia.schema.config :refer [KeyMap Highlighting Terminal Persistence]]))
 
-(def gen-keybind (gen/elements c/default-keymap))
-(defn gen-keybind-unlike [k] (gen/such-that (fn [[ik _]] (not= k ik)) gen-keybind))
+(def ^:const NR-OF-TESTS 100)
 
-(defspec detect-duplicate-bindings
-         100
-         (for-all [[ik v] gen-keybind]
-                  (let [[k _] (one (gen-keybind-unlike ik))]
-                    (-> (assoc-in c/default-config [c/keymap k] v)
-                        (c/validate)
-                        (t/task)
-                        (t/run)
-                        (t/broken?)
-                        (is)))))
+(defspec detect-duplicate-bindings NR-OF-TESTS
+  (let [entries (keys d/default-user-keymap)
+        half    (/ (count entries) 2)]
+    (for-all [binding g/gen-user-key-binding
+              entry1  (gen/elements (take half entries))
+              entry2  (gen/elements (drop half entries))]
+      (let [result (-> d/default-user-config
+                       (assoc-in [:keymap entry1] binding)
+                       (assoc-in [:keymap entry2] binding)
+                       (c/validate!)
+                       (t/task)
+                       (t/run))]
+        (is (t/broken? result))))))
 
-(deftest normalise-keymap
-  (run! (fn [[_ v]]
-          (is (contains? v :key))
-          (is (contains? v :ctrl))
-          (is (contains? v :shift))
-          (is (contains? v :alt))) (c/normalise c/default-keymap)))
+(defspec normalise-keymap NR-OF-TESTS
+  (for-all [custom-keymap g/gen-user-keymap]
+    (is (s/validate KeyMap (c/fix-keymap custom-keymap)))))
+
+(defspec normalise-colours NR-OF-TESTS
+  (for-all [custom-highlighting g/gen-user-highlighting]
+    (is (s/validate Highlighting (c/fix-highlighting custom-highlighting)))))
+
+(defspec normalise-terminal NR-OF-TESTS
+  (for-all [terminal g/gen-user-terminal]
+    (is (s/validate Terminal (c/fix-terminal terminal)))))
+
+(defspec normalise-persistence NR-OF-TESTS
+  (for-all [persistence g/gen-user-persistence]
+    (is (s/validate Persistence (c/fix-persistence persistence)))))

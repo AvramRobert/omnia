@@ -1,3 +1,4 @@
+# Build
 /target
 /classes
 /checkouts
@@ -5,14 +6,20 @@ pom.xml
 pom.xml.asc
 *.jar
 *.class
+
+# Lein
 /.lein-*
 /.nrepl-port
+
+# Idea
 .hgignore
 .hg/
 .idea/
 *.iml
-*.history
-*.error
-omnia.edn
+
+# Special files
+default_font.otf
+*config.edn
+*omnia.error
+*omnia.history
 debug
-v-*
