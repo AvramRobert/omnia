@@ -22,6 +22,10 @@ It has almost all the power of a fully fledged editor, without being an editor.
 
 Can be found [here](docs/features.md).
 
+## Documentation
+
+Can be found [here](docs/configuration.md).
+
 ## Bugs
 
 Bug reports can be submitted as issues here on github.
