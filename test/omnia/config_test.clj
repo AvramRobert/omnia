@@ -36,8 +36,8 @@
 
 (defspec normalise-terminal NR-OF-TESTS
   (for-all [terminal g/gen-user-terminal]
-    (is (s/validate Terminal (c/fix-terminal terminal)))))
+    (is (s/validate Terminal (c/fix-terminal "." terminal)))))
 
 (defspec normalise-persistence NR-OF-TESTS
   (for-all [persistence g/gen-user-persistence]
-    (is (s/validate Persistence (c/fix-persistence persistence)))))
+    (is (s/validate Persistence (c/fix-persistence "." persistence)))))

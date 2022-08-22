@@ -1,6 +1,11 @@
 # Change Log
 All notable changes to this project will be documented in this file.
 
+## [1.0.1]
+### Changed
+- The defaults for the font and history files are now implicit
+- Fixed error when reading font file outside of app directory
+
 ## [1.0.0]
 ### Changed
 - Major refactor taking maintainability, clarity and performance into account

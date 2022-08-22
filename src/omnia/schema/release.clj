@@ -10,6 +10,7 @@
    :main-file-name s/Str
    :config-file    s/Str
    :jar-file       s/Str
+   :font-file      s/Str
    :template       s/Str})
 
 (def Releases {OS ReleaseConfig})

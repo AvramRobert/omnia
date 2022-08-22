@@ -3,7 +3,8 @@
             [omnia.schema.syntax :as st]
             [omnia.schema.event :as e]
             [omnia.schema.keymap :as k]
-            [omnia.util.collection :refer [map-vals]]))
+            [omnia.schema.eval-history :as eh]
+            [omnia.util.collection :as c]))
 
 (def UserKeyBinding
   {:key                    k/Key
@@ -67,8 +68,8 @@
    (s/optional-key st/palette)   st/Palette})
 
 (def UserPersistence
-  {(s/optional-key :history-file-path) s/Str
-   (s/optional-key :history-size)      s/Int})
+  {(s/optional-key eh/history-file-path) s/Str
+   (s/optional-key eh/history-size)      s/Int})
 
 (def UserConfig
   {:keymap                       UserKeyMap
@@ -83,7 +84,7 @@
    :shift s/Bool})
 
 (def KeyMap
-  (map-vals (constantly KeyBinding) UserKeyMap))
+  (c/map-vals (constantly KeyBinding) UserKeyMap))
 
 (def Highlighting
   {st/SyntaxElement st/RGBColour})
@@ -94,13 +95,13 @@
    :clean-up  Highlighting})
 
 (def Terminal
-  {st/font-path                st/FontPath
-   st/font-size                st/FontSize
-   (s/optional-key st/palette) st/Palette})
+  {st/font-path st/FontPath
+   st/font-size st/FontSize
+   st/palette   st/Palette})
 
 (def Persistence
-  {:history-file-path s/Str
-   :history-size      s/Int})
+  {eh/history-file-path s/Str
+   eh/history-size      s/Int})
 
 (def Config
   {:keymap      KeyMap

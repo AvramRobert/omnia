@@ -55,8 +55,7 @@
    t/selections t/blue})
 
 (s/def default-user-terminal :- c/UserTerminal
-  {t/font-path "./default_font.otf"
-   t/font-size  15})
+  {t/font-size 15})
 
 ;; The default colour should always be the background colour taken from the palette, otherwise a lot of shit may get rendered badly
 (s/def default-colours :- {t/PresetColour t/RGBColour}
@@ -71,8 +70,7 @@
    t/default [46 52 54]})
 
 (s/def default-user-persistence :- c/UserPersistence
-  {:history-file-path ".omnia.history"
-   :history-size      50})
+  {:history-size 50})
 
 (s/def default-user-config :- c/UserConfig
   {:keymap      default-user-keymap
@@ -89,8 +87,14 @@
 (s/def default-config-file-name :- s/Str
   "config.edn")
 
-(s/def default-user-error-path :- s/Str
+(s/def default-error-file-name :- s/Str
   ".omnia.error")
+
+(s/def default-history-file-name :- s/Str
+  ".omnia.history")
+
+(s/def default-font-file-name :- s/Str
+  "default-font.otf")
 
 (s/def default-repl-host :- s/Str
   "127.0.0.1")

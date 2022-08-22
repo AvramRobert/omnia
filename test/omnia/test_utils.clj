@@ -42,7 +42,7 @@
    (s/optional-key :get-event!) s/Any})
 
 (s/def default-config :- Config
-  (config/convert default-user-config))
+  (config/convert "." default-user-config))
 
 (s/def default-header :- Text h/header)
 

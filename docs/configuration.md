@@ -5,11 +5,13 @@ The REPL comes with a configuration file called `config.edn`. It's contents can 
 A cheat-sheet can be found [here](cheat-sheet.md).
 
 ## Key bindings
+
+#### Field: `:keymap`
+
 A list of every supported and/or unsupported key/binding can be found [here](cheat-sheet.md#key-bindings).
 
 **Note: Due to either operating system key priorities and/or the terminal backend,
 some key bindings might not work directly out of the box.**
-
 
 Key bindings are defined as a map of the form:
 
@@ -46,6 +48,8 @@ Any combination of these is allowed.
 
 ## Syntax highlighting
 
+#### Field: `:syntax`
+
 Syntax highlights is represented as a map of the form `{ <construct> <color> }`.
 
 The colours can either be the:
@@ -70,6 +74,8 @@ Example:
 
 ## Fonts
 
+#### Field: `:terminal`
+
 The default font used is [Hasklig](https://github.com/i-tu/Hasklig).
 
 Both the font itself and its size can be changed.\
@@ -78,6 +84,8 @@ To change them, specify the path to a different `otf` file and/or a different nu
 Details about the config fields can be found [here](cheat-sheet.md#fonts).
 
 ## History
+
+#### Field: `:persistence`
 
 Evaluations of a REPL session are persisted to a file.\
 The size of history, as well as the file it's stored into, can be changed.

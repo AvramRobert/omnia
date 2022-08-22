@@ -15,4 +15,4 @@ JAR="$DIR/%%JARFILE%%"
 
 echo "Starting Omnia %%VERSION%%.."
 
-java -jar $JAR
+java -jar "$JAR" "app-path=$DIR"

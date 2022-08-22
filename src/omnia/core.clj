@@ -1,6 +1,7 @@
 (ns omnia.core
   (:gen-class)
   (:require [schema.core :as s]
+            [clojure.string :as string]
             [halfling.task :as tsk]
             [omnia.display.terminal :as t]
             [omnia.repl.nrepl :as n]
@@ -12,8 +13,7 @@
             [omnia.util.misc :as m]
             [omnia.schema.config :refer [Config]]
             [omnia.schema.context :refer [Context]]
-            [omnia.schema.main :refer [ThrowableMap]]
-            [clojure.string :refer [join]])
+            [omnia.schema.main :refer [ThrowableMap AppArgs app-path-arg]])
   (:import (java.util Calendar)
            (halfling.task Task)))
 
@@ -25,7 +25,7 @@
     (or cause "Unknown cause")
     (->> trace
          (mapv #(str "   " (.toString %)))
-         (join "\n"))))
+         (string/join "\n"))))
 
 (s/defn failure-msg :- s/Str
   [result :- ThrowableMap]
@@ -33,17 +33,17 @@
     [""
      "-----"
      "I don't have the heart to tell you.. but something went wrong"
-     (format "Take a look at ~/%s for a complete trace of the error" d/default-user-error-path)
+     (format "Take a look at ~/%s for a complete trace of the error" d/default-error-file-name)
      (format "Message - %s" (:cause result))
      "-----"
      ""]
-    (join "\n")))
+    (string/join "\n")))
 
 (s/defn write-error! :- Task
   [result :- ThrowableMap]
   (->> result
        (error-msg)
-       (spit d/default-user-error-path)
+       (spit d/default-error-file-name)
        (tsk/task)))
 
 (s/defn hooks! :- Task
@@ -53,6 +53,10 @@
       (ct/eval-history)
       (eh/write-eval-history config)
       (tsk/task)))
+
+(s/defn read-args :- AppArgs
+  [args :- [s/Str]]
+  {:app-path (-> app-path-arg (m/read-arg args) (or "."))})
 
 (defn succeed! [_]
   (System/exit 1))
@@ -67,9 +71,11 @@
       (tsk/recover (fn [_] (System/exit -1)))
       (tsk/run)))
 
-(defn -main [& args]
+(defn -main
+  [& args]
   (-> (tsk/do-tasks
-        [config       (c/read-config! d/default-config-file-name)
+        [args         (read-args args)
+         config       (c/read-config! (:app-path args))
          eval-history (eh/read-eval-history config)
          terminal     (t/create-terminal config)
          repl-config  {:host d/default-repl-host

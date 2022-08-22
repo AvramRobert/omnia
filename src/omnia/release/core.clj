@@ -14,18 +14,21 @@
              :main-file-name d/default-name
              :jar-file       d/default-jar-file-name
              :config-file    d/default-config-file-name
+             :font-file      d/default-font-file-name
              :template       "resources/release/templates/linux/executable.sh"}
 
    :windows {:file-type      :bat
              :main-file-name d/default-name
              :jar-file       d/default-jar-file-name
              :config-file    d/default-config-file-name
+             :font-file      d/default-font-file-name
              :template       "resources/release/templates/windows/executable.bat"}
 
    :macOS   {:file-type      :sh
              :main-file-name d/default-name
              :jar-file       d/default-jar-file-name
              :config-file    d/default-config-file-name
+             :font-file      d/default-font-file-name
              :template       "resources/release/templates/mac/executable.sh"}})
 
 (s/defn sh :- nil
@@ -79,8 +82,8 @@
         target-ext  (-> release-config (:file-type) (name))
         target-jar  (:jar-file release-config)
         target-conf (:config-file release-config)
+        target-font (:font-file release-config)
         target-exec (str file-name "." target-ext)
-        target-font "default_font.otf"
         target-dir  (format "%s-%s-%s" file-name version system)
         jar-file    (format "target/uberjar/%s-%s-standalone.jar" d/default-name version)
         executable  (-> release-config (:template) (make-executable! target-jar version))
@@ -106,8 +109,7 @@
      _ (lein "uberjar")
      _ (println "--------------")
      _ (run! (fn [[os config]] (release-for os config)) releases)
-     _ (rm-dir "target")
-     :recover pp/pprint]))
+     _ (rm-dir "target")]))
 
 (defn release! []
   (t/run release-task))

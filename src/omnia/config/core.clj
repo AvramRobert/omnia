@@ -5,7 +5,9 @@
             [clojure.string :refer [join]]
             [omnia.config.defaults :as d]
             [omnia.schema.config :as c]
-            [omnia.schema.syntax :as t]))
+            [omnia.schema.syntax :as t]
+            [omnia.schema.syntax :as st]
+            [omnia.schema.eval-history :as eh]))
 
 (s/defn check-duplicates! :- nil
   [keymap :- c/UserKeyMap]
@@ -75,31 +77,47 @@
        (map-vals fix-key-binding)))
 
 (s/defn fix-terminal :- c/Terminal
-  [provided-terminal :- c/UserTerminal]
-  (merge-from-both provided-terminal d/default-user-terminal))
+  [app-path          :- s/Str
+   provided-terminal :- c/UserTerminal]
+  (let [default-font-path (str app-path "/" d/default-font-file-name)
+        default-font-size (get d/default-user-terminal st/font-size)
+        default-palette   (get d/default-user-terminal st/palette)]
+    {st/font-path (get provided-terminal st/font-path default-font-path)
+     st/font-size (get provided-terminal st/font-size default-font-size)
+     st/palette   (get provided-terminal st/palette default-palette)}))
 
 (s/defn fix-persistence :- c/Persistence
-  [provided-persistence :- c/UserPersistence]
-  (merge-from-both provided-persistence d/default-user-persistence))
+  [app-path :- s/Str
+   provided-persistence :- c/UserPersistence]
+  (let [default-history-file-path (str app-path "/" d/default-history-file-name)
+        default-history-size      (get d/default-user-persistence eh/history-size)]
+    {eh/history-file-path (get provided-persistence eh/history-file-path default-history-file-path)
+     eh/history-size      (get provided-persistence eh/history-size default-history-size)}))
 
 (defn validate! [config]
   (s/validate c/UserKeyMap (:keymap config))
   (s/validate c/UserHighlighting (:syntax config))
+  (s/validate c/UserTerminal (:terminal config))
+  (s/validate c/UserPersistence (:persistence config))
   (check-duplicates! (:keymap config)))
 
 (s/defn convert :- c/Config
-  [config :- c/UserConfig]
-  {:keymap      (-> config (:keymap) (fix-keymap))
-   :syntax      (-> config (:syntax) (fix-highlighting) (create-syntax))
-   :terminal    (-> config (:terminal) (fix-terminal))
-   :persistence (-> config (:persistence) (fix-persistence))})
+  [app-path :- s/Str
+   config   :- c/UserConfig]
+  {:keymap      (->> config (:keymap) (fix-keymap))
+   :syntax      (->> config (:syntax) (fix-highlighting) (create-syntax))
+   :terminal    (->> config (:terminal) (fix-terminal app-path))
+   :persistence (->> config (:persistence) (fix-persistence app-path))})
 
 (s/defn read-user-config! :- c/UserConfig
-  [path :- String]
-  (let [config (slurp-or-else path d/default-user-config)
-        _      (validate! config)]
+  [app-path :- String]
+  (let [config-path (str app-path "/" d/default-config-file-name)
+        config      (slurp-or-else config-path d/default-user-config)
+        _           (validate! config)]
     config))
 
 (s/defn read-config! :- c/Config
-  [path :- String]
-  (-> path (read-user-config!) (convert)))
+  [app-path :- String]
+  (->> app-path
+       (read-user-config!)
+       (convert app-path)))
